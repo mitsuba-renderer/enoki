@@ -1,0 +1,43 @@
+# CMake
+/CMakeCache.txt
+CMakeFiles
+Makefile
+*.cmake
+
+# Ninja
+.ninja_deps
+.ninja_log
+*.ninja
+
+# Miscellaneous;
+/build
+/Testing
+/tests/Testing
+*.dir
+*~
+\.DS_Store
+*.dSYM
+
+# Visual Studio
+*.vcxproj
+enoki.sdf
+enoki.sln
+enoki.opensdf
+enoki.VC.VC.opendb
+enoki.VC.db
+Debug
+Release
+*.filters
+/.vs
+/x64
+
+# Visual Studio Code
+/.vscode
+
+# Build products
+*_none
+*_sse42
+*_avx
+*_avx2
+*_avx512_knl
+*_avx512_skx
