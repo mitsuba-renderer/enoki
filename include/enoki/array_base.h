@@ -179,7 +179,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             constexpr size_t mask = 8 * sizeof(BaseScalar) - 1u;
             return Expr((derived() << (k & mask)) | (derived() >> ((~k + 1u) & mask)));
         } else {
-            return Expr(UIntArray<Expr>(derived()).rol_(k));
+            return Expr(uint_array_t<Expr>(derived()).rol_(k));
         }
     }
 
@@ -190,7 +190,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             constexpr size_t mask = 8 * sizeof(BaseScalar) - 1u;
             return Expr((derived() >> (k & mask)) | (derived() << ((~k + 1u) & mask)));
         } else {
-            return Expr(UIntArray<Expr>(derived()).ror_(k));
+            return Expr(uint_array_t<Expr>(derived()).ror_(k));
         }
     }
 
@@ -201,7 +201,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             Expr mask(BaseScalar(8 * sizeof(BaseScalar) - 1u));
             return Expr((derived() << (d & mask)) | (derived() >> ((~d + BaseScalar(1)) & mask)));
         } else {
-            return Expr(UIntArray<Expr>(derived()).rolv_(d));
+            return Expr(uint_array_t<Expr>(derived()).rolv_(d));
         }
     }
 
@@ -212,7 +212,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             Expr mask(BaseScalar(8 * sizeof(BaseScalar) - 1u));
             return Expr((derived() >> (d & mask)) | (derived() << ((~d + BaseScalar(1)) & mask)));
         } else {
-            return Expr(UIntArray<Expr>(derived()).rorv_(d));
+            return Expr(uint_array_t<Expr>(derived()).rorv_(d));
         }
     }
 
@@ -223,7 +223,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             constexpr size_t mask = 8 * sizeof(BaseScalar) - 1u;
             return Expr(sli<Imm & mask>(derived()) | sri<((~Imm + 1u) & mask)>(derived()));
         } else {
-            return Expr(UIntArray<Expr>(derived()).template roli_<Imm>());
+            return Expr(uint_array_t<Expr>(derived()).template roli_<Imm>());
         }
     }
 
@@ -234,14 +234,14 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             constexpr size_t mask = 8 * sizeof(BaseScalar) - 1u;
             return Expr(sri<Imm & mask>(derived()) | sli<((~Imm + 1u) & mask)>(derived()));
         } else {
-            return Expr(UIntArray<Expr>(derived()).template rori_<Imm>());
+            return Expr(uint_array_t<Expr>(derived()).template rori_<Imm>());
         }
     }
 
     /// Arithmetic NOT operation fallback
     ENOKI_INLINE auto not_() const {
         using Expr = typename Derived::Expr;
-        const Expr mask(memcpy_cast<Scalar>(typename IntArray<Expr>::BaseScalar(-1)));
+        const Expr mask(memcpy_cast<Scalar>(typename int_array_t<Expr>::BaseScalar(-1)));
         return Expr(derived() ^ mask);
     }
 
@@ -359,8 +359,8 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     ENOKI_INLINE auto sin_() const {
         using Expr = typename Derived::Expr;
         using Float = BaseScalar;
-        using IntArray = enoki::IntArray<Expr>;
-        using Int = typename IntArray::BaseScalar;
+        using int_array_t = enoki::int_array_t<Expr>;
+        using Int = typename int_array_t::BaseScalar;
 
         Expr r;
         if (Approx) {
@@ -384,7 +384,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             Expr x = abs(derived());
 
             /* Scale by 4/Pi and get the integer part */
-            IntArray j(x * Float(1.27323954473516));
+            int_array_t j(x * Float(1.27323954473516));
 
             /* Map zeros to origin; if (j & 1) j += 1 */
             j = (j + Int(1)) & Int(~1u);
@@ -416,7 +416,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             c += Float(1);
 
             auto polymask =
-                reinterpret_array<typename Expr::Mask>(eq(j & Int(2), zero<IntArray>()));
+                reinterpret_array<typename Expr::Mask>(eq(j & Int(2), zero<int_array_t>()));
 
             r = select(polymask, s, c) ^ sign;
         } else {
@@ -429,8 +429,8 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     auto cos_() const {
         using Expr = typename Derived::Expr;
         using Float = BaseScalar;
-        using IntArray = enoki::IntArray<Expr>;
-        using Int = typename IntArray::BaseScalar;
+        using int_array_t = enoki::int_array_t<Expr>;
+        using Int = typename int_array_t::BaseScalar;
 
         Expr r;
         if (Approx) {
@@ -454,7 +454,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             Expr x = abs(derived());
 
             /* Scale by 4/Pi and get the integer part */
-            IntArray j(x * Float(1.27323954473516));
+            int_array_t j(x * Float(1.27323954473516));
 
             /* Map zeros to origin; if (j & 1) j += 1 */
             j = (j + Int(1)) & Int(~1u);
@@ -486,7 +486,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             c += Float(1);
 
             auto polymask =
-                reinterpret_array<typename Expr::Mask>(eq(j & Int(2), zero<IntArray>()));
+                reinterpret_array<typename Expr::Mask>(eq(j & Int(2), zero<int_array_t>()));
 
             r = select(polymask, c, s) ^ sign;
         } else {
@@ -499,8 +499,8 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     auto sincos_() const {
         using Expr = typename Derived::Expr;
         using Float = BaseScalar;
-        using IntArray = enoki::IntArray<Expr>;
-        using Int = typename IntArray::BaseScalar;
+        using int_array_t = enoki::int_array_t<Expr>;
+        using Int = typename int_array_t::BaseScalar;
 
         Expr s_out, c_out;
 
@@ -535,7 +535,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             Expr x = abs(derived());
 
             /* Scale by 4/Pi and get the integer part */
-            IntArray j(x * Float(1.27323954473516));
+            int_array_t j(x * Float(1.27323954473516));
 
             /* Map zeros to origin; if (j & 1) j += 1 */
             j = (j + Int(1)) & Int(~1u);
@@ -568,7 +568,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             c += Float(1);
 
             auto polymask =
-                reinterpret_array<typename Expr::Mask>(eq(j & Int(2), zero<IntArray>()));
+                reinterpret_array<typename Expr::Mask>(eq(j & Int(2), zero<int_array_t>()));
 
             s_out = select(polymask, s, c) ^ sign_sin;
             c_out = select(polymask, c, s) ^ sign_cos;
@@ -870,7 +870,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
                  (at x=0.021)
             */
             using Float = BaseScalar;
-            using UInt = typename IntArray<Expr>::BaseScalar;
+            using UInt = typename int_array_t<Expr>::BaseScalar;
 
             const Expr inf(std::numeric_limits<Float>::infinity());
 
@@ -924,7 +924,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
         Expr r;
         if (Approx) {
-            r = derived() * reinterpret_array<Expr>(sli<23>(IntArray<Expr>(n) + 0x7f));
+            r = derived() * reinterpret_array<Expr>(sli<23>(int_array_t<Expr>(n) + 0x7f));
         } else {
             ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
                 r.coeff(i) = ldexp(derived().coeff(i), n.coeff(i));
@@ -940,26 +940,26 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
         /// Caveat: does not handle denormals correctly
         if (Approx) {
             using Float = BaseScalar;
-            using IntArray = IntArray<Expr>;
-            using Int = typename IntArray::BaseScalar;
-            using IntMask = typename IntArray::Mask;
+            using int_array_t = int_array_t<Expr>;
+            using Int = typename int_array_t::BaseScalar;
+            using IntMask = typename int_array_t::Mask;
 
-            const IntArray
+            const int_array_t
                 exponentMask(Int(0x7f800000u)),
                 mantissaSignMask(Int(~0x7f800000u)),
                 biasMinus1(Int(0x7e));
 
-            IntArray x = reinterpret_array<IntArray>(derived());
-            IntArray exponent_bits = x & exponentMask;
+            int_array_t x = reinterpret_array<int_array_t>(derived());
+            int_array_t exponent_bits = x & exponentMask;
 
             /* Detect zero/inf/NaN */
             IntMask is_normal =
                 reinterpret_array<IntMask>(neq(derived(), zero<Expr>())) &
                 neq(exponent_bits, exponentMask);
 
-            IntArray exponent_i = (sri<23>(exponent_bits)) - biasMinus1;
-            IntArray mantissa =
-                (x & mantissaSignMask) | IntArray(memcpy_cast<Int>(Float(.5f)));
+            int_array_t exponent_i = (sri<23>(exponent_bits)) - biasMinus1;
+            int_array_t mantissa =
+                (x & mantissaSignMask) | int_array_t(memcpy_cast<Int>(Float(.5f)));
 
             result_e = Expr(exponent_i & is_normal);
             result_m = reinterpret_array<Expr>(select(is_normal, mantissa, x));
@@ -1551,6 +1551,12 @@ std::ostream &operator<<(std::ostream &os,
         const Scalar off = memcpy_cast<Scalar>(Int(0));                        \
         ENOKI_SCALAR for (size_t i = 0; i < Derived2::Size; ++i)               \
             coeff(i) = a.derived().coeff(i) ? on : off;                        \
-    }
+    }                                                                          \
+    template <                                                                 \
+        typename T, std::enable_if_t<std::is_same<T, bool>::value, int> = 0,   \
+        typename Int = typename detail::type_chooser<sizeof(Scalar)>::Int>     \
+    ENOKI_INLINE StaticArrayImpl(T b)                                          \
+        : StaticArrayImpl(b ? memcpy_cast<Scalar>(Int(-1))                     \
+                            : memcpy_cast<Scalar>(Int(0))) { }
 
 NAMESPACE_END(enoki)

@@ -464,12 +464,17 @@ struct alignas(32) StaticArrayImpl<Scalar_, 4, false, RoundingMode::Default,
         #if defined(__AVX512DQ__) && defined(__AVX512VL__)
             return _mm256_mullo_epi64(m, a.m);
         #else
-            Derived result;
-            ENOKI_SCALAR for (size_t i = 0; i < Size; ++i)
-                result.coeff(i) = coeff(i) * a.coeff(i);
-            return result;
+            __m256i h0    = _mm256_srli_epi64(m, 32);
+            __m256i h1    = _mm256_srli_epi64(a.m, 32);
+            __m256i low   = _mm256_mul_epu32(m, a.m);
+            __m256i mix0  = _mm256_mul_epu32(m, h1);
+            __m256i mix1  = _mm256_mul_epu32(h0, a.m);
+            __m256i mix   = _mm256_add_epi64(mix0, mix1);
+            __m256i mix_s = _mm256_slli_epi64(mix, 32);
+            return  _mm256_add_epi64(mix_s, low);
         #endif
     }
+
     ENOKI_INLINE Derived or_ (Arg a) const { return _mm256_or_si256(m, a.m);    }
     ENOKI_INLINE Derived and_(Arg a) const { return _mm256_and_si256(m, a.m);   }
     ENOKI_INLINE Derived xor_(Arg a) const { return _mm256_xor_si256(m, a.m);   }

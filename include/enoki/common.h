@@ -43,7 +43,7 @@
 #  define ENOKI_UNROLL
 #  define ENOKI_NOUNROLL
 #  define ENOKI_IVDEP             __pragma(loop(ivdep))
-#  define ENOKI_PACK           
+#  define ENOKI_PACK
 #  define ENOKI_LIKELY(x)
 #  define ENOKI_UNLIKELY(x)
 #else
@@ -549,23 +549,23 @@ NAMESPACE_END(detail)
 
 /// Integer-based version of a given array class
 template <typename T>
-using IntArray = like_t<T, typename detail::type_chooser<sizeof(typename T::BaseScalar)>::Int>;
+using int_array_t = like_t<T, typename detail::type_chooser<sizeof(typename T::BaseScalar)>::Int>;
 
 /// Unsigned integer-based version of a given array class
 template <typename T>
-using UIntArray = like_t<T, typename detail::type_chooser<sizeof(typename T::BaseScalar)>::UInt>;
+using uint_array_t = like_t<T, typename detail::type_chooser<sizeof(typename T::BaseScalar)>::UInt>;
 
 /// Floating point-based version of a given array class
 template <typename T>
-using FloatArray = like_t<T, typename detail::type_chooser<sizeof(typename T::BaseScalar)>::Float>;
+using float_array_t = like_t<T, typename detail::type_chooser<sizeof(typename T::BaseScalar)>::Float>;
 
-template <typename T> using Int32Array   = like_t<T, int32_t>;
-template <typename T> using UInt32Array  = like_t<T, uint32_t>;
-template <typename T> using Int64Array   = like_t<T, int64_t>;
-template <typename T> using UInt64Array  = like_t<T, uint64_t>;
-template <typename T> using Float16Array = like_t<T, half>;
-template <typename T> using Float32Array = like_t<T, float>;
-template <typename T> using Float64Array = like_t<T, double>;
+template <typename T> using int32_array_t   = like_t<T, int32_t>;
+template <typename T> using uint32_array_t  = like_t<T, uint32_t>;
+template <typename T> using int64_array_t   = like_t<T, int64_t>;
+template <typename T> using uint64_array_t  = like_t<T, uint64_t>;
+template <typename T> using float16_array_t = like_t<T, half>;
+template <typename T> using float32_array_t = like_t<T, float>;
+template <typename T> using float64_array_t = like_t<T, double>;
 
 /// Generic string conversion routine
 template <typename T> inline std::string to_string(const T& value) {

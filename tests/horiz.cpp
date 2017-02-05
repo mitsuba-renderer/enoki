@@ -81,6 +81,9 @@ ENOKI_TEST_ALL(test05_all) {
             return Scalar(result ? 1 : 0);
         }
     );
+
+    assert(all(typename T::Mask(true)));
+    assert(!all(typename T::Mask(false)));
 }
 
 ENOKI_TEST_ALL(test06_none) {
@@ -95,6 +98,9 @@ ENOKI_TEST_ALL(test06_none) {
             return Scalar(result ? 0 : 1);
         }
     );
+
+    assert(!none(typename T::Mask(true)));
+    assert(none(typename T::Mask(false)));
 }
 
 ENOKI_TEST_ALL(test07_any) {
@@ -109,6 +115,8 @@ ENOKI_TEST_ALL(test07_any) {
             return Scalar(result ? 1 : 0);
         }
     );
+    assert(any(typename T::Mask(true)));
+    assert(!any(typename T::Mask(false)));
 }
 
 ENOKI_TEST_ALL(test08_count) {
@@ -123,6 +131,8 @@ ENOKI_TEST_ALL(test08_count) {
             return Scalar(result);
         }
     );
+    assert(Size == count(typename T::Mask(true)));
+    assert(0 == count(typename T::Mask(false)));
 }
 
 

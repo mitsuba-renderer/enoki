@@ -130,5 +130,7 @@ ENOKI_TEST_INT(test04_idiv_vector) {
         Scalar x = (Scalar) mt(), y = (Scalar) mt();
         assert((T(y) / x)[0] == y / x);
         assert((T(y) / i)[0] == y / i);
+        assert((T(y) % x)[0] == y % x);
+        assert((T(y) % i)[0] == y % i);
     }
 }

@@ -78,7 +78,7 @@ ENOKI_TEST_ALL(test06_gather_mask) {
 
     auto id32 = load_unaligned<Array<uint32_t, Size>>(indices32);
     auto id64 = load_unaligned<Array<uint64_t, Size>>(indices64);
-    auto idx = index_sequence<UIntArray<T>>();
+    auto idx = index_sequence<uint_array_t<T>>();
     auto even_mask = reinterpret_array<typename T::Mask>(eq(sli<1>(sri<1>(idx)), idx));
 
     memset(dst, 0, sizeof(Scalar) * Size);
@@ -129,7 +129,7 @@ ENOKI_TEST_ALL(test08_scatter_mask) {
     auto id32 = load_unaligned<Array<uint32_t, Size>>(indices32);
     auto id64 = load_unaligned<Array<uint64_t, Size>>(indices64);
 
-    auto idx = index_sequence<UIntArray<T>>();
+    auto idx = index_sequence<uint_array_t<T>>();
     auto even_mask = reinterpret_array<typename T::Mask>(eq(sli<1>(sri<1>(idx)), idx));
 
     memset(dst, 0, sizeof(Scalar) * Size);
@@ -154,7 +154,7 @@ ENOKI_TEST_ALL(test09_prefetch) {
     }
     auto id32 = load_unaligned<Array<uint32_t, Size>>(indices32);
     auto id64 = load_unaligned<Array<uint64_t, Size>>(indices64);
-    auto idx = index_sequence<UIntArray<T>>();
+    auto idx = index_sequence<uint_array_t<T>>();
     auto even_mask = reinterpret_array<typename T::Mask>(eq(sli<1>(sri<1>(idx)), idx));
 
     /* Hard to test these, let's at least make sure that it compiles

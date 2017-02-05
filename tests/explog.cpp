@@ -23,8 +23,8 @@ ENOKI_TEST_FLOAT(test01_ldexp) {
 ENOKI_TEST_FLOAT(test02_frexp) {
     const Scalar inf = std::numeric_limits<Scalar>::infinity();
     const Scalar nan = std::numeric_limits<Scalar>::quiet_NaN();
-    using IntArray = enoki::IntArray<T>;
-    using Int = typename IntArray::Scalar;
+    using int_array_t = enoki::int_array_t<T>;
+    using Int = typename int_array_t::Scalar;
 
     for (int i = -10; i < 10; ++i) {
         int e;
@@ -47,11 +47,11 @@ ENOKI_TEST_FLOAT(test02_frexp) {
 
     std::tie(f, e) = frexp(T(+0.f));
     assert(e == T(0.f));
-    assert((reinterpret_array<IntArray>(f) == IntArray(memcpy_cast<Int>(Scalar(+0.f)))));
+    assert((reinterpret_array<int_array_t>(f) == int_array_t(memcpy_cast<Int>(Scalar(+0.f)))));
 
     std::tie(f, e) = frexp(T(-0.f));
     assert(e == T(0.f));
-    assert((reinterpret_array<IntArray>(f) == IntArray(memcpy_cast<Int>(Scalar(-0.f)))));
+    assert((reinterpret_array<int_array_t>(f) == int_array_t(memcpy_cast<Int>(Scalar(-0.f)))));
 
     std::tie(f, e) = frexp(T(nan));
     assert(e == T(0.f) || e == T(-1.f));

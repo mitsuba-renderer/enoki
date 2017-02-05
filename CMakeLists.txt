@@ -27,11 +27,12 @@ elseif(MSVC)
   # MSVC doesn't have a flag equivalent to -march=native
   # The 'archflags' executable provides this functionality
   try_run(
-    ENOKI_NATIVE_FLAGS ARCHFLAGS_COMPILE_RESULT
+    ENOKI_NATIVE_FLAGS_RETVAL ENOKI_NATIVE_FLAGS_COMPILE_RESULT
     ${CMAKE_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/archflags.cpp
+    RUN_OUTPUT_VARIABLE ENOKI_NATIVE_FLAGS
   )
-  if(NOT ${ARCHFLAGS_COMPILE_RESULT})
+  if(NOT ${ENOKI_NATIVE_FLAGS_COMPILE_RESULT})
      message(FATAL_ERROR "Failed to compile 'archflags' binary")
   endif()
 endif()

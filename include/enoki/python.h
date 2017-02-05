@@ -47,7 +47,7 @@ template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_arra
     typedef typename Type::BaseScalar BaseScalar;
 
     bool load(handle src, bool) {
-        auto arr = array_t<BaseScalar>::ensure(src);
+        auto arr = array_t<BaseScalar, array::c_style | array::forcecast>::ensure(src);
         if (!arr)
             return false;
 
@@ -105,7 +105,7 @@ template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_arra
 
 private:
     template <typename T, std::enable_if_t<!enoki::is_array<T>::value, int> = 0>
-    ENOKI_INLINE static void write_buffer(BaseScalar *&buf, const T &) { }
+    ENOKI_INLINE static void write_buffer(BaseScalar *&, const T &) { }
 
     template <typename T, std::enable_if_t<enoki::is_array<T>::value, int> = 0>
     ENOKI_INLINE static void write_buffer(BaseScalar *&buf, const T &value_) {
@@ -122,7 +122,7 @@ private:
     }
 
     template <typename T, std::enable_if_t<!enoki::is_array<T>::value, int> = 0>
-    ENOKI_INLINE static void read_buffer(const BaseScalar *&buf, T &) { }
+    ENOKI_INLINE static void read_buffer(const BaseScalar *&, T &) { }
 
     template <typename T, std::enable_if_t<enoki::is_array<T>::value, int> = 0>
     ENOKI_INLINE static void read_buffer(const BaseScalar *&buf, T &value_) {

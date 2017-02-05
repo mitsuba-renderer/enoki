@@ -457,6 +457,12 @@ ENOKI_INLINE Arg roli(const Arg &a) {
     return (a << (Imm & mask)) | (a >> ((~Imm + 1) & mask));
 }
 
+template <typename Arg, enable_if_notarray_t<Arg> = 0>
+ENOKI_INLINE Arg rol(const Arg &a, const Arg &amt) {
+    size_t mask = 8 * sizeof(Arg) - 1;
+    return (a << (amt & mask)) | (a >> ((~amt + 1) & mask));
+}
+
 template <size_t Imm, typename Array, enable_if_sarray_t<Array> = 0>
 ENOKI_INLINE auto rori(const Array &a) { return a.template rori_<Imm>(); }
 
@@ -464,6 +470,12 @@ template <size_t Imm, typename Arg, enable_if_notarray_t<Arg> = 0>
 ENOKI_INLINE Arg rori(const Arg &a) {
     size_t mask = 8 * sizeof(Arg) - 1;
     return (a >> (Imm & mask)) | (a << ((~Imm + 1) & mask));
+}
+
+template <typename Arg, enable_if_notarray_t<Arg> = 0>
+ENOKI_INLINE Arg ror(const Arg &a, const Arg &amt) {
+    size_t mask = 8 * sizeof(Arg) - 1;
+    return (a >> (amt & mask)) | (a << ((~amt + 1) & mask));
 }
 
 template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
@@ -753,7 +765,7 @@ ENOKI_INLINE Arg erfi(const Arg &x) {
 NAMESPACE_BEGIN(detail)
 template <typename Array, enable_if_sarray_t<Array> = 0>
 ENOKI_INLINE typename Array::Expr sign_mask(const Array &a) {
-    using UInt = typename UIntArray<Array>::BaseScalar;
+    using UInt = typename uint_array_t<Array>::BaseScalar;
     using Float = typename Array::BaseScalar;
     const Float mask = memcpy_cast<Float>(UInt(1) << (sizeof(UInt) * 8 - 1));
     return a.derived() & typename Array::Derived::Expr(mask);
@@ -1105,6 +1117,12 @@ Scalar clamp(Scalar value, Scalar min_, Scalar max_) {
 // -----------------------------------------------------------------------
 //! @{ \name Routing functions for dynamic arrays
 // -----------------------------------------------------------------------
+
+template <typename T, std::enable_if_t<is_dynamic<T>::value, int> = 0>
+ENOKI_INLINE size_t dynamic_size(const T &value) { return value.dynamic_size(); }
+
+template <typename T, std::enable_if_t<!is_dynamic<T>::value, int> = 0>
+ENOKI_INLINE size_t dynamic_size(const T &) { return 0; }
 
 template <typename T, std::enable_if_t<is_dynamic<T>::value, int> = 0>
 ENOKI_INLINE size_t packets(const T &value) { return value.packets(); }

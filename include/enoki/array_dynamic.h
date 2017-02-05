@@ -16,6 +16,10 @@
 #include "array_generic.h"
 #include <memory>
 
+#if defined(__linux__)
+#  include <malloc.h>
+#endif
+
 NAMESPACE_BEGIN(enoki)
 
 /// Allocate a suitably aligned memory block
@@ -61,6 +65,7 @@ template <typename Packet_, typename Derived_>
 struct DynamicArrayBase : ArrayBase<scalar_t<Packet_>, Derived_> {
     using Packet                              = Packet_;
     using Scalar                              = scalar_t<Packet_>;
+    using BaseScalar                          = base_scalar_t<Packet_>;
     static constexpr size_t       PacketSize  = Packet::Size;
     static constexpr bool         Approx      = Packet::Approx;
     static constexpr RoundingMode Mode        = Packet::Mode;
@@ -141,6 +146,7 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
 
     ENOKI_INLINE bool empty() const { return m_size == 0; }
     ENOKI_INLINE size_t size() const { return m_size; }
+    ENOKI_INLINE size_t dynamic_size() const { return m_size; }
     ENOKI_INLINE size_t packets() const { return (m_size + PacketSize - 1) / PacketSize; }
     ENOKI_INLINE size_t capacity() const { return m_packets_allocated * PacketSize; }
     ENOKI_INLINE bool is_mapped() const { return !empty() && m_packets_allocated == 0; }
@@ -211,6 +217,8 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     //! @}
     // -----------------------------------------------------------------------
 
+    void dynamic_resize(size_t size) { resize_(size); }
+
     /**
      * \brief Resize the buffer to the desired size
      *
@@ -255,35 +263,138 @@ struct DynamicArray : DynamicArrayImpl<Type_, DynamicArray<Type_>> {
 
 NAMESPACE_BEGIN(detail)
 
-template <typename Func, typename... Args, size_t... Index>
-ENOKI_INLINE void vectorize(std::index_sequence<Index...>, Func &&f,
-                            size_t nPackets, Args &&... args) {
+/// Type trait to access the packet type underlying a potentially nested array
+template <typename T, typename = void>
+struct packet_ {
+    using type = T;
+};
 
-    ENOKI_IVDEP ENOKI_NOUNROLL for (size_t i = 0; i < nPackets; ++i)
+template <typename T>
+struct packet_<T, std::enable_if_t<is_array<std::decay_t<typename std::decay_t<T>::Scalar>>::value>> {
+    using type = typename packet_<typename std::decay_t<T>::Scalar>::type;
+};
+
+template <typename T>
+using packet_t = typename packet_<T>::type;
+
+/// Helper data structure to replace the packet type underlying a potentially nested array
+template <typename T, typename Packet, typename = void>
+struct replace_packet {
+    using type = Packet;
+};
+
+template <typename T, typename Packet>
+struct replace_packet<T, Packet, std::enable_if_t<is_array<std::decay_t<typename std::decay_t<T>::Scalar>>::value>> {
+    using type =
+        Array<typename replace_packet<typename std::decay_t<T>::Scalar, Packet>::type,
+              std::decay_t<T>::Size>;
+};
+
+template <typename T, typename Packet>
+using replace_packet_t = typename replace_packet<T, Packet>::type;
+
+
+
+template <typename T>
+using vectorize_t = replace_packet_t< T, DynamicArray<packet_t<T>>>;
+
+/// Vectorized inner loop (void return value)
+template <typename Func, typename... Args, size_t... Index>
+ENOKI_INLINE void vectorize_inner_1(std::index_sequence<Index...>, Func &&f,
+                                    size_t packet_count, Args &&... args) {
+
+    ENOKI_IVDEP ENOKI_NOUNROLL for (size_t i = 0; i < packet_count; ++i)
         f(packet(args, i)...);
+}
+
+/// Vectorized inner loop (non-void return value)
+template <typename Func, typename Out, typename... Args, size_t... Index>
+ENOKI_INLINE void vectorize_inner_2(std::index_sequence<Index...>, Func &&f,
+                                    size_t packet_count, Out& out, Args &&... args) {
+
+    ENOKI_IVDEP ENOKI_NOUNROLL for (size_t i = 0; i < packet_count; ++i)
+        packet(out, i) = f(packet(args, i)...);
+}
+
+template <bool Check, typename Return, typename Func, typename... Args,
+    std::enable_if_t<std::is_void<Return>::value, int> = 0>
+ENOKI_INLINE void vectorize(Func&& f, Args&&... args) {
+    size_t packet_count = 0;
+
+    bool unused[] = { (
+        (packet_count = (is_dynamic<Args>::value ? packets(args) : packet_count)),
+        false)... };
+    (void) unused;
+
+    if (Check) {
+        size_t dynamic_size = 0;
+        bool unused2[] = { (
+            (dynamic_size = (is_dynamic<Args>::value ? enoki::dynamic_size(args) : dynamic_size)),
+            false)... };
+        (void) unused2;
+
+        bool status[] = { (!is_dynamic<Args>::value ||
+                           (enoki::dynamic_size(args) == dynamic_size))... };
+        for (bool flag : status)
+            if (!flag)
+                throw std::length_error("vectorize(): vector arguments have incompatible lengths");
+    }
+
+    vectorize_inner_1(std::make_index_sequence<sizeof...(Args)>(),
+                      std::forward<Func>(f), packet_count, detail::ref(args)...);
+}
+
+template <bool Check, typename Return, typename Func, typename... Args,
+    std::enable_if_t<!std::is_void<Return>::value, int> = 0>
+ENOKI_INLINE auto vectorize(Func&& f, Args&&... args) {
+    size_t packet_count = 0, dynamic_size = 0;
+
+    vectorize_t<Return> out;
+
+    bool unused[] = { (
+        (packet_count = (is_dynamic<Args>::value ? packets(args) : packet_count)),
+        false)... };
+
+    bool unused2[] = { (
+        (dynamic_size = (is_dynamic<Args>::value ? enoki::dynamic_size(args) : dynamic_size)),
+        false)... };
+
+    (void) unused;
+    (void) unused2;
+
+    out.dynamic_resize(dynamic_size);
+
+    if (Check) {
+        bool status[] = { (!is_dynamic<Args>::value ||
+                           (enoki::dynamic_size(args) == dynamic_size))... };
+        for (bool flag : status)
+            if (!flag)
+                throw std::length_error("vectorize(): vector arguments have incompatible lengths");
+    }
+
+    vectorize_inner_2(std::make_index_sequence<sizeof...(Args)>(),
+                      std::forward<Func>(f), packet_count, out, detail::ref(args)...);
+
+    return out;
 }
 
 NAMESPACE_END(detail)
 
 template <typename Func, typename... Args>
-ENOKI_INLINE void vectorize(Func&& f, Args&&... args) {
-    size_t nPackets = 0;
-
-    bool unused[] = { (
-        (nPackets = (is_dynamic<Args>::value ? packets(args) : nPackets)),
-        false)... };
-    (void) unused;
-
-#if !defined(NDEBUG)
-    bool status[] = { (!is_dynamic<Args>::value ||
-                       (packets(args) == nPackets))... };
-    for (bool flag : status)
-        if (!flag)
-            throw std::length_error("vectorize(): vector arguments have incompatible lengths");
+ENOKI_INLINE auto vectorize(Func&& f, Args&&... args) {
+#if defined(NDEBUG)
+    constexpr bool Check = false;
+#else
+    constexpr bool Check = true;
 #endif
+    using Return = decltype(f(packet(args, 0)...));
+    return detail::vectorize<Check, Return>(std::forward<Func>(f), args...);
+}
 
-    detail::vectorize(std::make_index_sequence<sizeof...(Args)>(),
-                      std::forward<Func>(f), nPackets, detail::ref(args)...);
+template <typename Func, typename... Args>
+ENOKI_INLINE auto vectorize_safe(Func&& f, Args&&... args) {
+    using Return = decltype(f(packet(args, 0)...));
+    return detail::vectorize<true, Return>(std::forward<Func>(f), args...);
 }
 
 NAMESPACE_END(enoki)

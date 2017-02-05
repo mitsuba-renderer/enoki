@@ -104,6 +104,13 @@ struct StaticArrayImpl<
             m_data[i] = Scalar(value);
     }
 
+    template <typename T, typename T2 = BaseScalar,
+              std::enable_if_t<std::is_same<T, bool>::value, int> = 0,
+              typename Int = typename detail::type_chooser<sizeof(T2)>::Int>
+    ENOKI_INLINE StaticArrayImpl(T b)
+        : StaticArrayImpl(b ? memcpy_cast<Scalar>(Int(-1))
+                            : memcpy_cast<Scalar>(Int(0))) { }
+
     /// Initialize the individual components
     template <typename Arg, typename... Args,
               /* Ugly, works around a compiler ICE in MSVC */
@@ -140,7 +147,7 @@ struct StaticArrayImpl<
               std::enable_if_t<Derived2::Size == Size_, int> = 0>
     ENOKI_INLINE StaticArrayImpl(
         const StaticArrayBase<bool, Size2, Approx2, Mode2, Derived2> &a) {
-        using Int = typename IntArray<Derived>::BaseScalar;
+        using Int = typename int_array_t<Derived>::BaseScalar;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             coeff(i) = a.derived().coeff(i) ? memcpy_cast<BaseScalar>(Int(-1))
                                             : memcpy_cast<BaseScalar>(Int(0));
@@ -702,10 +709,13 @@ public:
     // -----------------------------------------------------------------------
 
     template <typename T = Scalar, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-    void resize(size_t size) {
+    void dynamic_resize(size_t size) {
         for (size_t i = 0; i < Size; ++i)
-            m_data[i].resize(size);
+            m_data[i].dynamic_resize(size);
     }
+
+    template <typename T = Scalar, std::enable_if_t<is_dynamic<T>::value, int> = 0>
+    ENOKI_INLINE size_t dynamic_size() const { return m_data[0].dynamic_size(); }
 
     template <typename T = Scalar, std::enable_if_t<is_dynamic<T>::value, int> = 0>
     ENOKI_INLINE size_t packets() const { return m_data[0].packets(); }

@@ -57,6 +57,8 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
 
         ENOKI_INLINE Mask() : m1(), m2() { }
         ENOKI_INLINE Mask(Mask1 m1, Mask2 m2) : m1(m1), m2(m2) { }
+        template <typename T, std::enable_if_t<std::is_same<T, bool>::value, int> = 0>
+        ENOKI_INLINE Mask(T b) : m1(b), m2(b) { }
 
         /// Cast another array
         template <typename Other, enable_if_sarray_t<Other> = 0>
