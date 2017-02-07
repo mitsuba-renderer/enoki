@@ -837,6 +837,11 @@ template <typename Array, size_t... Args>
 ENOKI_INLINE Array index_sequence_(std::index_sequence<Args...>) {
     return Array(((typename Array::Scalar) Args)...);
 }
+
+template <typename Array, typename Scalar, size_t... Args>
+ENOKI_INLINE Array linspace_(std::index_sequence<Args...>, Scalar offset, Scalar step) {
+    return Array(((Scalar) Args * step + offset)...);
+}
 NAMESPACE_END(detail)
 
 /// Construct an index sequence, i.e. 0, 1, 2, ..
@@ -846,9 +851,37 @@ ENOKI_INLINE Array index_sequence() {
         std::make_index_sequence<Array::Size>());
 }
 
+/// Construct an index sequence, i.e. 0, 1, 2, ..
+template <typename Array, enable_if_darray_t<Array> = 0>
+ENOKI_INLINE Array index_sequence(size_t size) {
+    return Array::index_sequence_(size);
+}
+
 /// Construct an index sequence, i.e. 0, 1, 2, .. (scalar fallback)
 template <typename Arg, enable_if_notarray_t<Arg> = 0>
 ENOKI_INLINE Arg index_sequence() {
+    return Arg(0);
+}
+
+/// Construct an index sequence, i.e. 0, 1, 2, ..
+template <typename Array, enable_if_sarray_t<Array> = 0>
+ENOKI_INLINE Array linspace(typename Array::Scalar min,
+                            typename Array::Scalar max) {
+    return detail::linspace_<Array>(
+        std::make_index_sequence<Array::Size>(), min,
+        (max - min) / (typename Array::Scalar)(Array::Size - 1));
+}
+
+/// Construct an index sequence, i.e. 0, 1, 2, ..
+template <typename Array, enable_if_darray_t<Array> = 0,
+          typename Scalar = typename Array::Scalar>
+ENOKI_INLINE Array linspace(size_t size, Scalar min, Scalar max) {
+    return Array::linspace_(size, min, max);
+}
+
+/// Construct an index sequence, i.e. 0, 1, 2, .. (scalar fallback)
+template <typename Arg, enable_if_notarray_t<Arg> = 0>
+ENOKI_INLINE Arg linspace() {
     return Arg(0);
 }
 

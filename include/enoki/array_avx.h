@@ -87,6 +87,10 @@ alignas(32) const uint8_t compress_lut_256[3 * 256 + 1] = {
     0x00
 };
 
+template <> struct is_native<float,    8> : std::true_type { };
+template <> struct is_native<double,   4> : std::true_type { };
+template <> struct is_native<double,   3> : std::true_type { };
+
 NAMESPACE_END(detail)
 
 /// Partial overload of StaticArrayImpl using AVX intrinsics (single precision)

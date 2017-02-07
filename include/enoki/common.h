@@ -432,27 +432,6 @@ template <typename Scalar, size_t Size, typename = void> struct is_native {
     static constexpr bool value = false;
 };
 
-#if defined(__SSE4_2__)
-template <> struct is_native<float,    4> : std::true_type { };
-template <> struct is_native<float,    3> : std::true_type { };
-template <> struct is_native<double,   2> : std::true_type { };
-template <typename T> struct is_native<T, 4, is_int32_t<T>> : std::true_type { };
-template <typename T> struct is_native<T, 3, is_int32_t<T>> : std::true_type { };
-template <typename T> struct is_native<T, 2, is_int64_t<T>> : std::true_type { };
-#endif
-
-#if defined(__AVX__)
-template <> struct is_native<float,    8> : std::true_type { };
-template <> struct is_native<double,   4> : std::true_type { };
-template <> struct is_native<double,   3> : std::true_type { };
-#endif
-
-#if defined(__AVX2__)
-template <typename T> struct is_native<T, 8, is_int32_t<T>> : std::true_type { };
-template <typename T> struct is_native<T, 4, is_int64_t<T>> : std::true_type { };
-template <typename T> struct is_native<T, 3, is_int64_t<T>> : std::true_type { };
-#endif
-
 /// Determines when the special fallback in array_round.h is needed
 template <typename Scalar, size_t Size, RoundingMode Mode, typename = void>
 struct rounding_fallback : std::true_type { };

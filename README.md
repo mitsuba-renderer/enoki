@@ -209,6 +209,9 @@ f1 = zero<MyFloat>();
 
 /* Initialize entries with index sequence 0, 1, 2, 3, ... */
 f1 = index_sequence<MyFloat>();
+
+/* Initialize entries with a linearly increasing sequence with endpoints 0 and 1 */
+f1 = linspace<MyFloat>(0, 1);
 ```
 
 #### A brief interlude: simultaneous scalar and vector implementations
@@ -669,8 +672,8 @@ Vector3fP vec(
    FloatP(9, 10, 11, 12)  /* Z components */
 );
 
-/* Enoki's stream insertion operator automatically detects the 
-   SoA case and (more conveniently) prints the array contents as 
+/* Enoki's stream insertion operator automatically detects the
+   SoA case and (more conveniently) prints the array contents as
    "[[1, 5, 9], [2, 6, 10], [3, 7, 11], [4, 8, 12]]" */
 std::cout << vec << std::endl;
 

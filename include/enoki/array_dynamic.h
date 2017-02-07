@@ -166,6 +166,14 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
         return (Scalar *) ENOKI_ASSUME_ALIGNED(m_packets.get());
     }
 
+    ENOKI_INLINE const Scalar *begin() const { return data(); }
+
+    ENOKI_INLINE Scalar *begin() { return data(); }
+
+    ENOKI_INLINE const Scalar *end() const { return data() + size(); }
+
+    ENOKI_INLINE Scalar *end() { return data() + size(); }
+
     ENOKI_INLINE Packet &packet(size_t i) {
         Packet *packets = (Packet *) ENOKI_ASSUME_ALIGNED(m_packets.get());
         return packets[i];
@@ -190,6 +198,47 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
 
     ENOKI_INLINE DynamicArrayReference<const Packet> ref_() const {
         return DynamicArrayReference<const Packet>(m_packets.get());
+    }
+
+    //! @}
+    // -----------------------------------------------------------------------
+
+    // -----------------------------------------------------------------------
+    //! @{ \name Initialization helper functions
+    // -----------------------------------------------------------------------
+
+    static Derived zero_(size_t size) {
+        Derived result(size);
+        Packet packet = zero<Packet>();
+        for (size_t i = 0; i < result.packets(); ++i)
+            result.packet(i) = packet;
+        return result;
+    }
+
+    static Derived index_sequence_(size_t size) {
+        Derived result(size);
+        Packet packet = index_sequence<Packet>(),
+               shift = Scalar(PacketSize);
+        for (size_t i = 0; i < result.packets(); ++i) {
+            result.packet(i) = packet;
+            packet += shift;
+        }
+        return result;
+    }
+
+    static Derived linspace_(size_t size, Scalar min, Scalar max) {
+        Derived result(size);
+
+        Scalar step = (max - min) / (size - 1);
+
+        Packet packet = linspace<Packet>(min, min + step * (PacketSize - 1)),
+               shift = Scalar(step * PacketSize);
+
+        for (size_t i = 0; i < result.packets(); ++i) {
+            result.packet(i) = packet;
+            packet += shift;
+        }
+        return result;
     }
 
     //! @}

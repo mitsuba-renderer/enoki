@@ -17,6 +17,14 @@
 
 NAMESPACE_BEGIN(enoki)
 
+NAMESPACE_BEGIN(detail)
+
+template <typename T> struct is_native<T, 8, is_int32_t<T>> : std::true_type { };
+template <typename T> struct is_native<T, 4, is_int64_t<T>> : std::true_type { };
+template <typename T> struct is_native<T, 3, is_int64_t<T>> : std::true_type { };
+
+NAMESPACE_END(detail)
+
 /// Partial overload of StaticArrayImpl using AVX2 intrinsics (32 bit integers)
 template <typename Scalar_, typename Derived>
 struct alignas(32) StaticArrayImpl<Scalar_, 8, false, RoundingMode::Default,

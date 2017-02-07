@@ -76,4 +76,35 @@ ENOKI_INLINE void transpose4x4(T &r0, T &r1, T &r2, T &r3) {
 inline void set_flush_denormals(bool) { }
 #endif
 
+/// Analagous to meshgrid() in NumPy or MATLAB; for dynamic arrays
+template <typename Array>
+std::pair<Array, Array> meshgrid(const Array &x, const Array &y) {
+    Array X(x.size() * y.size()), Y(x.size() * y.size());
+
+    size_t pos = 0;
+
+    if (x.size() % Array::PacketSize == 0) {
+        /* Fast path */
+
+        for (size_t i = 0; i < y.size(); ++i) {
+            for (size_t j = 0; j < x.packets(); ++j) {
+                X.packet(pos) = x.packet(j);
+                Y.packet(pos) = typename Array::Packet(y.coeff(i));
+                pos++;
+            }
+        }
+    } else {
+        for (size_t i = 0; i < y.size(); ++i) {
+            for (size_t j = 0; j < x.size(); ++j) {
+                X.coeff(pos) = x.coeff(j);
+                Y.coeff(pos) = y.coeff(i);
+                pos++;
+            }
+        }
+    }
+
+    return std::make_pair<Array, Array>(std::move(X), std::move(Y));
+}
+
+
 NAMESPACE_END(enoki)

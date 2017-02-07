@@ -26,6 +26,7 @@
 
 #include "array_recursive.h"
 
+#if !defined(ENOKI_DISABLE_VECTORIZATION)
 #if defined(__SSE4_2__)
 #  include "array_sse42.h"
 #endif
@@ -40,6 +41,7 @@
 
 #if defined(__AVX512F__)
 //#  include "array_avx512.h"
+#endif
 #endif
 
 #include "array_round.h"

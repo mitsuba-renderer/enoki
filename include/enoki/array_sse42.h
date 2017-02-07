@@ -44,6 +44,13 @@ alignas(16) const uint8_t compress_lut_128[16*16] = {
     0x0c, 0x0d, 0x0e, 0x0f
 };
 
+template <> struct is_native<float,    4> : std::true_type { };
+template <> struct is_native<float,    3> : std::true_type { };
+template <> struct is_native<double,   2> : std::true_type { };
+template <typename T> struct is_native<T, 4, is_int32_t<T>> : std::true_type { };
+template <typename T> struct is_native<T, 3, is_int32_t<T>> : std::true_type { };
+template <typename T> struct is_native<T, 2, is_int64_t<T>> : std::true_type { };
+
 NAMESPACE_END(detail)
 
 /// Partial overload of StaticArrayImpl using SSE4.2 intrinsics (single precision)
