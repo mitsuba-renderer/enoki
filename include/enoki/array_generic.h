@@ -45,6 +45,7 @@ struct StaticArrayImpl<
     using Base::Size;
     using Base::Size1;
     using Base::Size2;
+    using Base::data;
     using Mask = Array<mask_t<Scalar>, Size>;
     static constexpr bool Native = false;
 
@@ -94,7 +95,7 @@ struct StaticArrayImpl<
 
     /// Initialize all components from a scalar
     template <typename T = Type_, std::enable_if_t<!std::is_reference<T>::value &&
-                                                  !std::is_same<Scalar, BaseScalar>::value, int> = 0>
+                                                   !std::is_same<Scalar, BaseScalar>::value, int> = 0>
     #if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER) && __GNUC__ < 7
         /// Work around a bug in GCC: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=72824
         __attribute__((optimize("no-tree-loop-distribute-patterns")))
@@ -119,15 +120,15 @@ struct StaticArrayImpl<
                                  std::is_constructible<StorageType, Args>::value...,
                                  sizeof...(Args) + 1 == Size_ && (sizeof...(Args) > 0)>::value, int> = 0>
     ENOKI_INLINE StaticArrayImpl(Arg &&arg, Args &&... args)
-        : m_data{{ StorageType(arg), StorageType(args)... }} { ENOKI_CHKSCALAR }
+        : m_data{{ StorageType(std::forward<Arg>(arg)), StorageType(std::forward<Args>(args))... }} { ENOKI_CHKSCALAR }
 
     /// Convert a compatible array type (const)
     template <
         typename Type2, size_t Size2, bool Approx2, RoundingMode Mode2,
         typename Derived2,
         std::enable_if_t<std::is_constructible<Type_, const Type2 &>::value &&
-                             !std::is_same<bool, Type2>::value &&
-                             Derived2::Size == Size_, int> = 0>
+                        !std::is_same<bool, Type2>::value &&
+                         Derived2::Size == Size_, int> = 0>
     ENOKI_INLINE StaticArrayImpl(
         const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a)
         : StaticArrayImpl(a, std::make_index_sequence<Size>()) { }
@@ -136,8 +137,9 @@ struct StaticArrayImpl<
     template <typename Type2, size_t Size2, bool Approx2, RoundingMode Mode2,
               typename Derived2,
               std::enable_if_t<std::is_constructible<Type_, Type2 &>::value &&
-                                   !std::is_same<bool, Type2>::value &&
-                                   Derived2::Size == Size_, int> = 0>
+                              !std::is_constructible<Type_, const Type2 &>::value &&
+                              !std::is_same<bool, Type2>::value &&
+                               Derived2::Size == Size_, int> = 0>
     ENOKI_INLINE StaticArrayImpl(
               StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a)
         : StaticArrayImpl(a, std::make_index_sequence<Size>()) { }
@@ -165,6 +167,73 @@ struct StaticArrayImpl<
 
     //! @}
     // -----------------------------------------------------------------------
+
+
+#if defined(__F16C__)
+    // -----------------------------------------------------------------------
+    //! @{ \name Half-precision conversions
+    // -----------------------------------------------------------------------
+
+    template <bool Approx2, RoundingMode Mode2, typename Derived2, typename T = Derived,
+              std::enable_if_t<std::is_same<typename T::Scalar, half>::value &&
+                               Derived2::Size == T::Size, int> = 0>
+    ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<float, 4, Approx2, Mode2, Derived2> &a) {
+        __m128i value = _mm_cvtps_ph(a.derived().m, _MM_FROUND_CUR_DIRECTION);
+        memcpy(data(), &value, sizeof(uint16_t) * Derived::Size);
+    }
+
+#if defined(__AVX__)
+    template <bool Approx2, RoundingMode Mode2, typename Derived2, typename T = Derived,
+              std::enable_if_t<std::is_same<typename T::Scalar, half>::value &&
+                               Derived2::Size == T::Size, int> = 0>
+    ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<double, 4, Approx2, Mode2, Derived2> &a) {
+        __m128i value = _mm_cvtps_ph(_mm256_cvtpd_ps(a.derived().m), _MM_FROUND_CUR_DIRECTION);
+        memcpy(data(), &value, sizeof(uint16_t) * Derived::Size);
+    }
+
+    template <bool Approx2, RoundingMode Mode2, typename Derived2, typename T = Derived,
+              std::enable_if_t<std::is_same<typename T::Scalar, half>::value &&
+                               Derived2::Size == T::Size, int> = 0>
+    ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<float, 8, Approx2, Mode2, Derived2> &a) {
+        _mm_storeu_si128((__m128i *) data(), _mm256_cvtps_ph(a.derived().m, _MM_FROUND_CUR_DIRECTION));
+    }
+#endif
+
+#if defined(__AVX512F__)
+    template <bool Approx2, RoundingMode Mode2, typename Derived2, typename T = Derived,
+              std::enable_if_t<std::is_same<typename T::Scalar, half>::value &&
+                               Derived2::Size == T::Size, int> = 0>
+    ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<double, 8, Approx2, Mode2, Derived2> &a) {
+        _mm_storeu_si128((__m128i *) data(), _mm256_cvtps_ph(_mm512_cvtpd_ps(a.derived().m), _MM_FROUND_CUR_DIRECTION));
+    }
+
+    template <bool Approx2, RoundingMode Mode2, typename Derived2, typename T = Derived,
+              std::enable_if_t<std::is_same<typename T::Scalar, half>::value &&
+                               Derived2::Size == T::Size, int> = 0>
+    ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<float, 16, Approx2, Mode2, Derived2> &a) {
+        _mm256_storeu_si256((__m256i *) data(), _mm512_cvtps_ph(a.derived().m, _MM_FROUND_CUR_DIRECTION));
+    }
+#endif
+
+    template <size_t Size, bool Approx2, RoundingMode Mode2, typename Derived2, typename T = Derived,
+              std::enable_if_t<std::is_same<typename T::Scalar, half>::value && (Size > 4) &&
+                               Derived2::Size == T::Size, int> = 0>
+    ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<double, Size, Approx2, Mode2, Derived2> &a)
+       : StaticArrayImpl(
+               Array<half, Size1, false, Mode2>(low(a)),
+               Array<half, Size2, false, Mode2>(high(a))) { }
+
+    template <size_t Size, bool Approx2, RoundingMode Mode2, typename Derived2, typename T = Derived,
+              std::enable_if_t<std::is_same<typename T::Scalar, half>::value && (Size > 4) &&
+                               Derived2::Size == T::Size, int> = 0>
+    ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<float, Size, Approx2, Mode2, Derived2> &a)
+       : StaticArrayImpl(
+               Array<half, Size1, false, Mode2>(low(a)),
+               Array<half, Size2, false, Mode2>(high(a))) { }
+
+    //! @}
+    // -----------------------------------------------------------------------
+#endif
 
 private:
     template <typename T, size_t... Index>

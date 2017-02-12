@@ -43,10 +43,8 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
 
     struct Mask : StaticArrayBase<Type_, Size_, false, RoundingMode::Default, Mask> {
     public:
-        enum {
-            Size = Size_,
-            ActualSize = Size_
-        };
+        static constexpr size_t Size = Size_;
+        static constexpr size_t ActualSize = Size_;
 
         static constexpr bool Native = false;
         static constexpr bool IsMask = true;

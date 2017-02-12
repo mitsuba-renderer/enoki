@@ -22,6 +22,8 @@
 
 #include "array_generic.h"
 
+#include "half.h"
+
 #include "array_idiv.h"
 
 #include "array_recursive.h"
@@ -40,7 +42,7 @@
 #endif
 
 #if defined(__AVX512F__)
-//#  include "array_avx512.h"
+#  include "array_avx512.h"
 #endif
 #endif
 

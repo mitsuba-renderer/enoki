@@ -328,3 +328,26 @@ void test19_lowhi_impl() {
     assert(T(low(value), high(value)) == value);
 }
 ENOKI_TEST_ALL(test19_lowhi) { test19_lowhi_impl<T>(); }
+
+ENOKI_TEST_ALL(test20_iterator) {
+    Scalar j(0);
+    for (Scalar i : index_sequence<T>()) {
+        assert(i == j);
+        j += 1;
+    }
+}
+
+ENOKI_TEST_ALL(test21_mask_assign) {
+    T x = index_sequence<T>();
+    x[x > Scalar(0)] = x + Scalar(1);
+    if (Size >= 2) {
+        assert(x.coeff(0) == Scalar(0));
+        assert(x.coeff(1) == Scalar(2));
+    }
+    x[x > Scalar(0)] = Scalar(-1);
+    if (Size >= 2) {
+        assert(x.coeff(0) == Scalar(0));
+        assert(x.coeff(1) == Scalar(-1));
+    }
+}
+

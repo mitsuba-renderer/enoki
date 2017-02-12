@@ -100,3 +100,44 @@ ENOKI_TEST(test03_alloc_nested)  {
     vectorize([](auto &&z) { z = z + Vector3fP(1.f, 2.f, 3.f); }, z);
     assert(to_string(z) == "[[3, 9, 6], [4, 10, 17]]");
 }
+
+ENOKI_TEST(test04_init)  {
+    using FloatP = Array<float, 4>;
+    using FloatX = DynamicArray<FloatP>;
+
+    auto v0 = zero<FloatX>(11);
+    auto v1 = index_sequence<FloatX>(11);
+    auto v2 = linspace<FloatX>(11, 0.f, 1.f);
+    int ctr = 0;
+    assert(v0.size() == 11);
+    assert(v1.size() == 11);
+    assert(v2.size() == 11);
+
+    for (float v : v0) { assert(v == 0.f); }
+    for (float v : v1) { assert(v == (float) ctr); ctr++; }
+    ctr = 0;
+    for (float v : v2) {
+        assert(std::abs(v - (float) ctr / 10.f) < 1e-6);
+        ctr++;
+    }
+}
+
+ENOKI_TEST(test05_meshgrid) {
+    using FloatP = Array<float, 4>;
+    using FloatX = DynamicArray<FloatP>;
+
+    auto ac = test::alloc_count;
+    auto dc = test::dealloc_count;
+
+    /* Nested scope */ {
+        auto x = linspace<FloatX>(3, 0.f, 2.f);
+        auto y = linspace<FloatX>(4, 1.f, 4.f);
+        auto xy = meshgrid(x, y);
+
+        assert(dynamic_size(xy) == 12);
+        assert(to_string(xy) == "[[0, 1], [1, 1], [2, 1], [0, 2], [1, 2], [2, 2], [0, 3], [1, 3], [2, 3], [0, 4], [1, 4], [2, 4]]");
+    }
+
+    assert(test::alloc_count - ac == 4);
+    assert(test::dealloc_count - dc == 4);
+}

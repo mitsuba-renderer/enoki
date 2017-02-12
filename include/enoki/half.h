@@ -107,38 +107,46 @@ private:
 
 public:
     static uint16_t float32_to_float16(float value) {
-        Bits v, s;
-        v.f = value;
-        uint32_t sign = (uint32_t) (v.si & signN);
-        v.si ^= sign;
-        sign >>= shiftSign; // logical shift
-        s.si = mulN;
-        s.si = (int32_t) (s.f * v.f); // correct subnormals
-        v.si ^= (s.si ^ v.si) & -(minN > v.si);
-        v.si ^= (infN ^ v.si) & -((infN > v.si) & (v.si > maxN));
-        v.si ^= (nanN ^ v.si) & -((nanN > v.si) & (v.si > infN));
-        v.ui >>= shift; // logical shift
-        v.si ^= ((v.si - maxD) ^ v.si) & -(v.si > maxC);
-        v.si ^= ((v.si - minD) ^ v.si) & -(v.si > subC);
-        return (uint16_t) (v.ui | sign);
+        #if defined(__F16C__)
+            return (uint16_t) _mm_cvtsi128_si32(_mm_cvtps_ph(_mm_set_ss(value), _MM_FROUND_CUR_DIRECTION));
+        #else
+            Bits v, s;
+            v.f = value;
+            uint32_t sign = (uint32_t) (v.si & signN);
+            v.si ^= sign;
+            sign >>= shiftSign; // logical shift
+            s.si = mulN;
+            s.si = (int32_t) (s.f * v.f); // correct subnormals
+            v.si ^= (s.si ^ v.si) & -(minN > v.si);
+            v.si ^= (infN ^ v.si) & -((infN > v.si) & (v.si > maxN));
+            v.si ^= (nanN ^ v.si) & -((nanN > v.si) & (v.si > infN));
+            v.ui >>= shift; // logical shift
+            v.si ^= ((v.si - maxD) ^ v.si) & -(v.si > maxC);
+            v.si ^= ((v.si - minD) ^ v.si) & -(v.si > subC);
+            return (uint16_t) (v.ui | sign);
+        #endif
     }
 
     static float float16_to_float32(uint16_t value) {
-        Bits v;
-        v.ui = value;
-        int32_t sign = v.si & signC;
-        v.si ^= sign;
-        sign <<= shiftSign;
-        v.si ^= ((v.si + minD) ^ v.si) & -(v.si > subC);
-        v.si ^= ((v.si + maxD) ^ v.si) & -(v.si > maxC);
-        Bits s;
-        s.si = mulC;
-        s.f *= float(v.si);
-        int32_t mask = -(norC > v.si);
-        v.si <<= shift;
-        v.si ^= (s.si ^ v.si) & mask;
-        v.si |= sign;
-        return v.f;
+        #if defined(__F16C__)
+            return _mm_cvtss_f32(_mm_cvtph_ps(_mm_set1_epi16((int16_t) value)));
+        #else
+            Bits v;
+            v.ui = value;
+            int32_t sign = v.si & signC;
+            v.si ^= sign;
+            sign <<= shiftSign;
+            v.si ^= ((v.si + minD) ^ v.si) & -(v.si > subC);
+            v.si ^= ((v.si + maxD) ^ v.si) & -(v.si > maxC);
+            Bits s;
+            s.si = mulC;
+            s.f *= float(v.si);
+            int32_t mask = -(norC > v.si);
+            v.si <<= shift;
+            v.si ^= (s.si ^ v.si) & mask;
+            v.si |= sign;
+            return v.f;
+        #endif
     }
 };
 

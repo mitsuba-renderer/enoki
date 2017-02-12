@@ -37,7 +37,7 @@ NAMESPACE_BEGIN(enoki)
     ENOKI_ROUTE_UNARY(name, name) \
     template <typename Arg, enable_if_notarray_t<Arg> = 0> \
     ENOKI_INLINE auto name(const Arg &a) { \
-        ENOKI_SCALAR return expr; \
+        ENOKI_TRACK_SCALAR return expr; \
     }
 
 /**
@@ -390,7 +390,8 @@ ENOKI_INLINE auto
 select(const Mask &a1,
        const StaticArrayBase<Type, Size, Approx, Mode, Derived1> &a2,
        const StaticArrayBase<Type, Size, Approx, Mode, Derived2> &a3) {
-    return Derived1::select_(typename Derived1::Mask(a1.derived()), a2.derived(), a3.derived());
+    return Derived1::select_(typename Derived1::Mask(a1.derived()),
+                             a2.derived(), a3.derived());
 }
 
 template <typename Type1, typename Type2, typename Type3, size_t Size1,
@@ -824,6 +825,12 @@ ENOKI_INLINE size_t count(bool value) { return value ? 1 : 0; }
 template <typename Array, enable_if_sarray_t<Array> = 0>
 ENOKI_INLINE Array zero() {
     return Array::zero_();
+}
+
+/// Construct a zero-initialized array
+template <typename Array, enable_if_darray_t<Array> = 0>
+ENOKI_INLINE Array zero(size_t size) {
+    return Array::zero_(size);
 }
 
 /// Construct a zero-initialized array (scalar fallback)

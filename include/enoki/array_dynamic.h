@@ -25,6 +25,7 @@ NAMESPACE_BEGIN(enoki)
 /// Allocate a suitably aligned memory block
 inline ENOKI_MALLOC void *alloc(size_t size) {
     constexpr size_t align = std::max((size_t) ENOKI_MAX_PACKET_SIZE, sizeof(void *));
+    ENOKI_TRACK_ALLOC
 
     void *ptr;
     #if defined(_WIN32)
@@ -49,6 +50,7 @@ template <typename T> static ENOKI_INLINE ENOKI_MALLOC T *alloc(size_t size) {
 
 /// Release aligned memory
 inline void dealloc(void *ptr) {
+    ENOKI_TRACK_DEALLOC
     #if defined(_WIN32)
         _aligned_free(ptr);
     #else
@@ -166,14 +168,6 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
         return (Scalar *) ENOKI_ASSUME_ALIGNED(m_packets.get());
     }
 
-    ENOKI_INLINE const Scalar *begin() const { return data(); }
-
-    ENOKI_INLINE Scalar *begin() { return data(); }
-
-    ENOKI_INLINE const Scalar *end() const { return data() + size(); }
-
-    ENOKI_INLINE Scalar *end() { return data() + size(); }
-
     ENOKI_INLINE Packet &packet(size_t i) {
         Packet *packets = (Packet *) ENOKI_ASSUME_ALIGNED(m_packets.get());
         return packets[i];
@@ -229,7 +223,7 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     static Derived linspace_(size_t size, Scalar min, Scalar max) {
         Derived result(size);
 
-        Scalar step = (max - min) / (size - 1);
+        Scalar step = (max - min) / Scalar(size - 1);
 
         Packet packet = linspace<Packet>(min, min + step * (PacketSize - 1)),
                shift = Scalar(step * PacketSize);

@@ -97,7 +97,7 @@ NAMESPACE_END(detail)
 template <bool Approx, typename Derived> struct alignas(32)
     StaticArrayImpl<float, 8, Approx, RoundingMode::Default, Derived>
     : StaticArrayBase<float, 8, Approx, RoundingMode::Default, Derived> {
-    ENOKI_NATIVE_ARRAY(float, 8, Approx, __m256)
+    ENOKI_NATIVE_ARRAY_CLASSIC(float, 8, Approx, __m256)
 
     // -----------------------------------------------------------------------
     //! @{ \name Value constructors
@@ -115,6 +115,11 @@ template <bool Approx, typename Derived> struct alignas(32)
     //! @{ \name Type converting constructors
     // -----------------------------------------------------------------------
 
+#if defined(__F16C__)
+    ENOKI_CONVERT(half)
+        : m(_mm256_cvtph_ps(_mm_loadu_si128((const __m128i *) a.data()))) { }
+#endif
+
     ENOKI_CONVERT(float) : m(a.derived().m) { }
 
 #if defined(__AVX2__)
@@ -126,8 +131,8 @@ template <bool Approx, typename Derived> struct alignas(32)
 #endif
 
     ENOKI_CONVERT(double)
-        : m(_mm256_setr_m128(_mm256_cvtpd_ps(low(a).m),
-                             _mm256_cvtpd_ps(high(a).m))) { }
+        : m(detail::concat(_mm256_cvtpd_ps(low(a).m),
+                           _mm256_cvtpd_ps(high(a).m))) { }
 
 #if defined(__AVX512DQ__)
     ENOKI_CONVERT(int64_t) : m(_mm512_cvtepi64_ps(a.derived().m)) { }
@@ -148,32 +153,27 @@ template <bool Approx, typename Derived> struct alignas(32)
     ENOKI_REINTERPRET(uint32_t) : m(_mm256_castsi256_ps(a.derived().m)) { }
 #else
     ENOKI_REINTERPRET(int32_t)
-        : m(_mm256_setr_m128(_mm_castsi128_ps(low(a).m),
-                             _mm_castsi128_ps(high(a).m))) { }
+        : m(detail::concat(_mm_castsi128_ps(low(a).m),
+                           _mm_castsi128_ps(high(a).m))) { }
 
     ENOKI_REINTERPRET(uint32_t)
-        : m(_mm256_setr_m128(_mm_castsi128_ps(low(a).m),
-                             _mm_castsi128_ps(high(a).m))) { }
+        : m(detail::concat(_mm_castsi128_ps(low(a).m),
+                           _mm_castsi128_ps(high(a).m))) { }
 #endif
 
-#if defined(__AVX512F__)
-    // XXX this all needs to be replaced by masks
-    ENOKI_REINTERPRET(double) :
-        m(_mm256_castsi256_ps(_mm512_cvtepi64_epi32(_mm512_castpd_si512(a.derived().m)))) { }
+
+#if defined(__AVX512DQ__) && defined(__AVX512VL__)
+    ENOKI_REINTERPRET(detail::KMaskBit)
+        : m(_mm256_castsi256_ps(_mm256_movm_epi32(a.derived().k))) { }
+#elif defined(__AVX512F__)
+    ENOKI_REINTERPRET(detail::KMaskBit)
+        : m(_mm512_castps512_ps256(_mm512_maskz_mov_ps(
+              (__mmask16) a.derived().k, _mm512_set1_ps(memcpy_cast<float>(int32_t(-1)))))) { }
 #else
     ENOKI_REINTERPRET(double)
-        : m(_mm256_castsi256_ps(
-              detail::mm512_cvtepi64_epi32(_mm256_castpd_si256(low(a).m),
-                                           _mm256_castpd_si256(high(a).m)))) { }
-#endif
-
-#if defined(__AVX512F__)
-    // XXX this all needs to be replaced by masks
-    ENOKI_REINTERPRET(uint64_t) :
-        m(_mm256_castsi256_ps(_mm512_cvtepi64_epi32(a.derived().m))) { }
-    ENOKI_REINTERPRET(int64_t) :
-        m(_mm256_castsi256_ps(_mm512_cvtepi64_epi32(a.derived().m))) { }
-#elif defined(__AVX2__)
+        : m(_mm256_castsi256_ps(detail::mm512_cvtepi64_epi32(
+              _mm256_castpd_si256(low(a).m), _mm256_castpd_si256(high(a).m)))) { }
+#if defined(__AVX2__)
     ENOKI_REINTERPRET(int64_t)
         : m(_mm256_castsi256_ps(
               detail::mm512_cvtepi64_epi32(low(a).m,
@@ -191,6 +191,7 @@ template <bool Approx, typename Derived> struct alignas(32)
         : m(_mm256_castsi256_ps(detail::mm512_cvtepi64_epi32(
              low(low(a)).m, high(low(a)).m,
              low(high(a)).m, high(high(a)).m))) { }
+#endif
 #endif
 
     //! @}
@@ -201,7 +202,7 @@ template <bool Approx, typename Derived> struct alignas(32)
     // -----------------------------------------------------------------------
 
     StaticArrayImpl(const Array1 &a1, const Array2 &a2)
-        : m(_mm256_setr_m128(a1.m, a2.m)) { }
+        : m(detail::concat(a1.m, a2.m)) { }
 
     ENOKI_INLINE Array1 low_()  const { return _mm256_castps256_ps128(m); }
     ENOKI_INLINE Array2 high_() const { return _mm256_extractf128_ps(m, 1); }
@@ -425,9 +426,8 @@ template <bool Approx, typename Derived> struct alignas(32)
 
     ENOKI_REQUIRE_INDEX(Index, int64_t)
     ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index, const Mask &mask_) {
-        #if defined(__AVX512F__)
-            __m512i mask = _mm512_castps_si512(mask_.m);
-            __mmask8 k = _mm512_test_epi64_mask(mask, mask);
+        #if defined(__AVX512VL__) && defined(__AVX512DQ__)
+            __mmask8 k = _mm256_movepi32_mask(_mm256_castps_si256(mask_.m));
             return _mm512_mask_i64gather_ps(_mm256_setzero_ps(), k, index.m, (const float *) ptr, Stride);
         #else
             return Derived(
@@ -445,9 +445,8 @@ template <bool Approx, typename Derived> struct alignas(32)
     }
 
     ENOKI_REQUIRE_INDEX(Index, int32_t)
-    ENOKI_INLINE void scatter_(void *ptr, const Index &index, const Mask &mask_) const {
-        __m256i mask = _mm256_castps_si256(mask_.m);
-        __mmask8 k = _mm256_test_epi32_mask(mask, mask);
+    ENOKI_INLINE void scatter_(void *ptr, const Index &index, const Mask &mask) const {
+        __mmask8 k = _mm256_movepi32_mask(_mm256_castps_si256(mask.m));
         _mm256_mask_i32scatter_ps(ptr, k, index.m, m, Stride);
     }
 
@@ -457,31 +456,30 @@ template <bool Approx, typename Derived> struct alignas(32)
     }
 
     ENOKI_REQUIRE_INDEX(Index, int64_t)
-    ENOKI_INLINE void scatter_(void *ptr, const Index &index, const Mask &mask_) const {
-        __m512i mask = _mm512_castps_si512(mask_.m);
-        __mmask8 k = _mm512_test_epi64_mask(mask, mask);
-        _mm256_mask_i64scatter_ps(ptr, k, index.m, m, Stride);
+    ENOKI_INLINE void scatter_(void *ptr, const Index &index, const Mask &mask) const {
+        __mmask8 k = _mm256_movepi32_mask(_mm256_castps_si256(mask.m));
+        _mm512_mask_i64scatter_ps(ptr, k, index.m, m, Stride);
     }
 #endif
 
     ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
         #if defined(__AVX512VL__)
-            __mmask8 k = _mm_test_epi32_mask(_mm256_castps_si256(mask.m),
-                                             _mm256_castps_si256(mask.m));
+            __mmask8 k = _mm256_test_epi32_mask(_mm256_castps_si256(mask.m),
+                                                _mm256_castps_si256(mask.m));
             _mm256_storeu_ps((float *) ptr,
                              _mm256_mask_compress_ps(_mm256_setzero_ps(), k, m));
-            (float *&) ptr += _mm_popcnt_u32(k);
+            (Scalar *&) ptr += _mm_popcnt_u32(k);
         #elif defined(__AVX2__)
             /** Fancy LUT-based partitioning algorithm, see http://stackoverflow.com/a/36949578/1130282 */
             const __m256i shift = _mm256_setr_epi32(29, 26, 23, 20, 17, 14, 11, 8);
-            unsigned int offset = (unsigned int) _mm256_movemask_ps(mask.m);
+            unsigned int k = (unsigned int) _mm256_movemask_ps(mask.m);
 
-            __m256i tmp  = _mm256_set1_epi32(*((int32_t *) (detail::compress_lut_256 + offset*3)));
+            __m256i tmp  = _mm256_set1_epi32(*((int32_t *) (detail::compress_lut_256 + k*3)));
             __m256i shuf = _mm256_srli_epi32(_mm256_sllv_epi32(tmp, shift), 29);
             __m256  perm  = _mm256_permutevar8x32_ps(m, shuf);
 
             _mm256_storeu_ps((float *) ptr, perm);
-            (float *&) ptr += _mm_popcnt_u32(offset);
+            (Scalar *&) ptr += _mm_popcnt_u32(k);
         #else
             store_compress(ptr, low(derived()), low(mask));
             store_compress(ptr, high(derived()), high(mask));
@@ -496,7 +494,7 @@ template <bool Approx, typename Derived> struct alignas(32)
 template <bool Approx, typename Derived> struct alignas(32)
     StaticArrayImpl<double, 4, Approx, RoundingMode::Default, Derived>
     : StaticArrayBase<double, 4, Approx, RoundingMode::Default, Derived> {
-    ENOKI_NATIVE_ARRAY(double, 4, Approx, __m256d)
+    ENOKI_NATIVE_ARRAY_CLASSIC(double, 4, Approx, __m256d)
 
     // -----------------------------------------------------------------------
     //! @{ \name Value constructors
@@ -512,6 +510,13 @@ template <bool Approx, typename Derived> struct alignas(32)
     // -----------------------------------------------------------------------
     //! @{ \name Type converting constructors
     // -----------------------------------------------------------------------
+
+#if defined(__F16C__)
+    ENOKI_CONVERT(half) {
+        m = _mm256_cvtps_pd(
+            _mm_cvtph_ps(_mm_loadl_epi64((const __m128i *) a.data())));
+    }
+#endif
 
     ENOKI_CONVERT(float) : m(_mm256_cvtps_pd(a.derived().m)) { }
 
@@ -554,11 +559,11 @@ template <bool Approx, typename Derived> struct alignas(32)
     ENOKI_REINTERPRET(uint64_t) : m(_mm256_castsi256_pd(a.derived().m)) { }
 #else
     ENOKI_REINTERPRET(int64_t)
-        : m(_mm256_setr_m128d(_mm_castsi128_pd(low(a).m),
-                              _mm_castsi128_pd(high(a).m))) { }
+        : m(detail::concat(_mm_castsi128_pd(low(a).m),
+                           _mm_castsi128_pd(high(a).m))) { }
     ENOKI_REINTERPRET(uint64_t)
-        : m(_mm256_setr_m128d(_mm_castsi128_pd(low(a).m),
-                              _mm_castsi128_pd(high(a).m))) { }
+        : m(detail::concat(_mm_castsi128_pd(low(a).m),
+                           _mm_castsi128_pd(high(a).m))) { }
 #endif
 
     //! @}
@@ -569,7 +574,7 @@ template <bool Approx, typename Derived> struct alignas(32)
     // -----------------------------------------------------------------------
 
     StaticArrayImpl(const Array1 &a1, const Array2 &a2)
-        : m(_mm256_setr_m128d(a1.m, a2.m)) { }
+        : m(detail::concat(a1.m, a2.m)) { }
 
     ENOKI_INLINE Array1 low_()  const { return _mm256_castpd256_pd128(m); }
     ENOKI_INLINE Array2 high_() const { return _mm256_extractf128_pd(m, 1); }
@@ -643,7 +648,7 @@ template <bool Approx, typename Derived> struct alignas(32)
         if (Approx) {
             /* Use best reciprocal approximation available on the current
                hardware and potentially refine */
-            __m256 r;
+            __m256d r;
             #if defined(__AVX512ER__)
                 /* rel err < 2^28, use as is */
                 r = _mm512_castpd512_pd256(
@@ -657,7 +662,7 @@ template <bool Approx, typename Derived> struct alignas(32)
 
                 for (int i = 0; i < 2; ++i) {
                     #if defined(__FMA__)
-                        const __m256 two = _mm256_set1_pd(2.);
+                        const __m256d two = _mm256_set1_pd(2.);
                         r = _mm256_mul_pd(r, _mm256_fnmadd_pd(r, m, two));
                     #else
                         r = _mm256_sub_pd(_mm256_add_pd(r, r),
@@ -676,7 +681,7 @@ template <bool Approx, typename Derived> struct alignas(32)
         if (Approx) {
             /* Use best reciprocal square root approximation available
                on the current hardware and potentially refine */
-            __m256 r;
+            __m256d r;
             #if defined(__AVX512ER__)
                 /* rel err < 2^28, use as is */
                 r = _mm512_castpd512_pd256(
@@ -687,8 +692,8 @@ template <bool Approx, typename Derived> struct alignas(32)
 
             #if !defined(__AVX512ER__)
                 /* Refine using two Newton-Raphson iterations */
-                const __m256 c0 = _mm256_set1_pd(1.5);
-                const __m256 c1 = _mm256_set1_pd(-0.5);
+                const __m256d c0 = _mm256_set1_pd(1.5);
+                const __m256d c1 = _mm256_set1_pd(-0.5);
 
                 for (int i = 0; i < 2; ++i) {
                     #if defined(__FMA__)
@@ -808,13 +813,12 @@ template <bool Approx, typename Derived> struct alignas(32)
 
 #if defined(__AVX512VL__)
     ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
-        unsigned int offset = (unsigned int) _mm256_movemask_pd(mask.m);
         __mmask8 k = _mm256_test_epi64_mask(_mm256_castpd_si256(mask.m),
                                             _mm256_castpd_si256(mask.m));
         _mm256_storeu_pd((double *) ptr,
                       _mm256_mask_compress_pd(_mm256_setzero_pd(), k, m));
 
-        (float *&) ptr += _mm_popcnt_u32(offset);
+        (double *&) ptr += _mm_popcnt_u32(k);
     }
 #endif
 
@@ -847,7 +851,7 @@ template <bool Approx, typename Derived> struct alignas(32)
         typename Type2, bool Approx2, RoundingMode Mode2, typename Derived2>
     ENOKI_INLINE StaticArrayImpl(
         const StaticArrayBase<Type2, 3, Approx2, Mode2, Derived2> &a) {
-        ENOKI_SCALAR for (size_t i = 0; i < 3; ++i)
+        ENOKI_TRACK_SCALAR for (size_t i = 0; i < 3; ++i)
             coeff(i) = Scalar(a.derived().coeff(i));
     }
 
@@ -858,15 +862,26 @@ template <bool Approx, typename Derived> struct alignas(32)
 
 #if !defined(__AVX2__)
     ENOKI_REINTERPRET(uint64_t) {
-        ENOKI_SCALAR
+        ENOKI_TRACK_SCALAR
         auto v0 = a.derived().coeff(0), v1 = a.derived().coeff(1), v2 = a.derived().coeff(2);
         m = _mm256_castsi256_pd(_mm256_setr_epi64x((int64_t) v0, (int64_t) v1, (int64_t) v2, 0));
     }
 
     ENOKI_REINTERPRET(int64_t) {
-        ENOKI_SCALAR
+        ENOKI_TRACK_SCALAR
         auto v0 = a.derived().coeff(0), v1 = a.derived().coeff(1), v2 = a.derived().coeff(2);
         m = _mm256_castsi256_pd(_mm256_setr_epi64x((int64_t) v0, (int64_t) v1, (int64_t) v2, 0));
+    }
+#endif
+
+#if defined(__F16C__)
+    template <bool Approx2, RoundingMode Mode2, typename Derived2>
+    ENOKI_INLINE StaticArrayImpl(
+        const StaticArrayBase<half, 3, Approx2, Mode2, Derived2> &a) {
+        uint16_t temp[4];
+        memcpy(temp, a.data(), sizeof(uint16_t) * 3);
+        temp[3] = 0;
+        m = _mm256_cvtps_pd(_mm_cvtph_ps(_mm_loadl_epi64((const __m128i *) temp)));
     }
 #endif
 
@@ -908,12 +923,12 @@ template <bool Approx, typename Derived> struct alignas(32)
 
     ENOKI_INLINE void store_(void *ptr) const { memcpy(ptr, &m, sizeof(Scalar)*3); }
     ENOKI_INLINE void store_unaligned_(void *ptr) const { store_(ptr); }
-    ENOKI_INLINE static Derived load_(const void *ptr) {
+    ENOKI_INLINE static Derived load_unaligned_(const void *ptr) {
         Derived result;
         memcpy(&result.m, ptr, sizeof(Scalar) * 3);
         return result;
     }
-    ENOKI_INLINE static Derived load_unaligned_(const void *ptr) { return load_(ptr); }
+    ENOKI_INLINE static Derived load_(const void *ptr) { return Base::load_unaligned_(ptr); }
 
     static ENOKI_INLINE auto mask_() {
         return typename Derived::Mask(

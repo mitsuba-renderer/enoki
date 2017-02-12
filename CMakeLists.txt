@@ -6,7 +6,7 @@ if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
   set(ENOKI_MASTER_PROJECT ON)
 endif()
 
-option(ENOKI_TEST "Build Enoki test suite?"     ${ENOKI_MASTER_PROJECT})
+option(ENOKI_TEST "Build Enoki test suite?" ${ENOKI_MASTER_PROJECT})
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "Setting build type to 'Debug' as none was specified.")
@@ -78,6 +78,7 @@ set(ENOKI_HEADERS
   ${PROJECT_SOURCE_DIR}/include/enoki/array.h
   ${PROJECT_SOURCE_DIR}/include/enoki/array_avx.h
   ${PROJECT_SOURCE_DIR}/include/enoki/array_avx2.h
+  ${PROJECT_SOURCE_DIR}/include/enoki/array_avx512.h
   ${PROJECT_SOURCE_DIR}/include/enoki/array_base.h
   ${PROJECT_SOURCE_DIR}/include/enoki/array_dynamic.h
   ${PROJECT_SOURCE_DIR}/include/enoki/array_generic.h
@@ -114,7 +115,7 @@ else()
   set(AVX2_FLAGS "-mavx2 -mfma -mf16c")
   if (APPLE AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     set(AVX512_KNL_FLAGS "-march=knl -Wa,-march=knl")
-    set(AVX512_SKX_FLAGS "-march=skylake-avx512 -Wa,-march=skylake-avx512")
+    set(AVX512_SKX_FLAGS "-march=skylake-avx512 -Wa,-march=skx")
   else()
     set(AVX512_KNL_FLAGS "-march=knl")
     set(AVX512_SKX_FLAGS "-march=skylake-avx512")
@@ -146,17 +147,17 @@ function(enoki_test NAME)
   set_target_properties(${NAME}_avx2 PROPERTIES FOLDER ${NAME})
 
   if (NOT MSVC)
-    #add_executable(${NAME}_avx512_knl ${ARGN} ${ENOKI_HEADERS})
-    #set_target_properties(${NAME}_avx512_knl PROPERTIES COMPILE_FLAGS ${AVX512_KNL_FLAGS})
-    #add_test(${NAME}_avx512_knl_test ${NAME}_avx512_knl)
-    #set_tests_properties(${NAME}_avx512_knl_test PROPERTIES LABELS "avx512_knl")
-    #set_target_properties(${NAME}_avx512_knl PROPERTIES FOLDER ${NAME})
+    add_executable(${NAME}_avx512_knl ${ARGN} ${ENOKI_HEADERS})
+    set_target_properties(${NAME}_avx512_knl PROPERTIES COMPILE_FLAGS ${AVX512_KNL_FLAGS})
+    add_test(${NAME}_avx512_knl_test ${NAME}_avx512_knl)
+    set_tests_properties(${NAME}_avx512_knl_test PROPERTIES LABELS "avx512_knl")
+    set_target_properties(${NAME}_avx512_knl PROPERTIES FOLDER ${NAME})
 
-    #add_executable(${NAME}_avx512_skx ${ARGN} ${ENOKI_HEADERS})
-    #set_target_properties(${NAME}_avx512_skx PROPERTIES COMPILE_FLAGS ${AVX512_SKX_FLAGS})
-    #add_test(${NAME}_avx512_skx_test ${NAME}_avx512_skx)
-    #set_tests_properties(${NAME}_avx512_skx_test PROPERTIES LABELS "avx512_skx")
-    #set_target_properties(${NAME}_avx512_skx PROPERTIES FOLDER ${NAME})
+    add_executable(${NAME}_avx512_skx ${ARGN} ${ENOKI_HEADERS})
+    set_target_properties(${NAME}_avx512_skx PROPERTIES COMPILE_FLAGS ${AVX512_SKX_FLAGS})
+    add_test(${NAME}_avx512_skx_test ${NAME}_avx512_skx)
+    set_tests_properties(${NAME}_avx512_skx_test PROPERTIES LABELS "avx512_skx")
+    set_target_properties(${NAME}_avx512_skx PROPERTIES FOLDER ${NAME})
   endif()
 endfunction()
 
@@ -176,9 +177,21 @@ if (ENOKI_TEST)
     add_compile_options("/bigobj")
   endif()
 
-  set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options(-Wno-injected-class-name)
+  endif()
 
   include(CheckCXXSourceRuns)
+  include(CheckCXXCompilerFlag)
+
+  if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    CHECK_CXX_COMPILER_FLAG(-faligned-new ALIGNED_NEW)
+    if (ALIGNED_NEW)
+      add_compile_options(-faligned-new)
+    endif()
+  endif()
+
+  set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
   macro(CHECK_CXX_COMPILER_AND_LINKER_FLAGS _RESULT _CXX_FLAGS _LINKER_FLAGS)
     set(CMAKE_REQUIRED_FLAGS ${_CXX_FLAGS})

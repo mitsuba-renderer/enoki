@@ -12,7 +12,6 @@
 */
 
 #include "test.h"
-#include <enoki/half.h>
 
 ENOKI_TEST_FLOAT(test01_div_fp) {
     auto sample = test::sample_values<Scalar>();
@@ -37,12 +36,16 @@ ENOKI_TEST_FLOAT(test01_div_fp) {
         [](Scalar a) -> Scalar { return Scalar(3) / a; }, 1e-6f
     );
 
+#if !defined(__AVX512F__)
+    /* In AVX512 mode, the approximate reciprocal function is
+       considerably more accurate and this test fails */
     if (std::is_same<Scalar, float>::value && T::Approx && has_sse42) {
         using T2 = Array<float, T::Size, false>;
         // Make sure that division optimization is used in approximate mode
         assert(T (3.f) / 3.f != T (1.f));
         assert(T2(3.f) / 3.f == T2(1.f));
     }
+#endif
 }
 
 ENOKI_TEST_FLOAT(test02_ceil) {

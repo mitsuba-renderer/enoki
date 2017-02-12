@@ -83,11 +83,17 @@
 
 /* The following macro is used by the test suite to detect
    unimplemented methods in vectorized backends */
-#if !defined(ENOKI_SCALAR)
-#  define ENOKI_SCALAR
+#if !defined(ENOKI_TRACK_SCALAR)
+#  define ENOKI_TRACK_SCALAR
+#endif
+#if !defined(ENOKI_TRACK_ALLOC)
+#  define ENOKI_TRACK_ALLOC
+#endif
+#if !defined(ENOKI_TRACK_DEALLOC)
+#  define ENOKI_TRACK_DEALLOC
 #endif
 
-#define ENOKI_CHKSCALAR if (std::is_arithmetic<Scalar>::value) { ENOKI_SCALAR }
+#define ENOKI_CHKSCALAR if (std::is_arithmetic<Scalar>::value) { ENOKI_TRACK_SCALAR }
 
 NAMESPACE_BEGIN(enoki)
 /// Choice of rounding modes for floating point operations
@@ -373,6 +379,17 @@ struct bcast<Target, Source,
                                   array_depth<Target>::value > array_depth<Source>::value;
 };
 
+/// Type equivalence between arithmetic type to work around subtle issues between 'long' vs 'long long' on OSX
+template <typename T0, typename T1>
+struct is_same {
+    static constexpr bool value =
+        sizeof(T0) == sizeof(T1) &&
+        std::is_floating_point<T0>::value == std::is_floating_point<T1>::value &&
+        std::is_signed<T0>::value == std::is_signed<T1>::value &&
+        std::is_arithmetic<T0>::value == std::is_arithmetic<T1>::value;
+};
+
+struct KMaskBit;
 
 NAMESPACE_END(detail)
 
@@ -411,13 +428,6 @@ template<typename T, typename U> ENOKI_INLINE T memcpy_cast(const U &val) {
     std::memcpy(&result, &val, sizeof(T));
     return result;
 }
-
-#if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER) &&  \
-    !defined(_mm256_setr_m128i)
-#define _mm256_setr_m128(l, h) _mm256_insertf128_ps(_mm256_castps128_ps256(l), (h), 1)
-#define _mm256_setr_m128d(l, h) _mm256_insertf128_pd(_mm256_castpd128_pd256(l), (h), 1)
-#define _mm256_setr_m128i(l, h) _mm256_insertf128_si256(_mm256_castsi128_si256(l), (h), 1)
-#endif
 
 /// Implementation details
 NAMESPACE_BEGIN(detail)
@@ -700,6 +710,46 @@ ENOKI_INLINE T not_(const T &a) { return ~a; }
 //! @}
 // -----------------------------------------------------------------------
 
+// -----------------------------------------------------------------------
+//! @{ \name Helper routines to merge smaller arrays into larger ones
+// -----------------------------------------------------------------------
+
+#if defined(__AVX__)
+ENOKI_INLINE __m256 concat(__m128 l, __m128 h) {
+    return _mm256_insertf128_ps(_mm256_castps128_ps256(l), h, 1);
+}
+
+ENOKI_INLINE __m256d concat(__m128d l, __m128d h) {
+    return _mm256_insertf128_pd(_mm256_castpd128_pd256(l), h, 1);
+}
+
+ENOKI_INLINE __m256i concat(__m128i l, __m128i h) {
+    return _mm256_insertf128_si256(_mm256_castsi128_si256(l), h, 1);
+}
+#endif
+
+#if defined(__AVX512F__)
+ENOKI_INLINE __m512 concat(__m256 l, __m256 h) {
+    #if defined(__AVX512DQ__)
+        return _mm512_insertf32x8(_mm512_castps256_ps512(l), h, 1);
+    #else
+        return _mm512_castpd_ps(
+            _mm512_insertf64x4(_mm512_castps_pd(_mm512_castps256_ps512(l)),
+                               _mm256_castps_pd(h), 1));
+    #endif
+}
+
+ENOKI_INLINE __m512d concat(__m256d l, __m256d h) {
+    return _mm512_insertf64x4(_mm512_castpd256_pd512(l), h, 1);
+}
+
+ENOKI_INLINE __m512i concat(__m256i l, __m256i h) {
+    return _mm512_inserti64x4(_mm512_castsi256_si512(l), h, 1);
+}
+#endif
+
+//! @}
+// -----------------------------------------------------------------------
 
 // -----------------------------------------------------------------------
 //! @{ \name Mask conversion routines for various platforms
@@ -713,7 +763,7 @@ ENOKI_INLINE __m256i mm256_cvtepi32_epi64(__m128i x) {
     /* This version is only suitable for mask conversions */
     __m128i xl = _mm_shuffle_epi32(x, _MM_SHUFFLE(1, 1, 0, 0));
     __m128i xh = _mm_shuffle_epi32(x, _MM_SHUFFLE(3, 3, 2, 2));
-    return _mm256_setr_m128i(xl, xh);
+    return detail::concat(xl, xh);
 #endif
 }
 
@@ -733,7 +783,7 @@ ENOKI_INLINE __m256i mm512_cvtepi64_epi32(__m128i x0, __m128i x1, __m128i x2, __
         _mm_castsi128_ps(x0), _mm_castsi128_ps(x1), _MM_SHUFFLE(2, 0, 2, 0)));
     __m128i y1 = _mm_castps_si128(_mm_shuffle_ps(
         _mm_castsi128_ps(x2), _mm_castsi128_ps(x3), _MM_SHUFFLE(2, 0, 2, 0)));
-    return _mm256_setr_m128i(y0, y1);
+    return detail::concat(y0, y1);
 }
 
 ENOKI_INLINE __m256i mm512_cvtepi64_epi32(__m256i x0, __m256i x1) {

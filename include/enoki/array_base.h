@@ -17,6 +17,19 @@
 
 NAMESPACE_BEGIN(enoki)
 
+NAMESPACE_BEGIN(detail)
+
+template <typename Derived> struct MaskWrapper {
+    Derived &d;
+    typename Derived::Mask m;
+
+    template <typename T> void operator=(T value) {
+        d.massign_(m, value);
+    }
+};
+
+NAMESPACE_END(detail)
+
 template <typename Type_, typename Derived_> struct ArrayBase {
     // -----------------------------------------------------------------------
     //! @{ \name Curiously Recurring Template design pattern
@@ -43,6 +56,29 @@ template <typename Type_, typename Derived_> struct ArrayBase {
 
     /// Base type underlying the derived array (i.e. without references etc.)
     using Scalar = std::remove_reference_t<Type>;
+
+    //! @}
+    // -----------------------------------------------------------------------
+
+    // -----------------------------------------------------------------------
+    //! @{ \name Iterators
+    // -----------------------------------------------------------------------
+
+    ENOKI_INLINE const Scalar *begin() const {
+        ENOKI_CHKSCALAR return derived().data();
+    }
+
+    ENOKI_INLINE Scalar *begin() {
+        ENOKI_CHKSCALAR return derived().data();
+    }
+
+    ENOKI_INLINE const Scalar *end() const {
+        ENOKI_CHKSCALAR return derived().data() + derived().size();
+    }
+
+    ENOKI_INLINE Scalar *end() {
+        ENOKI_CHKSCALAR return derived().data() + derived().size();
+    }
 
     //! @}
     // -----------------------------------------------------------------------
@@ -135,6 +171,9 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
                   "Approximate math library functions are only supported in "
                   "single precision mode!");
 
+    static_assert(!std::is_integral<Scalar>::value || Mode == RoundingMode::Default,
+                  "Integer arrays require Mode == RoundingMode::Default");
+
     StaticArrayBase() = default;
 
     /// Assign from a compatible array type
@@ -144,10 +183,21 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
         std::enable_if_t<std::is_assignable<Scalar &, Type2>::value, int> = 0>
     ENOKI_INLINE Derived &operator=(
         const StaticArrayBase<Type2, Size, Approx2, Mode2, Derived2> &a) {
-        if (std::is_arithmetic<Scalar>::value) { ENOKI_SCALAR }
+        if (std::is_arithmetic<Scalar>::value) { ENOKI_TRACK_SCALAR }
         for (size_t i = 0; i < Size; ++i)
             derived().coeff(i) = a.derived().coeff(i);
         return derived();
+    }
+
+    ENOKI_INLINE Derived &operator=(BaseScalar value) {
+        derived() = Derived(value);
+        return derived();
+    }
+
+    using Base::operator[];
+    template <typename T = Derived>
+    ENOKI_INLINE detail::MaskWrapper<T> operator[](typename T::Mask m) {
+        return detail::MaskWrapper<T>{ derived(), m };
     }
 
     //! @}
@@ -349,6 +399,11 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             throw std::length_error("Incompatible size for static array");
     }
 
+    template <typename T = Derived>
+    ENOKI_INLINE void massign_(const typename T::Mask m, const typename T::Expr &e) {
+        derived() = select(m, e, derived());
+    }
+
     //! @}
     // -----------------------------------------------------------------------
 
@@ -356,7 +411,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     //! @{ \name Trigonometric and inverse trigonometric functions
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE auto sin_() const {
+    auto sin_() const {
         using Expr = typename Derived::Expr;
         using Float = BaseScalar;
         using int_array_t = enoki::int_array_t<Expr>;
@@ -1310,7 +1365,8 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             y = fmadd(y, t, Expr(Float(1.421413741)));
             y = fmadd(y, t, Expr(Float(-0.284496736)));
             y = fmadd(y, t, Expr(Float(0.254829592)));
-            y *= t * exp(-x2);
+            auto ev = exp(-x2);
+            y *= t * ev;
 
             /* Switch between the A&S approximation and a Taylor series
                expansion around the origin */
@@ -1491,31 +1547,49 @@ std::ostream &operator<<(std::ostream &os,
 
 /// SFINAE macro for constructors that convert from another type
 #define ENOKI_CONVERT(Type)                                                    \
-    template <bool Approx2, RoundingMode Mode2, typename Derived2>             \
+    template <typename Type2, bool Approx2, RoundingMode Mode2,                \
+              typename Derived2,                                               \
+              std::enable_if_t<detail::is_same<Type2, Type>::value, int> = 0>  \
     ENOKI_INLINE StaticArrayImpl(                                              \
-        const StaticArrayBase<Type, Size, Approx2, Mode2, Derived2> &a)
+        const StaticArrayBase<Type2, Size, Approx2, Mode2, Derived2> &a)
 
-/// SFINAE macro for constructors that reinterpret_array another type
+/// SFINAE macro for constructors that reinterpret another type
 #define ENOKI_REINTERPRET(Type)                                                \
-    template <bool Approx2, RoundingMode Mode2, typename Derived2>             \
+    template <typename Type2, bool Approx2, RoundingMode Mode2,                \
+              typename Derived2,                                               \
+              std::enable_if_t<detail::is_same<Type2, Type>::value, int> = 0>  \
     ENOKI_INLINE StaticArrayImpl(                                              \
-        const StaticArrayBase<Type, Size, Approx2, Mode2, Derived2> &a,        \
+        const StaticArrayBase<Type2, Size, Approx2, Mode2, Derived2> &a,       \
+        detail::reinterpret_flag)
+
+/// SFINAE macro for constructors that reinterpret another type (K mask registers)
+#define ENOKI_REINTERPRET_KMASK(Type, Size)                                    \
+    template <typename Type2, bool Approx2, RoundingMode Mode2,                \
+              typename Derived2,                                               \
+              std::enable_if_t<detail::is_same<Type2, Type>::value, int> = 0>  \
+    ENOKI_INLINE KMask(                                                        \
+        const StaticArrayBase<Type2, Size, Approx2, Mode2, Derived2> &a,       \
         detail::reinterpret_flag)
 
 /// SFINAE macro for strided operations (scatter, gather)
 #define ENOKI_REQUIRE_INDEX(T, Index)                                          \
     template <                                                                 \
-        int Stride, typename T,                                                \
+        size_t Stride, typename T,                                             \
         std::enable_if_t<std::is_integral<typename T::Scalar>::value &&        \
                          sizeof(typename T::Scalar) == sizeof(Index), int> = 0>
 
-#define ENOKI_NATIVE_ARRAY(Scalar_, Size_, Approx_, Register)                  \
+/// SFINAE macro for strided operations (prefetch)
+#define ENOKI_REQUIRE_INDEX_PF(T, Index)                                       \
+    template <                                                                 \
+        size_t Stride, bool Write, size_t Level, typename T,                   \
+        std::enable_if_t<std::is_integral<typename T::Scalar>::value &&        \
+                         sizeof(typename T::Scalar) == sizeof(Index), int> = 0>
+
+#define ENOKI_NATIVE_ARRAY(Scalar_, Size_, Approx_, Register, Mode)            \
     static constexpr bool Native = true;                                       \
-    using Base = StaticArrayBase<Scalar_, Size_, Approx_,                      \
-                                 RoundingMode::Default, Derived>;              \
+    using Base = StaticArrayBase<Scalar_, Size_, Approx_, Mode, Derived>;      \
     using Arg = Derived;                                                       \
     using Expr = Derived;                                                      \
-    using Mask = Derived;                                                      \
     using Base::operator=;                                                     \
     using typename Base::Scalar;                                               \
     using typename Base::Array1;                                               \
@@ -1532,12 +1606,11 @@ std::ostream &operator<<(std::ostream &os,
     ENOKI_INLINE const Scalar &coeff(size_t i) const {                         \
         return ((const Scalar *) &m)[i];                                       \
     }                                                                          \
-    template <                                                                 \
-        typename Type2, bool Approx2, RoundingMode Mode2, typename Derived2,   \
-        std::enable_if_t<std::is_assignable<Scalar_&, Type2>::value, int> = 0> \
-    ENOKI_INLINE StaticArrayImpl(                                              \
-        const StaticArrayBase<Type2, Size, Approx2, Mode2, Derived2> &a) {     \
-        ENOKI_SCALAR for (size_t i = 0; i < Derived2::Size; ++i)               \
+    template <typename Type2, typename Derived2, typename T = Derived,         \
+              std::enable_if_t<std::is_assignable<Scalar_ &, Type2>::value &&  \
+                               Derived2::Size == T::Size, int> = 0>            \
+    ENOKI_INLINE StaticArrayImpl(const ArrayBase<Type2, Derived2> &a) {        \
+        ENOKI_TRACK_SCALAR for (size_t i = 0; i < Derived2::Size; ++i)               \
             derived().coeff(i) = Scalar(a.derived().coeff(i));                 \
     }                                                                          \
     template <size_t Size2, bool Approx2, RoundingMode Mode2,                  \
@@ -1549,7 +1622,7 @@ std::ostream &operator<<(std::ostream &os,
         using Int = typename detail::type_chooser<sizeof(Scalar)>::Int;        \
         const Scalar on = memcpy_cast<Scalar>(Int(-1));                        \
         const Scalar off = memcpy_cast<Scalar>(Int(0));                        \
-        ENOKI_SCALAR for (size_t i = 0; i < Derived2::Size; ++i)               \
+        ENOKI_TRACK_SCALAR for (size_t i = 0; i < Derived2::Size; ++i)               \
             coeff(i) = a.derived().coeff(i) ? on : off;                        \
     }                                                                          \
     template <                                                                 \
@@ -1558,5 +1631,10 @@ std::ostream &operator<<(std::ostream &os,
     ENOKI_INLINE StaticArrayImpl(T b)                                          \
         : StaticArrayImpl(b ? memcpy_cast<Scalar>(Int(-1))                     \
                             : memcpy_cast<Scalar>(Int(0))) { }
+
+#define ENOKI_NATIVE_ARRAY_CLASSIC(Scalar_, Size_, Approx_, Register)          \
+    ENOKI_NATIVE_ARRAY(Scalar_, Size_, Approx_, Register,                      \
+                       RoundingMode::Default)                                  \
+    using Mask = Derived;
 
 NAMESPACE_END(enoki)

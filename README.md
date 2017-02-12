@@ -412,7 +412,6 @@ bool mask_none_true = none(mask);
 
 /* Count how many entries have a mask value corresponding to 'true'? */
 size_t true_count = count(mask);
-
 ```
 
 Following the principle of least surprise, ``operator==`` and ``operator!=``
@@ -434,10 +433,16 @@ branch-free code.  Argument order matches the C ternary operator, i.e.
 ``condition ? true_value : false_value``.
 
 ```cpp
-f1 = select(f1 < 0, f1, f2);
+f1 = select(f1 < 0.f, f1, f2);
 
 /* The above select() statement is equivalent to the following less efficient expression */
-f1 = ((f1 < 0) & f1) | (~(f1 < 0) & f2);
+f1 = ((f1 < 0.f) & f1) | (~(f1 < 0.f) & f2);
+```
+
+Enoki also provides a special masked assignment operator, which updates entries
+of an array matching the given mask:
+```
+f1[f1 < 0.f] = f2;
 ```
 
 #### Casting, half precision
