@@ -20,7 +20,7 @@ ENOKI_TEST(test01_idiv_u64) {
     std::mt19937_64 mt;
 
     for (uint64_t i = 2; i < ITERATIONS; ++i) {
-        uint64_t x = mt(), y = mt(), z = y / x;
+        uint64_t x = (uint64_t) mt(), y = (uint64_t) mt(), z = y / x;
 
         divisor<uint64_t> precomp(x);
         uint64_t q = precomp(y);
@@ -43,7 +43,7 @@ ENOKI_TEST(test02_idiv_u32) {
     std::mt19937 mt;
 
     for (uint32_t i = 2; i < ITERATIONS; ++i) {
-        uint32_t x = mt(), y = mt(), z = y / x;
+        uint32_t x = (uint32_t) mt(), y = (uint32_t) mt(), z = y / x;
 
         divisor<uint32_t> precomp(x);
         uint32_t q = precomp(y);

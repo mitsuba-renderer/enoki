@@ -174,3 +174,20 @@ ENOKI_TEST_ALL(test09_store_compress) {
         assert(tmp[i] == Scalar(2 + i));
     assert(int(tmp2 - tmp) == std::max(0, int(Size) - 2));
 }
+
+ENOKI_TEST_ALL(test10_transform) {
+    Scalar tmp[T::ActualSize] = { 0 };
+    auto index = index_sequence<uint_array_t<T>>();
+    auto index2 = uint_array_t<T>(0u);
+
+    transform<T>(tmp, index, [](auto value) { return value + Scalar(1); });
+    transform<T>(tmp, index, [](auto value) { return value + Scalar(1); }, typename T::Mask(false));
+
+    transform<T>(tmp, index2, [](auto value) { return value + Scalar(1); });
+    transform<T>(tmp, index2, [](auto value) { return value + Scalar(1); }, typename T::Mask(false));
+
+    assert(tmp[0] == Size + 1);
+    for (size_t i = 1; i < Size; ++i) {
+        assert(tmp[i] == 1);
+    }
+}

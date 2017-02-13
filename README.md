@@ -498,17 +498,21 @@ Index indices = /* .. bin indices whose value should be increased .. */;
 scatter(hist, gather<Float>(hist, indices) + 1, indices);
 ```
 
-Enoki provides a function named ``apply``, which modifies an indirect memory
-location in a way that is not susceptible to conflicts. The function takes an
-arbitrary function as parameter and applies it to the specified memory
+Enoki provides a function named ``transform``, which modifies an indirect
+memory location in a way that is not susceptible to conflicts. The function
+takes an arbitrary function as parameter and applies it to the specified memory
 location, which allows this approach to generalize to situations other than
 just building histograms.
 
 ```
-apply<Float>(hist, indices, [](auto x) { return x + 1; });
+/* Unmasked version */
+transform<Float>(hist, indices, [](auto x) { return x + 1; });
+
+/* Masked version */
+transform<Float>(hist, indices, [](auto x) { return x + 1; }, mask);
 ```
 
-Internally, ``apply`` detects and processes conflicts using the AVX512CDI
+Internally, ``transform`` detects and processes conflicts using the AVX512CDI
 instruction set. When conflicts are present, the function provided as an
 argument may be applied multiple times in a row. When AVX512CDI is not
 available, a (slower) scalar fallback implementation is used.

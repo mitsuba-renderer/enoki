@@ -1071,6 +1071,46 @@ ENOKI_INLINE void scatter(void *mem, const Arg &value, const Index &index, const
         *ptr = value;
 }
 
+/// Combined gather-modify-scatter operation without conflicts
+template <typename Array, size_t Stride = sizeof(typename Array::BaseScalar),
+          typename Index, typename Func, enable_if_sarray_t<Array> = 0,
+          std::enable_if_t<std::is_integral<typename Index::Scalar>::value &&
+                           Index::Size == Array::Size, int> = 0>
+ENOKI_INLINE void transform(void *mem, const Index &index, const Func &func) {
+    Array::template transform_<Stride>(mem, index, func);
+}
+
+/// Combined gather-modify-scatter operation without conflicts (scalar fallback)
+template <typename Arg, size_t Stride = sizeof(Arg), typename Index, typename Func,
+          enable_if_notarray_t<Arg> = 0,
+          std::enable_if_t<std::is_integral<Index>::value, int> = 0>
+ENOKI_INLINE void transform(void *mem, const Index &index, const Func &func) {
+    auto ptr = (Arg *) ((uint8_t *) mem + index * Index(Stride));
+    *ptr = func(*ptr);
+}
+
+/// Combined gather-modify-scatter operation without conflicts
+template <typename Array, size_t Stride = sizeof(typename Array::BaseScalar),
+          typename Index, typename Func, typename Mask,
+          enable_if_sarray_t<Array> = 0,
+          std::enable_if_t<std::is_integral<typename Index::Scalar>::value &&
+                               Index::Size == Array::Size && Mask::Size == Array::Size, int> = 0>
+ENOKI_INLINE void transform(void *mem, const Index &index,
+                            const Func &func, const Mask &mask) {
+    Array::template transform_<Stride>(mem, index, func, mask);
+}
+
+/// Combined gather-modify-scatter operation without conflicts (scalar fallback)
+template <typename Arg, size_t Stride = sizeof(Arg), typename Index, typename Func,
+          typename Mask, enable_if_notarray_t<Arg> = 0,
+          std::enable_if_t<std::is_integral<Index>::value, int> = 0>
+ENOKI_INLINE void transform(void *mem, const Index &index,
+                            const Func &func, const Mask &mask) {
+    auto ptr = (Arg *) ((uint8_t *) mem + index * Index(Stride));
+    if (detail::mask_active(mask))
+        *ptr = func(*ptr);
+}
+
 /// Compressing store operation
 template <typename Array, typename Mask, enable_if_sarray_t<Array> = 0,
           std::enable_if_t<Mask::Size == Array::Size, int> = 0>

@@ -289,6 +289,12 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
             for (size_t i = 0; i < m_packets_allocated; ++i)
                 new (&m_packets[i]) Packet();
         #endif
+
+        /* Clear unused entries */
+        size_t used = sizeof(Scalar) * size;
+        size_t allocated =
+            sizeof(Scalar) * m_packets_allocated * PacketSize;
+        memset((uint8_t *) m_packets.get() + used, 0, allocated - used);
     }
 
 protected:
@@ -336,10 +342,15 @@ struct replace_packet<T, Packet, std::enable_if_t<is_array<std::decay_t<typename
 template <typename T, typename Packet>
 using replace_packet_t = typename replace_packet<T, Packet>::type;
 
-
+template <typename T>
+using vectorize_t =
+    std::conditional_t<is_array<std::decay_t<T>>::value,
+                       replace_packet_t<T, DynamicArray<packet_t<T>>>, T>;
 
 template <typename T>
-using vectorize_t = replace_packet_t< T, DynamicArray<packet_t<T>>>;
+using vectorize_ref_t =
+    std::conditional_t<is_array<std::decay_t<T>>::value,
+                       replace_packet_t<T, DynamicArray<packet_t<T>>>&, T>;
 
 /// Vectorized inner loop (void return value)
 template <typename Func, typename... Args, size_t... Index>

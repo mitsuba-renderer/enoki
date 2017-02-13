@@ -432,6 +432,18 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         store_compress(ptr, a2, high(mask));
     }
 
+    template <size_t Stride, typename Index, typename Func>
+    ENOKI_INLINE static void transform_(void *ptr, const Index &index, const Func &func) {
+        transform<Array1, Stride>(ptr, low(index),  func);
+        transform<Array2, Stride>(ptr, high(index), func);
+    }
+
+    template <size_t Stride, typename Index, typename Func>
+    ENOKI_INLINE static void transform_(void *ptr, const Index &index, const Func &func, const Mask &mask) {
+        transform<Array1, Stride>(ptr, low(index),  func, low(mask));
+        transform<Array2, Stride>(ptr, high(index), func, high(mask));
+    }
+
     // -----------------------------------------------------------------------
     //! @{ \name Component access
     // -----------------------------------------------------------------------

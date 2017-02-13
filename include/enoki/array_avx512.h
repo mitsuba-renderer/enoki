@@ -181,6 +181,55 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
     ENOKI_CONVERT(uint64_t)
         : m(detail::concat(_mm512_cvt_roundepu64_ps(low(a).m, (int) Mode),
                            _mm512_cvt_roundepu64_ps(high(a).m, (int) Mode))) { }
+#elif defined(__AVX512CD__)
+    ENOKI_CONVERT(uint64_t) {
+        /* Emulate uint64_t -> float conversion using other intrinsics
+           instead of falling back to scalar operations. This is quite
+           a bit faster. */
+
+        __m512i v0 = low(a).m,
+                v1 = high(a).m,
+                lz0 = _mm512_lzcnt_epi64(v0),
+                lz1 = _mm512_lzcnt_epi64(v1);
+
+        __mmask8 zero0 =
+            _mm512_cmp_epi64_mask(v0, _mm512_setzero_si512(), _MM_CMPINT_NE);
+
+        __mmask8 zero1 =
+            _mm512_cmp_epi64_mask(v1, _mm512_setzero_si512(), _MM_CMPINT_NE);
+
+        __m512i mant0 = _mm512_mask_blend_epi64(
+            _mm512_cmp_epi64_mask(lz0, _mm512_set1_epi64(63-24), _MM_CMPINT_GT),
+            _mm512_srlv_epi64(v0, _mm512_sub_epi64(_mm512_set1_epi64(63 - 23), lz0)),
+            _mm512_sllv_epi64(v0, _mm512_add_epi64(_mm512_set1_epi64(23 - 63), lz0))
+        );
+
+        __m512i mant1 = _mm512_mask_blend_epi64(
+            _mm512_cmp_epi64_mask(lz1, _mm512_set1_epi64(63-24), _MM_CMPINT_GT),
+            _mm512_srlv_epi64(v1, _mm512_sub_epi64(_mm512_set1_epi64(63 - 23), lz1)),
+            _mm512_sllv_epi64(v1, _mm512_add_epi64(_mm512_set1_epi64(23 - 63), lz1))
+        );
+
+        __m512i exp0 = _mm512_slli_epi64(
+            _mm512_sub_epi64(_mm512_set1_epi64(127 + 63), lz0), 23);
+
+        __m512i exp1 = _mm512_slli_epi64(
+            _mm512_sub_epi64(_mm512_set1_epi64(127 + 63), lz1), 23);
+
+        __m512i comb0 = _mm512_or_epi64(exp0, _mm512_and_epi64(
+            mant0, _mm512_set1_epi64(0b0'00000000'11111111111111111111111)));
+
+        __m512i comb1 = _mm512_or_epi64(exp1, _mm512_and_epi64(
+            mant1, _mm512_set1_epi64(0b0'00000000'11111111111111111111111)));
+
+        __m256 flt0 =
+            _mm256_castsi256_ps(_mm512_maskz_cvtepi64_epi32(zero0, comb0));
+
+        __m256 flt1 =
+            _mm256_castsi256_ps(_mm512_maskz_cvtepi64_epi32(zero1, comb1));
+
+        m = detail::concat(flt0, flt1);
+    }
 #endif
 
     //! @}
@@ -507,6 +556,32 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
     ENOKI_INLINE void massign_(const Mask &mask, const Derived &e) {
         m = _mm512_mask_mov_ps(m, mask.k, e.m);
     }
+
+#if defined(__AVX512CD__)
+    ENOKI_REQUIRE_INDEX_TRANSFORM(Index, int32_t)
+    static ENOKI_INLINE void transform_(void *mem, Index index, const Func &func, Mask mask = Mask(true)) {
+        __m512 values = _mm512_mask_i32gather_ps(
+            _mm512_undefined_ps(), mask.k, index.m, mem, (int) Stride);
+
+        index.m = _mm512_mask_mov_epi32(_mm512_set1_epi32(-1), mask.k, index.m);
+
+        __m512i conflicts = _mm512_conflict_epi32(index.m);
+        __m512i perm_idx  = _mm512_sub_epi32(_mm512_set1_epi32(31), _mm512_lzcnt_epi32(conflicts));
+        __mmask16 todo    = _mm512_mask_test_epi32_mask(mask.k, conflicts, _mm512_set1_epi32(-1));
+
+        values = func(Derived(values)).m;
+
+        while (ENOKI_UNLIKELY(!_mm512_kortestz(todo, todo))) {
+            __mmask16 cur = _mm512_mask_testn_epi32_mask(
+                todo, conflicts, _mm512_broadcastmw_epi32(todo));
+            values = _mm512_mask_permutexvar_ps(values, cur, perm_idx, values);
+            values = _mm512_mask_mov_ps(values, cur, func(Derived(values)).m);
+            todo = _mm512_kxor(todo, cur);
+        }
+
+        _mm512_mask_i32scatter_ps(mem, mask.k, index.m, values, (int) Stride);
+    }
+#endif
 
     //! @}
     // -----------------------------------------------------------------------
@@ -862,6 +937,32 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
         m = _mm512_mask_mov_pd(m, mask.k, e.m);
     }
 
+#if defined(__AVX512CD__)
+    ENOKI_REQUIRE_INDEX_TRANSFORM(Index, int64_t)
+    static ENOKI_INLINE void transform_(void *mem, Index index, const Func &func, Mask mask = Mask(true)) {
+        __m512d values = _mm512_mask_i64gather_pd(
+            _mm512_undefined_pd(), mask.k, index.m, mem, (int) Stride);
+
+        index.m = _mm512_mask_mov_epi64(_mm512_set1_epi64(-1), mask.k, index.m);
+
+        __m512i conflicts = _mm512_conflict_epi64(index.m);
+        __m512i perm_idx  = _mm512_sub_epi64(_mm512_set1_epi64(63), _mm512_lzcnt_epi64(conflicts));
+        __mmask8 todo     = _mm512_mask_test_epi64_mask(mask.k, conflicts, _mm512_set1_epi64(-1));
+
+        values = func(Derived(values)).m;
+
+        while (ENOKI_UNLIKELY(todo)) {
+            __mmask8 cur = _mm512_mask_testn_epi64_mask(
+                todo, conflicts, _mm512_broadcastmb_epi64(todo));
+            values = _mm512_mask_permutexvar_pd(values, cur, perm_idx, values);
+            values = _mm512_mask_mov_pd(values, cur, func(Derived(values)).m);
+            todo ^= cur;
+        }
+
+        _mm512_mask_i64scatter_pd(mem, mask.k, index.m, values, (int) Stride);
+    }
+#endif
+
     //! @}
     // -----------------------------------------------------------------------
 };
@@ -1198,6 +1299,32 @@ template <typename Scalar_, typename Derived> struct alignas(64)
     ENOKI_INLINE void massign_(const Mask &mask, const Derived &e) {
         m = _mm512_mask_mov_epi32(m, mask.k, e.m);
     }
+
+#if defined(__AVX512CD__)
+    ENOKI_REQUIRE_INDEX_TRANSFORM(Index, int32_t)
+    static ENOKI_INLINE void transform_(void *mem, Index index, const Func &func, Mask mask = Mask(true)) {
+        __m512i values = _mm512_mask_i32gather_epi32(
+            _mm512_undefined_epi32(), mask.k, index.m, mem, (int) Stride);
+
+        index.m = _mm512_mask_mov_epi32(_mm512_set1_epi32(-1), mask.k, index.m);
+
+        __m512i conflicts = _mm512_conflict_epi32(index.m);
+        __m512i perm_idx  = _mm512_sub_epi32(_mm512_set1_epi32(31), _mm512_lzcnt_epi32(conflicts));
+        __mmask16 todo    = _mm512_mask_test_epi32_mask(mask.k, conflicts, _mm512_set1_epi32(-1));
+
+        values = func(Derived(values)).m;
+
+        while (ENOKI_UNLIKELY(!_mm512_kortestz(todo, todo))) {
+            __mmask16 cur = _mm512_mask_testn_epi32_mask(
+                todo, conflicts, _mm512_broadcastmw_epi32(todo));
+            values = _mm512_mask_permutexvar_epi32(values, cur, perm_idx, values);
+            values = _mm512_mask_mov_epi32(values, cur, func(Derived(values)).m);
+            todo = _mm512_kxor(todo, cur);
+        }
+
+        _mm512_mask_i32scatter_epi32(mem, mask.k, index.m, values, (int) Stride);
+    }
+#endif
 
     //! @}
     // -----------------------------------------------------------------------
@@ -1546,6 +1673,32 @@ template <typename Scalar_, typename Derived> struct alignas(64)
     ENOKI_INLINE void massign_(const Mask &mask, const Derived &e) {
         m = _mm512_mask_mov_epi64(m, mask.k, e.m);
     }
+
+#if defined(__AVX512CD__)
+    ENOKI_REQUIRE_INDEX_TRANSFORM(Index, int64_t)
+    static ENOKI_INLINE void transform_(void *mem, Index index, const Func &func, Mask mask = Mask(true)) {
+        __m512i values = _mm512_mask_i64gather_epi64(
+            _mm512_undefined_epi32(), mask.k, index.m, mem, (int) Stride);
+
+        index.m = _mm512_mask_mov_epi64(_mm512_set1_epi64(-1), mask.k, index.m);
+
+        __m512i conflicts = _mm512_conflict_epi64(index.m);
+        __m512i perm_idx  = _mm512_sub_epi64(_mm512_set1_epi64(63), _mm512_lzcnt_epi64(conflicts));
+        __mmask8 todo     = _mm512_mask_test_epi64_mask(mask.k, conflicts, _mm512_set1_epi64(-1));
+
+        values = func(Derived(values)).m;
+
+        while (ENOKI_UNLIKELY(todo)) {
+            __mmask8 cur = _mm512_mask_testn_epi64_mask(
+                todo, conflicts, _mm512_broadcastmb_epi64(todo));
+            values = _mm512_mask_permutexvar_epi64(values, cur, perm_idx, values);
+            values = _mm512_mask_mov_epi64(values, cur, func(Derived(values)).m);
+            todo ^= cur;
+        }
+
+        _mm512_mask_i64scatter_epi64(mem, mask.k, index.m, values, (int) Stride);
+    }
+#endif
 
     //! @}
     // -----------------------------------------------------------------------

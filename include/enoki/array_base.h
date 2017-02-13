@@ -399,9 +399,25 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             throw std::length_error("Incompatible size for static array");
     }
 
+    /// Masked assignment operator fallback implementation
     template <typename T = Derived>
     ENOKI_INLINE void massign_(const typename T::Mask m, const typename T::Expr &e) {
         derived() = select(m, e, derived());
+    }
+
+    /// Combined gather-modify-scatter operation without conflicts (fallback implementation)
+    template <size_t Stride, typename Index, typename Func>
+    ENOKI_INLINE static void transform_(void *mem, const Index &index, const Func &func) {
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
+            transform<Scalar, Stride>(mem, index.coeff(i), func);
+    }
+
+    /// Combined gather-modify-scatter operation without conflicts (fallback implementation)
+    template <size_t Stride, typename Index, typename Func, typename Mask>
+    ENOKI_INLINE static void transform_(void *mem, const Index &index,
+                                 const Func &func, const Mask &mask) {
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
+            transform<Scalar, Stride>(mem, index.coeff(i), func, mask.coeff(i));
     }
 
     //! @}
@@ -1582,6 +1598,13 @@ std::ostream &operator<<(std::ostream &os,
 #define ENOKI_REQUIRE_INDEX_PF(T, Index)                                       \
     template <                                                                 \
         size_t Stride, bool Write, size_t Level, typename T,                   \
+        std::enable_if_t<std::is_integral<typename T::Scalar>::value &&        \
+                         sizeof(typename T::Scalar) == sizeof(Index), int> = 0>
+
+/// SFINAE macro for strided operations (transform)
+#define ENOKI_REQUIRE_INDEX_TRANSFORM(T, Index)                                \
+    template <                                                                 \
+        size_t Stride, typename T, typename Func,                              \
         std::enable_if_t<std::is_integral<typename T::Scalar>::value &&        \
                          sizeof(typename T::Scalar) == sizeof(Index), int> = 0>
 

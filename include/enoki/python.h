@@ -26,19 +26,19 @@ template <typename T, typename = void> struct array_shape_descr {
 
 template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_sarray<T>::value>> {
     static PYBIND11_DESCR name() {
-        return _<T::Size>() + array_shape_descr<typename T::Scalar>::name_cont();
+        return array_shape_descr<typename T::Scalar>::name_cont() + _<T::Size>();
     }
     static PYBIND11_DESCR name_cont() {
-        return _(", ") + _<T::Size>() + array_shape_descr<typename T::Scalar>::name_cont();
+        return array_shape_descr<typename T::Scalar>::name_cont() + _<T::Size>() + _(", ");
     }
 };
 
 template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_darray<T>::value>> {
     static PYBIND11_DESCR name() {
-        return _("n") + array_shape_descr<typename T::Scalar>::name_cont();
+        return array_shape_descr<typename T::Scalar>::name_cont() + _("n");
     }
     static PYBIND11_DESCR name_cont() {
-        return _(", n") + array_shape_descr<typename T::Scalar>::name_cont();
+        return array_shape_descr<typename T::Scalar>::name_cont() + _("n, ");
     }
 };
 
@@ -47,7 +47,7 @@ template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_arra
     typedef typename Type::BaseScalar BaseScalar;
 
     bool load(handle src, bool) {
-        auto arr = array_t<BaseScalar, array::c_style | array::forcecast>::ensure(src);
+        auto arr = array_t<BaseScalar, array::f_style | array::forcecast>::ensure(src);
         if (!arr)
             return false;
 
@@ -56,9 +56,14 @@ template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_arra
             return false;
 
         std::array<size_t, ndim> shape;
-        std::copy_n(arr.shape(), ndim, shape.begin());
+        std::reverse_copy(arr.shape(), arr.shape() + ndim, shape.begin());
 
-        enoki::resize(value, shape);
+        try {
+            enoki::resize(value, shape);
+        } catch (std::length_error) {
+            return false;
+        }
+
         const BaseScalar *buf = static_cast<const BaseScalar *>(arr.data());
         read_buffer(buf, value);
 
@@ -74,11 +79,12 @@ template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_arra
             throw type_error("Ragged arrays are not supported!");
 
         auto shape = enoki::shape(src);
+        std::reverse(shape.begin(), shape.end());
         decltype(shape) stride;
 
-        stride[shape.size() - 1] = sizeof(BaseScalar);
-        for (int i = (int) shape.size() - 2; i >= 0; --i)
-            stride[i] = shape[i + 1] * stride[i + 1];
+        stride[0] = sizeof(BaseScalar);
+        for (size_t i = 1; i < shape.size(); ++i)
+            stride[i] = shape[i - 1] * stride[i - 1];
 
         buffer_info info(nullptr, sizeof(BaseScalar),
                          format_descriptor<BaseScalar>::value, shape.size(),
@@ -142,5 +148,47 @@ private:
     Type value;
 };
 
+
 NAMESPACE_END(detail)
 NAMESPACE_END(pybind11)
+
+NAMESPACE_BEGIN(enoki)
+
+template <typename Func, typename Return, typename... Args /*,*/ PYBIND11_NOEXCEPT_TPL_ARG>
+auto vectorize_wrapper_detail(Func &&f_, Return (*)(Args...) PYBIND11_NOEXCEPT_SPECIFIER) {
+    return [f = std::forward<Func>(f_)](enoki::detail::vectorize_ref_t<Args>... args) {
+        return vectorize_safe(f, args...);
+    };
+}
+
+/// Construct a vectorize_wrapper from a vanilla function pointer
+template <typename Return, typename... Args /*,*/ PYBIND11_NOEXCEPT_TPL_ARG>
+auto vectorize_wrapper(Return (*f)(Args...) PYBIND11_NOEXCEPT_SPECIFIER) {
+    return vectorize_wrapper_detail(f, f);
+}
+
+/// Construct a vectorize_wrapper from a lambda function (possibly with internal state)
+template <typename Func> auto vectorize_wrapper(Func &&f) {
+    return vectorize_wrapper_detail(
+        std::forward<Func>(f),
+        (typename pybind11::detail::remove_class<decltype(
+             &std::remove_reference<Func>::type::operator())>::type *) nullptr);
+}
+
+/// Construct a vectorize_wrapper from a class method (non-const)
+template <typename Return, typename Class, typename... Arg /*,*/ PYBIND11_NOEXCEPT_TPL_ARG>
+auto vectorize_wrapper(Return (Class::*f)(Arg...) PYBIND11_NOEXCEPT_SPECIFIER) {
+    return vectorize_wrapper_detail(
+        [f](Class *c, Arg... args) -> Return { return (c->*f)(args...); },
+        (Return(*)(Class *, Arg...) PYBIND11_NOEXCEPT_SPECIFIER) nullptr);
+}
+
+/// Construct a vectorize_wrapper from a class method (const)
+template <typename Return, typename Class, typename... Arg /*,*/ PYBIND11_NOEXCEPT_TPL_ARG>
+auto vectorize_wrapper(Return (Class::*f)(Arg...) const PYBIND11_NOEXCEPT_SPECIFIER) {
+    return vectorize_wrapper_detail(
+        [f](const Class *c, Arg... args) -> Return { return (c->*f)(args...); },
+        (Return(*)(const Class *, Arg...) PYBIND11_NOEXCEPT_SPECIFIER) nullptr);
+}
+
+NAMESPACE_END(enoki)
