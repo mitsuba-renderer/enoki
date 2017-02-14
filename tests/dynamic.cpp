@@ -36,8 +36,11 @@ ENOKI_TEST(test01_alloc)  {
     assert(y.packets() == 3);
     assert(!y.is_mapped());
 
-    for (size_t i = 1; i<3; ++i)
-        assert(all(enoki::isnan(y.packet(i))));
+    assert(!all(enoki::isnan(y.packet(0))));
+    assert(any(enoki::isnan(y.packet(0))));
+    assert(all(enoki::isnan(y.packet(1))));
+    assert(!all(enoki::isnan(y.packet(2))));
+    assert(any(enoki::isnan(y.packet(2))));
 
     y.coeff(2) = 2.f;
     assert(to_string(y) == "[nan, 1, 2, nan, nan, nan, nan, nan, nan, nan]");

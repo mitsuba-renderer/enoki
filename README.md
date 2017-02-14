@@ -4,6 +4,10 @@
 
 # Enoki — fast vectorized arithmetic on modern processors
 
+[![Build Status](https://rglpc1.epfl.ch/jenkins/job/enoki/badge/icon)](https://rglpc1.epfl.ch/jenkins/job/enoki/)
+
+## Compiling
+
 **Enoki** is a C++ template library that enables transparent vectorization
 of numerical code on Intel processors. It is implemented as a set of header
 files and has no dependencies other than a sufficiently C++14-capable compiler

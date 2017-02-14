@@ -16,6 +16,27 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
 
+set(ENOKI_CXXFLAGS_BACKUP ${CMAKE_CXX_FLAGS})
+
+if (MSVC)
+  set(ENOKI_ARCHFLAGS_FILE archflags_win32.cpp)
+else()
+  set(ENOKI_ARCHFLAGS_FILE archflags_unix.cpp)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
+endif()
+
+try_run(
+  ENOKI_ARCHFLAGS_RETVAL ENOKI_ARCHFLAGS_COMPILE_RESULT
+  ${CMAKE_BINARY_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/resources/${ENOKI_ARCHFLAGS_FILE}
+  RUN_OUTPUT_VARIABLE ENOKI_ARCHFLAGS
+)
+if(NOT ${ENOKI_ARCHFLAGS_COMPILE_RESULT})
+   message(FATAL_ERROR "Failed to compile 'archflags' binary")
+endif()
+
+set(CMAKE_CXX_FLAGS ${ENOKI_CXXFLAGS_BACKUP})
+
 # Optimize for current architecture
 set(ENOKI_NATIVE_FLAGS "")
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR
@@ -26,19 +47,48 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
 elseif(MSVC)
   # MSVC doesn't have a flag equivalent to -march=native
   # The 'archflags' executable provides this functionality
-  try_run(
-    ENOKI_NATIVE_FLAGS_RETVAL ENOKI_NATIVE_FLAGS_COMPILE_RESULT
-    ${CMAKE_BINARY_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/resources/archflags.cpp
-    RUN_OUTPUT_VARIABLE ENOKI_NATIVE_FLAGS
-  )
-  if(NOT ${ENOKI_NATIVE_FLAGS_COMPILE_RESULT})
-     message(FATAL_ERROR "Failed to compile 'archflags' binary")
-  endif()
+  set(ENOKI_NATIVE_FLAGS ${ENOKI_ARCHFLAGS})
 endif()
 
 if (NOT ENOKI_MASTER_PROJECT)
   set(ENOKI_NATIVE_FLAGS ${ENOKI_NATIVE_FLAGS} PARENT_SCOPE)
+endif()
+
+set(TEST_SSE42 OFF)
+set(TEST_AVX OFF)
+set(TEST_AVX2 OFF)
+set(TEST_KNL OFF)
+set(TEST_SKX OFF)
+
+string(TOUPPER "${ENOKI_ARCHFLAGS}" ENOKI_ARCHFLAGS)
+
+if (MSVC OR ENOKI_ARCHFLAGS MATCHES "SSE")
+  set(TEST_SSE42 ON)
+endif()
+
+if (ENOKI_ARCHFLAGS MATCHES "AVX")
+  set(TEST_SSE42 ON)
+  set(TEST_AVX ON)
+endif()
+
+if (ENOKI_ARCHFLAGS MATCHES "AVX2")
+  set(TEST_SSE42 ON)
+  set(TEST_AVX ON)
+  set(TEST_AVX2 ON)
+endif()
+
+if (ENOKI_ARCHFLAGS MATCHES "KNL")
+  set(TEST_SSE42 ON)
+  set(TEST_AVX ON)
+  set(TEST_AVX2 ON)
+  set(TEST_KNL ON)
+endif()
+
+if (ENOKI_ARCHFLAGS MATCHES "SKX")
+  set(TEST_SSE42 ON)
+  set(TEST_AVX ON)
+  set(TEST_AVX2 ON)
+  set(TEST_SKX ON)
 endif()
 
 macro(enoki_set_native_flags)
@@ -130,34 +180,45 @@ function(enoki_test NAME)
 
   add_executable(${NAME}_sse42 ${ARGN} ${ENOKI_HEADERS})
   set_target_properties(${NAME}_sse42 PROPERTIES COMPILE_FLAGS ${SSE42_FLAGS})
-  add_test(${NAME}_sse42_test ${NAME}_sse42)
-  set_tests_properties(${NAME}_sse42_test PROPERTIES LABELS "sse42")
   set_target_properties(${NAME}_sse42 PROPERTIES FOLDER ${NAME})
+  if (TEST_SSE42)
+    add_test(${NAME}_sse42_test ${NAME}_sse42)
+    set_tests_properties(${NAME}_sse42_test PROPERTIES LABELS "sse42")
+  endif()
 
   add_executable(${NAME}_avx ${ARGN} ${ENOKI_HEADERS})
   set_target_properties(${NAME}_avx PROPERTIES COMPILE_FLAGS ${AVX_FLAGS})
-  add_test(${NAME}_avx_test ${NAME}_avx)
-  set_tests_properties(${NAME}_avx_test PROPERTIES LABELS "avx")
   set_target_properties(${NAME}_avx PROPERTIES FOLDER ${NAME})
+  if (TEST_AVX)
+    add_test(${NAME}_avx_test ${NAME}_avx)
+    set_tests_properties(${NAME}_avx_test PROPERTIES LABELS "avx")
+  endif()
 
   add_executable(${NAME}_avx2 ${ARGN} ${ENOKI_HEADERS})
   set_target_properties(${NAME}_avx2 PROPERTIES COMPILE_FLAGS ${AVX2_FLAGS})
-  add_test(${NAME}_avx2_test ${NAME}_avx2)
-  set_tests_properties(${NAME}_avx2_test PROPERTIES LABELS "avx2")
   set_target_properties(${NAME}_avx2 PROPERTIES FOLDER ${NAME})
+  if (TEST_AVX2)
+    add_test(${NAME}_avx2_test ${NAME}_avx2)
+    set_tests_properties(${NAME}_avx2_test PROPERTIES LABELS "avx2")
+  endif()
 
   if (NOT MSVC)
     add_executable(${NAME}_avx512_knl ${ARGN} ${ENOKI_HEADERS})
     set_target_properties(${NAME}_avx512_knl PROPERTIES COMPILE_FLAGS ${AVX512_KNL_FLAGS})
-    add_test(${NAME}_avx512_knl_test ${NAME}_avx512_knl)
-    set_tests_properties(${NAME}_avx512_knl_test PROPERTIES LABELS "avx512_knl")
     set_target_properties(${NAME}_avx512_knl PROPERTIES FOLDER ${NAME})
+    if (TEST_KNL)
+      add_test(${NAME}_avx512_knl_test ${NAME}_avx512_knl)
+      set_tests_properties(${NAME}_avx512_knl_test PROPERTIES LABELS "avx512_knl")
+    endif()
 
     add_executable(${NAME}_avx512_skx ${ARGN} ${ENOKI_HEADERS})
     set_target_properties(${NAME}_avx512_skx PROPERTIES COMPILE_FLAGS ${AVX512_SKX_FLAGS})
-    add_test(${NAME}_avx512_skx_test ${NAME}_avx512_skx)
-    set_tests_properties(${NAME}_avx512_skx_test PROPERTIES LABELS "avx512_skx")
     set_target_properties(${NAME}_avx512_skx PROPERTIES FOLDER ${NAME})
+
+    if (TEST_SKX)
+      add_test(${NAME}_avx512_skx_test ${NAME}_avx512_skx)
+      set_tests_properties(${NAME}_avx512_skx_test PROPERTIES LABELS "avx512_skx")
+    endif()
   endif()
 endfunction()
 
