@@ -803,6 +803,24 @@ ENOKI_INLINE __m128i mm256_cvtepi64_epi32(__m128i x0, __m128i x1) {
 //! @}
 // -----------------------------------------------------------------------
 
+template <typename Array>
+ENOKI_INLINE Array *alloca_helper(uint8_t *ptr, size_t size, bool clear) {
+    (uintptr_t &) ptr +=
+        ((ENOKI_MAX_PACKET_SIZE - (uintptr_t) ptr) % ENOKI_MAX_PACKET_SIZE);
+    if (clear)
+        memset(ptr, 0, size);
+    return (Array *) ptr;
+}
+
 NAMESPACE_END(detail)
+
+/**
+ * \brief Wrapper around alloca(), which returns aligned (and potentially
+ * zero-initialized) memory
+ */
+#define ENOKI_ALIGNED_ALLOCA(Array, Count, Clear)                              \
+    enoki::detail::alloca_helper<Array>((uint8_t *) alloca(                    \
+        sizeof(Array) * (Count) + ENOKI_MAX_PACKET_SIZE - 4),                  \
+        sizeof(Array) * (Count), Clear)
 
 NAMESPACE_END(enoki)

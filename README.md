@@ -4,7 +4,7 @@
 
 # Enoki — fast vectorized arithmetic on modern processors
 
-[![Build Status](https://rglpc1.epfl.ch/jenkins/job/enoki/badge/icon)](https://rglpc1.epfl.ch/jenkins/job/enoki/)
+[![Build Status](https://rglpc1.epfl.ch/jenkins/buildStatus/icon?job=enoki)](https://rglpc1.epfl.ch/jenkins/job/enoki/)
 
 ## Compiling
 
@@ -110,7 +110,7 @@ since ``Array::operator+()`` can carry out the desired addition by invoking
 ``std::string::operator+()``.
 
 ```cpp
-using StringArray = Array<std::string, 2>;
+using StrArray = Array<std::string, 2>;
 
 StrArray a1("Hello ", "How are "),
          a2("world!", "you?");
@@ -202,6 +202,9 @@ f3 = gather<MyFloat>(mem, idx);
 scatter(mem, f3, idx);
 ```
 
+The ``idx`` parameter should be a 32 or 64 bit array (assumed to be signed)
+having the same number of entries.
+
 All scatter/gather operations accept an extra masking parameter to disable
 memory accesses for some of the components. Mask values are discussed shortly.
 
@@ -235,8 +238,8 @@ void kernel_scalar(float x, float y, float sigma, float *buf) {
     buf[0] += std::exp(-0.5f * (x*x + y*y) / sigma);
 }
 
-/* This verson other hand can be instantiated as *both* kernel<float> and kernel<MyFloat>!*/
-template <typename T> void kernel(T x, T y, T sigma, float *buffer) {
+/* This version other hand can be instantiated as *both* kernel<float> and kernel<MyFloat>!*/
+template <typename T> void kernel(T x, T y, T sigma, float *buf) {
     store(buf,
           load<T>(buf) + exp(-0.5f * (x*x + y*y) / sigma));
 }
@@ -449,6 +452,10 @@ of an array matching the given mask:
 f1[f1 < 0.f] = f2;
 ```
 
+Compared to ``select()``, a masked assignment may generate slightly more
+efficient code on some platforms. Apart from this, the two approaches can be
+used interchangably.
+
 #### Casting, half precision
 
 Enoki supports conversion between any pair of types using builtin constructors:
@@ -534,7 +541,6 @@ of written entries.
 float *mem;
 auto mask = f1 < 0;
 store_compress(mem, f1, mask);
-mem += count(mask);
 ...
 ```
 
@@ -700,7 +706,7 @@ vec += vec * sin(vec);
 Vector3fP vec2(1.f, 2.f, 3.f);
 
 /* Dot product (caution: this now creates a size-4 packet of
-   dot products corresponding to each of the 3D vectors) */
+   dot products corresponding to pair of 3D vectors) */
 FloatP dp = dot(vec, vec2);
 
 .. etc ..
@@ -884,10 +890,10 @@ using FloatX = DynamicArray<FloatP>;
 using Vector3f = Array<float, 3>;
 
 /* Fixed size packet of 3D vectors (SoA data organization, vectorized using FloatP) */
-using Vector3fP = Vector<FloatP, 3>;
+using Vector3fP = Array<FloatP, 3>;
 
 /* === NEW ===: Arbitrarily many 3D vectors (SoA data organization, vectorized using FloatP) */
-using Vector3fX = Vector<FloatX, 3>;
+using Vector3fX = Array<FloatX, 3>;
 ```
 
 The prior example of computing a normalized cross product (plus some extra code
