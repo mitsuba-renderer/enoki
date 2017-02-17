@@ -92,3 +92,44 @@ ENOKI_TEST(test02_vecops_float) {
 ENOKI_TEST(test02_vecops_double) {
     test02_vecops_float<Array<double, 3>>();
 }
+
+ENOKI_TEST(array_float_04_transpose) {
+    using T  = Array<float, 4>;
+    using T2 = Array<T, 4>;
+
+    assert(
+        transpose(T2(T(1, 2, 3, 4), T(5, 6, 7, 8), T(9, 10, 11, 12), T(13, 14, 15, 16))) ==
+        T2(T(1, 5, 9, 13), T(2, 6, 10, 14), T(3, 7, 11, 15), T(4, 8, 12, 16)));
+}
+
+ENOKI_TEST(array_double_04_transpose) {
+    using T  = Array<double, 4>;
+    using T2 = Array<T, 4>;
+
+    assert(
+        transpose(T2(T(1, 2, 3, 4), T(5, 6, 7, 8), T(9, 10, 11, 12), T(13, 14, 15, 16))) ==
+        T2(T(1, 5, 9, 13), T(2, 6, 10, 14), T(3, 7, 11, 15), T(4, 8, 12, 16)));
+}
+
+ENOKI_TEST(array_float_04_mvprod) {
+    using T  = Array<float, 4>;
+    using T2 = Array<T, 4>;
+
+    std::cout <<
+        mvprod(T2(T(1, 2, 3, 4), T(5, 6, 7, 8), T(9, 10, 11, 12), T(13, 14, 15, 16)),
+            T(1, 1, 1, 1)) << std::endl;
+
+    assert(
+        mvprod(T2(T(1, 2, 3, 4), T(5, 6, 7, 8), T(9, 10, 11, 12), T(13, 14, 15, 16)),
+            T(1, 1, 1, 1)) == T(10, 26, 42, 58));
+}
+
+
+ENOKI_TEST(array_double_04_mvprod) {
+    using T  = Array<double, 4>;
+    using T2 = Array<T, 4>;
+
+    assert(
+        mvprod(T2(T(1, 2, 3, 4), T(5, 6, 7, 8), T(9, 10, 11, 12), T(13, 14, 15, 16)),
+            T(1, 1, 1, 1)) == T(10, 26, 42, 58));
+}
