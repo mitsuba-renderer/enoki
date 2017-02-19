@@ -103,7 +103,8 @@ NAMESPACE_BEGIN(enoki)
 #define ENOKI_ROUTE_BCAST(name)                                                \
     template <typename Type, size_t Size, bool Approx, RoundingMode Mode,      \
               typename Derived, typename Arg,                                  \
-              std::enable_if_t<detail::bcast<Derived, Arg>::value, int> = 0>   \
+              std::enable_if_t<detail::bcast<Derived, Arg>::value, int> = 0,   \
+              typename = decltype(typename Derived::Expr(std::declval<Arg>()))>\
     ENOKI_INLINE auto name(                                                    \
         const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,          \
         const Arg &a2) {                                                       \
@@ -111,7 +112,8 @@ NAMESPACE_BEGIN(enoki)
     }                                                                          \
     template <typename Type, size_t Size, bool Approx, RoundingMode Mode,      \
               typename Derived, typename Arg,                                  \
-              std::enable_if_t<detail::bcast<Derived, Arg>::value, int> = 0>   \
+              std::enable_if_t<detail::bcast<Derived, Arg>::value, int> = 0,   \
+              typename = decltype(typename Derived::Expr(std::declval<Arg>()))>\
     ENOKI_INLINE auto name(                                                    \
         const Arg &a1,                                                         \
         const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a2) {        \
@@ -1198,33 +1200,35 @@ Scalar clamp(Scalar value, Scalar min_, Scalar max_) {
 //! @{ \name Routing functions for dynamic arrays
 // -----------------------------------------------------------------------
 
-template <typename T, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-ENOKI_INLINE size_t dynamic_size(const T &value) { return value.dynamic_size(); }
+template <typename T, std::enable_if_t<is_dynamic<T>::value && is_array<T>::value, int> = 0>
+ENOKI_INLINE size_t dynamic_size(const T &value) { return value.dynamic_size_(); }
 
 template <typename T, std::enable_if_t<!is_dynamic<T>::value, int> = 0>
 ENOKI_INLINE size_t dynamic_size(const T &) { return 0; }
 
-template <typename T, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-ENOKI_INLINE size_t packets(const T &value) { return value.packets(); }
+template <typename T, std::enable_if_t<is_dynamic<T>::value && is_array<T>::value, int> = 0>
+ENOKI_INLINE void dynamic_resize(T &value, size_t size) { value.dynamic_resize_(size); }
+
+template <typename T, std::enable_if_t<!is_dynamic<T>::value, int> = 0>
+ENOKI_INLINE void dynamic_resize(T &, size_t) { }
+
+template <typename T, std::enable_if_t<is_dynamic<T>::value && is_array<T>::value, int> = 0>
+ENOKI_INLINE size_t packets(const T &value) { return value.packets_(); }
 
 template <typename T, std::enable_if_t<!is_dynamic<T>::value, int> = 0>
 ENOKI_INLINE size_t packets(const T &) { return 0; }
 
-template <typename T, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-ENOKI_INLINE auto packet(T &&value, size_t i) -> decltype(value.packet(i)) { return value.packet(i); }
+template <typename T, std::enable_if_t<is_dynamic<T>::value && is_array<T>::value, int> = 0>
+ENOKI_INLINE auto packet(T &&value, size_t i) -> decltype(value.packet_(i)) { return value.packet_(i); }
 
 template <typename T, std::enable_if_t<!is_dynamic<T>::value, int> = 0>
 ENOKI_INLINE T packet(T &&value, size_t) { return value; }
 
-NAMESPACE_BEGIN(detail)
-
-template <typename T, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-ENOKI_INLINE auto ref(T &&value) -> decltype(value.ref_()) { return value.ref_(); }
+template <typename T, std::enable_if_t<is_dynamic<T>::value && is_array<T>::value, int> = 0>
+ENOKI_INLINE auto ref_wrap(T &&value) -> decltype(value.ref_wrap_()) { return value.ref_wrap_(); }
 
 template <typename T, std::enable_if_t<!is_dynamic<T>::value, int> = 0>
-ENOKI_INLINE T ref(T &&value) { return value; }
-
-NAMESPACE_END(detail)
+ENOKI_INLINE T ref_wrap(T &&value) { return value; }
 
 //! @}
 // -----------------------------------------------------------------------
@@ -1249,10 +1253,10 @@ ENOKI_INLINE bool check_shape_recursive(const T &, const size_t *) { return true
 template <typename T, std::enable_if_t<is_array<T>::value, int> = 0>
 ENOKI_INLINE bool check_shape_recursive(const T &a, const size_t *shape) {
     size_t size = a.derived().size();
-    if (T::Dynamic && *shape != size)
+    if (*shape != size)
         return false;
     bool match = true;
-    if (is_dynamic<std::decay_t<typename T::Scalar>>::value) {
+    if (is_dynamic<typename T::Scalar>::value) {
         for (size_t i = 0; i < size; ++i)
             match &= check_shape_recursive(a.derived().coeff(i), shape + 1);
     } else {
@@ -1268,7 +1272,7 @@ template <typename T, std::enable_if_t<is_array<T>::value, int> = 0>
 ENOKI_INLINE void set_shape_recursive(T &a, const size_t *shape) {
     size_t size = a.derived().size();
     a.resize_(*shape);
-    if (is_dynamic<std::decay_t<typename T::Scalar>>::value) {
+    if (is_dynamic<typename T::Scalar>::value) {
         for (size_t i = 0; i < size; ++i)
             set_shape_recursive(a.derived().coeff(i), shape + 1);
     } else {

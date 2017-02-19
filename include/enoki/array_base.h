@@ -160,10 +160,6 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     /// Are arithmetic operations approximate?
     static constexpr bool Approx = Approx_;
 
-    /// This is a static array (although it may contain dynamic ones)
-    /// Use enoki::is_dynamic<> to check the entire hierarchy
-    static constexpr bool Dynamic = false;
-
     /// Rounding mode of arithmetic operations
     static constexpr RoundingMode Mode = Mode_;
 
@@ -1622,9 +1618,12 @@ std::ostream &operator<<(std::ostream &os,
     using Base::derived;                                                       \
     Register m;                                                                \
     ENOKI_TRIVIAL_CONSTRUCTOR(Scalar_)                                         \
-    StaticArrayImpl(const StaticArrayImpl &) = default;                        \
-    StaticArrayImpl &operator=(const StaticArrayImpl &) = default;             \
+    StaticArrayImpl(const StaticArrayImpl &a) : m(a.m) { }                     \
     ENOKI_INLINE StaticArrayImpl(Register value) : m(value) { }                \
+    StaticArrayImpl &operator=(const StaticArrayImpl &a) {                     \
+        m = a.m;                                                               \
+        return *this;                                                          \
+    }                                                                          \
     ENOKI_INLINE Scalar &coeff(size_t i) { return ((Scalar *) &m)[i]; }        \
     ENOKI_INLINE const Scalar &coeff(size_t i) const {                         \
         return ((const Scalar *) &m)[i];                                       \
@@ -1633,7 +1632,7 @@ std::ostream &operator<<(std::ostream &os,
               std::enable_if_t<std::is_assignable<Scalar_ &, Type2>::value &&  \
                                Derived2::Size == T::Size, int> = 0>            \
     ENOKI_INLINE StaticArrayImpl(const ArrayBase<Type2, Derived2> &a) {        \
-        ENOKI_TRACK_SCALAR for (size_t i = 0; i < Derived2::Size; ++i)               \
+        ENOKI_TRACK_SCALAR for (size_t i = 0; i < Derived2::Size; ++i)         \
             derived().coeff(i) = Scalar(a.derived().coeff(i));                 \
     }                                                                          \
     template <size_t Size2, bool Approx2, RoundingMode Mode2,                  \
@@ -1645,7 +1644,7 @@ std::ostream &operator<<(std::ostream &os,
         using Int = typename detail::type_chooser<sizeof(Scalar)>::Int;        \
         const Scalar on = memcpy_cast<Scalar>(Int(-1));                        \
         const Scalar off = memcpy_cast<Scalar>(Int(0));                        \
-        ENOKI_TRACK_SCALAR for (size_t i = 0; i < Derived2::Size; ++i)               \
+        ENOKI_TRACK_SCALAR for (size_t i = 0; i < Derived2::Size; ++i)         \
             coeff(i) = a.derived().coeff(i) ? on : off;                        \
     }                                                                          \
     template <                                                                 \

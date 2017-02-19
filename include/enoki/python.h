@@ -154,41 +154,49 @@ NAMESPACE_END(pybind11)
 
 NAMESPACE_BEGIN(enoki)
 
-template <typename Func, typename Return, typename... Args /*,*/ PYBIND11_NOEXCEPT_TPL_ARG>
-auto vectorize_wrapper_detail(Func &&f_, Return (*)(Args...) PYBIND11_NOEXCEPT_SPECIFIER) {
-    return [f = std::forward<Func>(f_)](enoki::detail::vectorize_ref_t<Args>... args) {
+template <typename T, typename = void> struct reference_dynamic { using type = T; };
+template <typename T>
+struct reference_dynamic<T, std::enable_if_t<is_dynamic<T>::value>> {
+    using type = std::add_lvalue_reference_t<T>;
+};
+template <typename T>
+using reference_dynamic_t = typename reference_dynamic<T>::type;
+
+template <typename Func, typename Return, typename... Args>
+auto vectorize_wrapper_detail(Func &&f_, Return (*)(Args...)) {
+    return [f = std::forward<Func>(f_)](reference_dynamic_t<enoki::dynamic_t<Args>>... args) {
         return vectorize_safe(f, args...);
     };
 }
 
-/// Construct a vectorize_wrapper from a vanilla function pointer
-template <typename Return, typename... Args /*,*/ PYBIND11_NOEXCEPT_TPL_ARG>
-auto vectorize_wrapper(Return (*f)(Args...) PYBIND11_NOEXCEPT_SPECIFIER) {
+/// Vctorize a vanilla function pointer
+template <typename Return, typename... Args>
+auto vectorize_wrapper(Return (*f)(Args...)) {
     return vectorize_wrapper_detail(f, f);
 }
 
-/// Construct a vectorize_wrapper from a lambda function (possibly with internal state)
-template <typename Func> auto vectorize_wrapper(Func &&f) {
-    return vectorize_wrapper_detail(
-        std::forward<Func>(f),
-        (typename pybind11::detail::remove_class<decltype(
-             &std::remove_reference<Func>::type::operator())>::type *) nullptr);
+/// Vectorize a lambda function method (possibly with internal state)
+template <typename Func,
+          typename FuncType = typename pybind11::detail::remove_class<
+              decltype(&std::remove_reference<Func>::type::operator())>::type>
+auto vectorize_wrapper(Func &&f) {
+    return vectorize_wrapper_detail(std::forward<Func>(f), (FuncType *) nullptr);
 }
 
-/// Construct a vectorize_wrapper from a class method (non-const)
-template <typename Return, typename Class, typename... Arg /*,*/ PYBIND11_NOEXCEPT_TPL_ARG>
-auto vectorize_wrapper(Return (Class::*f)(Arg...) PYBIND11_NOEXCEPT_SPECIFIER) {
+/// Vectorize a class method (non-const)
+template <typename Return, typename Class, typename... Arg>
+auto vectorize_wrapper(Return (Class::*f)(Arg...)) {
     return vectorize_wrapper_detail(
         [f](Class *c, Arg... args) -> Return { return (c->*f)(args...); },
-        (Return(*)(Class *, Arg...) PYBIND11_NOEXCEPT_SPECIFIER) nullptr);
+        (Return(*)(Class *, Arg...)) nullptr);
 }
 
-/// Construct a vectorize_wrapper from a class method (const)
-template <typename Return, typename Class, typename... Arg /*,*/ PYBIND11_NOEXCEPT_TPL_ARG>
-auto vectorize_wrapper(Return (Class::*f)(Arg...) const PYBIND11_NOEXCEPT_SPECIFIER) {
+/// Vectorize a class method (const)
+template <typename Return, typename Class, typename... Arg>
+auto vectorize_wrapper(Return (Class::*f)(Arg...) const) {
     return vectorize_wrapper_detail(
         [f](const Class *c, Arg... args) -> Return { return (c->*f)(args...); },
-        (Return(*)(const Class *, Arg...) PYBIND11_NOEXCEPT_SPECIFIER) nullptr);
+        (Return(*)(const Class *, Arg...)) nullptr);
 }
 
 NAMESPACE_END(enoki)

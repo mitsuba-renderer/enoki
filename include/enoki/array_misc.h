@@ -155,9 +155,9 @@ Array<Arr, 2> meshgrid(const Arr &x, const Arr &y) {
         /* Fast path */
 
         for (size_t i = 0; i < y.size(); ++i) {
-            for (size_t j = 0; j < x.packets(); ++j) {
-                X.packet(pos) = x.packet(j);
-                Y.packet(pos) = typename Arr::Packet(y.coeff(i));
+            for (size_t j = 0; j < packets(x); ++j) {
+                packet(X, pos) = packet(x, j);
+                packet(Y, pos) = typename Arr::Packet(y.coeff(i));
                 pos++;
             }
         }

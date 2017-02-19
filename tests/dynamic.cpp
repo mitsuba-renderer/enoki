@@ -21,26 +21,26 @@ ENOKI_TEST(test01_alloc)  {
 
     assert(x.size() == 10);
     assert(x.capacity() == 12);
-    assert(x.packets() == 3);
+    assert(packets(x) == 3);
     assert(!x.is_mapped());
     x.coeff(1) = 1.f;
 
     auto y = std::move(x);
     assert(x.size() == 0);
     assert(x.capacity() == 0);
-    assert(x.packets() == 0);
+    assert(packets(x) == 0);
     assert(!x.is_mapped());
 
     assert(y.size() == 10);
     assert(y.capacity() == 12);
-    assert(y.packets() == 3);
+    assert(packets(y) == 3);
     assert(!y.is_mapped());
 
-    assert(!all(enoki::isnan(y.packet(0))));
-    assert(any(enoki::isnan(y.packet(0))));
-    assert(all(enoki::isnan(y.packet(1))));
-    assert(!all(enoki::isnan(y.packet(2))));
-    assert(any(enoki::isnan(y.packet(2))));
+    assert(!all(enoki::isnan(packet(y, 0))));
+    assert( any(enoki::isnan(packet(y, 0))));
+    assert( all(enoki::isnan(packet(y, 1))));
+    assert(!all(enoki::isnan(packet(y, 2))));
+    assert( any(enoki::isnan(packet(y, 2))));
 
     y.coeff(2) = 2.f;
     assert(to_string(y) == "[nan, 1, 2, nan, nan, nan, nan, nan, nan, nan]");
@@ -59,7 +59,7 @@ ENOKI_TEST(test02_map)  {
 
     assert(x.size() == 6);
     assert(x.capacity() == 0);
-    assert(x.packets() == 2);
+    assert(packets(x) == 2);
     assert(x.is_mapped());
     assert(to_string(x) == "[0, 1, 2, 3, 4, 5]");
 }

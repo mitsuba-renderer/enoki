@@ -778,63 +778,63 @@ public:
     // -----------------------------------------------------------------------
 
     template <typename T = Scalar, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-    void dynamic_resize(size_t size) {
+    ENOKI_NOINLINE void dynamic_resize_(size_t size) {
         for (size_t i = 0; i < Size; ++i)
-            m_data[i].dynamic_resize(size);
+            dynamic_resize(m_data[i], size);
     }
 
     template <typename T = Scalar, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-    ENOKI_INLINE size_t dynamic_size() const { return m_data[0].dynamic_size(); }
+    ENOKI_INLINE size_t dynamic_size_() const { return dynamic_size(m_data[0]); }
 
     template <typename T = Scalar, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-    ENOKI_INLINE size_t packets() const { return m_data[0].packets(); }
+    ENOKI_INLINE size_t packets_() const { return packets(m_data[0]); }
 
     template <typename T = Scalar, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-    ENOKI_INLINE auto packet(size_t i) {
-        return packet(i, std::make_index_sequence<Size>());
+    ENOKI_INLINE auto packet_(size_t i) {
+        return packet_(i, std::make_index_sequence<Size>());
     }
 
     template <typename T = Scalar, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-    ENOKI_INLINE auto packet(size_t i) const {
-        return packet(i, std::make_index_sequence<Size>());
+    ENOKI_INLINE auto packet_(size_t i) const {
+        return packet_(i, std::make_index_sequence<Size>());
     }
 
     template <typename T = Scalar, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-    ENOKI_INLINE auto ref_() {
-        return ref_(std::make_index_sequence<Size>());
+    ENOKI_INLINE auto ref_wrap_() {
+        return ref_wrap_(std::make_index_sequence<Size>());
     }
 
     template <typename T = Scalar, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-    ENOKI_INLINE auto ref_() const {
-        return ref_(std::make_index_sequence<Size>());
+    ENOKI_INLINE auto ref_wrap_() const {
+        return ref_wrap_(std::make_index_sequence<Size>());
     }
 
 private:
     template <size_t... Index>
-    ENOKI_INLINE auto packet(size_t i, std::index_sequence<Index...>) {
-        return Array<decltype(enoki::packet(std::declval<Scalar>(), 0)), Size>(
-            enoki::packet(m_data[Index], i)...
+    ENOKI_INLINE auto packet_(size_t i, std::index_sequence<Index...>) {
+        return Array<decltype(packet(std::declval<Scalar>(), 0)), Size>(
+            packet(m_data[Index], i)...
         );
     }
 
     template <size_t... Index>
-    ENOKI_INLINE auto packet(size_t i, std::index_sequence<Index...>) const {
-        return Array<decltype(enoki::packet(std::declval<const Scalar &>(), 0)), Size>(
-            enoki::packet(m_data[Index], i)...
+    ENOKI_INLINE auto packet_(size_t i, std::index_sequence<Index...>) const {
+        return Array<decltype(packet(std::declval<const Scalar &>(), 0)), Size>(
+            packet(m_data[Index], i)...
         );
     }
 
     template <size_t... Index>
-    ENOKI_INLINE auto ref_(std::index_sequence<Index...>) {
-        return Array<decltype(detail::ref(std::declval<Scalar>())), Size>(
-            detail::ref(m_data[Index])...
+    ENOKI_INLINE auto ref_wrap_(std::index_sequence<Index...>) {
+        return Array<decltype(ref_wrap(std::declval<Scalar>())), Size>(
+            ref_wrap(m_data[Index])...
         );
     }
 
     template <size_t... Index>
-    ENOKI_INLINE auto ref_(std::index_sequence<Index...>) const {
-        return Array<decltype(detail::ref(std::declval<const Scalar &>())), Size>(
-            detail::ref(m_data[Index])...
+    ENOKI_INLINE auto ref_wrap_(std::index_sequence<Index...>) const {
+        return Array<decltype(ref_wrap(std::declval<const Scalar &>())), Size>(
+            ref_wrap(m_data[Index])...
         );
     }
 
