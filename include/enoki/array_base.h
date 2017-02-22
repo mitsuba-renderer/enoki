@@ -219,6 +219,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     /// Left rotation operation fallback implementation
+    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE auto rol_(size_t k) const {
         using Expr = typename Derived::Expr;
         if (!std::is_signed<BaseScalar>::value) {
@@ -230,6 +231,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     /// Right rotation operation fallback implementation
+    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE auto ror_(size_t k) const {
         using Expr = typename Derived::Expr;
         if (!std::is_signed<BaseScalar>::value) {
@@ -241,6 +243,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     /// Left rotation operation fallback implementation
+    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE auto rolv_(const Derived &d) const {
         using Expr = typename Derived::Expr;
         if (!std::is_signed<BaseScalar>::value) {
@@ -252,6 +255,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     /// Right rotation operation fallback implementation
+    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE auto rorv_(const Derived &d) const {
         using Expr = typename Derived::Expr;
         if (!std::is_signed<BaseScalar>::value) {
@@ -263,7 +267,8 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     /// Left rotation operation fallback implementation (immediate)
-    template <size_t Imm> ENOKI_INLINE auto roli_() const {
+    template <size_t Imm, typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    ENOKI_INLINE auto roli_() const {
         using Expr = typename Derived::Expr;
         if (!std::is_signed<BaseScalar>::value) {
             constexpr size_t mask = 8 * sizeof(BaseScalar) - 1u;
@@ -274,7 +279,8 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     /// Right rotation operation fallback implementation (immediate)
-    template <size_t Imm> ENOKI_INLINE auto rori_() const {
+    template <size_t Imm, typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    ENOKI_INLINE auto rori_() const {
         using Expr = typename Derived::Expr;
         if (!std::is_signed<BaseScalar>::value) {
             constexpr size_t mask = 8 * sizeof(BaseScalar) - 1u;
@@ -287,7 +293,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     /// Arithmetic NOT operation fallback
     ENOKI_INLINE auto not_() const {
         using Expr = typename Derived::Expr;
-        const Expr mask(memcpy_cast<Scalar>(typename int_array_t<Expr>::BaseScalar(-1)));
+        const Expr mask(memcpy_cast<BaseScalar>(typename int_array_t<Expr>::BaseScalar(-1)));
         return Expr(derived() ^ mask);
     }
 

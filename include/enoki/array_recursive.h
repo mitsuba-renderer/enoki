@@ -30,6 +30,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     using Base = StaticArrayBase<Type_, Size_, Approx_, Mode_, Derived>;
     using Expr = Derived;
     using typename Base::Scalar;
+    using typename Base::BaseScalar;
     using typename Base::Array1;
     using typename Base::Array2;
     using Base::Size;
@@ -200,50 +201,62 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         return Derived(a1 ^ arg.m1, a2 ^ arg.m2);
     }
 
-    template <size_t k> ENOKI_INLINE Derived sli_() const {
-        return Derived(sli<k>(a1), sli<k>(a2));
+    template <size_t Imm, typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    ENOKI_INLINE Derived sli_() const {
+        return Derived(sli<Imm>(a1), sli<Imm>(a2));
     }
 
-    template <size_t k> ENOKI_INLINE Derived sri_() const {
-        return Derived(sri<k>(a1), sri<k>(a2));
+    template <size_t Imm, typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    ENOKI_INLINE Derived sri_() const {
+        return Derived(sri<Imm>(a1), sri<Imm>(a2));
     }
 
+    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived sl_(size_t k) const {
         return Derived(a1 << k, a2 << k);
     }
 
+    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived sr_(size_t k) const {
         return Derived(a1 >> k, a2 >> k);
     }
 
+    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived slv_(Arg arg) const {
         return Derived(a1 << arg, a2 << arg);
     }
 
+    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived srv_(Arg arg) const {
         return Derived(a1 >> arg, a2 >> arg);
     }
 
-    template <size_t k> ENOKI_INLINE Derived roli_() const {
-        return Derived(roli<k>(a1), roli<k>(a2));
+    template <size_t Imm, typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    ENOKI_INLINE Derived roli_() const {
+        return Derived(roli<Imm>(a1), roli<Imm>(a2));
     }
 
-    template <size_t k> ENOKI_INLINE Derived rori_() const {
-        return Derived(rori<k>(a1), rori<k>(a2));
+    template <size_t Imm, typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    ENOKI_INLINE Derived rori_() const {
+        return Derived(rori<Imm>(a1), rori<Imm>(a2));
     }
 
+    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived rol_(size_t k) const {
         return Derived(rol(a1, k), rol(a2, k));
     }
 
+    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived ror_(size_t k) const {
         return Derived(ror(a1, k), ror(a2, k));
     }
 
+    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived rolv_(Arg arg) const {
         return Derived(rol(a1, arg.a1), rol(a2, arg.a2));
     }
 
+    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived rorv_(Arg arg) const {
         return Derived(ror(a1, arg.a1), ror(a2, arg.a2));
     }

@@ -60,49 +60,49 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
 
     template <typename... Args>
     ENOKI_NOINLINE StaticArrayImpl(Args&&... args) {
-        set_rounding_mode<Mode_> m;
+        set_rounding_mode<Mode_> mode;
         *this = Base(args...);
     }
 
     template <typename... Args>
     ENOKI_NOINLINE StaticArrayImpl& operator=(Args&&... args) {
-        set_rounding_mode<Mode_> m;
+        set_rounding_mode<Mode_> mode;
         Base::operator=(args...);
         return *this;
     }
 
     ENOKI_NOINLINE auto add_(const Derived &a) const {
-        set_rounding_mode<Mode_> m;
+        set_rounding_mode<Mode_> mode;
         return Base::add_(a);
     }
 
     ENOKI_NOINLINE auto sub_(const Derived &a) const {
-        set_rounding_mode<Mode_> m;
+        set_rounding_mode<Mode_> mode;
         return Base::sub_(a);
     }
 
     ENOKI_NOINLINE auto mul_(const Derived &a) const {
-        set_rounding_mode<Mode_> m;
+        set_rounding_mode<Mode_> mode;
         return Base::mul_(a);
     }
 
     ENOKI_NOINLINE auto div_(const Derived &a) const {
-        set_rounding_mode<Mode_> m;
+        set_rounding_mode<Mode_> mode;
         return Base::div_(a);
     }
 
     ENOKI_NOINLINE auto sqrt_() const {
-        set_rounding_mode<Mode_> m;
+        set_rounding_mode<Mode_> mode;
         return Base::sqrt_();
     }
 
     ENOKI_NOINLINE auto fmadd_(const Derived &b, const Derived &c) const {
-        set_rounding_mode<Mode_> m;
+        set_rounding_mode<Mode_> mode;
         return Base::fmadd_(b, c);
     }
 
     ENOKI_NOINLINE auto fmsub_(const Derived &b, const Derived &c) const {
-        set_rounding_mode<Mode_> m;
+        set_rounding_mode<Mode_> mode;
         return Base::fmsub_(b, c);
     }
 };

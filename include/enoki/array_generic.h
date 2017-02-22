@@ -271,6 +271,7 @@ public:
     }
 
     /// High multiplication (integer)
+    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Expr mulhi_(const Derived &d) const {
         Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -330,6 +331,7 @@ public:
     }
 
     /// Left shift operator
+    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Expr sl_(size_t value) const {
         Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -338,6 +340,7 @@ public:
     }
 
     /// Left shift operator
+    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Expr slv_(const Derived &d) const {
         Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -346,6 +349,7 @@ public:
     }
 
     /// Right shift operator
+    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Expr sr_(size_t value) const {
         Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -354,6 +358,7 @@ public:
     }
 
     /// Right shift operator
+    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Expr srv_(const Derived &d) const {
         Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -362,7 +367,8 @@ public:
     }
 
     /// Left shift operator (immediate)
-    template <size_t Imm> ENOKI_INLINE Expr sli_() const {
+    template <size_t Imm, typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    ENOKI_INLINE Expr sli_() const {
         Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = sli<Imm>(coeff(i));
@@ -370,7 +376,8 @@ public:
     }
 
     /// Right shift operator (immediate)
-    template <size_t Imm> ENOKI_INLINE Expr sri_() const {
+    template <size_t Imm, typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    ENOKI_INLINE Expr sri_() const {
         Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = sri<Imm>(coeff(i));

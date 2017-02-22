@@ -116,12 +116,8 @@ macro(enoki_set_compile_flags)
     string(REPLACE "/GS" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     string(REPLACE "/Ob0" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
     add_compile_options("$<$<NOT:$<CONFIG:Debug>>:/GS->")
-    # Favor small code
-    add_compile_options("$<$<CONFIG:Release>:/Ot>")
     # Enable intrinsic functions
     add_compile_options("$<$<CONFIG:Release>:/Oi>")
-    # Disable frame pointers
-    add_compile_options("$<$<CONFIG:Release>:/Oy>")
     # Honor __forceinline statements even in debug mode, needed to avoid internal compiler errors on MSVC
     add_compile_options("$<$<CONFIG:Debug>:/Ob1>")
   endif()
