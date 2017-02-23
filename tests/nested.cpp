@@ -94,11 +94,11 @@ ENOKI_TEST(test04_array_of_arrays) {
     Vector4f b(1, 1, 1, 1);
     Vector4fP c(a, b);
 
-    assert(to_string(c) == "[[1, 1], [2, 1], [3, 1], [4, 1]]");
-    assert(to_string(c + c) == "[[2, 2], [4, 2], [6, 2], [8, 2]]");
-    assert(to_string(c + c.x()) == "[[2, 2], [4, 3], [6, 4], [8, 5]]");
-    assert(to_string(c + 1.f) == "[[2, 2], [3, 2], [4, 2], [5, 2]]");
-    assert(to_string(1.f + c) == "[[2, 2], [3, 2], [4, 2], [5, 2]]");
+    assert(to_string(c)         == "[[1, 1],\n [2, 1],\n [3, 1],\n [4, 1]]");
+    assert(to_string(c + c)     == "[[2, 2],\n [4, 2],\n [6, 2],\n [8, 2]]");
+    assert(to_string(c + c.x()) == "[[2, 2],\n [4, 3],\n [6, 4],\n [8, 5]]");
+    assert(to_string(c + 1.f)   == "[[2, 2],\n [3, 2],\n [4, 2],\n [5, 2]]");
+    assert(to_string(1.f + c)   == "[[2, 2],\n [3, 2],\n [4, 2],\n [5, 2]]");
 
     assert((std::is_same<scalar_t<Vector4fP>, Vector4f>::value));
     assert((std::is_same<base_scalar_t<Vector4fP>, float>::value));

@@ -100,7 +100,7 @@ macro(enoki_set_compile_flags)
       CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR
       CMAKE_CXX_COMPILER_ID MATCHES "Intel")
     if (NOT ${U_CMAKE_BUILD_TYPE} MATCHES DEBUG)
-      add_compile_options(-fno-stack-protector -fomit-frame-pointer)
+      add_compile_options(-fno-stack-protector -fomit-frame-pointer -fno-math-errno)
       if (NOT CMAKE_CXX_COMPILER_ID MATCHES "Intel")
         add_compile_options(-ffp-contract=fast)
       endif()

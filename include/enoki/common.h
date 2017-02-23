@@ -335,6 +335,15 @@ template <typename T> struct array_depth<T, std::enable_if_t<enoki::is_array<T>:
     static constexpr size_t value = array_depth<typename std::decay_t<T>::Scalar>::value + 1;
 };
 
+/// Determine the size of an array
+template <typename T, typename = void> struct array_size {
+    static constexpr size_t value = 1;
+};
+
+template <typename T> struct array_size<T, std::enable_if_t<enoki::is_array<T>::value>> {
+    static constexpr size_t value = std::decay_t<T>::Derived::Size;
+};
+
 template <typename T, typename = void> struct is_dynamic_internal : std::false_type { };
 template <typename T> struct is_dynamic_impl : is_dynamic_internal<T> { };
 
@@ -405,8 +414,7 @@ struct like { };
 
 template <typename T, typename Scalar>
 struct like<T, Scalar, std::enable_if_t<is_sarray<T>::value>> {
-    using type = Array<typename like<typename std::decay_t<T>::Scalar, Scalar>::type,
-                       std::decay_t<T>::Size>;
+    using type = Array<typename like<scalar_t<T>, Scalar>::type, array_size<T>::value>;
 };
 
 template <typename T, typename Scalar>

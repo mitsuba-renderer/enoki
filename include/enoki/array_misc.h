@@ -45,24 +45,6 @@ transpose(const StaticArrayBase<Type, 4, Approx, Mode, Derived> &a) {
         _mm_movehl_ps(t3, t2)
     );
 }
-
-template <typename Type1, bool Approx1, bool Approx2, RoundingMode Mode1,
-          RoundingMode Mode2, typename Derived1, typename Derived2,
-          std::enable_if_t<Type1::Size == 4 &&
-                           std::is_same<typename Type1::Type, float>::value, int> = 0>
-ENOKI_INLINE auto
-mvprod(const StaticArrayBase<Type1, 4, Approx1, Mode1, Derived1> &a,
-       const StaticArrayBase<float, 4, Approx2, Mode2, Derived2> &b) {
-    __m128 c0 = a.derived().coeff(0).m, c1 = a.derived().coeff(1).m,
-           c2 = a.derived().coeff(2).m, c3 = a.derived().coeff(3).m,
-           v = b.derived().m;
-
-    __m128 t1 = _mm_mul_ps(c0, v), t2 = _mm_mul_ps(c1, v),
-           t3 = _mm_mul_ps(c2, v), t4 = _mm_mul_ps(c3, v);
-
-    return Derived2(_mm_hadd_ps(_mm_hadd_ps(t1, t2),
-                                _mm_hadd_ps(t3, t4)));
-}
 #else
 inline void set_flush_denormals(bool) { }
 #endif
@@ -88,30 +70,6 @@ transpose(const StaticArrayBase<Type, 4, Approx, Mode, Derived> &a) {
         _mm256_permute2f128_pd(t0, t2, 0b0011'0001)
     );
 }
-
-template <typename Type1, bool Approx1, bool Approx2, RoundingMode Mode1,
-          RoundingMode Mode2, typename Derived1, typename Derived2,
-          std::enable_if_t<Type1::Size == 4 &&
-                           std::is_same<typename Type1::Type, double>::value, int> = 0>
-ENOKI_INLINE auto
-mvprod(const StaticArrayBase<Type1, 4, Approx1, Mode1, Derived1> &a,
-       const StaticArrayBase<double, 4, Approx2, Mode2, Derived2> &b) {
-    __m256d c0 = a.derived().coeff(0).m, c1 = a.derived().coeff(1).m,
-            c2 = a.derived().coeff(2).m, c3 = a.derived().coeff(3).m,
-            v = b.derived().m;
-
-    __m256d t0 = _mm256_mul_pd(c0, v);
-    __m256d t1 = _mm256_mul_pd(c1, v);
-    __m256d t2 = _mm256_mul_pd(c2, v);
-    __m256d t3 = _mm256_mul_pd(c3, v);
-
-    __m256d s0 = _mm256_hadd_pd(t0, t1);
-    __m256d s1 = _mm256_hadd_pd(t2, t3);
-
-    return Derived2(
-        _mm256_add_pd(_mm256_permute2f128_pd(s0, s1, 0b0010'0001),
-                      _mm256_blend_pd(s0, s1, 0b1100)));
-}
 #endif
 
 template <typename Type, size_t Size, bool Approx, RoundingMode Mode, typename Derived>
@@ -126,23 +84,6 @@ transpose(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
             result.coeff(i).coeff(j) = a.derived().coeff(j).coeff(i);
     return result;
 }
-
-template <typename Type1, typename Type2, size_t Size, bool Approx1,
-          bool Approx2, RoundingMode Mode1, RoundingMode Mode2,
-          typename Derived1, typename Derived2>
-ENOKI_INLINE auto
-mvprod(const StaticArrayBase<Type1, Size, Approx1, Mode1, Derived1> &a,
-       const StaticArrayBase<Type2, Size, Approx2, Mode2, Derived2> &b) {
-    static_assert(Type1::Size == Size && array_depth<Derived1>::value == 2,
-                  "First argument must be a square matrix!");
-    static_assert(array_depth<Derived2>::value == 1,
-                  "First argument must be a vector!");
-    Derived2 result;
-    for (size_t i = 0; i< Size; ++i)
-        result.coeff(i) = dot(a.derived().coeff(i), b.derived());
-    return result;
-}
-
 
 /// Analagous to meshgrid() in NumPy or MATLAB; for dynamic arrays
 template <typename Arr>

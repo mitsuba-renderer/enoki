@@ -1537,7 +1537,7 @@ std::ostream &operator<<(std::ostream &os,
             }
             os << "]";
             if (i + 1 < size)
-                os << ", ";
+                os << ",\n ";
         }
     }
     os << "]";

@@ -1193,6 +1193,47 @@ Scalar clamp(Scalar value, Scalar min_, Scalar max_) {
     return max(min(value, max_), min_);
 }
 
+/// Access an array element by index
+template <typename Array, enable_if_array_t<Array> = 0>
+ENOKI_INLINE auto& array_coeff(Array &array, size_t index) {
+    return array.coeff(index);
+}
+
+/// Access an array element by index (const)
+template <typename Array, enable_if_array_t<Array> = 0>
+ENOKI_INLINE const auto& array_coeff(const Array &array, size_t index) {
+    return array.coeff(index);
+}
+
+/// Access an array element by index (scalar fallback)
+template <typename Arg, enable_if_notarray_t<Arg> = 0>
+ENOKI_INLINE auto& array_coeff(Arg &array, size_t) {
+    return array;
+}
+
+/// Access an array element by index (const, scalar fallback)
+template <typename Arg, enable_if_notarray_t<Arg> = 0>
+ENOKI_INLINE const auto& array_coeff(const Arg &array, size_t) {
+    return array;
+}
+
+/// Outer product of two static arrays (possibly scalars)
+template <typename Array1, typename Array2, enable_if_sarray_t<Array1> = 0>
+ENOKI_INLINE like_t<Array1, Array2> outer_product(const Array1 &array1,
+                                                  const Array2 &array2) {
+    like_t<Array1, Array2> result;
+    for (size_t i = 0; i < array_size<Array1>::value; ++i)
+        array_coeff(result, i) = array_coeff(array1, i) * array2;
+    return result;
+}
+
+/// Outer product of two static arrays (possibly scalars)
+template <typename Arg1, typename Array2, enable_if_notarray_t<Arg1> = 0>
+ENOKI_INLINE Array2 outer_product(const Arg1 &array1,
+                                  const Array2 &array2) {
+    return Array2(array1) * array2;
+}
+
 //! @}
 // -----------------------------------------------------------------------
 

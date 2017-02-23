@@ -111,25 +111,11 @@ ENOKI_TEST(array_double_04_transpose) {
         T2(T(1, 5, 9, 13), T(2, 6, 10, 14), T(3, 7, 11, 15), T(4, 8, 12, 16)));
 }
 
-ENOKI_TEST(array_float_04_mvprod) {
-    using T  = Array<float, 4>;
-    using T2 = Array<T, 4>;
+ENOKI_TEST(array_float_04_outer_product) {
+    using Vector4f = Array<float, 4>;
+    using Vector3f = Array<float, 3>;
 
-    std::cout <<
-        mvprod(T2(T(1, 2, 3, 4), T(5, 6, 7, 8), T(9, 10, 11, 12), T(13, 14, 15, 16)),
-            T(1, 1, 1, 1)) << std::endl;
-
-    assert(
-        mvprod(T2(T(1, 2, 3, 4), T(5, 6, 7, 8), T(9, 10, 11, 12), T(13, 14, 15, 16)),
-            T(1, 1, 1, 1)) == T(10, 26, 42, 58));
-}
-
-
-ENOKI_TEST(array_double_04_mvprod) {
-    using T  = Array<double, 4>;
-    using T2 = Array<T, 4>;
-
-    assert(
-        mvprod(T2(T(1, 2, 3, 4), T(5, 6, 7, 8), T(9, 10, 11, 12), T(13, 14, 15, 16)),
-            T(1, 1, 1, 1)) == T(10, 26, 42, 58));
+    assert(to_string(outer_product(Vector4f(1, 2, 3, 4), Vector3f(0, 1, 0))) == "[[0, 0, 0, 0],\n [1, 2, 3, 4],\n [0, 0, 0, 0]]");
+    assert(to_string(outer_product(Vector4f(1, 2, 3, 4), 3.f)) == "[3, 6, 9, 12]");
+    assert(to_string(outer_product(3.f, Vector3f(1, 2, 3))) == "[3, 6, 9]");
 }

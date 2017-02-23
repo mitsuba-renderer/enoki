@@ -82,8 +82,8 @@ ENOKI_TEST(test03_alloc_nested)  {
     Vector3fX z = y;
     packet(z[2], 0) = FloatP(0.f,11.f,12.f,13.f);
 
-    assert(to_string(y) == "[[1, 5, 9], [2, 6, 10]]");
-    assert(to_string(z) == "[[1, 5, 0], [2, 6, 11]]");
+    assert(to_string(y) == "[[1, 5, 9],\n [2, 6, 10]]");
+    assert(to_string(z) == "[[1, 5, 0],\n [2, 6, 11]]");
 
     assert(!is_dynamic<Float>::value && !is_dynamic<FloatP>::value &&
            is_dynamic<FloatX>::value && !is_dynamic<Vector3fP>::value &&
@@ -94,14 +94,14 @@ ENOKI_TEST(test03_alloc_nested)  {
     assert(packets(z) == 1);
     assert(packets(z[0]) == 1);
     assert(packets(z[0][0]) == 0);
-    assert(to_string(packet(z, 0)) == "[[1, 5, 0], [2, 6, 11], [3, 7, 12], [4, 8, 13]]");
+    assert(to_string(packet(z, 0)) == "[[1, 5, 0],\n [2, 6, 11],\n [3, 7, 12],\n [4, 8, 13]]");
     assert((std::is_reference<decltype(packet(z, 0))::Type>::value));
 
     vectorize([](auto &&z) { z = z + Vector3f(1.f, 2.f, 3.f); }, z);
-    assert(to_string(z) == "[[2, 7, 3], [3, 8, 14]]");
+    assert(to_string(z) == "[[2, 7, 3],\n [3, 8, 14]]");
 
     vectorize([](auto &&z) { z = z + Vector3fP(1.f, 2.f, 3.f); }, z);
-    assert(to_string(z) == "[[3, 9, 6], [4, 10, 17]]");
+    assert(to_string(z) == "[[3, 9, 6],\n [4, 10, 17]]");
 }
 
 ENOKI_TEST(test04_init)  {
@@ -138,7 +138,7 @@ ENOKI_TEST(test05_meshgrid) {
         auto xy = meshgrid(x, y);
 
         assert(dynamic_size(xy) == 12);
-        assert(to_string(xy) == "[[0, 1], [1, 1], [2, 1], [0, 2], [1, 2], [2, 2], [0, 3], [1, 3], [2, 3], [0, 4], [1, 4], [2, 4]]");
+        assert(to_string(xy) == "[[0, 1],\n [1, 1],\n [2, 1],\n [0, 2],\n [1, 2],\n [2, 2],\n [0, 3],\n [1, 3],\n [2, 3],\n [0, 4],\n [1, 4],\n [2, 4]]");
     }
 
     assert(test::alloc_count - ac == 4);
