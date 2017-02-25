@@ -103,9 +103,9 @@ template <bool Approx, typename Derived> struct alignas(32)
     //! @{ \name Value constructors
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE StaticArrayImpl(Scalar value) : m(_mm256_set1_ps(value)) { }
-    ENOKI_INLINE StaticArrayImpl(Scalar v0, Scalar v1, Scalar v2, Scalar v3,
-                                 Scalar v4, Scalar v5, Scalar v6, Scalar v7)
+    ENOKI_INLINE StaticArrayImpl(Value value) : m(_mm256_set1_ps(value)) { }
+    ENOKI_INLINE StaticArrayImpl(Value v0, Value v1, Value v2, Value v3,
+                                 Value v4, Value v5, Value v6, Value v7)
         : m(_mm256_setr_ps(v0, v1, v2, v3, v4, v5, v6, v7)) { }
 
     //! @}
@@ -365,10 +365,10 @@ template <bool Approx, typename Derived> struct alignas(32)
     //! @{ \name Horizontal operations
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE Scalar hsum_()  const { return hsum(low_() + high_()); }
-    ENOKI_INLINE Scalar hprod_() const { return hprod(low_() * high_()); }
-    ENOKI_INLINE Scalar hmin_()  const { return hmin(min(low_(), high_())); }
-    ENOKI_INLINE Scalar hmax_()  const { return hmax(max(low_(), high_())); }
+    ENOKI_INLINE Value hsum_()  const { return hsum(low_() + high_()); }
+    ENOKI_INLINE Value hprod_() const { return hprod(low_() * high_()); }
+    ENOKI_INLINE Value hmin_()  const { return hmin(min(low_(), high_())); }
+    ENOKI_INLINE Value hmax_()  const { return hmax(max(low_(), high_())); }
 
     ENOKI_INLINE bool all_() const { return _mm256_movemask_ps(m) == 0xFF; }
     ENOKI_INLINE bool any_() const { return _mm256_movemask_ps(m) != 0x00; }
@@ -378,7 +378,7 @@ template <bool Approx, typename Derived> struct alignas(32)
         return (size_t) _mm_popcnt_u32((unsigned int) _mm256_movemask_ps(m));
     }
 
-    ENOKI_INLINE Scalar dot_(Arg a) const {
+    ENOKI_INLINE Value dot_(Arg a) const {
         __m256 dp = _mm256_dp_ps(m, a.m, 0b11110001);
         __m128 m0 = _mm256_castps256_ps128(dp);
         __m128 m1 = _mm256_extractf128_ps(dp, 1);
@@ -393,11 +393,11 @@ template <bool Approx, typename Derived> struct alignas(32)
     //! @{ \name Initialization, loading/writing data
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE void store_(void *ptr) const { _mm256_store_ps((Scalar *) ptr, m); }
-    ENOKI_INLINE void store_unaligned_(void *ptr) const { _mm256_storeu_ps((Scalar *) ptr, m); }
+    ENOKI_INLINE void store_(void *ptr) const { _mm256_store_ps((Value *) ptr, m); }
+    ENOKI_INLINE void store_unaligned_(void *ptr) const { _mm256_storeu_ps((Value *) ptr, m); }
 
-    ENOKI_INLINE static Derived load_(const void *ptr) { return _mm256_load_ps((const Scalar *) ptr); }
-    ENOKI_INLINE static Derived load_unaligned_(const void *ptr) { return _mm256_loadu_ps((const Scalar *) ptr); }
+    ENOKI_INLINE static Derived load_(const void *ptr) { return _mm256_load_ps((const Value *) ptr); }
+    ENOKI_INLINE static Derived load_unaligned_(const void *ptr) { return _mm256_loadu_ps((const Value *) ptr); }
 
     ENOKI_INLINE static Derived zero_() { return _mm256_setzero_ps(); }
 
@@ -468,7 +468,7 @@ template <bool Approx, typename Derived> struct alignas(32)
                                                 _mm256_castps_si256(mask.m));
             _mm256_storeu_ps((float *) ptr,
                              _mm256_mask_compress_ps(_mm256_setzero_ps(), k, m));
-            (Scalar *&) ptr += _mm_popcnt_u32(k);
+            (Value *&) ptr += _mm_popcnt_u32(k);
         #elif defined(__AVX2__)
             /** Fancy LUT-based partitioning algorithm, see http://stackoverflow.com/a/36949578/1130282 */
             const __m256i shift = _mm256_setr_epi32(29, 26, 23, 20, 17, 14, 11, 8);
@@ -479,7 +479,7 @@ template <bool Approx, typename Derived> struct alignas(32)
             __m256  perm  = _mm256_permutevar8x32_ps(m, shuf);
 
             _mm256_storeu_ps((float *) ptr, perm);
-            (Scalar *&) ptr += _mm_popcnt_u32(k);
+            (Value *&) ptr += _mm_popcnt_u32(k);
         #else
             store_compress(ptr, low(derived()), low(mask));
             store_compress(ptr, high(derived()), high(mask));
@@ -500,8 +500,8 @@ template <bool Approx, typename Derived> struct alignas(32)
     //! @{ \name Value constructors
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE StaticArrayImpl(Scalar value) : m(_mm256_set1_pd(value)) { }
-    ENOKI_INLINE StaticArrayImpl(Scalar v0, Scalar v1, Scalar v2, Scalar v3)
+    ENOKI_INLINE StaticArrayImpl(Value value) : m(_mm256_set1_pd(value)) { }
+    ENOKI_INLINE StaticArrayImpl(Value v0, Value v1, Value v2, Value v3)
         : m(_mm256_setr_pd(v0, v1, v2, v3)) { }
 
     //! @}
@@ -735,10 +735,10 @@ template <bool Approx, typename Derived> struct alignas(32)
     //! @{ \name Horizontal operations
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE Scalar hsum_()  const { return hsum(low_() + high_()); }
-    ENOKI_INLINE Scalar hprod_() const { return hprod(low_() * high_()); }
-    ENOKI_INLINE Scalar hmin_()  const { return hmin(min(low_(), high_())); }
-    ENOKI_INLINE Scalar hmax_()  const { return hmax(max(low_(), high_())); }
+    ENOKI_INLINE Value hsum_()  const { return hsum(low_() + high_()); }
+    ENOKI_INLINE Value hprod_() const { return hprod(low_() * high_()); }
+    ENOKI_INLINE Value hmin_()  const { return hmin(min(low_(), high_())); }
+    ENOKI_INLINE Value hmax_()  const { return hmax(max(low_(), high_())); }
 
     ENOKI_INLINE bool all_() const { return _mm256_movemask_pd(m) == 0xF; }
     ENOKI_INLINE bool any_() const { return _mm256_movemask_pd(m) != 0x0; }
@@ -755,11 +755,11 @@ template <bool Approx, typename Derived> struct alignas(32)
     //! @{ \name Initialization, loading/writing data
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE void store_(void *ptr) const { _mm256_store_pd((Scalar *) ptr, m); }
-    ENOKI_INLINE void store_unaligned_(void *ptr) const { _mm256_storeu_pd((Scalar *) ptr, m); }
+    ENOKI_INLINE void store_(void *ptr) const { _mm256_store_pd((Value *) ptr, m); }
+    ENOKI_INLINE void store_unaligned_(void *ptr) const { _mm256_storeu_pd((Value *) ptr, m); }
 
-    ENOKI_INLINE static Derived load_(const void *ptr) { return _mm256_load_pd((const Scalar *) ptr); }
-    ENOKI_INLINE static Derived load_unaligned_(const void *ptr) { return _mm256_loadu_pd((const Scalar *) ptr); }
+    ENOKI_INLINE static Derived load_(const void *ptr) { return _mm256_load_pd((const Value *) ptr); }
+    ENOKI_INLINE static Derived load_unaligned_(const void *ptr) { return _mm256_loadu_pd((const Value *) ptr); }
 
     ENOKI_INLINE static Derived zero_() { return _mm256_setzero_pd(); }
 
@@ -832,7 +832,7 @@ template <bool Approx, typename Derived> struct alignas(32)
     : StaticArrayImpl<double, 4, Approx, RoundingMode::Default, Derived> {
     using Base = StaticArrayImpl<double, 4, Approx, RoundingMode::Default, Derived>;
 
-    using typename Base::Scalar;
+    using typename Base::Value;
     using typename Base::Mask;
     using Arg = const Base &;
     using Base::Base;
@@ -841,7 +841,7 @@ template <bool Approx, typename Derived> struct alignas(32)
     using Base::coeff;
     static constexpr size_t Size = 3;
 
-    ENOKI_INLINE StaticArrayImpl(Scalar f0, Scalar f1, Scalar f2) : Base(f0, f1, f2, Scalar(0)) { }
+    ENOKI_INLINE StaticArrayImpl(Value f0, Value f1, Value f2) : Base(f0, f1, f2, Value(0)) { }
     ENOKI_INLINE StaticArrayImpl() : Base() { }
 
     StaticArrayImpl(const StaticArrayImpl &) = default;
@@ -852,7 +852,7 @@ template <bool Approx, typename Derived> struct alignas(32)
     ENOKI_INLINE StaticArrayImpl(
         const StaticArrayBase<Type2, 3, Approx2, Mode2, Derived2> &a) {
         ENOKI_TRACK_SCALAR for (size_t i = 0; i < 3; ++i)
-            coeff(i) = Scalar(a.derived().coeff(i));
+            coeff(i) = Value(a.derived().coeff(i));
     }
 
     template <int I0, int I1, int I2>
@@ -889,14 +889,14 @@ template <bool Approx, typename Derived> struct alignas(32)
     //! @{ \name Horizontal operations (adapted for the n=3 case)
     // -----------------------------------------------------------------------
 
-    #define ENOKI_HORIZONTAL_OP(name, op) \
-        ENOKI_INLINE Scalar name##_() const { \
-            __m128d t1 = _mm256_extractf128_pd(m, 1); \
-            __m128d t2 = _mm256_castpd256_pd128(m); \
-            t1 = _mm_##op##_sd(t1, t2); \
-            t2 = _mm_permute_pd(t2, 1); \
-            t2 = _mm_##op##_sd(t2, t1); \
-            return _mm_cvtsd_f64(t2); \
+    #define ENOKI_HORIZONTAL_OP(name, op)                                    \
+        ENOKI_INLINE Value name##_() const {                                 \
+            __m128d t1 = _mm256_extractf128_pd(m, 1);                        \
+            __m128d t2 = _mm256_castpd256_pd128(m);                          \
+            t1 = _mm_##op##_sd(t1, t2);                                      \
+            t2 = _mm_permute_pd(t2, 1);                                      \
+            t2 = _mm_##op##_sd(t2, t1);                                      \
+            return _mm_cvtsd_f64(t2);                                        \
         }
 
     ENOKI_HORIZONTAL_OP(hsum, add)
@@ -921,11 +921,11 @@ template <bool Approx, typename Derived> struct alignas(32)
     //! @{ \name Loading/writing data (adapted for the n=3 case)
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE void store_(void *ptr) const { memcpy(ptr, &m, sizeof(Scalar)*3); }
+    ENOKI_INLINE void store_(void *ptr) const { memcpy(ptr, &m, sizeof(Value)*3); }
     ENOKI_INLINE void store_unaligned_(void *ptr) const { store_(ptr); }
     ENOKI_INLINE static Derived load_unaligned_(const void *ptr) {
         Derived result;
-        memcpy(&result.m, ptr, sizeof(Scalar) * 3);
+        memcpy(&result.m, ptr, sizeof(Value) * 3);
         return result;
     }
     ENOKI_INLINE static Derived load_(const void *ptr) { return Base::load_unaligned_(ptr); }

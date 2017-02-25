@@ -59,7 +59,7 @@ template <typename Type_, typename Derived_> struct ArrayBase {
     using Type = Type_;
 
     /// Base type underlying the derived array (i.e. without references etc.)
-    using Scalar = std::remove_reference_t<Type>;
+    using Value = std::remove_reference_t<Type>;
 
     //! @}
     // -----------------------------------------------------------------------
@@ -68,19 +68,19 @@ template <typename Type_, typename Derived_> struct ArrayBase {
     //! @{ \name Iterators
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE const Scalar *begin() const {
+    ENOKI_INLINE const Value *begin() const {
         ENOKI_CHKSCALAR return derived().data();
     }
 
-    ENOKI_INLINE Scalar *begin() {
+    ENOKI_INLINE Value *begin() {
         ENOKI_CHKSCALAR return derived().data();
     }
 
-    ENOKI_INLINE const Scalar *end() const {
+    ENOKI_INLINE const Value *end() const {
         ENOKI_CHKSCALAR return derived().data() + derived().size();
     }
 
-    ENOKI_INLINE Scalar *end() {
+    ENOKI_INLINE Value *end() {
         ENOKI_CHKSCALAR return derived().data() + derived().size();
     }
 
@@ -92,7 +92,7 @@ template <typename Type_, typename Derived_> struct ArrayBase {
     // -----------------------------------------------------------------------
 
     /// Array indexing operator with bounds checks in debug mode
-    ENOKI_INLINE Scalar &operator[](size_t i) {
+    ENOKI_INLINE Value &operator[](size_t i) {
         #if !defined(NDEBUG) && !defined(ENOKI_DISABLE_RANGE_CHECK)
             if (i >= derived().size())
                 throw std::out_of_range(
@@ -104,7 +104,7 @@ template <typename Type_, typename Derived_> struct ArrayBase {
     }
 
     /// Array indexing operator with bounds checks in debug mode, const version
-    ENOKI_INLINE const Scalar &operator[](size_t i) const {
+    ENOKI_INLINE const Value &operator[](size_t i) const {
         #if !defined(NDEBUG) && !defined(ENOKI_DISABLE_RANGE_CHECK)
             if (i >= derived().size())
                 throw std::out_of_range(
@@ -136,7 +136,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     using Base = ArrayBase<Type_, Derived_>;
     using typename Base::Derived;
     using typename Base::Type;
-    using typename Base::Scalar;
+    using typename Base::Value;
     using Base::derived;
 
     /// Size of the first sub-array (used to split this array into two parts)
@@ -151,11 +151,11 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     /// Second sub-array type (used to split this array into two parts)
     using Array2 = Array<Type_, Size2, Approx_, Mode_>;
 
-    /// Scalar data type all the way at the lowest level
-    using BaseScalar = base_scalar_t<Scalar>;
+    /// Value data type all the way at the lowest level
+    using Scalar = scalar_t<Value>;
 
     /// Is this array exclusively for mask usage? (overridden in some subclasses)
-    static constexpr bool IsMask = std::is_same<Scalar, bool>::value;
+    static constexpr bool IsMask = std::is_same<Value, bool>::value;
 
     /// Number of array entries
     static constexpr size_t Size = Size_;
@@ -167,11 +167,11 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     /// Rounding mode of arithmetic operations
     static constexpr RoundingMode Mode = Mode_;
 
-    static_assert(std::is_same<BaseScalar, float>::value || !Approx,
+    static_assert(std::is_same<Scalar, float>::value || !Approx,
                   "Approximate math library functions are only supported in "
                   "single precision mode!");
 
-    static_assert(!std::is_integral<Scalar>::value || Mode == RoundingMode::Default,
+    static_assert(!std::is_integral<Value>::value || Mode == RoundingMode::Default,
                   "Integer arrays require Mode == RoundingMode::Default");
 
     StaticArrayBase() = default;
@@ -180,16 +180,16 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     template <
         typename Type2, bool Approx2, RoundingMode Mode2,
         typename Derived2,
-        std::enable_if_t<std::is_assignable<Scalar &, Type2>::value, int> = 0>
+        std::enable_if_t<std::is_assignable<Value &, Type2>::value, int> = 0>
     ENOKI_INLINE Derived &operator=(
         const StaticArrayBase<Type2, Size, Approx2, Mode2, Derived2> &a) {
-        if (std::is_arithmetic<Scalar>::value) { ENOKI_TRACK_SCALAR }
+        if (std::is_arithmetic<Value>::value) { ENOKI_TRACK_SCALAR }
         for (size_t i = 0; i < Size; ++i)
             derived().coeff(i) = a.derived().coeff(i);
         return derived();
     }
 
-    ENOKI_INLINE Derived &operator=(BaseScalar value) {
+    ENOKI_INLINE Derived &operator=(Scalar value) {
         derived() = Derived(value);
         return derived();
     }
@@ -214,20 +214,20 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     /// Element-wise test for +/- infinity
     ENOKI_INLINE auto isinf_() const {
-        return eq(abs(derived()), std::numeric_limits<BaseScalar>::infinity());
+        return eq(abs(derived()), std::numeric_limits<Scalar>::infinity());
     }
 
     /// Element-wise test for finiteness
     ENOKI_INLINE auto isfinite_() const {
-        return abs(derived()) < std::numeric_limits<BaseScalar>::max();
+        return abs(derived()) < std::numeric_limits<Scalar>::max();
     }
 
     /// Left rotation operation fallback implementation
-    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE auto rol_(size_t k) const {
         using Expr = typename Derived::Expr;
-        if (!std::is_signed<BaseScalar>::value) {
-            constexpr size_t mask = 8 * sizeof(BaseScalar) - 1u;
+        if (!std::is_signed<Scalar>::value) {
+            constexpr size_t mask = 8 * sizeof(Scalar) - 1u;
             return Expr((derived() << (k & mask)) | (derived() >> ((~k + 1u) & mask)));
         } else {
             return Expr(uint_array_t<Expr>(derived()).rol_(k));
@@ -235,11 +235,11 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     /// Right rotation operation fallback implementation
-    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE auto ror_(size_t k) const {
         using Expr = typename Derived::Expr;
-        if (!std::is_signed<BaseScalar>::value) {
-            constexpr size_t mask = 8 * sizeof(BaseScalar) - 1u;
+        if (!std::is_signed<Scalar>::value) {
+            constexpr size_t mask = 8 * sizeof(Scalar) - 1u;
             return Expr((derived() >> (k & mask)) | (derived() << ((~k + 1u) & mask)));
         } else {
             return Expr(uint_array_t<Expr>(derived()).ror_(k));
@@ -247,35 +247,35 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     /// Left rotation operation fallback implementation
-    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE auto rolv_(const Derived &d) const {
         using Expr = typename Derived::Expr;
-        if (!std::is_signed<BaseScalar>::value) {
-            Expr mask(BaseScalar(8 * sizeof(BaseScalar) - 1u));
-            return Expr((derived() << (d & mask)) | (derived() >> ((~d + BaseScalar(1)) & mask)));
+        if (!std::is_signed<Scalar>::value) {
+            Expr mask(Scalar(8 * sizeof(Scalar) - 1u));
+            return Expr((derived() << (d & mask)) | (derived() >> ((~d + Scalar(1)) & mask)));
         } else {
             return Expr(uint_array_t<Expr>(derived()).rolv_(d));
         }
     }
 
     /// Right rotation operation fallback implementation
-    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE auto rorv_(const Derived &d) const {
         using Expr = typename Derived::Expr;
-        if (!std::is_signed<BaseScalar>::value) {
-            Expr mask(BaseScalar(8 * sizeof(BaseScalar) - 1u));
-            return Expr((derived() >> (d & mask)) | (derived() << ((~d + BaseScalar(1)) & mask)));
+        if (!std::is_signed<Scalar>::value) {
+            Expr mask(Scalar(8 * sizeof(Scalar) - 1u));
+            return Expr((derived() >> (d & mask)) | (derived() << ((~d + Scalar(1)) & mask)));
         } else {
             return Expr(uint_array_t<Expr>(derived()).rorv_(d));
         }
     }
 
     /// Left rotation operation fallback implementation (immediate)
-    template <size_t Imm, typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <size_t Imm, typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE auto roli_() const {
         using Expr = typename Derived::Expr;
-        if (!std::is_signed<BaseScalar>::value) {
-            constexpr size_t mask = 8 * sizeof(BaseScalar) - 1u;
+        if (!std::is_signed<Scalar>::value) {
+            constexpr size_t mask = 8 * sizeof(Scalar) - 1u;
             return Expr(sli<Imm & mask>(derived()) | sri<((~Imm + 1u) & mask)>(derived()));
         } else {
             return Expr(uint_array_t<Expr>(derived()).template roli_<Imm>());
@@ -283,11 +283,11 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     /// Right rotation operation fallback implementation (immediate)
-    template <size_t Imm, typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <size_t Imm, typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE auto rori_() const {
         using Expr = typename Derived::Expr;
-        if (!std::is_signed<BaseScalar>::value) {
-            constexpr size_t mask = 8 * sizeof(BaseScalar) - 1u;
+        if (!std::is_signed<Scalar>::value) {
+            constexpr size_t mask = 8 * sizeof(Scalar) - 1u;
             return Expr(sri<Imm & mask>(derived()) | sli<((~Imm + 1u) & mask)>(derived()));
         } else {
             return Expr(uint_array_t<Expr>(derived()).template rori_<Imm>());
@@ -297,27 +297,27 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     /// Arithmetic NOT operation fallback
     ENOKI_INLINE auto not_() const {
         using Expr = typename Derived::Expr;
-        const Expr mask(memcpy_cast<BaseScalar>(typename int_array_t<Expr>::BaseScalar(-1)));
+        const Expr mask(memcpy_cast<Scalar>(typename int_array_t<Expr>::Scalar(-1)));
         return Expr(derived() ^ mask);
     }
 
     /// Arithmetic unary negation operation fallback
     ENOKI_INLINE auto neg_() const {
         using Expr = typename Derived::Expr;
-        if (std::is_floating_point<Scalar>::value)
-            return derived() ^ Expr(BaseScalar(-0.f));
+        if (std::is_floating_point<Value>::value)
+            return derived() ^ Expr(Scalar(-0.f));
         else
-            return ~derived() + Expr(BaseScalar(1));
+            return ~derived() + Expr(Scalar(1));
     }
 
     /// Reciprocal fallback implementation
     ENOKI_INLINE auto rcp_() const {
-        return typename Derived::Expr(BaseScalar(1)) / derived();
+        return typename Derived::Expr(Scalar(1)) / derived();
     }
 
     /// Reciprocal square root fallback implementation
     ENOKI_INLINE auto rsqrt_() const {
-        return typename Derived::Expr(BaseScalar(1)) / sqrt(derived());
+        return typename Derived::Expr(Scalar(1)) / sqrt(derived());
     }
 
     /// Fused multiply-add fallback implementation
@@ -331,7 +331,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     /// Dot product fallback implementation
-    ENOKI_INLINE Scalar dot_(const Derived &a) const { return hsum(derived() * a); }
+    ENOKI_INLINE Value dot_(const Derived &a) const { return hsum(derived() * a); }
 
     /// Nested horizontal sum
     ENOKI_INLINE auto hsum_nested_() const { return hsum_nested(hsum(derived())); }
@@ -372,7 +372,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     template <size_t Stride, bool Write, size_t Level, typename Index>
     ENOKI_INLINE static void prefetch_(const void *mem, const Index &index) {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
-            prefetch<Scalar, Stride, Write, Level>(mem, index.coeff(i));
+            prefetch<Value, Stride, Write, Level>(mem, index.coeff(i));
     }
 
     /// Masked prefetch operation fallback implementation
@@ -380,7 +380,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     ENOKI_INLINE static void prefetch_(const void *mem, const Index &index,
                                        const Mask &mask) {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
-            prefetch<Scalar, Stride, Write, Level>(mem, index.coeff(i), mask.coeff(i));
+            prefetch<Value, Stride, Write, Level>(mem, index.coeff(i), mask.coeff(i));
     }
 
     /// Gather operation fallback implementation
@@ -388,7 +388,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     ENOKI_INLINE static auto gather_(const void *mem, const Index &index) {
         typename Derived::Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
-            result.coeff(i) = gather<Scalar, Stride>(mem, index.coeff(i));
+            result.coeff(i) = gather<Value, Stride>(mem, index.coeff(i));
         return result;
     }
 
@@ -398,7 +398,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
                                      const Mask &mask) {
         typename Derived::Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
-            result.coeff(i) = gather<Scalar, Stride>(mem, index.coeff(i), mask.coeff(i));
+            result.coeff(i) = gather<Value, Stride>(mem, index.coeff(i), mask.coeff(i));
         return result;
     }
 
@@ -433,7 +433,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     template <size_t Stride, typename Index, typename Func>
     ENOKI_INLINE static void transform_(void *mem, const Index &index, const Func &func) {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
-            transform<Scalar, Stride>(mem, index.coeff(i), func);
+            transform<Value, Stride>(mem, index.coeff(i), func);
     }
 
     /// Combined gather-modify-scatter operation without conflicts (fallback implementation)
@@ -441,7 +441,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     ENOKI_INLINE static void transform_(void *mem, const Index &index,
                                  const Func &func, const Mask &mask) {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
-            transform<Scalar, Stride>(mem, index.coeff(i), func, mask.coeff(i));
+            transform<Value, Stride>(mem, index.coeff(i), func, mask.coeff(i));
     }
 
     //! @}
@@ -476,10 +476,10 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     // -----------------------------------------------------------------------
 
     auto sin_() const {
-        using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
-        using int_array_t = enoki::int_array_t<Expr>;
-        using Int = typename int_array_t::BaseScalar;
+        using Float = Scalar;
+        using Expr = expr_t<Derived>;
+        using IntArray = int_array_t<Expr>;
+        using Int = scalar_t<IntArray>;
 
         Expr r;
         if (Approx) {
@@ -503,7 +503,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             Expr x = abs(derived());
 
             /* Scale by 4/Pi and get the integer part */
-            int_array_t j(x * Float(1.27323954473516));
+            IntArray j(x * Float(1.27323954473516));
 
             /* Map zeros to origin; if (j & 1) j += 1 */
             j = (j + Int(1)) & Int(~1u);
@@ -534,8 +534,8 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             c -= Float(0.5) * z;
             c += Float(1);
 
-            auto polymask =
-                reinterpret_array<typename Expr::Mask>(eq(j & Int(2), zero<int_array_t>()));
+            auto polymask = reinterpret_array<mask_t<Expr>>(
+                eq(j & Int(2), zero<IntArray>()));
 
             r = select(polymask, s, c) ^ sign;
         } else {
@@ -546,10 +546,10 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto cos_() const {
-        using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
-        using int_array_t = enoki::int_array_t<Expr>;
-        using Int = typename int_array_t::BaseScalar;
+        using Float = Scalar;
+        using Expr = expr_t<Derived>;
+        using IntArray = int_array_t<Expr>;
+        using Int = scalar_t<IntArray>;
 
         Expr r;
         if (Approx) {
@@ -573,7 +573,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             Expr x = abs(derived());
 
             /* Scale by 4/Pi and get the integer part */
-            int_array_t j(x * Float(1.27323954473516));
+            IntArray j(x * Float(1.27323954473516));
 
             /* Map zeros to origin; if (j & 1) j += 1 */
             j = (j + Int(1)) & Int(~1u);
@@ -604,8 +604,8 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             c -= Float(0.5) * z;
             c += Float(1);
 
-            auto polymask =
-                reinterpret_array<typename Expr::Mask>(eq(j & Int(2), zero<int_array_t>()));
+            auto polymask = reinterpret_array<mask_t<Expr>>(
+                eq(j & Int(2), zero<IntArray>()));
 
             r = select(polymask, c, s) ^ sign;
         } else {
@@ -616,10 +616,10 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto sincos_() const {
-        using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
-        using int_array_t = enoki::int_array_t<Expr>;
-        using Int = typename int_array_t::BaseScalar;
+        using Float = Scalar;
+        using Expr = expr_t<Derived>;
+        using IntArray = int_array_t<Expr>;
+        using Int = scalar_t<IntArray>;
 
         Expr s_out, c_out;
 
@@ -654,7 +654,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             Expr x = abs(derived());
 
             /* Scale by 4/Pi and get the integer part */
-            int_array_t j(x * Float(1.27323954473516));
+            IntArray j(x * Float(1.27323954473516));
 
             /* Map zeros to origin; if (j & 1) j += 1 */
             j = (j + Int(1)) & Int(~1u);
@@ -686,8 +686,8 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             c -= Float(0.5) * z;
             c += Float(1);
 
-            auto polymask =
-                reinterpret_array<typename Expr::Mask>(eq(j & Int(2), zero<int_array_t>()));
+            auto polymask = reinterpret_array<mask_t<Expr>>(
+                eq(j & Int(2), zero<IntArray>()));
 
             s_out = select(polymask, s, c) ^ sign_sin;
             c_out = select(polymask, c, s) ^ sign_cos;
@@ -738,7 +738,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto asin_() const {
         using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
+        using Float = Scalar;
 
         Expr r;
         if (Approx) {
@@ -790,7 +790,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto acos_() const {
         using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
+        using Float = Scalar;
 
         Expr r;
         if (Approx) {
@@ -837,7 +837,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto atan2_(const Derived &x) const {
         using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
+        using Float = Scalar;
 
         Expr r;
         if (Approx) {
@@ -889,7 +889,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto atan_() const {
         using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
+        using Float = Scalar;
 
         if (Approx) {
             return atan2(derived(), Expr(Float(1)));
@@ -928,7 +928,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
                  -> in ULPs   = 1
                  (at x=-19.9999)
             */
-            using Float = BaseScalar;
+            using Float = Scalar;
 
             const Expr inf(std::numeric_limits<Float>::infinity());
             const Expr maxRange(Float(+88.3762626647949));
@@ -988,8 +988,8 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
                  -> in ULPs   = 1
                  (at x=0.021)
             */
-            using Float = BaseScalar;
-            using UInt = typename int_array_t<Expr>::BaseScalar;
+            using Float = Scalar;
+            using UInt = scalar_t<int_array_t<Expr>>;
 
             const Expr inf(std::numeric_limits<Float>::infinity());
 
@@ -1058,27 +1058,27 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
         /// Caveat: does not handle denormals correctly
         if (Approx) {
-            using Float = BaseScalar;
-            using int_array_t = int_array_t<Expr>;
-            using Int = typename int_array_t::BaseScalar;
-            using IntMask = typename int_array_t::Mask;
+            using Float = Scalar;
+            using IntArray = int_array_t<Expr>;
+            using Int = scalar_t<IntArray>;
+            using IntMask = mask_t<IntArray>;
 
-            const int_array_t
+            const IntArray
                 exponentMask(Int(0x7f800000u)),
                 mantissaSignMask(Int(~0x7f800000u)),
                 biasMinus1(Int(0x7e));
 
-            int_array_t x = reinterpret_array<int_array_t>(derived());
-            int_array_t exponent_bits = x & exponentMask;
+            IntArray x = reinterpret_array<IntArray>(derived());
+            IntArray exponent_bits = x & exponentMask;
 
             /* Detect zero/inf/NaN */
             IntMask is_normal =
                 reinterpret_array<IntMask>(neq(derived(), zero<Expr>())) &
                 neq(exponent_bits, exponentMask);
 
-            int_array_t exponent_i = (sri<23>(exponent_bits)) - biasMinus1;
-            int_array_t mantissa =
-                (x & mantissaSignMask) | int_array_t(memcpy_cast<Int>(Float(.5f)));
+            IntArray exponent_i = (sri<23>(exponent_bits)) - biasMinus1;
+            IntArray mantissa =
+                (x & mantissaSignMask) | IntArray(memcpy_cast<Int>(Float(.5f)));
 
             result_e = Expr(exponent_i & is_normal);
             result_m = reinterpret_array<Expr>(select(is_normal, mantissa, x));
@@ -1111,7 +1111,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto sinh_() const {
         using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
+        using Float = Scalar;
 
         Expr r;
 
@@ -1144,7 +1144,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto cosh_() const {
         using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
+        using Float = Scalar;
 
         Expr r;
         if (Approx) {
@@ -1173,7 +1173,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto sincosh_() const {
         using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
+        using Float = Scalar;
         Expr s_out, c_out;
 
         if (Approx) {
@@ -1220,7 +1220,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto tanh_() const {
         using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
+        using Float = Scalar;
 
         Expr r;
         if (Approx) {
@@ -1253,7 +1253,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto csch_() const {
         using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
+        using Float = Scalar;
 
         Expr r;
         if (Approx) {
@@ -1270,7 +1270,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto sech_() const {
         using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
+        using Float = Scalar;
 
         Expr r;
         if (Approx) {
@@ -1287,7 +1287,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto coth_() const {
         using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
+        using Float = Scalar;
 
         Expr r;
         if (Approx) {
@@ -1304,7 +1304,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto asinh_() const {
         using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
+        using Float = Scalar;
 
         Expr r;
         if (Approx) {
@@ -1335,7 +1335,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto acosh_() const {
         using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
+        using Float = Scalar;
 
         Expr r;
         if (Approx) {
@@ -1363,7 +1363,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto atanh_() const {
         using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
+        using Float = Scalar;
 
         Expr r;
         if (Approx) {
@@ -1403,7 +1403,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto erf_() const {
         using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
+        using Float = Scalar;
 
         Expr r;
         if (Approx) {
@@ -1449,7 +1449,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto erfi_() const {
         using Expr = typename Derived::Expr;
-        using Float = BaseScalar;
+        using Float = Scalar;
 
         // Based on "Approximating the erfi function" by Mark Giles
         Expr x = derived();
@@ -1487,56 +1487,56 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     //! @{ \name Component access
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE const Scalar &x() const {
+    ENOKI_INLINE const Value &x() const {
         static_assert(Derived::ActualSize >= 1,
                       "StaticArrayBase::x(): requires Size >= 1");
         return derived().coeff(0);
     }
 
-    ENOKI_INLINE Scalar& x() {
+    ENOKI_INLINE Value& x() {
         static_assert(Derived::ActualSize >= 1,
                       "StaticArrayBase::x(): requires Size >= 1");
         return derived().coeff(0);
     }
 
-    ENOKI_INLINE const Scalar &y() const {
+    ENOKI_INLINE const Value &y() const {
         static_assert(Derived::ActualSize >= 2,
                       "StaticArrayBase::y(): requires Size >= 2");
         return derived().coeff(1);
     }
 
-    ENOKI_INLINE Scalar& y() {
+    ENOKI_INLINE Value& y() {
         static_assert(Derived::ActualSize >= 2,
                       "StaticArrayBase::y(): requires Size >= 2");
         return derived().coeff(1);
     }
 
-    ENOKI_INLINE const Scalar& z() const {
+    ENOKI_INLINE const Value& z() const {
         static_assert(Derived::ActualSize >= 3,
                       "StaticArrayBase::z(): requires Size >= 3");
         return derived().coeff(2);
     }
 
-    ENOKI_INLINE Scalar& z() {
+    ENOKI_INLINE Value& z() {
         static_assert(Derived::ActualSize >= 3,
                       "StaticArrayBase::z(): requires Size >= 3");
         return derived().coeff(2);
     }
 
-    ENOKI_INLINE const Scalar& w() const {
+    ENOKI_INLINE const Value& w() const {
         static_assert(Derived::ActualSize >= 4,
                       "StaticArrayBase::w(): requires Size >= 4");
         return derived().coeff(3);
     }
 
-    ENOKI_INLINE Scalar& w() {
+    ENOKI_INLINE Value& w() {
         static_assert(Derived::ActualSize >= 4,
                       "StaticArrayBase::w(): requires Size >= 4");
         return derived().coeff(3);
     }
 
-    ENOKI_INLINE Scalar *data() { return &derived().coeff(0); }
-    ENOKI_INLINE const Scalar *data() const { return &derived().coeff(0); }
+    ENOKI_INLINE Value *data() { return &derived().coeff(0); }
+    ENOKI_INLINE const Value *data() const { return &derived().coeff(0); }
 
     //! @}
     // -----------------------------------------------------------------------
@@ -1553,10 +1553,10 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
 };
 
-template <typename Scalar, typename Derived,
-          std::enable_if_t<!is_array<std::decay_t<Scalar>>::value, int> = 0>
+template <typename Value, typename Derived,
+          std::enable_if_t<!is_array<std::decay_t<Value>>::value, int> = 0>
 ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
-                         const ArrayBase<Scalar, Derived> &a) {
+                         const ArrayBase<Value, Derived> &a) {
     os << "[";
     for (size_t i = 0; i < a.derived().size(); ++i) {
         os << a.derived().coeff(i);
@@ -1567,10 +1567,10 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
     return os;
 }
 
-template <typename Scalar, typename Derived,
-          std::enable_if_t<is_array<std::decay_t<Scalar>>::value, int> = 0>
+template <typename Value, typename Derived,
+          std::enable_if_t<is_array<std::decay_t<Value>>::value, int> = 0>
 ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
-                                        const ArrayBase<Scalar, Derived> &a) {
+                                        const ArrayBase<Value, Derived> &a) {
     os << "[";
     if (a.derived().size() > 0) {
         size_t size = a.derived().coeff(0).size();
@@ -1602,7 +1602,7 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
          std::enable_if_t<std::is_floating_point<T>::value &&                  \
                           std::is_default_constructible<T>::value, int> = 0>   \
     ENOKI_INLINE StaticArrayImpl()                                             \
-     : StaticArrayImpl(std::numeric_limits<base_scalar_t<T>>::quiet_NaN()) { } \
+     : StaticArrayImpl(std::numeric_limits<scalar_t<T>>::quiet_NaN()) { } \
     template <typename T = Type_,                                              \
          std::enable_if_t<!std::is_floating_point<T>::value &&                 \
                           std::is_default_constructible<T>::value, int> = 0>   \
@@ -1639,53 +1639,53 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
 #define ENOKI_REQUIRE_INDEX(T, Index)                                          \
     template <                                                                 \
         size_t Stride, typename T,                                             \
-        std::enable_if_t<std::is_integral<typename T::Scalar>::value &&        \
-                         sizeof(typename T::Scalar) == sizeof(Index), int> = 0>
+        std::enable_if_t<std::is_integral<typename T::Value>::value &&         \
+                         sizeof(typename T::Value) == sizeof(Index), int> = 0>
 
 /// SFINAE macro for strided operations (prefetch)
 #define ENOKI_REQUIRE_INDEX_PF(T, Index)                                       \
     template <                                                                 \
         size_t Stride, bool Write, size_t Level, typename T,                   \
-        std::enable_if_t<std::is_integral<typename T::Scalar>::value &&        \
-                         sizeof(typename T::Scalar) == sizeof(Index), int> = 0>
+        std::enable_if_t<std::is_integral<typename T::Value>::value &&         \
+                         sizeof(typename T::Value) == sizeof(Index), int> = 0>
 
 /// SFINAE macro for strided operations (transform)
 #define ENOKI_REQUIRE_INDEX_TRANSFORM(T, Index)                                \
     template <                                                                 \
         size_t Stride, typename T, typename Func,                              \
-        std::enable_if_t<std::is_integral<typename T::Scalar>::value &&        \
-                         sizeof(typename T::Scalar) == sizeof(Index), int> = 0>
+        std::enable_if_t<std::is_integral<typename T::Value>::value &&         \
+                         sizeof(typename T::Value) == sizeof(Index), int> = 0>
 
-#define ENOKI_NATIVE_ARRAY(Scalar_, Size_, Approx_, Register, Mode)            \
+#define ENOKI_NATIVE_ARRAY(Value_, Size_, Approx_, Register, Mode)             \
     static constexpr bool Native = true;                                       \
-    using Base = StaticArrayBase<Scalar_, Size_, Approx_, Mode, Derived>;      \
+    using Base = StaticArrayBase<Value_, Size_, Approx_, Mode, Derived>;       \
     using Arg = Derived;                                                       \
     using Expr = Derived;                                                      \
     using Base::operator=;                                                     \
-    using typename Base::Scalar;                                               \
+    using typename Base::Value;                                                \
     using typename Base::Array1;                                               \
     using typename Base::Array2;                                               \
     using Base::Size;                                                          \
     using Base::ActualSize;                                                    \
     using Base::derived;                                                       \
     Register m;                                                                \
-    ENOKI_TRIVIAL_CONSTRUCTOR(Scalar_)                                         \
+    ENOKI_TRIVIAL_CONSTRUCTOR(Value_)                                          \
     StaticArrayImpl(const StaticArrayImpl &a) : m(a.m) { }                     \
     ENOKI_INLINE StaticArrayImpl(Register value) : m(value) { }                \
     StaticArrayImpl &operator=(const StaticArrayImpl &a) {                     \
         m = a.m;                                                               \
         return *this;                                                          \
     }                                                                          \
-    ENOKI_INLINE Scalar &coeff(size_t i) { return ((Scalar *) &m)[i]; }        \
-    ENOKI_INLINE const Scalar &coeff(size_t i) const {                         \
-        return ((const Scalar *) &m)[i];                                       \
+    ENOKI_INLINE Value &coeff(size_t i) { return ((Value *) &m)[i]; }          \
+    ENOKI_INLINE const Value &coeff(size_t i) const {                          \
+        return ((const Value *) &m)[i];                                        \
     }                                                                          \
     template <typename Type2, typename Derived2, typename T = Derived,         \
-              std::enable_if_t<std::is_assignable<Scalar_ &, Type2>::value &&  \
+              std::enable_if_t<std::is_assignable<Value_ &, Type2>::value &&   \
                                Derived2::Size == T::Size, int> = 0>            \
     ENOKI_INLINE StaticArrayImpl(const ArrayBase<Type2, Derived2> &a) {        \
         ENOKI_TRACK_SCALAR for (size_t i = 0; i < Derived2::Size; ++i)         \
-            derived().coeff(i) = Scalar(a.derived().coeff(i));                 \
+            derived().coeff(i) = Value(a.derived().coeff(i));                  \
     }                                                                          \
     template <size_t Size2, bool Approx2, RoundingMode Mode2,                  \
               typename Derived2>                                               \
@@ -1693,21 +1693,21 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
         const StaticArrayBase<bool, Size2, Approx2, Mode2, Derived2> &a,       \
         detail::reinterpret_flag) {                                            \
         static_assert(Derived::Size == Derived2::Size, "Size mismatch!");      \
-        using Int = typename detail::type_chooser<sizeof(Scalar)>::Int;        \
-        const Scalar on = memcpy_cast<Scalar>(Int(-1));                        \
-        const Scalar off = memcpy_cast<Scalar>(Int(0));                        \
+        using Int = typename detail::type_chooser<sizeof(Value)>::Int;         \
+        const Value on = memcpy_cast<Value>(Int(-1));                          \
+        const Value off = memcpy_cast<Value>(Int(0));                          \
         ENOKI_TRACK_SCALAR for (size_t i = 0; i < Derived2::Size; ++i)         \
             coeff(i) = a.derived().coeff(i) ? on : off;                        \
     }                                                                          \
     template <                                                                 \
         typename T, std::enable_if_t<std::is_same<T, bool>::value, int> = 0,   \
-        typename Int = typename detail::type_chooser<sizeof(Scalar)>::Int>     \
+        typename Int = typename detail::type_chooser<sizeof(Value)>::Int>      \
     ENOKI_INLINE StaticArrayImpl(T b)                                          \
-        : StaticArrayImpl(b ? memcpy_cast<Scalar>(Int(-1))                     \
-                            : memcpy_cast<Scalar>(Int(0))) { }
+        : StaticArrayImpl(b ? memcpy_cast<Value>(Int(-1))                      \
+                            : memcpy_cast<Value>(Int(0))) { }
 
-#define ENOKI_NATIVE_ARRAY_CLASSIC(Scalar_, Size_, Approx_, Register)          \
-    ENOKI_NATIVE_ARRAY(Scalar_, Size_, Approx_, Register,                      \
+#define ENOKI_NATIVE_ARRAY_CLASSIC(Value_, Size_, Approx_, Register)           \
+    ENOKI_NATIVE_ARRAY(Value_, Size_, Approx_, Register,                       \
                        RoundingMode::Default)                                  \
     using Mask = Derived;
 

@@ -93,7 +93,7 @@
 #  define ENOKI_TRACK_DEALLOC
 #endif
 
-#define ENOKI_CHKSCALAR if (std::is_arithmetic<Scalar>::value) { ENOKI_TRACK_SCALAR }
+#define ENOKI_CHKSCALAR if (std::is_arithmetic<Value>::value) { ENOKI_TRACK_SCALAR }
 
 NAMESPACE_BEGIN(enoki)
 /// Choice of rounding modes for floating point operations
@@ -300,21 +300,21 @@ struct mask<T, std::enable_if_t<is_sarray<T>::value>> {
 };
 
 /// Type trait to access the scalar type underlying an array
+template <typename T, typename = void> struct value { using type = T; };
+template <typename T> using value_t = typename value<T>::type;
+
+template <typename T>
+struct value<T, std::enable_if_t<is_array<T>::value>> {
+    using type = typename std::decay_t<T>::Value;
+};
+
+/// Type trait to access the base scalar type underlying a potentially nested array
 template <typename T, typename = void> struct scalar { using type = T; };
 template <typename T> using scalar_t = typename scalar<T>::type;
 
 template <typename T>
 struct scalar<T, std::enable_if_t<is_array<T>::value>> {
-    using type = typename std::decay_t<T>::Scalar;
-};
-
-/// Type trait to access the base scalar type underlying a potentially nested array
-template <typename T, typename = void> struct base_scalar { using type = T; };
-template <typename T> using base_scalar_t = typename base_scalar<T>::type;
-
-template <typename T>
-struct base_scalar<T, std::enable_if_t<is_array<T>::value>> {
-    using type = base_scalar_t<typename std::decay_t<T>::Scalar>;
+    using type = scalar_t<typename std::decay_t<T>::Value>;
 };
 
 /// Type trait to access the type that would result from an unary expression involving another type
@@ -332,7 +332,7 @@ template <typename T, typename = void> struct array_depth {
 };
 
 template <typename T> struct array_depth<T, std::enable_if_t<enoki::is_array<T>::value>> {
-    static constexpr size_t value = array_depth<typename std::decay_t<T>::Scalar>::value + 1;
+    static constexpr size_t value = array_depth<typename std::decay_t<T>::Value>::value + 1;
 };
 
 /// Determine the size of an array
@@ -351,7 +351,7 @@ template <typename T> using is_dynamic = is_dynamic_impl<std::decay_t<T>>;
 
 template <typename T>
 struct is_dynamic_internal<T, std::enable_if_t<is_sarray<T>::value>> {
-    static constexpr bool value = is_dynamic<typename std::decay_t<T>::Scalar>::value;
+    static constexpr bool value = is_dynamic<typename std::decay_t<T>::Value>::value;
 };
 
 template <typename T>
@@ -409,20 +409,20 @@ template <typename Type_,
 struct Array;
 
 /// Replace the base scalar type of an array (potentially nested)
-template <typename T, typename Scalar, typename = void>
+template <typename T, typename Value, typename = void>
 struct like { };
 
-template <typename T, typename Scalar>
-struct like<T, Scalar, std::enable_if_t<is_sarray<T>::value>> {
-    using type = Array<typename like<scalar_t<T>, Scalar>::type, array_size<T>::value>;
+template <typename T, typename Value>
+struct like<T, Value, std::enable_if_t<is_sarray<T>::value>> {
+    using type = Array<typename like<value_t<T>, Value>::type, array_size<T>::value>;
 };
 
-template <typename T, typename Scalar>
-struct like<T, Scalar, std::enable_if_t<!is_sarray<T>::value>> {
-    using type = Scalar;
+template <typename T, typename Value>
+struct like<T, Value, std::enable_if_t<!is_sarray<T>::value>> {
+    using type = Value;
 };
 
-template <typename T, typename Scalar> using like_t = typename like<T, Scalar>::type;
+template <typename T, typename Value> using like_t = typename like<T, Value>::type;
 
 /// Reinterpret the binary represesentation of a data type
 template<typename T, typename U> ENOKI_INLINE T memcpy_cast(const U &val) {
@@ -441,16 +441,16 @@ using is_int32_t = std::enable_if_t<sizeof(T) == 4 && std::is_integral<T>::value
 template <typename T>
 using is_int64_t = std::enable_if_t<sizeof(T) == 8 && std::is_integral<T>::value>;
 
-template <typename Scalar, size_t Size, typename = void> struct is_native {
+template <typename Value, size_t Size, typename = void> struct is_native {
     static constexpr bool value = false;
 };
 
 /// Determines when the special fallback in array_round.h is needed
-template <typename Scalar, size_t Size, RoundingMode Mode, typename = void>
+template <typename Value, size_t Size, RoundingMode Mode, typename = void>
 struct rounding_fallback : std::true_type { };
 
-template <typename Scalar, size_t Size>
-struct rounding_fallback<Scalar, Size, RoundingMode::Default, void>
+template <typename Value, size_t Size>
+struct rounding_fallback<Value, Size, RoundingMode::Default, void>
     : std::false_type { };
 
 #if defined(__AVX512F__)
@@ -483,15 +483,15 @@ static constexpr size_t lpow2(size_t i) {
     return i != 0 ? (fill(i-1) >> 1) + 1 : 0;
 }
 
-template <typename Scalar, size_t Size, RoundingMode Mode> struct is_recursive {
+template <typename Value, size_t Size, RoundingMode Mode> struct is_recursive {
     /// Use the recursive array in array_recursive.h?
-    static constexpr bool value = !is_native<Scalar, Size>::value &&
+    static constexpr bool value = !is_native<Value, Size>::value &&
                                   has_vectorization && Size > 3 &&
-                                  (std::is_same<Scalar, float>::value ||
-                                   std::is_same<Scalar, double>::value ||
-                                   (std::is_integral<Scalar>::value &&
-                                    (sizeof(Scalar) == 4 || sizeof(Scalar) == 8))) &&
-                                  !rounding_fallback<Scalar, Size, Mode>::value;
+                                  (std::is_same<Value, float>::value ||
+                                   std::is_same<Value, double>::value ||
+                                   (std::is_integral<Value>::value &&
+                                    (sizeof(Value) == 4 || sizeof(Value) == 8))) &&
+                                  !rounding_fallback<Value, Size, Mode>::value;
 };
 
 struct reinterpret_flag { };
@@ -541,15 +541,15 @@ NAMESPACE_END(detail)
 
 /// Integer-based version of a given array class
 template <typename T>
-using int_array_t = like_t<T, typename detail::type_chooser<sizeof(base_scalar_t<T>)>::Int>;
+using int_array_t = like_t<T, typename detail::type_chooser<sizeof(scalar_t<T>)>::Int>;
 
 /// Unsigned integer-based version of a given array class
 template <typename T>
-using uint_array_t = like_t<T, typename detail::type_chooser<sizeof(base_scalar_t<T>)>::UInt>;
+using uint_array_t = like_t<T, typename detail::type_chooser<sizeof(scalar_t<T>)>::UInt>;
 
 /// Floating point-based version of a given array class
 template <typename T>
-using float_array_t = like_t<T, typename detail::type_chooser<sizeof(base_scalar_t<T>)>::Float>;
+using float_array_t = like_t<T, typename detail::type_chooser<sizeof(scalar_t<T>)>::Float>;
 
 template <typename T> using int32_array_t   = like_t<T, int32_t>;
 template <typename T> using uint32_array_t  = like_t<T, uint32_t>;
@@ -572,7 +572,7 @@ struct dynamic_internal<T, std::enable_if_t<array_depth<T>::value == 1>> {
 
 template <typename T>
 struct dynamic_internal<T, std::enable_if_t<(array_depth<T>::value > 1)>> {
-    using type = Array<dynamic_t<scalar_t<T>>, T::Size>;
+    using type = Array<dynamic_t<value_t<T>>, T::Size>;
 };
 
 /// Generic string conversion routine

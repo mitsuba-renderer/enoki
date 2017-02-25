@@ -78,7 +78,7 @@ transpose(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
     static_assert(Type::Size == Size && array_depth<Derived>::value == 2,
                   "Array must be a square matrix!");
     Derived result;
-    using Scalar = typename Type::Scalar;
+    using Value = typename Type::Value;
     ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
         for (size_t j = 0; j < Size; ++j)
             result.coeff(i).coeff(j) = a.derived().coeff(j).coeff(i);

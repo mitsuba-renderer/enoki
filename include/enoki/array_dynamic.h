@@ -63,10 +63,10 @@ struct aligned_deleter {
 };
 
 template <typename Packet_, typename Derived_>
-struct DynamicArrayBase : ArrayBase<scalar_t<Packet_>, Derived_> {
+struct DynamicArrayBase : ArrayBase<value_t<Packet_>, Derived_> {
     using Packet                              = Packet_;
+    using Value                               = value_t<Packet_>;
     using Scalar                              = scalar_t<Packet_>;
-    using BaseScalar                          = base_scalar_t<Packet_>;
     static constexpr size_t       PacketSize  = Packet::Size;
     static constexpr bool         Approx      = Packet::Approx;
     static constexpr RoundingMode Mode        = Packet::Mode;
@@ -99,7 +99,7 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     using Base = DynamicArrayBase<Packet_, Derived_>;
 
     using typename Base::Packet;
-    using typename Base::Scalar;
+    using typename Base::Value;
     using typename Base::Derived;
     using Base::derived;
     using Base::PacketSize;
@@ -117,7 +117,7 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
 
     DynamicArrayImpl(size_t size) { resize_(size); }
 
-    DynamicArrayImpl(Scalar *ptr, size_t size)
+    DynamicArrayImpl(Value *ptr, size_t size)
         : m_packets((Packet *) ptr), m_packets_allocated(0), m_size(size) { }
 
     DynamicArrayImpl(DynamicArrayImpl &&other)
@@ -180,19 +180,19 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     //! @{ \name Functions to access the array contents
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE const Scalar *data() const {
-        return (const Scalar *) ENOKI_ASSUME_ALIGNED(m_packets);
+    ENOKI_INLINE const Value *data() const {
+        return (const Value *) ENOKI_ASSUME_ALIGNED(m_packets);
     }
 
-    ENOKI_INLINE Scalar *data() {
-        return (Scalar *) ENOKI_ASSUME_ALIGNED(m_packets);
+    ENOKI_INLINE Value *data() {
+        return (Value *) ENOKI_ASSUME_ALIGNED(m_packets);
     }
 
-    ENOKI_INLINE Scalar& coeff(size_t i) {
+    ENOKI_INLINE Value& coeff(size_t i) {
         return m_packets[i / PacketSize][i % PacketSize];
     }
 
-    ENOKI_INLINE Scalar& coeff(size_t i) const {
+    ENOKI_INLINE Value& coeff(size_t i) const {
         return m_packets[i / PacketSize][i % PacketSize];
     }
 
@@ -214,7 +214,7 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     static Derived index_sequence_(size_t size) {
         Derived result(size);
         Packet packet = index_sequence<Packet>(),
-               shift = Scalar(PacketSize);
+               shift = Value(PacketSize);
         for (size_t i = 0; i < result.packets_(); ++i) {
             result.packet_(i) = packet;
             packet += shift;
@@ -222,13 +222,13 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
         return result;
     }
 
-    static Derived linspace_(size_t size, Scalar min, Scalar max) {
+    static Derived linspace_(size_t size, Value min, Value max) {
         Derived result(size);
 
-        Scalar step = (max - min) / Scalar(size - 1);
+        Value step = (max - min) / Value(size - 1);
 
         Packet packet = linspace<Packet>(min, min + step * (PacketSize - 1)),
-               shift = Scalar(step * PacketSize);
+               shift = Value(step * PacketSize);
 
         for (size_t i = 0; i < result.packets_(); ++i) {
             result.packet_(i) = packet;
@@ -293,9 +293,9 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
         #endif
 
         /* Clear unused entries */
-        size_t used = sizeof(Scalar) * size;
+        size_t used = sizeof(Value) * size;
         size_t allocated =
-            sizeof(Scalar) * m_packets_allocated * PacketSize;
+            sizeof(Value) * m_packets_allocated * PacketSize;
         memset((uint8_t *) m_packets + used, 0, allocated - used);
     }
 

@@ -29,8 +29,8 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     static constexpr bool Native = false;
     using Base = StaticArrayBase<Type_, Size_, Approx_, Mode_, Derived>;
     using Expr = Derived;
+    using typename Base::Value;
     using typename Base::Scalar;
-    using typename Base::BaseScalar;
     using typename Base::Array1;
     using typename Base::Array2;
     using Base::Size;
@@ -97,7 +97,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         ENOKI_INLINE const Mask1& low_() const { return m1; }
         ENOKI_INLINE const Mask2& high_() const { return m2; }
 
-        ENOKI_INLINE Scalar coeff(size_t i) const {
+        ENOKI_INLINE Value coeff(size_t i) const {
             if (i < Size1)
                 return m1.coeff(i);
             else
@@ -109,13 +109,13 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     ENOKI_INLINE StaticArrayImpl() : a1(), a2() { }
 
     /// Initialize all entries with a constant floating point value
-    ENOKI_INLINE StaticArrayImpl(Scalar value) : a1(value), a2(value) { }
+    ENOKI_INLINE StaticArrayImpl(Value value) : a1(value), a2(value) { }
 
     /// Initialize from a list of component values
     template <typename... Args,
               std::enable_if_t<sizeof...(Args) == Size_, int> = 0>
     ENOKI_INLINE StaticArrayImpl(Args... args) {
-        alignas(alignof(Array1)) Scalar storage[Size] = { (Scalar) args... };
+        alignas(alignof(Array1)) Value storage[Size] = { (Value) args... };
         a1 = load<Array1>(storage);
         a2 = load<Array2>(storage + Size1);
     }
@@ -201,62 +201,62 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         return Derived(a1 ^ arg.m1, a2 ^ arg.m2);
     }
 
-    template <size_t Imm, typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <size_t Imm, typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived sli_() const {
         return Derived(sli<Imm>(a1), sli<Imm>(a2));
     }
 
-    template <size_t Imm, typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <size_t Imm, typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived sri_() const {
         return Derived(sri<Imm>(a1), sri<Imm>(a2));
     }
 
-    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived sl_(size_t k) const {
         return Derived(a1 << k, a2 << k);
     }
 
-    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived sr_(size_t k) const {
         return Derived(a1 >> k, a2 >> k);
     }
 
-    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived slv_(Arg arg) const {
         return Derived(a1 << arg, a2 << arg);
     }
 
-    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived srv_(Arg arg) const {
         return Derived(a1 >> arg, a2 >> arg);
     }
 
-    template <size_t Imm, typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <size_t Imm, typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived roli_() const {
         return Derived(roli<Imm>(a1), roli<Imm>(a2));
     }
 
-    template <size_t Imm, typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <size_t Imm, typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived rori_() const {
         return Derived(rori<Imm>(a1), rori<Imm>(a2));
     }
 
-    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived rol_(size_t k) const {
         return Derived(rol(a1, k), rol(a2, k));
     }
 
-    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived ror_(size_t k) const {
         return Derived(ror(a1, k), ror(a2, k));
     }
 
-    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived rolv_(Arg arg) const {
         return Derived(rol(a1, arg.a1), rol(a2, arg.a2));
     }
 
-    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived rorv_(Arg arg) const {
         return Derived(ror(a1, arg.a1), ror(a2, arg.a2));
     }
@@ -341,24 +341,24 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     // -----------------------------------------------------------------------
 
     template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
-    ENOKI_INLINE Scalar hsum_() const { return hsum(a1 + a2); }
+    ENOKI_INLINE Value hsum_() const { return hsum(a1 + a2); }
     template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
-    ENOKI_INLINE Scalar hsum_() const { return hsum(a1) + hsum(a2); }
+    ENOKI_INLINE Value hsum_() const { return hsum(a1) + hsum(a2); }
 
     template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
-    ENOKI_INLINE Scalar hprod_() const { return hprod(a1 * a2); }
+    ENOKI_INLINE Value hprod_() const { return hprod(a1 * a2); }
     template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
-    ENOKI_INLINE Scalar hprod_() const { return hprod(a1) * hprod(a2); }
+    ENOKI_INLINE Value hprod_() const { return hprod(a1) * hprod(a2); }
 
     template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
-    ENOKI_INLINE Scalar hmin_() const { return hmin(min(a1, a2)); }
+    ENOKI_INLINE Value hmin_() const { return hmin(min(a1, a2)); }
     template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
-    ENOKI_INLINE Scalar hmin_() const { return std::min(hmin(a1), hmin(a2)); }
+    ENOKI_INLINE Value hmin_() const { return std::min(hmin(a1), hmin(a2)); }
 
     template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
-    ENOKI_INLINE Scalar hmax_() const { return hmax(max(a1, a2)); }
+    ENOKI_INLINE Value hmax_() const { return hmax(max(a1, a2)); }
     template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
-    ENOKI_INLINE Scalar hmax_() const { return std::max(hmax(a1), hmax(a2)); }
+    ENOKI_INLINE Value hmax_() const { return std::max(hmax(a1), hmax(a2)); }
 
     template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
     ENOKI_INLINE auto dot_(Arg arg) const { return hsum(a1*arg.a1 + a2*arg.a2); }
@@ -373,26 +373,26 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     // -----------------------------------------------------------------------
 
     ENOKI_INLINE void store_(void *out) const {
-        store((Scalar *) out, a1);
-        store((Scalar *) out + Size1, a2);
+        store((Value *) out, a1);
+        store((Value *) out + Size1, a2);
     }
 
     ENOKI_INLINE void store_unaligned_(void *out) const {
-        store_unaligned((Scalar *) out, a1);
-        store_unaligned((Scalar *) out + Size1, a2);
+        store_unaligned((Value *) out, a1);
+        store_unaligned((Value *) out + Size1, a2);
     }
 
     ENOKI_INLINE static Derived load_(const void *a) {
         return Derived(
-            load<Array1>((Scalar *) a),
-            load<Array2>((Scalar *) a + Size1)
+            load<Array1>((Value *) a),
+            load<Array2>((Value *) a + Size1)
         );
     }
 
     ENOKI_INLINE static Derived load_unaligned_(const void *a) {
         return Derived(
-            load_unaligned<Array1>((Scalar *) a),
-            load_unaligned<Array2>((Scalar *) a + Size1)
+            load_unaligned<Array1>((Value *) a),
+            load_unaligned<Array2>((Value *) a + Size1)
         );
     }
 
@@ -464,9 +464,9 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     ENOKI_INLINE const Array1& low_() const { return a1; }
     ENOKI_INLINE const Array2& high_() const { return a2; }
 
-    ENOKI_INLINE const Scalar& coeff(size_t i) const {
+    ENOKI_INLINE const Value& coeff(size_t i) const {
         #if defined(__clang__) || defined(NDEBUG)
-            union Helper { Derived t; Scalar x[Size]; };
+            union Helper { Derived t; Value x[Size]; };
             return ((const Helper *) this)->x[i];
         #else
             if (i < Size1)
@@ -476,9 +476,9 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         #endif
     }
 
-    ENOKI_INLINE Scalar& coeff(size_t i) {
+    ENOKI_INLINE Value& coeff(size_t i) {
         #if defined(__clang__) || defined(NDEBUG)
-            union Helper { Derived t; Scalar x[Size]; };
+            union Helper { Derived t; Value x[Size]; };
             return ((Helper *) this)->x[i];
         #else
             if (i < Size1)

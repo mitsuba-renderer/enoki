@@ -35,19 +35,19 @@ struct half {
     #endif
     { }
 
-    #define ENOKI_IF_SCALAR template <typename Scalar, std::enable_if_t<std::is_arithmetic<Scalar>::value, int> = 0>
+    #define ENOKI_IF_SCALAR template <typename Value, std::enable_if_t<std::is_arithmetic<Value>::value, int> = 0>
 
-    ENOKI_IF_SCALAR half(Scalar val) : value(float32_to_float16(float(val))) { }
+    ENOKI_IF_SCALAR half(Value val) : value(float32_to_float16(float(val))) { }
 
     half operator+(half h) const { return half(float(*this) + float(h)); }
     half operator-(half h) const { return half(float(*this) - float(h)); }
     half operator*(half h) const { return half(float(*this) * float(h)); }
     half operator/(half h) const { return half(float(*this) / float(h)); }
 
-    ENOKI_IF_SCALAR friend half operator+(Scalar val, half h) { return half(val) + h; }
-    ENOKI_IF_SCALAR friend half operator-(Scalar val, half h) { return half(val) - h; }
-    ENOKI_IF_SCALAR friend half operator*(Scalar val, half h) { return half(val) * h; }
-    ENOKI_IF_SCALAR friend half operator/(Scalar val, half h) { return half(val) / h; }
+    ENOKI_IF_SCALAR friend half operator+(Value val, half h) { return half(val) + h; }
+    ENOKI_IF_SCALAR friend half operator-(Value val, half h) { return half(val) - h; }
+    ENOKI_IF_SCALAR friend half operator*(Value val, half h) { return half(val) * h; }
+    ENOKI_IF_SCALAR friend half operator/(Value val, half h) { return half(val) / h; }
 
     half& operator+=(half h) { return operator=(*this + h); }
     half& operator-=(half h) { return operator=(*this - h); }
@@ -61,7 +61,7 @@ struct half {
     bool operator<=(half h) const { return float(*this) <= float(h); }
     bool operator>=(half h) const { return float(*this) >= float(h); }
 
-    ENOKI_IF_SCALAR operator Scalar() const { return Scalar(float16_to_float32(value)); }
+    ENOKI_IF_SCALAR operator Value() const { return Value(float16_to_float32(value)); }
 
     static half from_binary(uint16_t value) { half h; h.value = value; return h; }
 
@@ -73,7 +73,7 @@ struct half {
     #undef ENOKI_IF_SCALAR
 private:
     /*
-       Scalar float32<->float16 conversion code by Paul A. Tessier (@Phernost)
+       Value float32<->float16 conversion code by Paul A. Tessier (@Phernost)
        Used with permission by the author, who released this code into the public domain
      */
     union Bits {

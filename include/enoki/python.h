@@ -26,28 +26,28 @@ template <typename T, typename = void> struct array_shape_descr {
 
 template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_sarray<T>::value>> {
     static PYBIND11_DESCR name() {
-        return array_shape_descr<typename T::Scalar>::name_cont() + _<T::Size>();
+        return array_shape_descr<enoki::value_t<T>>::name_cont() + _<T::Size>();
     }
     static PYBIND11_DESCR name_cont() {
-        return array_shape_descr<typename T::Scalar>::name_cont() + _<T::Size>() + _(", ");
+        return array_shape_descr<enoki::value_t<T>>::name_cont() + _<T::Size>() + _(", ");
     }
 };
 
 template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_darray<T>::value>> {
     static PYBIND11_DESCR name() {
-        return array_shape_descr<typename T::Scalar>::name_cont() + _("n");
+        return array_shape_descr<enoki::value_t<T>>::name_cont() + _("n");
     }
     static PYBIND11_DESCR name_cont() {
-        return array_shape_descr<typename T::Scalar>::name_cont() + _("n, ");
+        return array_shape_descr<enoki::value_t<T>>::name_cont() + _("n, ");
     }
 };
 
 template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_array<Type>::value>> {
-    typedef typename Type::Scalar     Scalar;
-    typedef typename Type::BaseScalar BaseScalar;
+    typedef typename Type::Value     Value;
+    typedef typename Type::Scalar Scalar;
 
     bool load(handle src, bool) {
-        auto arr = array_t<BaseScalar, array::f_style | array::forcecast>::ensure(src);
+        auto arr = array_t<Scalar, array::f_style | array::forcecast>::ensure(src);
         if (!arr)
             return false;
 
@@ -64,7 +64,7 @@ template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_arra
             return false;
         }
 
-        const BaseScalar *buf = static_cast<const BaseScalar *>(arr.data());
+        const Scalar *buf = static_cast<const Scalar *>(arr.data());
         read_buffer(buf, value);
 
         return true;
@@ -82,17 +82,17 @@ template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_arra
         std::reverse(shape.begin(), shape.end());
         decltype(shape) stride;
 
-        stride[0] = sizeof(BaseScalar);
+        stride[0] = sizeof(Scalar);
         for (size_t i = 1; i < shape.size(); ++i)
             stride[i] = shape[i - 1] * stride[i - 1];
 
-        buffer_info info(nullptr, sizeof(BaseScalar),
-                         format_descriptor<BaseScalar>::value, shape.size(),
+        buffer_info info(nullptr, sizeof(Scalar),
+                         format_descriptor<Scalar>::value, shape.size(),
                          std::vector<size_t>(shape.begin(), shape.end()),
                          std::vector<size_t>(stride.begin(), stride.end()));
 
         array arr(info);
-        BaseScalar *buf = static_cast<BaseScalar *>(arr.mutable_data());
+        Scalar *buf = static_cast<Scalar *>(arr.mutable_data());
         write_buffer(buf, src);
         return arr.release();
     }
@@ -102,7 +102,7 @@ template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_arra
     static PYBIND11_DESCR name() {
         return pybind11::detail::type_descr(
             _("numpy.ndarray[dtype=") +
-            npy_format_descriptor<BaseScalar>::name() + _(", shape=(") +
+            npy_format_descriptor<Scalar>::name() + _(", shape=(") +
             array_shape_descr<Type>::name() + _(")]"));
     }
 
@@ -111,15 +111,15 @@ template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_arra
 
 private:
     template <typename T, std::enable_if_t<!enoki::is_array<T>::value, int> = 0>
-    ENOKI_INLINE static void write_buffer(BaseScalar *&, const T &) { }
+    ENOKI_INLINE static void write_buffer(Scalar *&, const T &) { }
 
     template <typename T, std::enable_if_t<enoki::is_array<T>::value, int> = 0>
-    ENOKI_INLINE static void write_buffer(BaseScalar *&buf, const T &value_) {
+    ENOKI_INLINE static void write_buffer(Scalar *&buf, const T &value_) {
         const auto &value = value_.derived();
         size_t size = value.size();
 
-        if (std::is_arithmetic<typename T::Scalar>::value) {
-            memcpy(buf, &value.coeff(0), sizeof(typename T::Scalar) * size);
+        if (std::is_arithmetic<enoki::value_t<T>>::value) {
+            memcpy(buf, &value.coeff(0), sizeof(enoki::value_t<T>) * size);
             buf += size;
         } else {
             for (size_t i = 0; i < size; ++i)
@@ -128,15 +128,15 @@ private:
     }
 
     template <typename T, std::enable_if_t<!enoki::is_array<T>::value, int> = 0>
-    ENOKI_INLINE static void read_buffer(const BaseScalar *&, T &) { }
+    ENOKI_INLINE static void read_buffer(const Scalar *&, T &) { }
 
     template <typename T, std::enable_if_t<enoki::is_array<T>::value, int> = 0>
-    ENOKI_INLINE static void read_buffer(const BaseScalar *&buf, T &value_) {
+    ENOKI_INLINE static void read_buffer(const Scalar *&buf, T &value_) {
         auto &value = value_.derived();
         size_t size = value.size();
 
-        if (std::is_arithmetic<typename T::Scalar>::value) {
-            memcpy(&value.coeff(0), buf, sizeof(typename T::Scalar) * size);
+        if (std::is_arithmetic<enoki::value_t<T>>::value) {
+            memcpy(&value.coeff(0), buf, sizeof(enoki::value_t<T>) * size);
             buf += size;
         } else {
             for (size_t i = 0; i < size; ++i)

@@ -228,17 +228,17 @@ template <typename T> struct divisor<T, std::enable_if_t<std::is_signed<T>::valu
 #endif
 
 template <typename Type, size_t Size, bool Approx, RoundingMode Mode, typename Derived,
-          std::enable_if_t<!std::is_floating_point<base_scalar_t<Type>>::value, int> = 0>
+          std::enable_if_t<!std::is_floating_point<scalar_t<Type>>::value, int> = 0>
 ENOKI_INLINE auto
-operator/(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a, divisor<base_scalar_t<Type>> div) {
+operator/(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a, divisor<scalar_t<Type>> div) {
     return div(a.derived());
 }
 
 template <typename Type, size_t Size, bool Approx, RoundingMode Mode, typename Derived,
-          std::enable_if_t<!std::is_floating_point<base_scalar_t<Type>>::value, int> = 0>
+          std::enable_if_t<!std::is_floating_point<scalar_t<Type>>::value, int> = 0>
 ENOKI_INLINE auto
-operator%(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a, base_scalar_t<Type> v) {
-    return a - divisor<base_scalar_t<Type>>(v)(a) * Derived(v);
+operator%(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a, scalar_t<Type> v) {
+    return a - divisor<scalar_t<Type>>(v)(a) * Derived(v);
 }
 
 //! @}

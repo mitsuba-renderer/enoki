@@ -63,8 +63,8 @@ template <bool Approx, typename Derived> struct alignas(16)
     //! @{ \name Value constructors
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE StaticArrayImpl(Scalar value) : m(_mm_set1_ps(value)) { }
-    ENOKI_INLINE StaticArrayImpl(Scalar v0, Scalar v1, Scalar v2, Scalar v3)
+    ENOKI_INLINE StaticArrayImpl(Value value) : m(_mm_set1_ps(value)) { }
+    ENOKI_INLINE StaticArrayImpl(Value v0, Value v1, Value v2, Value v3)
         : m(_mm_setr_ps(v0, v1, v2, v3)) { }
 
     //! @}
@@ -313,7 +313,7 @@ template <bool Approx, typename Derived> struct alignas(16)
     // -----------------------------------------------------------------------
 
     #define ENOKI_HORIZONTAL_OP(name, op) \
-        ENOKI_INLINE Scalar name##_() const { \
+        ENOKI_INLINE Value name##_() const { \
             __m128 t1 = _mm_movehdup_ps(m); \
             __m128 t2 = _mm_##op##_ps(m, t1); \
             t1        = _mm_movehl_ps(t1, t2); \
@@ -336,7 +336,7 @@ template <bool Approx, typename Derived> struct alignas(16)
         return (size_t) _mm_popcnt_u32((unsigned int) _mm_movemask_ps(m));
     }
 
-    ENOKI_INLINE Scalar dot_(Arg a) const {
+    ENOKI_INLINE Value dot_(Arg a) const {
         return _mm_cvtss_f32(_mm_dp_ps(m, a.m, 0b11110001));
     }
 
@@ -347,11 +347,11 @@ template <bool Approx, typename Derived> struct alignas(16)
     //! @{ \name Initialization, loading/writing data
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE void store_(void *ptr) const { _mm_store_ps((Scalar *) ptr, m); }
-    ENOKI_INLINE void store_unaligned_(void *ptr) const { _mm_storeu_ps((Scalar *) ptr, m); }
+    ENOKI_INLINE void store_(void *ptr) const { _mm_store_ps((Value *) ptr, m); }
+    ENOKI_INLINE void store_unaligned_(void *ptr) const { _mm_storeu_ps((Value *) ptr, m); }
 
-    ENOKI_INLINE static Derived load_(const void *ptr) { return _mm_load_ps((const Scalar *) ptr); }
-    ENOKI_INLINE static Derived load_unaligned_(const void *ptr) { return _mm_loadu_ps((const Scalar *) ptr); }
+    ENOKI_INLINE static Derived load_(const void *ptr) { return _mm_load_ps((const Value *) ptr); }
+    ENOKI_INLINE static Derived load_unaligned_(const void *ptr) { return _mm_loadu_ps((const Value *) ptr); }
 
     ENOKI_INLINE static Derived zero_() { return _mm_setzero_ps(); }
 
@@ -438,8 +438,8 @@ template <bool Approx, typename Derived> struct alignas(16)
     //! @{ \name Value constructors
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE StaticArrayImpl(Scalar value) : m(_mm_set1_pd(value)) { }
-    ENOKI_INLINE StaticArrayImpl(Scalar v0, Scalar v1)
+    ENOKI_INLINE StaticArrayImpl(Value value) : m(_mm_set1_pd(value)) { }
+    ENOKI_INLINE StaticArrayImpl(Value v0, Value v1)
         : m(_mm_setr_pd(v0, v1)) { }
 
     //! @}
@@ -670,7 +670,7 @@ template <bool Approx, typename Derived> struct alignas(16)
     // -----------------------------------------------------------------------
 
     #define ENOKI_HORIZONTAL_OP(name, op) \
-        ENOKI_INLINE Scalar name##_() const { \
+        ENOKI_INLINE Value name##_() const { \
             __m128d t0 = ENOKI_SHUFFLE_PD(m, 1); \
             __m128d t1 = _mm_##op##_sd(t0, m); \
             return  _mm_cvtsd_f64(t1); \
@@ -692,7 +692,7 @@ template <bool Approx, typename Derived> struct alignas(16)
         return (size_t) _mm_popcnt_u32((unsigned int) _mm_movemask_pd(m));
     }
 
-    ENOKI_INLINE Scalar dot_(Arg a) const {
+    ENOKI_INLINE Value dot_(Arg a) const {
         return _mm_cvtsd_f64(_mm_dp_pd(m, a.m, 0b00110001));
     }
 
@@ -703,11 +703,11 @@ template <bool Approx, typename Derived> struct alignas(16)
     //! @{ \name Initialization, loading/writing data
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE void store_(void *ptr) const { _mm_store_pd((Scalar *) ptr, m); }
-    ENOKI_INLINE void store_unaligned_(void *ptr) const { _mm_storeu_pd((Scalar *) ptr, m); }
+    ENOKI_INLINE void store_(void *ptr) const { _mm_store_pd((Value *) ptr, m); }
+    ENOKI_INLINE void store_unaligned_(void *ptr) const { _mm_storeu_pd((Value *) ptr, m); }
 
-    ENOKI_INLINE static Derived load_(const void *ptr) { return _mm_load_pd((const Scalar *) ptr); }
-    ENOKI_INLINE static Derived load_unaligned_(const void *ptr) { return _mm_loadu_pd((const Scalar *) ptr); }
+    ENOKI_INLINE static Derived load_(const void *ptr) { return _mm_load_pd((const Value *) ptr); }
+    ENOKI_INLINE static Derived load_unaligned_(const void *ptr) { return _mm_loadu_pd((const Value *) ptr); }
 
     ENOKI_INLINE static Derived zero_() { return _mm_setzero_pd(); }
 
@@ -773,18 +773,18 @@ template <bool Approx, typename Derived> struct alignas(16)
 };
 
 /// Partial overload of StaticArrayImpl using SSE4.2 intrinsics (32 bit integers)
-template <typename Scalar_, typename Derived>
-struct alignas(16) StaticArrayImpl<Scalar_, 4, false, RoundingMode::Default,
-                                   Derived, detail::is_int32_t<Scalar_>>
-    : StaticArrayBase<Scalar_, 4, false, RoundingMode::Default, Derived> {
-    ENOKI_NATIVE_ARRAY_CLASSIC(Scalar_, 4, false, __m128i)
+template <typename Value_, typename Derived>
+struct alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
+                                   Derived, detail::is_int32_t<Value_>>
+    : StaticArrayBase<Value_, 4, false, RoundingMode::Default, Derived> {
+    ENOKI_NATIVE_ARRAY_CLASSIC(Value_, 4, false, __m128i)
 
     // -----------------------------------------------------------------------
     //! @{ \name Value constructors
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE StaticArrayImpl(Scalar value) : m(_mm_set1_epi32((int32_t) value)) { }
-    ENOKI_INLINE StaticArrayImpl(Scalar v0, Scalar v1, Scalar v2, Scalar v3)
+    ENOKI_INLINE StaticArrayImpl(Value value) : m(_mm_set1_epi32((int32_t) value)) { }
+    ENOKI_INLINE StaticArrayImpl(Value v0, Value v1, Value v2, Value v3)
         : m(_mm_setr_epi32((int32_t) v0, (int32_t) v1, (int32_t) v2, (int32_t) v3)) { }
 
     //! @}
@@ -795,14 +795,14 @@ struct alignas(16) StaticArrayImpl<Scalar_, 4, false, RoundingMode::Default,
     // -----------------------------------------------------------------------
 
     ENOKI_CONVERT(float) {
-        if (std::is_signed<Scalar>::value) {
+        if (std::is_signed<Value>::value) {
             m = _mm_cvttps_epi32(a.derived().m);
         } else {
 #if defined(__AVX512DQ__) && defined(__AVX512VL__)
             m = _mm_cvttps_epu32(a.derived().m);
 #else
             ENOKI_TRACK_SCALAR for (size_t i = 0; i < Size; ++i)
-                coeff(i) = Scalar(a.derived().coeff(i));
+                coeff(i) = Value(a.derived().coeff(i));
 #endif
 
         }
@@ -813,14 +813,14 @@ struct alignas(16) StaticArrayImpl<Scalar_, 4, false, RoundingMode::Default,
 
 #if defined(__AVX__)
     ENOKI_CONVERT(double) {
-        if (std::is_signed<Scalar>::value) {
+        if (std::is_signed<Value>::value) {
             m = _mm256_cvttpd_epi32(a.derived().m);
         } else {
 #if defined(__AVX512DQ__) && defined(__AVX512VL__)
             m = _mm256_cvttpd_epu32(a.derived().m);
 #else
             ENOKI_TRACK_SCALAR for (size_t i = 0; i < Size; ++i)
-                coeff(i) = Scalar(a.derived().coeff(i));
+                coeff(i) = Value(a.derived().coeff(i));
 #endif
         }
     }
@@ -896,7 +896,7 @@ struct alignas(16) StaticArrayImpl<Scalar_, 4, false, RoundingMode::Default,
     }
 
     template <size_t k> ENOKI_INLINE Derived sri_() const {
-        if (std::is_signed<Scalar>::value)
+        if (std::is_signed<Value>::value)
             return _mm_srai_epi32(m, (int) k);
         else
             return _mm_srli_epi32(m, (int) k);
@@ -907,7 +907,7 @@ struct alignas(16) StaticArrayImpl<Scalar_, 4, false, RoundingMode::Default,
     }
 
     ENOKI_INLINE Derived sr_(size_t k) const {
-        if (std::is_signed<Scalar>::value)
+        if (std::is_signed<Value>::value)
             return _mm_sra_epi32(m, _mm_set1_epi64x((long long) k));
         else
             return _mm_srl_epi32(m, _mm_set1_epi64x((long long) k));
@@ -926,7 +926,7 @@ struct alignas(16) StaticArrayImpl<Scalar_, 4, false, RoundingMode::Default,
 
     ENOKI_INLINE Derived srv_(Arg k) const {
         #if defined(__AVX2__)
-            if (std::is_signed<Scalar>::value)
+            if (std::is_signed<Value>::value)
                 return _mm_srav_epi32(m, k.m);
             else
                 return _mm_srlv_epi32(m, k.m);
@@ -950,7 +950,7 @@ struct alignas(16) StaticArrayImpl<Scalar_, 4, false, RoundingMode::Default,
 #endif
 
     ENOKI_INLINE Mask lt_(Arg a) const {
-        if (std::is_signed<Scalar>::value) {
+        if (std::is_signed<Value>::value) {
             return _mm_cmpgt_epi32(a.m, m);
         } else {
             const __m128i offset = _mm_set1_epi32((int32_t) 0x80000000ul);
@@ -960,7 +960,7 @@ struct alignas(16) StaticArrayImpl<Scalar_, 4, false, RoundingMode::Default,
     }
 
     ENOKI_INLINE Mask gt_(Arg a) const {
-        if (std::is_signed<Scalar>::value) {
+        if (std::is_signed<Value>::value) {
             return _mm_cmpgt_epi32(m, a.m);
         } else {
             const __m128i offset = _mm_set1_epi32((int32_t) 0x80000000ul);
@@ -976,21 +976,21 @@ struct alignas(16) StaticArrayImpl<Scalar_, 4, false, RoundingMode::Default,
     ENOKI_INLINE Mask neq_(Arg a) const { return ~eq_(a); }
 
     ENOKI_INLINE Derived min_(Arg a) const {
-        if (std::is_signed<Scalar>::value)
+        if (std::is_signed<Value>::value)
             return _mm_min_epi32(a.m, m);
         else
             return _mm_min_epu32(a.m, m);
     }
 
     ENOKI_INLINE Derived max_(Arg a) const {
-        if (std::is_signed<Scalar>::value)
+        if (std::is_signed<Value>::value)
             return _mm_max_epi32(a.m, m);
         else
             return _mm_max_epu32(a.m, m);
     }
 
     ENOKI_INLINE Derived abs_() const {
-        return std::is_signed<Scalar>::value ? _mm_abs_epi32(m) : m;
+        return std::is_signed<Value>::value ? _mm_abs_epi32(m) : m;
     }
 
     ENOKI_INLINE static Derived select_(const Mask &m, Arg t, Arg f) {
@@ -1003,9 +1003,9 @@ struct alignas(16) StaticArrayImpl<Scalar_, 4, false, RoundingMode::Default,
     }
 
     ENOKI_INLINE Derived mulhi_(Arg a) const {
-        const Mask blend(Scalar(-1), 0, Scalar(-1), 0);
+        const Mask blend(Value(-1), 0, Value(-1), 0);
 
-        if (std::is_signed<Scalar>::value) {
+        if (std::is_signed<Value>::value) {
             Derived even(_mm_srli_epi64(_mm_mul_epi32(m, a.m), 32));
             Derived odd(_mm_mul_epi32(_mm_srli_epi64(m, 32), _mm_srli_epi64(a.m, 32)));
             return select(blend, even, odd);
@@ -1023,28 +1023,28 @@ struct alignas(16) StaticArrayImpl<Scalar_, 4, false, RoundingMode::Default,
     //! @{ \name Horizontal operations
     // -----------------------------------------------------------------------
 
-    #define ENOKI_HORIZONTAL_OP(name, op) \
-        ENOKI_INLINE Scalar name##_() const { \
-            __m128i t1 = _mm_shuffle_epi32(m, 0x4e); \
-            __m128i t2 = _mm_##op##_epi32(m, t1);  \
-            t1         = _mm_shufflelo_epi16(t2, 0x4e); \
-            t2         = _mm_##op##_epi32(t2, t1); \
-            return (Scalar) _mm_cvtsi128_si32(t2); \
+    #define ENOKI_HORIZONTAL_OP(name, op)                                     \
+        ENOKI_INLINE Value name##_() const {                                  \
+            __m128i t1 = _mm_shuffle_epi32(m, 0x4e);                          \
+            __m128i t2 = _mm_##op##_epi32(m, t1);                             \
+            t1 = _mm_shufflelo_epi16(t2, 0x4e);                               \
+            t2 = _mm_##op##_epi32(t2, t1);                                    \
+            return (Value) _mm_cvtsi128_si32(t2);                             \
         }
 
-    #define ENOKI_HORIZONTAL_OP_SIGNED(name, op) \
-        ENOKI_INLINE Scalar name##_() const { \
-            __m128i t2, t1 = _mm_shuffle_epi32(m, 0x4e); \
-            if (std::is_signed<Scalar>::value) \
-                t2 = _mm_##op##_epi32(m, t1);  \
-            else \
-                t2 = _mm_##op##_epu32(m, t1);  \
-            t1 = _mm_shufflelo_epi16(t2, 0x4e); \
-            if (std::is_signed<Scalar>::value) \
-                t2 = _mm_##op##_epi32(t2, t1); \
-            else \
-                t2 = _mm_##op##_epu32(t2, t1);  \
-            return (Scalar) _mm_cvtsi128_si32(t2); \
+    #define ENOKI_HORIZONTAL_OP_SIGNED(name, op)                              \
+        ENOKI_INLINE Value name##_() const {                                  \
+            __m128i t2, t1 = _mm_shuffle_epi32(m, 0x4e);                      \
+            if (std::is_signed<Value>::value)                                 \
+                t2 = _mm_##op##_epi32(m, t1);                                 \
+            else                                                              \
+                t2 = _mm_##op##_epu32(m, t1);                                 \
+            t1 = _mm_shufflelo_epi16(t2, 0x4e);                               \
+            if (std::is_signed<Value>::value)                                 \
+                t2 = _mm_##op##_epi32(t2, t1);                                \
+            else                                                              \
+                t2 = _mm_##op##_epu32(t2, t1);                                \
+            return (Value) _mm_cvtsi128_si32(t2);                             \
         }
 
     ENOKI_HORIZONTAL_OP(hsum, add)
@@ -1151,21 +1151,21 @@ struct alignas(16) StaticArrayImpl<Scalar_, 4, false, RoundingMode::Default,
 };
 
 /// Partial overload of StaticArrayImpl using SSE4.2 intrinsics (64 bit integers)
-template <typename Scalar_, typename Derived>
-struct alignas(16) StaticArrayImpl<Scalar_, 2, false, RoundingMode::Default,
-                                   Derived, detail::is_int64_t<Scalar_>>
-    : StaticArrayBase<Scalar_, 2, false, RoundingMode::Default, Derived> {
-    ENOKI_NATIVE_ARRAY_CLASSIC(Scalar_, 2, false, __m128i)
+template <typename Value_, typename Derived>
+struct alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMode::Default,
+                                   Derived, detail::is_int64_t<Value_>>
+    : StaticArrayBase<Value_, 2, false, RoundingMode::Default, Derived> {
+    ENOKI_NATIVE_ARRAY_CLASSIC(Value_, 2, false, __m128i)
 
     // -----------------------------------------------------------------------
     //! @{ \name Value constructors
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE StaticArrayImpl(Scalar value) : m(_mm_set1_epi64x((int64_t) value)) { }
-    ENOKI_INLINE StaticArrayImpl(Scalar v0, Scalar v1) {
-        alignas(16) Scalar data[2];
-        data[0] = (Scalar) v0;
-        data[1] = (Scalar) v1;
+    ENOKI_INLINE StaticArrayImpl(Value value) : m(_mm_set1_epi64x((int64_t) value)) { }
+    ENOKI_INLINE StaticArrayImpl(Value v0, Value v1) {
+        alignas(16) Value data[2];
+        data[0] = (Value) v0;
+        data[1] = (Value) v1;
         m = _mm_load_si128((__m128i *) data);
     }
 
@@ -1178,7 +1178,7 @@ struct alignas(16) StaticArrayImpl<Scalar_, 2, false, RoundingMode::Default,
 
 #if defined(__AVX512DQ__) && defined(__AVX512VL__)
     ENOKI_CONVERT(double) {
-        if (std::is_signed<Scalar>::value)
+        if (std::is_signed<Value>::value)
             m = _mm_cvttpd_epi64(a.derived().m);
         else
             m = _mm_cvttpd_epu64(a.derived().m);
@@ -1226,9 +1226,9 @@ struct alignas(16) StaticArrayImpl<Scalar_, 2, false, RoundingMode::Default,
     // -----------------------------------------------------------------------
 
     StaticArrayImpl(const Array1 &a1, const Array2 &a2) {
-        alignas(16) Scalar data[2];
-        data[0] = (Scalar) a1.coeff(0);
-        data[1] = (Scalar) a2.coeff(0);
+        alignas(16) Value data[2];
+        data[0] = (Value) a1.coeff(0);
+        data[1] = (Value) a2.coeff(0);
         m = _mm_load_si128((__m128i *) data);
     }
 
@@ -1263,7 +1263,7 @@ struct alignas(16) StaticArrayImpl<Scalar_, 2, false, RoundingMode::Default,
     }
 
     template <size_t k> ENOKI_INLINE Derived sri_() const {
-        if (std::is_signed<Scalar>::value) {
+        if (std::is_signed<Value>::value) {
             #if defined(__AVX512VL__)
                 return _mm_srai_epi64(m, k);
             #else
@@ -1282,7 +1282,7 @@ struct alignas(16) StaticArrayImpl<Scalar_, 2, false, RoundingMode::Default,
     }
 
     ENOKI_INLINE Derived sr_(size_t k) const {
-        if (std::is_signed<Scalar>::value) {
+        if (std::is_signed<Value>::value) {
             #if defined(__AVX512VL__)
                 return _mm_sra_epi64(m, _mm_set1_epi64x((long long) k));
             #else
@@ -1308,7 +1308,7 @@ struct alignas(16) StaticArrayImpl<Scalar_, 2, false, RoundingMode::Default,
     }
 
     ENOKI_INLINE Derived srv_(Arg k) const {
-        if (std::is_signed<Scalar>::value) {
+        if (std::is_signed<Value>::value) {
             #if defined(__AVX512VL__)
                 return _mm_srav_epi64(m, k.m);
             #endif
@@ -1335,7 +1335,7 @@ struct alignas(16) StaticArrayImpl<Scalar_, 2, false, RoundingMode::Default,
 #endif
 
     ENOKI_INLINE Mask lt_(Arg a) const {
-        if (std::is_signed<Scalar>::value) {
+        if (std::is_signed<Value>::value) {
             return _mm_cmpgt_epi64(a.m, m);
         } else {
             const __m128i offset = _mm_set1_epi64x((long long) 0x8000000000000000ull);
@@ -1347,7 +1347,7 @@ struct alignas(16) StaticArrayImpl<Scalar_, 2, false, RoundingMode::Default,
     }
 
     ENOKI_INLINE Mask gt_(Arg a) const {
-        if (std::is_signed<Scalar>::value) {
+        if (std::is_signed<Value>::value) {
             return _mm_cmpgt_epi64(m, a.m);
         } else {
             const __m128i offset = _mm_set1_epi64x((long long) 0x8000000000000000ull);
@@ -1366,7 +1366,7 @@ struct alignas(16) StaticArrayImpl<Scalar_, 2, false, RoundingMode::Default,
 
     ENOKI_INLINE Derived min_(Arg a) const {
         #if defined(__AVX512VL__)
-            if (std::is_signed<Scalar>::value)
+            if (std::is_signed<Value>::value)
                 return _mm_min_epi64(a.m, m);
             else
                 return _mm_min_epu32(a.m, m);
@@ -1377,7 +1377,7 @@ struct alignas(16) StaticArrayImpl<Scalar_, 2, false, RoundingMode::Default,
 
     ENOKI_INLINE Derived max_(Arg a) const {
         #if defined(__AVX512VL__)
-            if (std::is_signed<Scalar>::value)
+            if (std::is_signed<Value>::value)
                 return _mm_max_epi64(a.m, m);
             else
                 return _mm_max_epu32(a.m, m);
@@ -1387,13 +1387,13 @@ struct alignas(16) StaticArrayImpl<Scalar_, 2, false, RoundingMode::Default,
     }
 
     ENOKI_INLINE Derived abs_() const {
-        if (!std::is_signed<Scalar>::value)
+        if (!std::is_signed<Value>::value)
             return m;
         #if defined(__AVX512VL__)
             return _mm_abs_epi64(m);
         #else
         return select(derived() < zero<Derived>(),
-                      ~derived() + Derived(Scalar(1)), derived());
+                      ~derived() + Derived(Value(1)), derived());
         #endif
     }
 
@@ -1422,9 +1422,9 @@ struct alignas(16) StaticArrayImpl<Scalar_, 2, false, RoundingMode::Default,
     // -----------------------------------------------------------------------
 
     #define ENOKI_HORIZONTAL_OP(name, op) \
-        ENOKI_INLINE Scalar name##_() const { \
-            Scalar t1 = Scalar(_mm_extract_epi64(m, 1)); \
-            Scalar t2 = Scalar(_mm_cvtsi128_si64(m)); \
+        ENOKI_INLINE Value name##_() const { \
+            Value t1 = Value(_mm_extract_epi64(m, 1)); \
+            Value t2 = Value(_mm_cvtsi128_si64(m)); \
             return op; \
         }
 
@@ -1514,7 +1514,7 @@ template <bool Approx, typename Derived> struct alignas(16)
     : StaticArrayImpl<float, 4, Approx, RoundingMode::Default, Derived> {
     using Base = StaticArrayImpl<float, 4, Approx, RoundingMode::Default, Derived>;
 
-    using typename Base::Scalar;
+    using typename Base::Value;
     using typename Base::Mask;
     using Arg = const Base &;
     using Base::Base;
@@ -1523,7 +1523,7 @@ template <bool Approx, typename Derived> struct alignas(16)
     using Base::coeff;
     static constexpr size_t Size = 3;
 
-    ENOKI_INLINE StaticArrayImpl(Scalar f0, Scalar f1, Scalar f2) : Base(f0, f1, f2, Scalar(0)) { }
+    ENOKI_INLINE StaticArrayImpl(Value f0, Value f1, Value f2) : Base(f0, f1, f2, Value(0)) { }
     ENOKI_INLINE StaticArrayImpl() : Base() { }
 
     StaticArrayImpl(const StaticArrayImpl &) = default;
@@ -1534,7 +1534,7 @@ template <bool Approx, typename Derived> struct alignas(16)
     ENOKI_INLINE StaticArrayImpl(
         const StaticArrayBase<Type2, 3, Approx2, Mode2, Derived2> &a) {
         ENOKI_TRACK_SCALAR for (size_t i = 0; i < 3; ++i)
-            coeff(i) = Scalar(a.derived().coeff(i));
+            coeff(i) = Value(a.derived().coeff(i));
     }
 
 #if defined(__F16C__)
@@ -1557,13 +1557,13 @@ template <bool Approx, typename Derived> struct alignas(16)
     //! @{ \name Horizontal operations (adapted for the n=3 case)
     // -----------------------------------------------------------------------
 
-    #define ENOKI_HORIZONTAL_OP(name, op) \
-        ENOKI_INLINE Scalar name##_() const { \
-            __m128 t1 = _mm_movehl_ps(m, m); \
-            __m128 t2 = _mm_##op##_ss(m, t1); \
-            t1        = _mm_movehdup_ps(m); \
-            t1        = _mm_##op##_ss(t1, t2); \
-            return _mm_cvtss_f32(t1); \
+    #define ENOKI_HORIZONTAL_OP(name, op)                                     \
+        ENOKI_INLINE Value name##_() const {                                  \
+            __m128 t1 = _mm_movehl_ps(m, m);                                  \
+            __m128 t2 = _mm_##op##_ss(m, t1);                                 \
+            t1 = _mm_movehdup_ps(m);                                          \
+            t1 = _mm_##op##_ss(t1, t2);                                       \
+            return _mm_cvtss_f32(t1);                                         \
         }
 
     ENOKI_HORIZONTAL_OP(hsum, add)
@@ -1573,7 +1573,7 @@ template <bool Approx, typename Derived> struct alignas(16)
 
     #undef ENOKI_HORIZONTAL_OP
 
-    ENOKI_INLINE Scalar dot_(Arg a) const {
+    ENOKI_INLINE Value dot_(Arg a) const {
         return _mm_cvtss_f32(_mm_dp_ps(m, a.m, 0b01110001));
     }
 
@@ -1592,11 +1592,11 @@ template <bool Approx, typename Derived> struct alignas(16)
     //! @{ \name Loading/writing data (adapted for the n=3 case)
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE void store_(void *ptr) const { memcpy(ptr, &m, sizeof(Scalar)*3); }
+    ENOKI_INLINE void store_(void *ptr) const { memcpy(ptr, &m, sizeof(Value)*3); }
     ENOKI_INLINE void store_unaligned_(void *ptr) const { store_(ptr); }
     ENOKI_INLINE static Derived load_unaligned_(const void *ptr) {
         Derived result;
-        memcpy(&result.m, ptr, sizeof(Scalar) * 3);
+        memcpy(&result.m, ptr, sizeof(Value) * 3);
         return result;
     }
     ENOKI_INLINE static Derived load_(const void *ptr) { return Base::load_unaligned_(ptr); }
@@ -1645,12 +1645,12 @@ template <bool Approx, typename Derived> struct alignas(16)
 };
 
 /// Partial overload of StaticArrayImpl for the n=3 case (32 bit integers)
-template <typename Scalar_, typename Derived> struct alignas(16)
-    StaticArrayImpl<Scalar_, 3, false, RoundingMode::Default, Derived,detail::is_int32_t<Scalar_>>
-    : StaticArrayImpl<Scalar_, 4, false, RoundingMode::Default, Derived> {
-    using Base = StaticArrayImpl<Scalar_, 4, false, RoundingMode::Default, Derived>;
+template <typename Value_, typename Derived> struct alignas(16)
+    StaticArrayImpl<Value_, 3, false, RoundingMode::Default, Derived,detail::is_int32_t<Value_>>
+    : StaticArrayImpl<Value_, 4, false, RoundingMode::Default, Derived> {
+    using Base = StaticArrayImpl<Value_, 4, false, RoundingMode::Default, Derived>;
 
-    using typename Base::Scalar;
+    using typename Base::Value;
     using typename Base::Mask;
     using Arg = const Base &;
     using Base::Base;
@@ -1659,7 +1659,7 @@ template <typename Scalar_, typename Derived> struct alignas(16)
     using Base::coeff;
     static constexpr size_t Size = 3;
 
-    ENOKI_INLINE StaticArrayImpl(Scalar f0, Scalar f1, Scalar f2) : Base(f0, f1, f2, Scalar(0)) { }
+    ENOKI_INLINE StaticArrayImpl(Value f0, Value f1, Value f2) : Base(f0, f1, f2, Value(0)) { }
     ENOKI_INLINE StaticArrayImpl() : Base() { }
 
     StaticArrayImpl(const StaticArrayImpl &) = default;
@@ -1670,7 +1670,7 @@ template <typename Scalar_, typename Derived> struct alignas(16)
     ENOKI_INLINE StaticArrayImpl(
         const StaticArrayBase<Type2, 3, Approx2, Mode2, Derived2> &a) {
         ENOKI_TRACK_SCALAR for (size_t i = 0; i < 3; ++i)
-            coeff(i) = Scalar(a.derived().coeff(i));
+            coeff(i) = Value(a.derived().coeff(i));
     }
 
     template <int I0, int I1, int I2>
@@ -1682,28 +1682,28 @@ template <typename Scalar_, typename Derived> struct alignas(16)
     //! @{ \name Horizontal operations (adapted for the n=3 case)
     // -----------------------------------------------------------------------
 
-    #define ENOKI_HORIZONTAL_OP(name, op) \
-        ENOKI_INLINE Scalar name##_() const { \
-            __m128i t1 = _mm_unpackhi_epi32(m, m); \
-            __m128i t2 = _mm_##op##_epi32(m, t1); \
-            t1         = _mm_shuffle_epi32(m, 1); \
-            t1         = _mm_##op##_epi32(t1, t2); \
-            return (Scalar) _mm_cvtsi128_si32(t1); \
+    #define ENOKI_HORIZONTAL_OP(name, op)                                     \
+        ENOKI_INLINE Value name##_() const {                                  \
+            __m128i t1 = _mm_unpackhi_epi32(m, m);                            \
+            __m128i t2 = _mm_##op##_epi32(m, t1);                             \
+            t1 = _mm_shuffle_epi32(m, 1);                                     \
+            t1 = _mm_##op##_epi32(t1, t2);                                    \
+            return (Value) _mm_cvtsi128_si32(t1);                             \
         }
 
-    #define ENOKI_HORIZONTAL_OP_SIGNED(name, op) \
-        ENOKI_INLINE Scalar name##_() const { \
-            __m128i t2, t1 = _mm_unpackhi_epi32(m, m); \
-            if (std::is_signed<Scalar>::value) \
-                t2 = _mm_##op##_epi32(m, t1); \
-            else \
-                t2 = _mm_##op##_epu32(m, t1); \
-            t1 = _mm_shuffle_epi32(m, 1); \
-            if (std::is_signed<Scalar>::value) \
-                t1 = _mm_##op##_epi32(t1, t2); \
-            else \
-                t1 = _mm_##op##_epu32(t1, t2); \
-            return (Scalar) _mm_cvtsi128_si32(t1); \
+    #define ENOKI_HORIZONTAL_OP_SIGNED(name, op)                              \
+        ENOKI_INLINE Value name##_() const {                                  \
+            __m128i t2, t1 = _mm_unpackhi_epi32(m, m);                        \
+            if (std::is_signed<Value>::value)                                 \
+                t2 = _mm_##op##_epi32(m, t1);                                 \
+            else                                                              \
+                t2 = _mm_##op##_epu32(m, t1);                                 \
+            t1 = _mm_shuffle_epi32(m, 1);                                     \
+            if (std::is_signed<Value>::value)                                 \
+                t1 = _mm_##op##_epi32(t1, t2);                                \
+            else                                                              \
+                t1 = _mm_##op##_epu32(t1, t2);                                \
+            return (Value) _mm_cvtsi128_si32(t1);                             \
         }
 
     ENOKI_HORIZONTAL_OP(hsum, add)
@@ -1729,12 +1729,12 @@ template <typename Scalar_, typename Derived> struct alignas(16)
     //! @{ \name Loading/writing data (adapted for the n=3 case)
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE void store_(void *ptr) const { memcpy(ptr, &m, sizeof(Scalar) * 3); }
+    ENOKI_INLINE void store_(void *ptr) const { memcpy(ptr, &m, sizeof(Value) * 3); }
     ENOKI_INLINE void store_unaligned_(void *ptr) const { store_(ptr); }
 
     ENOKI_INLINE static Derived load_unaligned_(const void *ptr) {
         Derived result;
-        memcpy(&result.m, ptr, sizeof(Scalar) * 3);
+        memcpy(&result.m, ptr, sizeof(Value) * 3);
         return result;
     }
     ENOKI_INLINE static Derived load_(const void *ptr) { return Base::load_unaligned_(ptr); }

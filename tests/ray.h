@@ -22,7 +22,7 @@ using namespace enoki;
  */
 template <typename Vector_> struct Ray {
     using Vector = Vector_;
-    using Scalar = scalar_t<Vector>;
+    using Value = value_t<Vector>;
 
     Vector o;
     Vector d;
@@ -57,7 +57,7 @@ template <typename Vector_> struct Ray {
     // -----------------------------------------------------------------------
 
     /// Compute a position along a ray
-    Vector operator()(Scalar t) const { return o + t*d; }
+    Vector operator()(Value t) const { return o + t*d; }
 
     //! @}
     // -----------------------------------------------------------------------

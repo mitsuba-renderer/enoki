@@ -59,11 +59,11 @@ NAMESPACE_BEGIN(enoki)
               RoundingMode Mode2, typename Derived1, typename Derived2,        \
               std::enable_if_t<Derived1::Size == Derived2::Size &&             \
                               !Derived1::IsMask && !Derived2::IsMask, int> = 0,\
-              typename Scalar = decltype(expr1)>                               \
+              typename Value = decltype(expr1)>                                \
     ENOKI_INLINE auto name(                                                    \
         const StaticArrayBase<Type1, Size1, Approx1, Mode1, Derived1> &a1,     \
         const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a2) {   \
-        Array<Scalar, Derived1::Size> r;                                       \
+        Array<Value, Derived1::Size> r;                                        \
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived1::Size; ++i)            \
             r.coeff(i) = expr2;                                                \
         return r;                                                              \
@@ -89,12 +89,12 @@ NAMESPACE_BEGIN(enoki)
                                Derived2::Size == Derived3::Size &&             \
                                !Derived1::IsMask && !Derived2::IsMask &&       \
                                !Derived3::IsMask, int> = 0,                    \
-              typename Scalar = decltype(expr1)>                               \
+              typename Value = decltype(expr1)>                                \
     ENOKI_INLINE auto name(                                                    \
         const StaticArrayBase<Type1, Size1, Approx1, Mode1, Derived1> &a1,     \
         const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a2,     \
         const StaticArrayBase<Type3, Size3, Approx3, Mode3, Derived3> &a3) {   \
-        Array<Scalar, Derived1::Size> r;                                       \
+        Array<Value, Derived1::Size> r;                                        \
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived1::Size; ++i)            \
             r.coeff(i) = expr2;                                                \
         return r;                                                              \
@@ -139,7 +139,7 @@ NAMESPACE_BEGIN(enoki)
     ENOKI_ROUTE_BCAST(name)
 
 /// Macro for compound assignment operators (operator+=, etc.)
-#define ENOKI_ROUTE_COMPOUND_OPERATOR(op)                                            \
+#define ENOKI_ROUTE_COMPOUND_OPERATOR(op)                                      \
     template <typename Type, size_t Size, bool Approx, RoundingMode Mode,      \
               typename Derived, typename Arg>                                  \
     ENOKI_INLINE Derived &operator op##=(                                      \
@@ -344,22 +344,22 @@ ENOKI_INLINE bool operator!=(
 ENOKI_ROUTE_BCAST(operator==)
 ENOKI_ROUTE_BCAST(operator!=)
 
-template <typename Scalar, size_t Size, bool Approx, RoundingMode Mode,
+template <typename Value, size_t Size, bool Approx, RoundingMode Mode,
           typename Derived1, typename Derived2,
           std::enable_if_t<Derived1::Size == Derived2::Size, int> = 0>
 ENOKI_INLINE auto
-dot(const StaticArrayBase<Scalar, Size, Approx, Mode, Derived1> &a1,
-    const StaticArrayBase<Scalar, Size, Approx, Mode, Derived2> &a2) {
+dot(const StaticArrayBase<Value, Size, Approx, Mode, Derived1> &a1,
+    const StaticArrayBase<Value, Size, Approx, Mode, Derived2> &a2) {
     return a1.derived().dot_(a2.derived());
 }
 
-template <typename Scalar1, typename Scalar2, size_t Size1, size_t Size2,
+template <typename Value1, typename Value2, size_t Size1, size_t Size2,
           bool Approx1, bool Approx2, RoundingMode Mode1, RoundingMode Mode2,
           typename Derived1, typename Derived2,
           std::enable_if_t<Derived1::Size == Derived2::Size, int> = 0>
 ENOKI_INLINE auto
-dot(const StaticArrayBase<Scalar1, Size1, Approx1, Mode1, Derived1> &a1,
-    const StaticArrayBase<Scalar2, Size2, Approx2, Mode2, Derived2> &a2) {
+dot(const StaticArrayBase<Value1, Size1, Approx1, Mode1, Derived1> &a1,
+    const StaticArrayBase<Value2, Size2, Approx2, Mode2, Derived2> &a2) {
     return hsum(a1.derived() * a2.derived());
 }
 
@@ -411,14 +411,14 @@ template <typename Type1, typename Type2, typename Type3, size_t Size1,
           typename Derived3,
           std::enable_if_t<Derived1::Size == Derived2::Size &&
                            Derived2::Size == Derived3::Size, int> = 0,
-          typename Scalar = decltype(select(std::declval<Type1>(),
+          typename Value = decltype(select(std::declval<Type1>(),
                                             std::declval<Type2>(),
                                             std::declval<Type3>()))>
 ENOKI_INLINE auto select(
     const StaticArrayBase<Type1, Size1, Approx1, Mode1, Derived1> &a1,
     const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a2,
     const StaticArrayBase<Type3, Size3, Approx3, Mode3, Derived3> &a3) {
-    Array<Scalar, Derived1::Size> r;
+    Array<Value, Derived1::Size> r;
     ENOKI_CHKSCALAR for (size_t i = 0; i < Derived1::Size; ++i)
         r.coeff(i) = select(a1.derived().coeff(i),
                             a2.derived().coeff(i),
@@ -498,10 +498,10 @@ rol(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1, size_t a2) {
 
 template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
           typename Derived,
-          std::enable_if_t<Derived::Scalar::Size != Size, int> = 0>
+          std::enable_if_t<Derived::Value::Size != Size, int> = 0>
 ENOKI_INLINE auto
 rol(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,
-    const typename Derived::Scalar &a2) {
+    const typename Derived::Value &a2) {
     return rol(a1.derived(), typename Derived::Expr(a2));
 }
 
@@ -514,10 +514,10 @@ ror(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1, size_t a2) {
 
 template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
           typename Derived,
-          std::enable_if_t<Derived::Scalar::Size != Size, int> = 0>
+          std::enable_if_t<Derived::Value::Size != Size, int> = 0>
 ENOKI_INLINE auto
 ror(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,
-    const typename Derived::Scalar &a2) {
+    const typename Derived::Value &a2) {
     return ror(a1.derived(), typename Derived::Expr(a2));
 }
 
@@ -690,7 +690,7 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
 template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
           typename Derived, typename Arg,
           std::enable_if_t<detail::bcast<Derived, Arg>::value &&
-          std::is_floating_point<typename Derived::BaseScalar>::value, int> = 0>
+          std::is_floating_point<typename Derived::Scalar>::value, int> = 0>
 ENOKI_INLINE auto operator/(
     const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,
     const Arg &a2) {
@@ -703,7 +703,7 @@ ENOKI_INLINE auto operator/(
 template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
           typename Derived, typename Arg,
           std::enable_if_t<detail::bcast<Derived, Arg>::value &&
-          std::is_floating_point<typename Derived::BaseScalar>::value , int> = 0>
+          std::is_floating_point<typename Derived::Scalar>::value , int> = 0>
 ENOKI_INLINE auto operator/(
     const Arg &a1,
     const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a2) {
@@ -776,8 +776,8 @@ ENOKI_INLINE Arg erfi(const Arg &x) {
 NAMESPACE_BEGIN(detail)
 template <typename Array, enable_if_sarray_t<Array> = 0>
 ENOKI_INLINE typename Array::Expr sign_mask(const Array &a) {
-    using UInt = typename uint_array_t<Array>::BaseScalar;
-    using Float = typename Array::BaseScalar;
+    using UInt = typename uint_array_t<Array>::Scalar;
+    using Float = typename Array::Scalar;
     const Float mask = memcpy_cast<Float>(UInt(1) << (sizeof(UInt) * 8 - 1));
     return a.derived() & typename Array::Derived::Expr(mask);
 }
@@ -786,14 +786,14 @@ NAMESPACE_END(detail)
 template <typename Array, enable_if_sarray_t<Array> = 0>
 ENOKI_INLINE typename Array::Derived::Expr sign(const Array &a) {
     using Expr = typename Array::Derived::Expr;
-    using Scalar = typename Array::BaseScalar;
+    using Value = typename Array::Scalar;
 
-    if (!std::is_signed<Scalar>::value)
+    if (!std::is_signed<Value>::value)
         return Expr(1);
-    else if (std::is_floating_point<Scalar>::value)
-        return detail::sign_mask(a) | Expr(Scalar(1));
+    else if (std::is_floating_point<Value>::value)
+        return detail::sign_mask(a) | Expr(Value(1));
     else
-        return select(a < Scalar(0), Expr(Scalar(-1)), Expr(Scalar(1)));
+        return select(a < Value(0), Expr(Value(-1)), Expr(Value(1)));
 }
 
 template <typename Arg, enable_if_notarray_t<Arg> = 0>
@@ -856,12 +856,12 @@ ENOKI_INLINE Arg zero() {
 NAMESPACE_BEGIN(detail)
 template <typename Array, size_t... Args>
 ENOKI_INLINE Array index_sequence_(std::index_sequence<Args...>) {
-    return Array(((typename Array::Scalar) Args)...);
+    return Array(((typename Array::Value) Args)...);
 }
 
-template <typename Array, typename Scalar, size_t... Args>
-ENOKI_INLINE Array linspace_(std::index_sequence<Args...>, Scalar offset, Scalar step) {
-    return Array(((Scalar) Args * step + offset)...);
+template <typename Array, typename Value, size_t... Args>
+ENOKI_INLINE Array linspace_(std::index_sequence<Args...>, Value offset, Value step) {
+    return Array(((Value) Args * step + offset)...);
 }
 NAMESPACE_END(detail)
 
@@ -886,17 +886,17 @@ ENOKI_INLINE Arg index_sequence() {
 
 /// Construct an index sequence, i.e. 0, 1, 2, ..
 template <typename Array, enable_if_sarray_t<Array> = 0>
-ENOKI_INLINE Array linspace(typename Array::Scalar min,
-                            typename Array::Scalar max) {
+ENOKI_INLINE Array linspace(typename Array::Value min,
+                            typename Array::Value max) {
     return detail::linspace_<Array>(
         std::make_index_sequence<Array::Size>(), min,
-        (max - min) / (typename Array::Scalar)(Array::Size - 1));
+        (max - min) / (typename Array::Value)(Array::Size - 1));
 }
 
 /// Construct an index sequence, i.e. 0, 1, 2, ..
 template <typename Array, enable_if_darray_t<Array> = 0,
-          typename Scalar = typename Array::Scalar>
-ENOKI_INLINE Array linspace(size_t size, Scalar min, Scalar max) {
+          typename Value = typename Array::Value>
+ENOKI_INLINE Array linspace(size_t size, Value min, Value max) {
     return Array::linspace_(size, min, max);
 }
 
@@ -957,9 +957,9 @@ ENOKI_INLINE void store_unaligned(void *mem, const Arg &a) {
 }
 
 /// Prefetch operation
-template <typename Array, size_t Stride = sizeof(typename Array::BaseScalar),
+template <typename Array, size_t Stride = sizeof(typename Array::Scalar),
           bool Write = false, size_t Level = 2, typename Index, enable_if_sarray_t<Array> = 0,
-          std::enable_if_t<std::is_integral<typename Index::Scalar>::value &&
+          std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size, int> = 0>
 ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
     Array::template prefetch_<Stride, Write, Level>(mem, index);
@@ -979,10 +979,10 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
 }
 
 /// Masked prefetch operation
-template <typename Array, size_t Stride = sizeof(typename Array::BaseScalar),
+template <typename Array, size_t Stride = sizeof(typename Array::Scalar),
           bool Write = false, size_t Level = 2, typename Index, typename Mask,
           enable_if_sarray_t<Array> = 0,
-          std::enable_if_t<std::is_integral<typename Index::Scalar>::value &&
+          std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size &&
                            Mask::Size == Array::Size, int> = 0>
 ENOKI_INLINE void prefetch(const void *mem, const Index &index,
@@ -1005,9 +1005,9 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index, const Mask &mask
 }
 
 /// Gather operation
-template <typename Array, size_t Stride = sizeof(typename Array::BaseScalar),
+template <typename Array, size_t Stride = sizeof(typename Array::Scalar),
           typename Index, enable_if_sarray_t<Array> = 0,
-          std::enable_if_t<std::is_integral<typename Index::Scalar>::value &&
+          std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size, int> = 0>
 ENOKI_INLINE Array gather(const void *mem, const Index &index) {
     return Array::template gather_<Stride>(mem, index);
@@ -1022,9 +1022,9 @@ ENOKI_INLINE Arg gather(const void *mem, const Index &index) {
 }
 
 /// Masked gather operation
-template <typename Array, size_t Stride = sizeof(typename Array::BaseScalar),
+template <typename Array, size_t Stride = sizeof(typename Array::Scalar),
           typename Index, typename Mask, enable_if_sarray_t<Array> = 0,
-          std::enable_if_t<std::is_integral<typename Index::Scalar>::value &&
+          std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size &&
                            Mask::Size == Array::Size, int> = 0>
 ENOKI_INLINE Array gather(const void *mem, const Index &index,
@@ -1045,10 +1045,10 @@ ENOKI_INLINE Arg gather(const void *mem, const Index &index, const Mask &mask) {
 /// Scatter operation
 template <size_t Stride_ = 0, typename Array,
           typename Index, enable_if_sarray_t<Array> = 0,
-          std::enable_if_t<std::is_integral<typename Index::Scalar>::value &&
+          std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size, int> = 0>
 ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index) {
-    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(typename Array::Scalar);
+    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(typename Array::Value);
     value.template scatter_<Stride>(mem, index);
 }
 
@@ -1065,12 +1065,12 @@ ENOKI_INLINE void scatter(void *mem, const Arg &value, const Index &index) {
 /// Masked scatter operation
 template <size_t Stride_ = 0, typename Array, typename Index, typename Mask,
           enable_if_sarray_t<Array> = 0,
-          std::enable_if_t<std::is_integral<typename Index::Scalar>::value &&
+          std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size &&
                            Mask::Size == Array::Size, int> = 0>
 ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index,
                           const Mask &mask) {
-    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(typename Array::Scalar);
+    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(typename Array::Value);
     value.template scatter_<Stride>(mem, index, mask);
 }
 
@@ -1086,9 +1086,9 @@ ENOKI_INLINE void scatter(void *mem, const Arg &value, const Index &index, const
 }
 
 /// Combined gather-modify-scatter operation without conflicts
-template <typename Array, size_t Stride = sizeof(typename Array::BaseScalar),
+template <typename Array, size_t Stride = sizeof(typename Array::Scalar),
           typename Index, typename Func, enable_if_sarray_t<Array> = 0,
-          std::enable_if_t<std::is_integral<typename Index::Scalar>::value &&
+          std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size, int> = 0>
 ENOKI_INLINE void transform(void *mem, const Index &index, const Func &func) {
     Array::template transform_<Stride>(mem, index, func);
@@ -1104,10 +1104,10 @@ ENOKI_INLINE void transform(void *mem, const Index &index, const Func &func) {
 }
 
 /// Combined gather-modify-scatter operation without conflicts
-template <typename Array, size_t Stride = sizeof(typename Array::BaseScalar),
+template <typename Array, size_t Stride = sizeof(typename Array::Scalar),
           typename Index, typename Func, typename Mask,
           enable_if_sarray_t<Array> = 0,
-          std::enable_if_t<std::is_integral<typename Index::Scalar>::value &&
+          std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                                Index::Size == Array::Size && Mask::Size == Array::Size, int> = 0>
 ENOKI_INLINE void transform(void *mem, const Index &index,
                             const Func &func, const Mask &mask) {
@@ -1200,8 +1200,8 @@ ENOKI_INLINE auto cross(const Array1 &v1, const Array2 &v2) {
 }
 
 /// Generic range clamping function
-template <typename Scalar>
-Scalar clamp(Scalar value, Scalar min_, Scalar max_) {
+template <typename Value>
+Value clamp(Value value, Value min_, Value max_) {
     return max(min(value, max_), min_);
 }
 
@@ -1329,7 +1329,7 @@ ENOKI_INLINE bool check_shape_recursive(const T &a, const size_t *shape) {
     if (*shape != size)
         return false;
     bool match = true;
-    if (is_dynamic<typename T::Scalar>::value) {
+    if (is_dynamic<typename T::Value>::value) {
         for (size_t i = 0; i < size; ++i)
             match &= check_shape_recursive(a.derived().coeff(i), shape + 1);
     } else {
@@ -1345,7 +1345,7 @@ template <typename T, std::enable_if_t<is_array<T>::value, int> = 0>
 ENOKI_INLINE void set_shape_recursive(T &a, const size_t *shape) {
     size_t size = a.derived().size();
     a.resize_(*shape);
-    if (is_dynamic<typename T::Scalar>::value) {
+    if (is_dynamic<typename T::Value>::value) {
         for (size_t i = 0; i < size; ++i)
             set_shape_recursive(a.derived().coeff(i), shape + 1);
     } else {

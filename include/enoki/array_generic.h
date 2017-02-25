@@ -37,16 +37,16 @@ struct StaticArrayImpl<
     using Base =
         StaticArrayBase<Type_, Size_, Approx_, RoundingMode::Default, Derived_>;
     using Base::operator=;
-    using typename Base::Scalar;
+    using typename Base::Value;
     using typename Base::Derived;
-    using typename Base::BaseScalar;
+    using typename Base::Scalar;
     using typename Base::Array1;
     using typename Base::Array2;
     using Base::Size;
     using Base::Size1;
     using Base::Size2;
     using Base::data;
-    using Mask = Array<mask_t<Scalar>, Size>;
+    using Mask = Array<mask_t<Value>, Size>;
     static constexpr bool Native = false;
 
     /// Denotes the type of an unary expression involving this type
@@ -55,7 +55,7 @@ struct StaticArrayImpl<
 
     using StorageType =
         std::conditional_t<std::is_reference<Type_>::value,
-                           std::reference_wrapper<Scalar>, Scalar>;
+                           std::reference_wrapper<Value>, Value>;
 
     // -----------------------------------------------------------------------
     //! @{ \name Default constructors and assignment operators
@@ -88,29 +88,29 @@ struct StaticArrayImpl<
         /// Work around a bug in GCC: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=72824
         __attribute__((optimize("no-tree-loop-distribute-patterns")))
     #endif
-    ENOKI_INLINE StaticArrayImpl(const Scalar &value) {
+    ENOKI_INLINE StaticArrayImpl(const Value &value) {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             m_data[i] = value;
     }
 
     /// Initialize all components from a scalar
     template <typename T = Type_, std::enable_if_t<!std::is_reference<T>::value &&
-                                                   !std::is_same<Scalar, BaseScalar>::value, int> = 0>
+                                                   !std::is_same<Value, Scalar>::value, int> = 0>
     #if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER) && __GNUC__ < 7
         /// Work around a bug in GCC: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=72824
         __attribute__((optimize("no-tree-loop-distribute-patterns")))
     #endif
-    ENOKI_INLINE StaticArrayImpl(const BaseScalar &value) {
+    ENOKI_INLINE StaticArrayImpl(const Scalar &value) {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            m_data[i] = Scalar(value);
+            m_data[i] = Value(value);
     }
 
-    template <typename T, typename T2 = BaseScalar,
+    template <typename T, typename T2 = Scalar,
               std::enable_if_t<std::is_same<T, bool>::value, int> = 0,
               typename Int = typename detail::type_chooser<sizeof(T2)>::Int>
     ENOKI_INLINE StaticArrayImpl(T b)
-        : StaticArrayImpl(b ? memcpy_cast<Scalar>(Int(-1))
-                            : memcpy_cast<Scalar>(Int(0))) { }
+        : StaticArrayImpl(b ? memcpy_cast<Value>(Int(-1))
+                            : memcpy_cast<Value>(Int(0))) { }
 
     /// Initialize the individual components
     template <typename Arg, typename... Args,
@@ -149,10 +149,10 @@ struct StaticArrayImpl<
               std::enable_if_t<Derived2::Size == Size_, int> = 0>
     ENOKI_INLINE StaticArrayImpl(
         const StaticArrayBase<bool, Size2, Approx2, Mode2, Derived2> &a) {
-        using Int = typename int_array_t<Derived>::BaseScalar;
+        using Int = typename int_array_t<Derived>::Scalar;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            coeff(i) = a.derived().coeff(i) ? memcpy_cast<BaseScalar>(Int(-1))
-                                            : memcpy_cast<BaseScalar>(Int(0));
+            coeff(i) = a.derived().coeff(i) ? memcpy_cast<Scalar>(Int(-1))
+                                            : memcpy_cast<Scalar>(Int(0));
     }
 
     /// Reinterpret another array
@@ -162,7 +162,7 @@ struct StaticArrayImpl<
         const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a,
         detail::reinterpret_flag) {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            coeff(i) = reinterpret_array<Scalar>(a.derived().coeff(i));
+            coeff(i) = reinterpret_array<Value>(a.derived().coeff(i));
     }
 
     //! @}
@@ -175,7 +175,7 @@ struct StaticArrayImpl<
     // -----------------------------------------------------------------------
 
     template <bool Approx2, RoundingMode Mode2, typename Derived2, typename T = Derived,
-              std::enable_if_t<std::is_same<typename T::Scalar, half>::value &&
+              std::enable_if_t<std::is_same<typename T::Value, half>::value &&
                                Derived2::Size == T::Size, int> = 0>
     ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<float, 4, Approx2, Mode2, Derived2> &a) {
         __m128i value = _mm_cvtps_ph(a.derived().m, _MM_FROUND_CUR_DIRECTION);
@@ -184,7 +184,7 @@ struct StaticArrayImpl<
 
 #if defined(__AVX__)
     template <bool Approx2, RoundingMode Mode2, typename Derived2, typename T = Derived,
-              std::enable_if_t<std::is_same<typename T::Scalar, half>::value &&
+              std::enable_if_t<std::is_same<typename T::Value, half>::value &&
                                Derived2::Size == T::Size, int> = 0>
     ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<double, 4, Approx2, Mode2, Derived2> &a) {
         __m128i value = _mm_cvtps_ph(_mm256_cvtpd_ps(a.derived().m), _MM_FROUND_CUR_DIRECTION);
@@ -192,7 +192,7 @@ struct StaticArrayImpl<
     }
 
     template <bool Approx2, RoundingMode Mode2, typename Derived2, typename T = Derived,
-              std::enable_if_t<std::is_same<typename T::Scalar, half>::value &&
+              std::enable_if_t<std::is_same<typename T::Value, half>::value &&
                                Derived2::Size == T::Size, int> = 0>
     ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<float, 8, Approx2, Mode2, Derived2> &a) {
         _mm_storeu_si128((__m128i *) data(), _mm256_cvtps_ph(a.derived().m, _MM_FROUND_CUR_DIRECTION));
@@ -201,14 +201,14 @@ struct StaticArrayImpl<
 
 #if defined(__AVX512F__)
     template <bool Approx2, RoundingMode Mode2, typename Derived2, typename T = Derived,
-              std::enable_if_t<std::is_same<typename T::Scalar, half>::value &&
+              std::enable_if_t<std::is_same<typename T::Value, half>::value &&
                                Derived2::Size == T::Size, int> = 0>
     ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<double, 8, Approx2, Mode2, Derived2> &a) {
         _mm_storeu_si128((__m128i *) data(), _mm256_cvtps_ph(_mm512_cvtpd_ps(a.derived().m), _MM_FROUND_CUR_DIRECTION));
     }
 
     template <bool Approx2, RoundingMode Mode2, typename Derived2, typename T = Derived,
-              std::enable_if_t<std::is_same<typename T::Scalar, half>::value &&
+              std::enable_if_t<std::is_same<typename T::Value, half>::value &&
                                Derived2::Size == T::Size, int> = 0>
     ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<float, 16, Approx2, Mode2, Derived2> &a) {
         _mm256_storeu_si256((__m256i *) data(), _mm512_cvtps_ph(a.derived().m, _MM_FROUND_CUR_DIRECTION));
@@ -216,7 +216,7 @@ struct StaticArrayImpl<
 #endif
 
     template <size_t Size, bool Approx2, RoundingMode Mode2, typename Derived2, typename T = Derived,
-              std::enable_if_t<std::is_same<typename T::Scalar, half>::value && (Size > 4) &&
+              std::enable_if_t<std::is_same<typename T::Value, half>::value && (Size > 4) &&
                                Derived2::Size == T::Size, int> = 0>
     ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<double, Size, Approx2, Mode2, Derived2> &a)
        : StaticArrayImpl(
@@ -224,7 +224,7 @@ struct StaticArrayImpl<
                Array<half, Size2, false, Mode2>(high(a))) { }
 
     template <size_t Size, bool Approx2, RoundingMode Mode2, typename Derived2, typename T = Derived,
-              std::enable_if_t<std::is_same<typename T::Scalar, half>::value && (Size > 4) &&
+              std::enable_if_t<std::is_same<typename T::Value, half>::value && (Size > 4) &&
                                Derived2::Size == T::Size, int> = 0>
     ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<float, Size, Approx2, Mode2, Derived2> &a)
        : StaticArrayImpl(
@@ -271,7 +271,7 @@ public:
     }
 
     /// High multiplication (integer)
-    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Expr mulhi_(const Derived &d) const {
         Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -331,7 +331,7 @@ public:
     }
 
     /// Left shift operator
-    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Expr sl_(size_t value) const {
         Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -340,7 +340,7 @@ public:
     }
 
     /// Left shift operator
-    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Expr slv_(const Derived &d) const {
         Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -349,7 +349,7 @@ public:
     }
 
     /// Right shift operator
-    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Expr sr_(size_t value) const {
         Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -358,7 +358,7 @@ public:
     }
 
     /// Right shift operator
-    template <typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Expr srv_(const Derived &d) const {
         Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -367,7 +367,7 @@ public:
     }
 
     /// Left shift operator (immediate)
-    template <size_t Imm, typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <size_t Imm, typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Expr sli_() const {
         Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -376,7 +376,7 @@ public:
     }
 
     /// Right shift operator (immediate)
-    template <size_t Imm, typename T = BaseScalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    template <size_t Imm, typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Expr sri_() const {
         Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -536,32 +536,32 @@ public:
     // -----------------------------------------------------------------------
 
     /// Horizontal sum
-    ENOKI_INLINE Scalar hsum_() const {
-        Scalar result = coeff(0);
+    ENOKI_INLINE Value hsum_() const {
+        Value result = coeff(0);
         ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
             result += coeff(i);
         return result;
     }
 
     /// Horizontal product
-    ENOKI_INLINE Scalar hprod_() const {
-        Scalar result = coeff(0);
+    ENOKI_INLINE Value hprod_() const {
+        Value result = coeff(0);
         ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
             result *= coeff(i);
         return result;
     }
 
     /// Horizontal maximum
-    ENOKI_INLINE Scalar hmax_() const {
-        Scalar result = coeff(0);
+    ENOKI_INLINE Value hmax_() const {
+        Value result = coeff(0);
         ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
             result = max(result, coeff(i));
         return result;
     }
 
     /// Horizontal minimum
-    ENOKI_INLINE Scalar hmin_() const {
-        Scalar result = coeff(0);
+    ENOKI_INLINE Value hmin_() const {
+        Value result = coeff(0);
         ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
             result = min(result, coeff(i));
         return result;
@@ -592,8 +592,8 @@ public:
     }
 
     /// Count the number of active mask bits
-    ENOKI_INLINE uint32_array_t<Scalar> count_() const {
-        using Int = uint32_array_t<Scalar>;
+    ENOKI_INLINE uint32_array_t<Value> count_() const {
+        using Int = uint32_array_t<Value>;
         const Int one(1);
         Int result(0);
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -602,8 +602,8 @@ public:
     }
 
     /// Dot product
-    ENOKI_INLINE Scalar dot_(const Derived &arg) const {
-        Scalar result = coeff(0) * arg.coeff(0);
+    ENOKI_INLINE Value dot_(const Derived &arg) const {
+        Value result = coeff(0) * arg.coeff(0);
         ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
             result += coeff(i) * arg.coeff(i);
         return result;
@@ -616,8 +616,8 @@ public:
     //! @{ \name Element access
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE Scalar &coeff(size_t i) { ENOKI_CHKSCALAR return m_data[i]; }
-    ENOKI_INLINE const Scalar &coeff(size_t i) const { ENOKI_CHKSCALAR return m_data[i]; }
+    ENOKI_INLINE Value &coeff(size_t i) { ENOKI_CHKSCALAR return m_data[i]; }
+    ENOKI_INLINE const Value &coeff(size_t i) const { ENOKI_CHKSCALAR return m_data[i]; }
 
     //! @}
     // -----------------------------------------------------------------------
@@ -628,7 +628,7 @@ public:
 
 #define ENOKI_FORWARD_FUNCTION(name)                                           \
     Expr name##_() const {                                                     \
-        if (std::is_arithmetic<Scalar>::value)                                 \
+        if (std::is_arithmetic<Value>::value)                                  \
             return Base::name##_();                                            \
         Expr result;                                                           \
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)                      \
@@ -637,7 +637,7 @@ public:
     }
 
     Expr pow_(const Derived &arg) const {
-        if (std::is_arithmetic<Scalar>::value)
+        if (std::is_arithmetic<Value>::value)
             return Base::pow_(arg);
         Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -646,7 +646,7 @@ public:
     }
 
     Expr ldexp_(const Derived &arg) const {
-        if (std::is_arithmetic<Scalar>::value)
+        if (std::is_arithmetic<Value>::value)
             return Base::ldexp_(arg);
         Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -655,7 +655,7 @@ public:
     }
 
     std::pair<Expr, Expr> frexp_() const {
-        if (std::is_arithmetic<Scalar>::value)
+        if (std::is_arithmetic<Value>::value)
             return Base::frexp_();
         std::pair<Expr, Expr> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -665,7 +665,7 @@ public:
     }
 
     std::pair<Expr, Expr> sincos_() const {
-        if (std::is_arithmetic<Scalar>::value)
+        if (std::is_arithmetic<Value>::value)
             return Base::sincos_();
         std::pair<Expr, Expr> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -675,7 +675,7 @@ public:
     }
 
     std::pair<Expr, Expr> sincosh_() const {
-        if (std::is_arithmetic<Scalar>::value)
+        if (std::is_arithmetic<Value>::value)
             return Base::sincosh_();
         std::pair<Expr, Expr> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -717,13 +717,13 @@ public:
     //! @{ \name Initialization, loading/writing data
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE static Expr zero_() { return Expr(Scalar(0)); }
+    ENOKI_INLINE static Expr zero_() { return Expr(Value(0)); }
 
     template <typename T = Derived, std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
     ENOKI_INLINE static Derived load_(const void *ptr) {
         Derived result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = load<Scalar>(static_cast<const Scalar *>(ptr) + i);
+            result.coeff(i) = load<Value>(static_cast<const Value *>(ptr) + i);
         return result;
     }
 
@@ -731,18 +731,18 @@ public:
     ENOKI_INLINE static Derived load_unaligned_(const void *ptr) {
         Derived result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = load_unaligned<Scalar>(static_cast<const Scalar *>(ptr) + i);
+            result.coeff(i) = load_unaligned<Value>(static_cast<const Value *>(ptr) + i);
         return result;
     }
 
     void store_(void *ptr) const {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            store<Scalar>((void *) (static_cast<Scalar *>(ptr) + i), coeff(i));
+            store<Value>((void *) (static_cast<Value *>(ptr) + i), coeff(i));
     }
 
     void store_unaligned_(void *ptr) const {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            store_unaligned<Scalar>((void *) (static_cast<Scalar *>(ptr) + i), coeff(i));
+            store_unaligned<Value>((void *) (static_cast<Value *>(ptr) + i), coeff(i));
     }
 
     //! @}
@@ -786,34 +786,34 @@ public:
     //! @{ \name Operations for dynamic arrays
     // -----------------------------------------------------------------------
 
-    template <typename T = Scalar, std::enable_if_t<is_dynamic<T>::value, int> = 0>
+    template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
     ENOKI_NOINLINE void dynamic_resize_(size_t size) {
         for (size_t i = 0; i < Size; ++i)
             dynamic_resize(m_data[i], size);
     }
 
-    template <typename T = Scalar, std::enable_if_t<is_dynamic<T>::value, int> = 0>
+    template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
     ENOKI_INLINE size_t dynamic_size_() const { return dynamic_size(m_data[0]); }
 
-    template <typename T = Scalar, std::enable_if_t<is_dynamic<T>::value, int> = 0>
+    template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
     ENOKI_INLINE size_t packets_() const { return packets(m_data[0]); }
 
-    template <typename T = Scalar, std::enable_if_t<is_dynamic<T>::value, int> = 0>
+    template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
     ENOKI_INLINE auto packet_(size_t i) {
         return packet_(i, std::make_index_sequence<Size>());
     }
 
-    template <typename T = Scalar, std::enable_if_t<is_dynamic<T>::value, int> = 0>
+    template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
     ENOKI_INLINE auto packet_(size_t i) const {
         return packet_(i, std::make_index_sequence<Size>());
     }
 
-    template <typename T = Scalar, std::enable_if_t<is_dynamic<T>::value, int> = 0>
+    template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
     ENOKI_INLINE auto ref_wrap_() {
         return ref_wrap_(std::make_index_sequence<Size>());
     }
 
-    template <typename T = Scalar, std::enable_if_t<is_dynamic<T>::value, int> = 0>
+    template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
     ENOKI_INLINE auto ref_wrap_() const {
         return ref_wrap_(std::make_index_sequence<Size>());
     }
@@ -821,28 +821,28 @@ public:
 private:
     template <size_t... Index>
     ENOKI_INLINE auto packet_(size_t i, std::index_sequence<Index...>) {
-        return Array<decltype(packet(std::declval<Scalar>(), 0)), Size>(
+        return Array<decltype(packet(std::declval<Value>(), 0)), Size>(
             packet(m_data[Index], i)...
         );
     }
 
     template <size_t... Index>
     ENOKI_INLINE auto packet_(size_t i, std::index_sequence<Index...>) const {
-        return Array<decltype(packet(std::declval<const Scalar &>(), 0)), Size>(
+        return Array<decltype(packet(std::declval<const Value &>(), 0)), Size>(
             packet(m_data[Index], i)...
         );
     }
 
     template <size_t... Index>
     ENOKI_INLINE auto ref_wrap_(std::index_sequence<Index...>) {
-        return Array<decltype(ref_wrap(std::declval<Scalar>())), Size>(
+        return Array<decltype(ref_wrap(std::declval<Value>())), Size>(
             ref_wrap(m_data[Index])...
         );
     }
 
     template <size_t... Index>
     ENOKI_INLINE auto ref_wrap_(std::index_sequence<Index...>) const {
-        return Array<decltype(ref_wrap(std::declval<const Scalar &>())), Size>(
+        return Array<decltype(ref_wrap(std::declval<const Value &>())), Size>(
             ref_wrap(m_data[Index])...
         );
     }

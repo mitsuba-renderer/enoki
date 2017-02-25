@@ -25,7 +25,7 @@ ENOKI_TEST(test01_string) { /* Arrays can be instantiated for all sorts of types
 }
 
 ENOKI_TEST(test02_float_array) {
-    /* Scalar initialization */
+    /* Value initialization */
     Array<float, 4> a(1.f);
     assert(to_string(a) == "[1, 1, 1, 1]");
 
@@ -100,15 +100,15 @@ ENOKI_TEST(test04_array_of_arrays) {
     assert(to_string(c + 1.f)   == "[[2, 2],\n [3, 2],\n [4, 2],\n [5, 2]]");
     assert(to_string(1.f + c)   == "[[2, 2],\n [3, 2],\n [4, 2],\n [5, 2]]");
 
-    assert((std::is_same<scalar_t<Vector4fP>, Vector4f>::value));
-    assert((std::is_same<base_scalar_t<Vector4fP>, float>::value));
+    assert((std::is_same<value_t<Vector4fP>, Vector4f>::value));
+    assert((std::is_same<scalar_t<Vector4fP>, float>::value));
 }
 
 ENOKI_TEST(test05_mask_types) {
     assert((std::is_same<mask_t<bool>, bool>::value));
-    assert((std::is_same<scalar_t<float>, float>::value));
+    assert((std::is_same<value_t<float>, float>::value));
     assert((std::is_same<mask_t<Array<float, 1>>, Array<bool, 1>>::value));
-    assert((std::is_same<scalar_t<Array<float, 1>>, float>::value));
+    assert((std::is_same<value_t<Array<float, 1>>, float>::value));
 }
 
 ENOKI_TEST(test06_nested_reductions) {

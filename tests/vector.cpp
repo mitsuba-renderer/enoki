@@ -13,44 +13,44 @@
 
 #include "test.h"
 
-template <typename T, std::enable_if_t<std::is_signed<typename T::Scalar>::value, int> = 0>
+template <typename T, std::enable_if_t<std::is_signed<typename T::Value>::value, int> = 0>
 void test01_dot_signed() {
-    using Scalar = typename T::Scalar;
+    using Value = typename T::Value;
     constexpr size_t Size = T::Size;
-    Scalar expected1 = Scalar((Size * (2 * Size - 1) * (Size - 1)) / 6);
-    Scalar expected2 = Scalar((Size * (Size - 1)) / 2);
+    Value expected1 = Value((Size * (2 * Size - 1) * (Size - 1)) / 6);
+    Value expected2 = Value((Size * (Size - 1)) / 2);
     T value = index_sequence<T>();
-    T value2(Scalar(1));
+    T value2(Value(1));
     assert(dot(value, -value) == -expected1);
     assert(dot(value, -value2) == -expected2);
     assert(abs_dot(value, -value) == expected1);
     assert(abs_dot(value, -value2) == expected2);
 }
 
-template <typename T, std::enable_if_t<!std::is_signed<typename T::Scalar>::value, int> = 0>
+template <typename T, std::enable_if_t<!std::is_signed<typename T::Value>::value, int> = 0>
 void test01_dot_signed() { }
 
 ENOKI_TEST_ALL(test01_dot) {
-    Scalar expected1 = Scalar((Size * (2 * Size - 1) * (Size - 1)) / 6);
-    Scalar expected2 = Scalar((Size * (Size - 1)) / 2);
+    Value expected1 = Value((Size * (2 * Size - 1) * (Size - 1)) / 6);
+    Value expected2 = Value((Size * (Size - 1)) / 2);
     T value = index_sequence<T>();
-    T value2(Scalar(1));
+    T value2(Value(1));
     assert(dot(value, value)  == expected1);
     assert(dot(value, value2) == expected2);
     test01_dot_signed<T>();
 }
 
 template <typename T> void test02_vecops_float() {
-    typedef typename T::Scalar Scalar;
+    typedef typename T::Value Value;
 
     /* Extra tests for horizontal operations */
     T v(1.f, 2.f, 3.f);
     assert(v.x() == 1);
     assert(v.y() == 2);
     assert(v.z() == 3);
-    assert(v.x() == Scalar(1));
-    assert(v.y() == Scalar(2));
-    assert(v.z() == Scalar(3));
+    assert(v.x() == Value(1));
+    assert(v.y() == Value(2));
+    assert(v.z() == Value(3));
     assert(std::abs(norm(v) - 3.74165738677394f) < 1e-5f);
     assert(std::abs(squared_norm(v) - std::pow(3.74165738677394f, 2.f)) < 1e-5f);
     assert(hsum(abs(normalize(v) - T(0.26726f, 0.53452f, 0.80178f))) < 1e-5f);
@@ -65,12 +65,12 @@ template <typename T> void test02_vecops_float() {
     v = T(0);
     if (T::ActualSize == 4)
         v.coeff(3) = -1;
-    assert(!any(v < Scalar(0)));
+    assert(!any(v < Value(0)));
 
     v = T(-1);
     if (T::ActualSize == 4)
         v.coeff(3) = 0;
-    assert(all(v < Scalar(0)));
+    assert(all(v < Value(0)));
 
     /* Test cross product */
     assert(cross(T(1, 2, 3), T(1, 0, 0)) == T(0, 3, -2));

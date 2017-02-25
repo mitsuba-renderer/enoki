@@ -14,25 +14,25 @@
 #include "test.h"
 
 
-template <typename T, typename Scalar2> void convtest() {
-    using T2 = like_t<T, Scalar2>;
+template <typename T, typename Value2> void convtest() {
+    using T2 = like_t<T, Value2>;
     auto value1 = index_sequence<T>();
     auto value2 = T2(value1);
     auto value3 = T(value2);
     assert(value1 == value3);
 }
 
-template <typename T, typename Scalar2> void masktest() {
-    using Scalar = typename T::Scalar;
-    using T2 = like_t<T, Scalar2>;
+template <typename T, typename Value2> void masktest() {
+    using Value = typename T::Value;
+    using T2 = like_t<T, Value2>;
     for (size_t i = 0; i < T::Size; ++i) {
-        typename T::Mask mask = eq(index_sequence<T>() - T(Scalar(i)), T(0));
+        typename T::Mask mask = eq(index_sequence<T>() - T(Value(i)), T(0));
         typename T2::Mask mask2 = reinterpret_array<typename T2::Mask>(mask);
-        T2 result = select(mask2, T2(Scalar2(1)), T2(Scalar2(0)));
-        Scalar2 out[T::Size];
+        T2 result = select(mask2, T2(Value2(1)), T2(Value2(0)));
+        Value2 out[T::Size];
         store_unaligned(out, result);
         for (size_t j = 0; j < T::Size; ++j)
-            assert(out[j] == ((j == i) ? Scalar2(1) : Scalar2(0)));
+            assert(out[j] == ((j == i) ? Value2(1) : Value2(0)));
     }
 }
 

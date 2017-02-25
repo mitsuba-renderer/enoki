@@ -126,8 +126,8 @@ ENOKI_TEST(test03_idiv_s32) {
 
 ENOKI_TEST_INT(test04_idiv_vector) {
     std::mt19937_64 mt;
-    for (Scalar i = 2; i < 1000; ++i) {
-        Scalar x = (Scalar) mt(), y = (Scalar) mt();
+    for (Value i = 2; i < 1000; ++i) {
+        Value x = (Value) mt(), y = (Value) mt();
         assert((T(y) / x)[0] == y / x);
         assert((T(y) / i)[0] == y / i);
         assert((T(y) % x)[0] == y % x);

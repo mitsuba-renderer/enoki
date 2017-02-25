@@ -39,8 +39,8 @@ using Ray3fP    = Ray<Vector3fP>;
 using Ray3fX    = Ray<Vector3fX>;
 
 /* Aliases to create types that are compatible with other type */
-template <typename T> using vector3f_t = Array<typename T::Scalar, 3>;
-template <typename T> using ray3f_t    = Ray<Array<typename T::Scalar, 3>>;
+template <typename T> using vector3f_t = Array<typename T::Value, 3>;
+template <typename T> using ray3f_t    = Ray<Array<typename T::Value, 3>>;
 
 //! @}
 // -----------------------------------------------------------------------
@@ -73,12 +73,12 @@ template <typename Ray> ENOKI_INLINE typename Ray::Vector intersect_rays(const R
 }
 
 /// "Shader": directional illumination
-template <typename Vector3f> ENOKI_INLINE typename Vector3f::Scalar shade_hits(Vector3f n) {
+template <typename Vector3f> ENOKI_INLINE typename Vector3f::Value shade_hits(Vector3f n) {
     return 0.2f + max(dot(n, Vector3f(-1.f, -1.f, 2.f)), 0.f) * 90.f;
 }
 
 /// All three kernels combined into one
-template <typename Vector2> ENOKI_INLINE typename Vector2::Scalar combined(Vector2 n) {
+template <typename Vector2> ENOKI_INLINE typename Vector2::Value combined(Vector2 n) {
     return shade_hits(intersect_rays(make_rays(n)));
 }
 

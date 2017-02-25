@@ -14,77 +14,77 @@
 #include "test.h"
 
 ENOKI_TEST_INT(test01_or) {
-    auto sample = test::sample_values<Scalar>();
+    auto sample = test::sample_values<Value>();
 
     test::validate_binary<T>(sample,
         [](const T &a, const T &b) -> T { return a | b; },
-        [](Scalar a, Scalar b) -> Scalar { return a | b; }
+        [](Value a, Value b) -> Value { return a | b; }
     );
 
     test::validate_binary<T>(sample,
         [](const T &a, const T &b) -> T { return a || b; },
-        [](Scalar a, Scalar b) -> Scalar { return a | b; }
+        [](Value a, Value b) -> Value { return a | b; }
     );
 
     test::validate_binary<T>(sample,
         [](const T &a, const T &b) -> T { T x(a); x |= b; return x; },
-        [](Scalar a, Scalar b) -> Scalar { return a | b; }
+        [](Value a, Value b) -> Value { return a | b; }
     );
 }
 
 ENOKI_TEST_INT(test02_and) {
-    auto sample = test::sample_values<Scalar>();
+    auto sample = test::sample_values<Value>();
 
     test::validate_binary<T>(sample,
         [](const T &a, const T &b) -> T { return a & b; },
-        [](Scalar a, Scalar b) -> Scalar { return a & b; }
+        [](Value a, Value b) -> Value { return a & b; }
     );
 
     test::validate_binary<T>(sample,
         [](const T &a, const T &b) -> T { return a && b; },
-        [](Scalar a, Scalar b) -> Scalar { return a & b; }
+        [](Value a, Value b) -> Value { return a & b; }
     );
 
     test::validate_binary<T>(sample,
         [](const T &a, const T &b) -> T { T x(a); x &= b; return x; },
-        [](Scalar a, Scalar b) -> Scalar { return a & b; }
+        [](Value a, Value b) -> Value { return a & b; }
     );
 }
 
 ENOKI_TEST_INT(test03_xor) {
-    auto sample = test::sample_values<Scalar>();
+    auto sample = test::sample_values<Value>();
 
     test::validate_binary<T>(sample,
         [](const T &a, const T &b) -> T { return a ^ b; },
-        [](Scalar a, Scalar b) -> Scalar { return a ^ b; }
+        [](Value a, Value b) -> Value { return a ^ b; }
     );
 
     test::validate_binary<T>(sample,
         [](const T &a, const T &b) -> T { T x(a); x ^= b; return x; },
-        [](Scalar a, Scalar b) -> Scalar { return a ^ b; }
+        [](Value a, Value b) -> Value { return a ^ b; }
     );
 }
 
 ENOKI_TEST_INT(test04_not) {
-    auto sample = test::sample_values<Scalar>();
+    auto sample = test::sample_values<Value>();
 
     test::validate_unary<T>(sample,
         [](const T &a) -> T { return ~a; },
-        [](Scalar a) -> Scalar { return ~a; }
+        [](Value a) -> Value { return ~a; }
     );
 
     test::validate_unary<T>(sample,
         [](const T &a) -> T { return !a; },
-        [](Scalar a) -> Scalar { return ~a; }
+        [](Value a) -> Value { return ~a; }
     );
 }
 
 ENOKI_TEST_INT(test05_sign) {
-    auto sample = test::sample_values<Scalar>();
+    auto sample = test::sample_values<Value>();
 
     test::validate_unary<T>(sample,
         [](const T &a) -> T { return enoki::sign(a); },
-        [](Scalar a) -> Scalar { return a >= 0 ? Scalar(1) : Scalar(-1); }
+        [](Value a) -> Value { return a >= 0 ? Value(1) : Value(-1); }
     );
 }
 

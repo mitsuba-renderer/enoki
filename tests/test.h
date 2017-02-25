@@ -159,10 +159,10 @@ template <typename T> T ulpdiff(T ref, T val) {
     return std::abs(diff) / eps;
 }
 
-template <typename Scalar>
-void assert_close(Scalar result, Scalar result_ref, Scalar eps) {
-    using UInt = std::conditional_t<sizeof(Scalar) == 4, uint32_t, uint64_t>;
-    using Float = std::conditional_t<sizeof(Scalar) == 4, float, double>;
+template <typename Value>
+void assert_close(Value result, Value result_ref, Value eps) {
+    using UInt = std::conditional_t<sizeof(Value) == 4, uint32_t, uint64_t>;
+    using Float = std::conditional_t<sizeof(Value) == 4, float, double>;
     bool fail = false;
 
     if (eps == 0 || !std::isfinite(Float(result_ref))) {
@@ -183,24 +183,24 @@ void assert_close(Scalar result, Scalar result_ref, Scalar eps) {
 
 template <typename T>
 void probe_accuracy(T (*func)(const T &), double (*ref)(double),
-                    typename T::Scalar min, typename T::Scalar max,
-                    typename T::Scalar max_ulp_assert = 0,
+                    typename T::Value min, typename T::Value max,
+                    typename T::Value max_ulp_assert = 0,
                     bool check_special = true) {
-    using Scalar = typename T::Scalar;
+    using Value = typename T::Value;
 
-    Scalar max_err = 0, avg_err = 0;
-    Scalar max_err_rel = 0, avg_err_rel = 0;
-    Scalar avg_ulp = 0, max_ulp = 0;
-    Scalar max_ulp_pos = -1;
-    Scalar max_err_pos = -1;
+    Value max_err = 0, avg_err = 0;
+    Value max_err_rel = 0, avg_err_rel = 0;
+    Value avg_ulp = 0, max_ulp = 0;
+    Value max_ulp_pos = -1;
+    Value max_err_pos = -1;
 
-    auto update_errors = [&](Scalar x, Scalar v, Scalar v_ref) {
-        Scalar err = std::abs(v - v_ref);
-        Scalar err_rel = err / std::abs(v_ref);
+    auto update_errors = [&](Value x, Value v, Value v_ref) {
+        Value err = std::abs(v - v_ref);
+        Value err_rel = err / std::abs(v_ref);
         if (v_ref == 0 && v == 0)
             err_rel = 0;
 
-        Scalar ulp = ulpdiff(v_ref, v);
+        Value ulp = ulpdiff(v_ref, v);
         if (ulp > max_ulp)
             max_ulp_pos = x;
         if (err > max_err)
@@ -219,8 +219,8 @@ void probe_accuracy(T (*func)(const T &), double (*ref)(double),
     size_t idx = 0;
     size_t nTries = test::detailed ? 1000000 : 10000;
     for (size_t i = 0; i < nTries; i++) {
-        value[idx] = min + (Scalar(i) / Scalar(nTries - 1)) * (max - min);
-        result_ref[idx] = Scalar(ref(double(value[idx])));
+        value[idx] = min + (Value(i) / Value(nTries - 1)) * (max - min);
+        result_ref[idx] = Value(ref(double(value[idx])));
         idx++;
 
         if (idx == value.size()) {
@@ -239,11 +239,11 @@ void probe_accuracy(T (*func)(const T &), double (*ref)(double),
 
     if (check_special) {
         /// Test function behavior for +/- inf and NaN-valued inputs
-        const Scalar inf = std::numeric_limits<Scalar>::infinity();
-        const Scalar nan = std::numeric_limits<Scalar>::quiet_NaN();
-        assert_close(func(T(inf))[0], (Scalar) ref(double(inf)), Scalar(1e-6));
-        assert_close(func(T(-inf))[0], (Scalar) ref(double(-inf)), Scalar(1e-6));
-        assert_close(func(T(nan))[0], (Scalar) ref(double(nan)), Scalar(1e-6));
+        const Value inf = std::numeric_limits<Value>::infinity();
+        const Value nan = std::numeric_limits<Value>::quiet_NaN();
+        assert_close(func(T(inf))[0], (Value) ref(double(inf)), Value(1e-6));
+        assert_close(func(T(-inf))[0], (Value) ref(double(-inf)), Value(1e-6));
+        assert_close(func(T(nan))[0], (Value) ref(double(nan)), Value(1e-6));
     }
 
     bool success = max_ulp <= max_ulp_assert || max_ulp_assert == 0;
@@ -263,15 +263,15 @@ void probe_accuracy(T (*func)(const T &), double (*ref)(double),
 }
 
 template <typename T>
-void validate_unary(const std::vector<typename T::Scalar> &args,
+void validate_unary(const std::vector<typename T::Value> &args,
                     T (*func)(const T &),
-                    typename T::Scalar (*ref)(typename T::Scalar),
-                    typename T::Scalar eps = 0) {
+                    typename T::Value (*ref)(typename T::Value),
+                    typename T::Value eps = 0) {
     T value, result_ref;
     size_t idx = 0;
 
     for (size_t i = 0; i < args.size(); ++i) {
-        typename T::Scalar arg_i = args[i];
+        typename T::Value arg_i = args[i];
         value[idx] = arg_i;
         result_ref[idx] = ref(arg_i);
         idx++;
@@ -293,18 +293,18 @@ void validate_unary(const std::vector<typename T::Scalar> &args,
 
 
 template <typename T>
-void validate_binary(const std::vector<typename T::Scalar> &args,
+void validate_binary(const std::vector<typename T::Value> &args,
                      T (*func)(const T &, const T &),
-                     typename T::Scalar (*ref)(typename T::Scalar,
-                                               typename T::Scalar),
-                     typename T::Scalar eps = 0) {
-    using Scalar = typename T::Scalar;
+                     typename T::Value (*ref)(typename T::Value,
+                                               typename T::Value),
+                     typename T::Value eps = 0) {
+    using Value = typename T::Value;
     T value1, value2, result_ref;
     size_t idx = 0;
 
     for (size_t i=0; i<args.size(); ++i) {
         for (size_t j=0; j<args.size(); ++j) {
-            Scalar arg_i = args[i], arg_j = args[j];
+            Value arg_i = args[i], arg_j = args[j];
             value1[idx] = arg_i; value2[idx] = arg_j;
             result_ref[idx] = ref(arg_i, arg_j);
             idx++;
@@ -326,45 +326,45 @@ void validate_binary(const std::vector<typename T::Scalar> &args,
 }
 
 /// Generate an array containing values that are used to test various operations
-template <typename Scalar> std::vector<Scalar> sample_values(bool has_nan = true) {
-    std::vector<Scalar> args;
-    if (std::is_integral<Scalar>::value) {
-        args = { Scalar(0), Scalar(1),    Scalar(5),
-                 Scalar(7), Scalar(1234), Scalar(1000000) };
-        if (std::is_signed<Scalar>::value) {
-            args.push_back(Scalar(-1));
-            args.push_back(Scalar(-5));
-            args.push_back(Scalar(-7));
-            args.push_back(Scalar(-1234));
-            args.push_back(Scalar(-1000000));
+template <typename Value> std::vector<Value> sample_values(bool has_nan = true) {
+    std::vector<Value> args;
+    if (std::is_integral<Value>::value) {
+        args = { Value(0), Value(1),    Value(5),
+                 Value(7), Value(1234), Value(1000000) };
+        if (std::is_signed<Value>::value) {
+            args.push_back(Value(-1));
+            args.push_back(Value(-5));
+            args.push_back(Value(-7));
+            args.push_back(Value(-1234));
+            args.push_back(Value(-1000000));
         }
-    } else if (std::is_floating_point<Scalar>::value) {
-        args = { Scalar(0), Scalar(0.5), Scalar(0.6), Scalar(1), Scalar(2),
-                 Scalar(3), Scalar(M_PI), Scalar(-0), Scalar(-0.5), Scalar(-0.6),
-                 Scalar(-1), Scalar(-2), Scalar(-3),
-                 Scalar(std::numeric_limits<float>::infinity()),
-                 Scalar(-std::numeric_limits<float>::infinity())
+    } else if (std::is_floating_point<Value>::value) {
+        args = { Value(0), Value(0.5), Value(0.6), Value(1), Value(2),
+                 Value(3), Value(M_PI), Value(-0), Value(-0.5), Value(-0.6),
+                 Value(-1), Value(-2), Value(-3),
+                 Value(std::numeric_limits<float>::infinity()),
+                 Value(-std::numeric_limits<float>::infinity())
         };
         if (has_nan)
-            args.push_back(Scalar(std::numeric_limits<float>::quiet_NaN()));
+            args.push_back(Value(std::numeric_limits<float>::quiet_NaN()));
     }
     return args;
 }
 
 template <typename T>
-void validate_ternary(const std::vector<typename T::Scalar> &args,
+void validate_ternary(const std::vector<typename T::Value> &args,
                       T (*func)(const T &, const T &, const T &),
-                      typename T::Scalar (*refFunc)(typename T::Scalar,
-                                                    typename T::Scalar,
-                                                    typename T::Scalar),
-                      typename T::Scalar eps = 0) {
+                      typename T::Value (*refFunc)(typename T::Value,
+                                                    typename T::Value,
+                                                    typename T::Value),
+                      typename T::Value eps = 0) {
     T value1, value2, value3, result_ref;
     size_t idx = 0;
 
     for (size_t i = 0; i < args.size(); ++i) {
         for (size_t j = 0; j < args.size(); ++j) {
             for (size_t k = 0; k < args.size(); ++k) {
-                typename T::Scalar arg_i = args[i], arg_j = args[j],
+                typename T::Value arg_i = args[i], arg_j = args[j],
                                    arg_k = args[k];
                 value1[idx] = arg_i;
                 value2[idx] = arg_j;
@@ -390,10 +390,10 @@ void validate_ternary(const std::vector<typename T::Scalar> &args,
 }
 
 template <typename T>
-void validate_horizontal(const std::vector<typename T::Scalar> &args,
-                         typename T::Scalar (*func)(const T &),
-                         typename T::Scalar (*refFunc)(const T &),
-                         typename T::Scalar eps = 0) {
+void validate_horizontal(const std::vector<typename T::Value> &args,
+                         typename T::Value (*func)(const T &),
+                         typename T::Value (*refFunc)(const T &),
+                         typename T::Value eps = 0) {
     std::mt19937 gen;
     std::uniform_int_distribution<> dis(0, (int) args.size()-1);
     T value;
@@ -419,40 +419,40 @@ NAMESPACE_END(test)
     ENOKI_TEST(array_##type##_32##_##name) { name<type, 32>(); }
 
 #define ENOKI_TEST_TYPE(name, type)                                             \
-    template <typename Scalar, size_t Size,                                     \
-              bool Approx = std::is_same<Scalar, float>::value,                 \
-              typename T = enoki::Array<Scalar, Size, Approx>>                  \
+    template <typename Value, size_t Size,                                     \
+              bool Approx = std::is_same<Value, float>::value,                 \
+              typename T = enoki::Array<Value, Size, Approx>>                  \
     void name##_##type();                                                       \
     ENOKI_TEST_HELPER(name##_##type, type)                                      \
-    template <typename Scalar, size_t Size, bool Approx, typename T>            \
+    template <typename Value, size_t Size, bool Approx, typename T>            \
     void name##_##type()
 
 #define ENOKI_TEST_FLOAT(name)                                                  \
-    template <typename Scalar, size_t Size,                                     \
-              bool Approx = std::is_same<Scalar, float>::value,                 \
-              typename T = enoki::Array<Scalar, Size, Approx>>                  \
+    template <typename Value, size_t Size,                                     \
+              bool Approx = std::is_same<Value, float>::value,                 \
+              typename T = enoki::Array<Value, Size, Approx>>                  \
     void name();                                                                \
     ENOKI_TEST(array_float_01acc_##name) { name<float, 1, false>();  }          \
     ENOKI_TEST_HELPER(name, float)                                              \
     ENOKI_TEST_HELPER(name, double)                                             \
-    template <typename Scalar, size_t Size, bool Approx, typename T>            \
+    template <typename Value, size_t Size, bool Approx, typename T>            \
     void name()
 
 #define ENOKI_TEST_INT(name)                                                    \
-    template <typename Scalar, size_t Size,                                     \
-              typename T = enoki::Array<Scalar, Size>>                          \
+    template <typename Value, size_t Size,                                     \
+              typename T = enoki::Array<Value, Size>>                          \
     void name();                                                                \
     ENOKI_TEST_HELPER(name, int32_t)                                            \
     ENOKI_TEST_HELPER(name, uint32_t)                                           \
     ENOKI_TEST_HELPER(name, int64_t)                                            \
     ENOKI_TEST_HELPER(name, uint64_t)                                           \
-    template <typename Scalar, size_t Size, typename T>                         \
+    template <typename Value, size_t Size, typename T>                         \
     void name()
 
 #define ENOKI_TEST_ALL(name)                                                    \
-    template <typename Scalar, size_t Size,                                     \
-              bool Approx = std::is_same<Scalar, float>::value,                 \
-              typename T = enoki::Array<Scalar, Size, Approx>>                  \
+    template <typename Value, size_t Size,                                     \
+              bool Approx = std::is_same<Value, float>::value,                 \
+              typename T = enoki::Array<Value, Size, Approx>>                  \
     void name();                                                                \
     ENOKI_TEST(array_float_01acc_##name) { name<float, 1, false>();  }          \
     ENOKI_TEST_HELPER(name, float)                                              \
@@ -461,7 +461,7 @@ NAMESPACE_END(test)
     ENOKI_TEST_HELPER(name, uint32_t)                                           \
     ENOKI_TEST_HELPER(name, int64_t)                                            \
     ENOKI_TEST_HELPER(name, uint64_t)                                           \
-    template <typename Scalar, size_t Size, bool Approx, typename T>            \
+    template <typename Value, size_t Size, bool Approx, typename T>            \
     void name()
 
 int main(int argc, char** argv) {
