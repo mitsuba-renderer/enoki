@@ -138,7 +138,7 @@ ENOKI_TEST_ALL(test06_lt) {
     assert(select(T(1) > T(2), T(1), T(2)) == T(2));
 
     Array<T, 4> x(5); Array<T&, 4> y(x);
-    assert(none(x < y));
+    assert(none_nested(x < y));
 }
 
 ENOKI_TEST_ALL(test07_le) {
@@ -150,7 +150,7 @@ ENOKI_TEST_ALL(test07_le) {
     );
 
     Array<T, 4> x(5); Array<T&, 4> y(x);
-    assert(all(x <= y));
+    assert(all_nested(x <= y));
 }
 
 ENOKI_TEST_ALL(test08_gt) {
@@ -162,7 +162,7 @@ ENOKI_TEST_ALL(test08_gt) {
     );
 
     Array<T, 4> x(5); Array<T&, 4> y(x);
-    assert(none(x > y));
+    assert(none_nested(x > y));
 }
 
 ENOKI_TEST_ALL(test09_ge) {
@@ -174,7 +174,7 @@ ENOKI_TEST_ALL(test09_ge) {
     );
 
     Array<T, 4> x(5); Array<T&, 4> y(x);
-    assert(all(x >= y));
+    assert(all_nested(x >= y));
 }
 
 ENOKI_TEST_ALL(test10_eq) {
@@ -186,8 +186,8 @@ ENOKI_TEST_ALL(test10_eq) {
     );
 
     Array<T, 4> x(5); Array<T&, 4> y(x);
-    assert(all(eq(x, x)) && all(eq(y, y)) && all(eq(x, y)) &&
-           all(eq(y, x)) && all(eq(y, Scalar(5))) && y == Scalar(5));
+    assert(all_nested(eq(x, x)) && all_nested(eq(y, y)) && all_nested(eq(x, y)) &&
+           all_nested(eq(y, x)) && all_nested(eq(y, Scalar(5))) && y == Scalar(5));
 }
 
 ENOKI_TEST_ALL(test11_neq) {
@@ -199,8 +199,8 @@ ENOKI_TEST_ALL(test11_neq) {
     );
 
     Array<T, 4> x(5); Array<T&, 4> y(x);
-    assert(none(neq(x, x)) && none(neq(y, y)) && none(neq(x, y)) &&
-           none(neq(y, x)) && none(neq(y, Scalar(5))) && y != Scalar(1));
+    assert(none_nested(neq(x, x)) && none_nested(neq(y, y)) && none_nested(neq(x, y)) &&
+           none_nested(neq(y, x)) && none_nested(neq(y, Scalar(5))) && y != Scalar(1));
 }
 
 ENOKI_TEST_ALL(test12_min) {

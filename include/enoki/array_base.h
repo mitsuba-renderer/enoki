@@ -22,10 +22,14 @@ NAMESPACE_BEGIN(detail)
 template <typename Derived> struct MaskWrapper {
     Derived &d;
     typename Derived::Mask m;
-
-    template <typename T> void operator=(T value) {
-        d.massign_(m, value);
-    }
+    template <typename T> ENOKI_INLINE void operator=(T value) { d.massign_(value, m); }
+    template <typename T> ENOKI_INLINE void operator+=(T value) { d.madd_(value, m); }
+    template <typename T> ENOKI_INLINE void operator-=(T value) { d.msub_(value, m); }
+    template <typename T> ENOKI_INLINE void operator*=(T value) { d.mmul_(value, m); }
+    template <typename T> ENOKI_INLINE void operator/=(T value) { d.mdiv_(value, m); }
+    template <typename T> ENOKI_INLINE void operator|=(T value) { d.mor_(value, m); }
+    template <typename T> ENOKI_INLINE void operator&=(T value) { d.mand_(value, m); }
+    template <typename T> ENOKI_INLINE void operator^=(T value) { d.mxor_(value, m); }
 };
 
 NAMESPACE_END(detail)
@@ -329,6 +333,30 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     /// Dot product fallback implementation
     ENOKI_INLINE Scalar dot_(const Derived &a) const { return hsum(derived() * a); }
 
+    /// Nested horizontal sum
+    ENOKI_INLINE auto hsum_nested_() const { return hsum_nested(hsum(derived())); }
+
+    /// Nested horizontal product
+    ENOKI_INLINE auto hprod_nested_() const { return hprod_nested(hprod(derived())); }
+
+    /// Nested horizontal minimum
+    ENOKI_INLINE auto hmin_nested_() const { return hmin_nested(hmin(derived())); }
+
+    /// Nested horizontal maximum
+    ENOKI_INLINE auto hmax_nested_() const { return hmax_nested(hmax(derived())); }
+
+    /// Nested all() mask operation
+    ENOKI_INLINE bool all_nested_() const { return all_nested(all(derived())); }
+
+    /// Nested any() mask operation
+    ENOKI_INLINE bool any_nested_() const { return any_nested(any(derived())); }
+
+    /// Nested none() mask operation
+    ENOKI_INLINE bool none_nested_() const { return !any_nested(any(derived())); }
+
+    /// Nested count() mask operation
+    ENOKI_INLINE auto count_nested_() const { return hsum_nested(count(derived())); }
+
     /// Shuffle operation fallback implementation
     template <size_t ... Indices> ENOKI_INLINE auto shuffle_() const {
         static_assert(sizeof...(Indices) == Size ||
@@ -401,12 +429,6 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             throw std::length_error("Incompatible size for static array");
     }
 
-    /// Masked assignment operator fallback implementation
-    template <typename T = Derived>
-    ENOKI_INLINE void massign_(const typename T::Mask m, const typename T::Expr &e) {
-        derived() = select(m, e, derived());
-    }
-
     /// Combined gather-modify-scatter operation without conflicts (fallback implementation)
     template <size_t Stride, typename Index, typename Func>
     ENOKI_INLINE static void transform_(void *mem, const Index &index, const Func &func) {
@@ -421,6 +443,30 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
             transform<Scalar, Stride>(mem, index.coeff(i), func, mask.coeff(i));
     }
+
+    //! @}
+    // -----------------------------------------------------------------------
+
+    // -----------------------------------------------------------------------
+    //! @{ \name Fallback implementations of masked operations
+    // -----------------------------------------------------------------------
+
+    #define ENOKI_MASKED_OPERATOR_FALLBACK(name, expr) \
+        template <typename T = Derived> \
+        ENOKI_INLINE void m##name##_(const typename T::Expr &e, const typename T::Mask m) { \
+            derived() = select(m, expr, derived()); \
+        }
+
+    ENOKI_MASKED_OPERATOR_FALLBACK(assign, e)
+    ENOKI_MASKED_OPERATOR_FALLBACK(add, derived() + e)
+    ENOKI_MASKED_OPERATOR_FALLBACK(sub, derived() - e)
+    ENOKI_MASKED_OPERATOR_FALLBACK(mul, derived() * e)
+    ENOKI_MASKED_OPERATOR_FALLBACK(div, derived() / e)
+    ENOKI_MASKED_OPERATOR_FALLBACK(or, derived() | e)
+    ENOKI_MASKED_OPERATOR_FALLBACK(and, derived() & e)
+    ENOKI_MASKED_OPERATOR_FALLBACK(xor, derived() ^ e)
+
+    #undef ENOKI_MASKED_OPERATOR_FALLBACK
 
     //! @}
     // -----------------------------------------------------------------------
@@ -1509,7 +1555,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
 template <typename Scalar, typename Derived,
           std::enable_if_t<!is_array<std::decay_t<Scalar>>::value, int> = 0>
-std::ostream &operator<<(std::ostream &os,
+ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
                          const ArrayBase<Scalar, Derived> &a) {
     os << "[";
     for (size_t i = 0; i < a.derived().size(); ++i) {
@@ -1523,8 +1569,8 @@ std::ostream &operator<<(std::ostream &os,
 
 template <typename Scalar, typename Derived,
           std::enable_if_t<is_array<std::decay_t<Scalar>>::value, int> = 0>
-std::ostream &operator<<(std::ostream &os,
-                         const ArrayBase<Scalar, Derived> &a) {
+ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
+                                        const ArrayBase<Scalar, Derived> &a) {
     os << "[";
     if (a.derived().size() > 0) {
         size_t size = a.derived().coeff(0).size();

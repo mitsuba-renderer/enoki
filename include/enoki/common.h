@@ -541,15 +541,15 @@ NAMESPACE_END(detail)
 
 /// Integer-based version of a given array class
 template <typename T>
-using int_array_t = like_t<T, typename detail::type_chooser<sizeof(typename T::BaseScalar)>::Int>;
+using int_array_t = like_t<T, typename detail::type_chooser<sizeof(base_scalar_t<T>)>::Int>;
 
 /// Unsigned integer-based version of a given array class
 template <typename T>
-using uint_array_t = like_t<T, typename detail::type_chooser<sizeof(typename T::BaseScalar)>::UInt>;
+using uint_array_t = like_t<T, typename detail::type_chooser<sizeof(base_scalar_t<T>)>::UInt>;
 
 /// Floating point-based version of a given array class
 template <typename T>
-using float_array_t = like_t<T, typename detail::type_chooser<sizeof(typename T::BaseScalar)>::Float>;
+using float_array_t = like_t<T, typename detail::type_chooser<sizeof(base_scalar_t<T>)>::Float>;
 
 template <typename T> using int32_array_t   = like_t<T, int32_t>;
 template <typename T> using uint32_array_t  = like_t<T, uint32_t>;

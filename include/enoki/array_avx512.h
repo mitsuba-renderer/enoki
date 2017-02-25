@@ -274,6 +274,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
     ENOKI_INLINE Derived sub_(Arg a) const { return _mm512_sub_round_ps(m, a.m, (int) Mode); }
     ENOKI_INLINE Derived mul_(Arg a) const { return _mm512_mul_round_ps(m, a.m, (int) Mode); }
     ENOKI_INLINE Derived div_(Arg a) const { return _mm512_div_round_ps(m, a.m, (int) Mode); }
+
     ENOKI_INLINE Derived or_ (Arg a) const {
         #if defined(__AVX512DQ__)
             return _mm512_or_ps(m, a.m);
@@ -553,10 +554,6 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
         (Scalar *&) ptr += _mm_popcnt_u32(k);
     }
 
-    ENOKI_INLINE void massign_(const Mask &mask, const Derived &e) {
-        m = _mm512_mask_mov_ps(m, mask.k, e.m);
-    }
-
 #if defined(__AVX512CD__)
     ENOKI_REQUIRE_INDEX_TRANSFORM(Index, int32_t)
     static ENOKI_INLINE void transform_(void *mem, Index index, const Func &func, Mask mask = Mask(true)) {
@@ -582,6 +579,48 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
         _mm512_mask_i32scatter_ps(mem, mask.k, index.m, values, (int) Stride);
     }
 #endif
+
+    //! @}
+    // -----------------------------------------------------------------------
+
+    // -----------------------------------------------------------------------
+    //! @{ \name Masked versions of key operations
+    // -----------------------------------------------------------------------
+
+    ENOKI_INLINE void massign_(const Derived &a, const Mask &mask) { m = _mm512_mask_mov_ps(m, mask.k, a.m); }
+    ENOKI_INLINE void madd_   (const Derived &a, const Mask &mask) { m = _mm512_mask_add_round_ps(m, mask.k, m, a.m, (int) Mode); }
+    ENOKI_INLINE void msub_   (const Derived &a, const Mask &mask) { m = _mm512_mask_sub_round_ps(m, mask.k, m, a.m, (int) Mode); }
+    ENOKI_INLINE void mmul_   (const Derived &a, const Mask &mask) { m = _mm512_mask_mul_round_ps(m, mask.k, m, a.m, (int) Mode); }
+    ENOKI_INLINE void mdiv_   (const Derived &a, const Mask &mask) { m = _mm512_mask_div_round_ps(m, mask.k, m, a.m, (int) Mode); }
+    ENOKI_INLINE void mor_    (const Derived &a, const Mask &mask) {
+        #if defined(__AVX512DQ__)
+            m = _mm512_mask_or_ps(m, mask.k, m, a.m);
+        #else
+            m = _mm512_castsi512_ps(
+                _mm512_or_si512(_mm512_castps_si512(m), mask.k,
+                                _mm512_castps_si512(m), _mm512_castps_si512(a.m)));
+        #endif
+    }
+
+    ENOKI_INLINE void mand_   (const Derived &a, const Mask &mask) {
+        #if defined(__AVX512DQ__)
+            m = _mm512_mask_and_ps(m, mask.k, m, a.m);
+        #else
+            m = _mm512_castsi512_ps(_mm512_and_si512(_mm512_castps_si512(m), mask.k,
+                                                     _mm512_castps_si512(m),
+                                                     _mm512_castps_si512(a.m)));
+        #endif
+    }
+
+    ENOKI_INLINE void mxor_   (const Derived &a, const Mask &mask) {
+        #if defined(__AVX512DQ__)
+            m = _mm512_mask_xor_ps(m, mask.k, m, a.m);
+        #else
+            m = _mm512_castsi512_ps(_mm512_xor_si512(_mm512_castps_si512(m), mask.k,
+                                                     _mm512_castps_si512(m),
+                                                     _mm512_castps_si512(a.m)));
+        #endif
+    }
 
     //! @}
     // -----------------------------------------------------------------------
@@ -933,10 +972,6 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
         (Scalar *&) ptr += _mm_popcnt_u32(k);
     }
 
-    ENOKI_INLINE void massign_(const Mask &mask, const Derived &e) {
-        m = _mm512_mask_mov_pd(m, mask.k, e.m);
-    }
-
 #if defined(__AVX512CD__)
     ENOKI_REQUIRE_INDEX_TRANSFORM(Index, int64_t)
     static ENOKI_INLINE void transform_(void *mem, Index index, const Func &func, Mask mask = Mask(true)) {
@@ -962,6 +997,48 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
         _mm512_mask_i64scatter_pd(mem, mask.k, index.m, values, (int) Stride);
     }
 #endif
+
+    //! @}
+    // -----------------------------------------------------------------------
+
+    // -----------------------------------------------------------------------
+    //! @{ \name Masked versions of key operations
+    // -----------------------------------------------------------------------
+
+    ENOKI_INLINE void massign_(const Derived &a, const Mask &mask) { m = _mm512_mask_mov_pd(m, mask.k, a.m); }
+    ENOKI_INLINE void madd_   (const Derived &a, const Mask &mask) { m = _mm512_mask_add_round_pd(m, mask.k, m, a.m, (int) Mode); }
+    ENOKI_INLINE void msub_   (const Derived &a, const Mask &mask) { m = _mm512_mask_sub_round_pd(m, mask.k, m, a.m, (int) Mode); }
+    ENOKI_INLINE void mmul_   (const Derived &a, const Mask &mask) { m = _mm512_mask_mul_round_pd(m, mask.k, m, a.m, (int) Mode); }
+    ENOKI_INLINE void mdiv_   (const Derived &a, const Mask &mask) { m = _mm512_mask_div_round_pd(m, mask.k, m, a.m, (int) Mode); }
+    ENOKI_INLINE void mor_    (const Derived &a, const Mask &mask) {
+        #if defined(__AVX512DQ__)
+            m = _mm512_mask_or_pd(m, mask.k, m, a.m);
+        #else
+            m = _mm512_castsi512_pd(_mm512_or_si512(_mm512_castpd_si512(m), mask.k,
+                                                    _mm512_castpd_si512(m),
+                                                    _mm512_castpd_si512(a.m)));
+        #endif
+    }
+
+    ENOKI_INLINE void mand_   (const Derived &a, const Mask &mask) {
+        #if defined(__AVX512DQ__)
+            m = _mm512_mask_and_pd(m, mask.k, m, a.m);
+        #else
+            m = _mm512_castsi512_pd(_mm512_and_si512(_mm512_castpd_si512(m), mask.k,
+                                                     _mm512_castpd_si512(m),
+                                                     _mm512_castpd_si512(a.m)));
+        #endif
+    }
+
+    ENOKI_INLINE void mxor_   (const Derived &a, const Mask &mask) {
+        #if defined(__AVX512DQ__)
+            m = _mm512_mask_xor_pd(m, mask.k, m, a.m);
+        #else
+            m = _mm512_castsi512_pd(_mm512_xor_si512(_mm512_castpd_si512(m), mask.k,
+                                                     _mm512_castpd_si512(m),
+                                                     _mm512_castpd_si512(a.m)));
+        #endif
+    }
 
     //! @}
     // -----------------------------------------------------------------------
@@ -1296,10 +1373,6 @@ template <typename Scalar_, typename Derived> struct alignas(64)
         (Scalar *&) ptr += _mm_popcnt_u32(k);
     }
 
-    ENOKI_INLINE void massign_(const Mask &mask, const Derived &e) {
-        m = _mm512_mask_mov_epi32(m, mask.k, e.m);
-    }
-
 #if defined(__AVX512CD__)
     ENOKI_REQUIRE_INDEX_TRANSFORM(Index, int32_t)
     static ENOKI_INLINE void transform_(void *mem, Index index, const Func &func, Mask mask = Mask(true)) {
@@ -1325,6 +1398,21 @@ template <typename Scalar_, typename Derived> struct alignas(64)
         _mm512_mask_i32scatter_epi32(mem, mask.k, index.m, values, (int) Stride);
     }
 #endif
+
+    //! @}
+    // -----------------------------------------------------------------------
+
+    // -----------------------------------------------------------------------
+    //! @{ \name Masked versions of key operations
+    // -----------------------------------------------------------------------
+
+    ENOKI_INLINE void massign_(const Derived &a, const Mask &mask) { m = _mm512_mask_mov_epi32(m, mask.k, a.m); }
+    ENOKI_INLINE void madd_   (const Derived &a, const Mask &mask) { m = _mm512_mask_add_epi32(m, mask.k, m, a.m); }
+    ENOKI_INLINE void msub_   (const Derived &a, const Mask &mask) { m = _mm512_mask_sub_epi32(m, mask.k, m, a.m); }
+    ENOKI_INLINE void mmul_   (const Derived &a, const Mask &mask) { m = _mm512_mask_mullo_epi32(m, mask.k, m, a.m); }
+    ENOKI_INLINE void mor_    (const Derived &a, const Mask &mask) { m = _mm512_mask_or_epi32(m, mask.k, m, a.m); }
+    ENOKI_INLINE void mand_   (const Derived &a, const Mask &mask) { m = _mm512_mask_and_epi32(m, mask.k, m, a.m); }
+    ENOKI_INLINE void mxor_   (const Derived &a, const Mask &mask) { m = _mm512_mask_xor_epi32(m, mask.k, m, a.m); }
 
     //! @}
     // -----------------------------------------------------------------------
@@ -1670,10 +1758,6 @@ template <typename Scalar_, typename Derived> struct alignas(64)
         (Scalar *&) ptr += _mm_popcnt_u32(k);
     }
 
-    ENOKI_INLINE void massign_(const Mask &mask, const Derived &e) {
-        m = _mm512_mask_mov_epi64(m, mask.k, e.m);
-    }
-
 #if defined(__AVX512CD__)
     ENOKI_REQUIRE_INDEX_TRANSFORM(Index, int64_t)
     static ENOKI_INLINE void transform_(void *mem, Index index, const Func &func, Mask mask = Mask(true)) {
@@ -1699,6 +1783,27 @@ template <typename Scalar_, typename Derived> struct alignas(64)
         _mm512_mask_i64scatter_epi64(mem, mask.k, index.m, values, (int) Stride);
     }
 #endif
+
+    //! @}
+    // -----------------------------------------------------------------------
+
+    // -----------------------------------------------------------------------
+    //! @{ \name Masked versions of key operations
+    // -----------------------------------------------------------------------
+
+    ENOKI_INLINE void massign_(const Derived &a, const Mask &mask) { m = _mm512_mask_mov_epi64(m, mask.k, a.m); }
+    ENOKI_INLINE void madd_   (const Derived &a, const Mask &mask) { m = _mm512_mask_add_epi64(m, mask.k, m, a.m); }
+    ENOKI_INLINE void msub_   (const Derived &a, const Mask &mask) { m = _mm512_mask_sub_epi64(m, mask.k, m, a.m); }
+    ENOKI_INLINE void mmul_   (const Derived &a, const Mask &mask) {
+        #if defined(__AVX512DQ__) && defined(__AVX512VL__)
+            m = _mm512_mask_mullo_epi64(m, mask.k, m, a.m);
+        #else
+            m = select(mask, a * derived(), derived()).m;
+        #endif
+    }
+    ENOKI_INLINE void mor_    (const Derived &a, const Mask &mask) { m = _mm512_mask_or_epi64(m, mask.k, m, a.m); }
+    ENOKI_INLINE void mand_   (const Derived &a, const Mask &mask) { m = _mm512_mask_and_epi64(m, mask.k, m, a.m); }
+    ENOKI_INLINE void mxor_   (const Derived &a, const Mask &mask) { m = _mm512_mask_xor_epi64(m, mask.k, m, a.m); }
 
     //! @}
     // -----------------------------------------------------------------------

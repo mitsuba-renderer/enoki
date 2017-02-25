@@ -33,11 +33,11 @@ NAMESPACE_BEGIN(enoki)
         return a.derived().func##_();                                          \
     }
 
-#define ENOKI_ROUTE_UNARY_WITH_FALLBACK(name, expr) \
-    ENOKI_ROUTE_UNARY(name, name) \
-    template <typename Arg, enable_if_notarray_t<Arg> = 0> \
-    ENOKI_INLINE auto name(const Arg &a) { \
-        ENOKI_TRACK_SCALAR return expr; \
+#define ENOKI_ROUTE_UNARY_WITH_FALLBACK(name, expr)                            \
+    ENOKI_ROUTE_UNARY(name, name)                                              \
+    template <typename Arg, enable_if_notarray_t<Arg> = 0>                     \
+    ENOKI_INLINE auto name(const Arg &a) {                                     \
+        ENOKI_TRACK_SCALAR return expr;                                        \
     }
 
 /**
@@ -214,11 +214,19 @@ ENOKI_ROUTE_UNARY(all, all)
 ENOKI_ROUTE_UNARY(any, any)
 ENOKI_ROUTE_UNARY(none, none)
 ENOKI_ROUTE_UNARY(count, count)
+ENOKI_ROUTE_UNARY(all_nested, all_nested)
+ENOKI_ROUTE_UNARY(any_nested, any_nested)
+ENOKI_ROUTE_UNARY(none_nested, none_nested)
+ENOKI_ROUTE_UNARY(count_nested, count_nested)
 
 ENOKI_ROUTE_UNARY_WITH_FALLBACK(hmin, a)
 ENOKI_ROUTE_UNARY_WITH_FALLBACK(hmax, a)
 ENOKI_ROUTE_UNARY_WITH_FALLBACK(hprod, a)
 ENOKI_ROUTE_UNARY_WITH_FALLBACK(hsum, a)
+ENOKI_ROUTE_UNARY_WITH_FALLBACK(hmin_nested, a)
+ENOKI_ROUTE_UNARY_WITH_FALLBACK(hmax_nested, a)
+ENOKI_ROUTE_UNARY_WITH_FALLBACK(hprod_nested, a)
+ENOKI_ROUTE_UNARY_WITH_FALLBACK(hsum_nested, a)
 
 ENOKI_ROUTE_UNARY_WITH_FALLBACK(sqrt,  std::sqrt(a))
 ENOKI_ROUTE_UNARY_WITH_FALLBACK(floor, std::floor(a))
@@ -320,7 +328,7 @@ template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
 ENOKI_INLINE bool operator==(
     const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,
     const Arg &a2) {
-    return all(eq(a1.derived(), a2.derived()));
+    return all_nested(eq(a1.derived(), a2.derived()));
 }
 
 /// Inequality operator
@@ -330,7 +338,7 @@ template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
 ENOKI_INLINE bool operator!=(
     const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,
     const Arg &a2) {
-    return any(neq(a1.derived(), a2.derived()));
+    return any_nested(neq(a1.derived(), a2.derived()));
 }
 
 ENOKI_ROUTE_BCAST(operator==)
@@ -812,9 +820,13 @@ ENOKI_INLINE std::pair<Arg, Arg> frexp(const Arg &a) {
 }
 
 ENOKI_INLINE bool all(bool value) { return value; }
+ENOKI_INLINE bool all_nested(bool value) { return value; }
 ENOKI_INLINE bool any(bool value) { return value; }
+ENOKI_INLINE bool any_nested(bool value) { return value; }
 ENOKI_INLINE bool none(bool value) { return !value; }
+ENOKI_INLINE bool none_nested(bool value) { return !value; }
 ENOKI_INLINE size_t count(bool value) { return value ? 1 : 0; }
+ENOKI_INLINE size_t count_nested(bool value) { return value ? 1 : 0; }
 
 //! @}
 // -----------------------------------------------------------------------
@@ -1273,6 +1285,26 @@ ENOKI_INLINE T ref_wrap(T &&value) { return value; }
 
 //! @}
 // -----------------------------------------------------------------------
+
+#define ENOKI_MASKED_OPERATOR(name, expr)                                      \
+    template <typename Arg, enable_if_notarray_t<Arg> = 0>                     \
+    ENOKI_INLINE void name(Arg &a, const Arg &b, bool m) {                     \
+        if (m)                                                                 \
+            a = expr;                                                          \
+    }                                                                          \
+    template <typename Array, enable_if_sarray_t<Array> = 0>                   \
+    ENOKI_INLINE void name(Array &a, const Array &b,                           \
+                           const typename Array::Mask &m) {                    \
+        a.name##_(b, m);                                                       \
+    }
+
+ENOKI_MASKED_OPERATOR(madd, a + b)
+ENOKI_MASKED_OPERATOR(msub, a - b)
+ENOKI_MASKED_OPERATOR(mmul, a * b)
+ENOKI_MASKED_OPERATOR(mdiv, a / b)
+ENOKI_MASKED_OPERATOR(mor, a | b)
+ENOKI_MASKED_OPERATOR(mand, a & b)
+ENOKI_MASKED_OPERATOR(mxor, a ^ b)
 
 // -----------------------------------------------------------------------
 //! @{ \name Operations to query the depth and shape of nested arrays

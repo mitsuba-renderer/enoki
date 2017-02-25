@@ -110,3 +110,36 @@ ENOKI_TEST(test05_mask_types) {
     assert((std::is_same<mask_t<Array<float, 1>>, Array<bool, 1>>::value));
     assert((std::is_same<scalar_t<Array<float, 1>>, float>::value));
 }
+
+ENOKI_TEST(test06_nested_reductions) {
+    using FloatP = Array<float, 16>;
+    using IntP = Array<int, 16>;
+    using Vector3fP = Array<FloatP, 3>;
+
+    auto my_all = [](Vector3fP x) { return all(x > 4); };
+    auto my_none = [](Vector3fP x) { return none(x > 4); };
+    auto my_any = [](Vector3fP x) { return any(x > 4); };
+    auto my_count = [](Vector3fP x) { return count(x > 4); };
+
+    auto my_all_nested = [](Vector3fP x) { return all_nested(x > 4); };
+    auto my_none_nested = [](Vector3fP x) { return none_nested(x > 4); };
+    auto my_any_nested = [](Vector3fP x) { return any_nested(x > 4); };
+    auto my_count_nested = [](Vector3fP x) { return count_nested(x > 4); };
+
+    auto data =
+        Vector3fP(index_sequence<FloatP>() + 0, index_sequence<FloatP>() + 1,
+                  index_sequence<FloatP>() + 2);
+
+    auto str = [](auto x) {
+        return to_string(select(reinterpret_array<mask_t<IntP>>(x), IntP(1), IntP(0)));
+    };
+
+    assert(str(my_all(data)) == "[0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]");
+    assert(str(my_none(data)) == "[1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]");
+    assert(str(my_any(data)) == "[0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]");
+    assert(to_string(my_count(data)) == "[0, 0, 0, 1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]");
+    assert(!my_all_nested(data));
+    assert(!my_none_nested(data));
+    assert(my_any_nested(data));
+    assert(my_count_nested(data) == 36);
+}

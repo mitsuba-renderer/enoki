@@ -568,34 +568,36 @@ public:
     }
 
     /// Check if all mask bits are set
-    ENOKI_INLINE bool all_() const {
-        bool result = all(coeff(0));
+    ENOKI_INLINE auto all_() const {
+        auto result = coeff(0);
         ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
-            result &= all(coeff(i));
+            result &= coeff(i);
         return result;
     }
 
     /// Check if any mask bits are set
-    ENOKI_INLINE bool any_() const {
-        bool result = any(coeff(0));
+    ENOKI_INLINE auto any_() const {
+        auto result = coeff(0);
         ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
-            result |= any(coeff(i));
+            result |= coeff(i);
         return result;
     }
 
     /// Check if none of the mask bits are set
-    ENOKI_INLINE bool none_() const {
-        bool result = none(coeff(0));
+    ENOKI_INLINE auto none_() const {
+        auto result = coeff(0);
         ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
-            result &= none(coeff(i));
-        return result;
+            result |= coeff(i);
+        return !result;
     }
 
     /// Count the number of active mask bits
-    ENOKI_INLINE size_t count_() const {
-        size_t result = count(coeff(0));
-        ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
-            result += count(coeff(i));
+    ENOKI_INLINE uint32_array_t<Scalar> count_() const {
+        using Int = uint32_array_t<Scalar>;
+        const Int one(1);
+        Int result(0);
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            madd(result, one, reinterpret_array<mask_t<Int>>(coeff(i)));
         return result;
     }
 
