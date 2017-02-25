@@ -115,7 +115,7 @@ ENOKI_TEST(array_float_04_outer_product) {
     using Vector4f = Array<float, 4>;
     using Vector3f = Array<float, 3>;
 
-    assert(to_string(outer_product(Vector4f(1, 2, 3, 4), Vector3f(0, 1, 0))) == "[[0, 0, 0, 0],\n [1, 2, 3, 4],\n [0, 0, 0, 0]]");
-    assert(to_string(outer_product(Vector4f(1, 2, 3, 4), 3.f)) == "[3, 6, 9, 12]");
-    assert(to_string(outer_product(3.f, Vector3f(1, 2, 3))) == "[3, 6, 9]");
+    assert(to_string(broadcast<Vector3f>(Vector4f(1, 2, 3, 4)) * Vector3f(0, 1, 0)) == "[[0, 0, 0, 0],\n [1, 2, 3, 4],\n [0, 0, 0, 0]]");
+    assert(to_string(broadcast<float>(Vector4f(1, 2, 3, 4)) * 3.f) == "[3, 6, 9, 12]");
+    assert(to_string(broadcast<Vector3f>(3.f) * Vector3f(1, 2, 3)) == "[3, 6, 9]");
 }

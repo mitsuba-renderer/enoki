@@ -1229,21 +1229,18 @@ ENOKI_INLINE const auto& array_coeff(const Arg &array, size_t) {
     return array;
 }
 
-/// Outer product of two static arrays (possibly scalars)
-template <typename Array1, typename Array2, enable_if_sarray_t<Array1> = 0>
-ENOKI_INLINE like_t<Array1, Array2> outer_product(const Array1 &array1,
-                                                  const Array2 &array2) {
-    like_t<Array1, Array2> result;
-    for (size_t i = 0; i < array_size<Array1>::value; ++i)
-        array_coeff(result, i) = array_coeff(array1, i) * array2;
-    return result;
-}
-
-/// Outer product of two static arrays (possibly scalars)
-template <typename Arg1, typename Array2, enable_if_notarray_t<Arg1> = 0>
-ENOKI_INLINE Array2 outer_product(const Arg1 &array1,
-                                  const Array2 &array2) {
-    return Array2(array1) * array2;
+/**
+ * Broadcast the given array to the entries of an array of
+ * shape (<shape of Other>, <shape of Array>)
+ *
+ * \tparam Other Denotes the desired shape of the leading
+ *         dimensions of the output array
+ *
+ * \tparam Array Scalar/Array type of the argument.
+ */
+template <typename Other, typename Array>
+ENOKI_INLINE auto broadcast(const Array &value) {
+    return like_t<Other, Array>(value);
 }
 
 //! @}

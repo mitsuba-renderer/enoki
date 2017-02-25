@@ -67,6 +67,7 @@ struct DynamicArrayBase : ArrayBase<value_t<Packet_>, Derived_> {
     using Packet                              = Packet_;
     using Value                               = value_t<Packet_>;
     using Scalar                              = scalar_t<Packet_>;
+    using Mask                                = DynamicArray<mask_t<Packet_>>;
     static constexpr size_t       PacketSize  = Packet::Size;
     static constexpr bool         Approx      = Packet::Approx;
     static constexpr RoundingMode Mode        = Packet::Mode;
