@@ -558,6 +558,7 @@ template <typename T> using uint64_array_t  = like_t<T, uint64_t>;
 template <typename T> using float16_array_t = like_t<T, half>;
 template <typename T> using float32_array_t = like_t<T, float>;
 template <typename T> using float64_array_t = like_t<T, double>;
+template <typename T> using bool_array_t    = like_t<T, bool>;
 
 /// Type trait to convert nested arrays into corresponding dynamic versions
 template <typename T, typename = void> struct dynamic_internal { using type = T; };
