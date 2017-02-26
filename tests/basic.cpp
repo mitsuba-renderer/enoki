@@ -351,3 +351,11 @@ ENOKI_TEST_ALL(test21_mask_assign) {
     }
 }
 
+ENOKI_TEST_FLOAT(test22_copysign) {
+    auto sample = test::sample_values<Value>(false);
+
+    test::validate_binary<T>(sample,
+        [](const T &a, const T &b) -> T { return enoki::copysign(a, b); },
+        [](Value a, Value b) -> Value { return std::copysign(a, b); }
+    );
+}

@@ -783,28 +783,47 @@ NAMESPACE_BEGIN(detail)
 template <typename Array, enable_if_sarray_t<Array> = 0>
 ENOKI_INLINE typename Array::Expr sign_mask(const Array &a) {
     using UInt = typename uint_array_t<Array>::Scalar;
-    using Float = typename Array::Scalar;
+    using Float = scalar_t<Array>;
     const Float mask = memcpy_cast<Float>(UInt(1) << (sizeof(UInt) * 8 - 1));
-    return a.derived() & typename Array::Derived::Expr(mask);
+    return a.derived() & expr_t<Array>(mask);
 }
 NAMESPACE_END(detail)
 
 template <typename Array, enable_if_sarray_t<Array> = 0>
-ENOKI_INLINE typename Array::Derived::Expr sign(const Array &a) {
-    using Expr = typename Array::Derived::Expr;
-    using Value = typename Array::Scalar;
+ENOKI_INLINE expr_t<Array> sign(const Array &a) {
+    using Expr = expr_t<Array>;
+    using Scalar = scalar_t<Array>;
 
-    if (!std::is_signed<Value>::value)
+    if (!std::is_signed<Scalar>::value)
         return Expr(1);
-    else if (std::is_floating_point<Value>::value)
-        return detail::sign_mask(a) | Expr(Value(1));
+    else if (std::is_floating_point<Scalar>::value)
+        return detail::sign_mask(a) | Expr(Scalar(1));
     else
-        return select(a < Value(0), Expr(Value(-1)), Expr(Value(1)));
+        return select(a < Scalar(0), Expr(Scalar(-1)), Expr(Scalar(1)));
+}
+
+template <typename Array, enable_if_sarray_t<Array> = 0>
+ENOKI_INLINE expr_t<Array> copysign(const Array &a, const Array &b) {
+    using Scalar = scalar_t<Array>;
+
+    if (!std::is_signed<Scalar>::value) {
+        return a;
+    } else if (std::is_floating_point<Scalar>::value) {
+        return abs(a) | detail::sign_mask(b);
+    } else {
+        auto abs_a = abs(a);
+        return select(b > 0, abs_a, -abs_a);
+    }
 }
 
 template <typename Arg, enable_if_notarray_t<Arg> = 0>
 inline Arg sign(const Arg &a) {
     return std::copysign(Arg(1), a);
+}
+
+template <typename Arg, enable_if_notarray_t<Arg> = 0>
+inline Arg copysign(const Arg &a, const Arg &b) {
+    return std::copysign(a, b);
 }
 
 template <typename Arg, enable_if_notarray_t<Arg> = 0>
@@ -862,7 +881,7 @@ ENOKI_INLINE Arg zero() {
 NAMESPACE_BEGIN(detail)
 template <typename Array, size_t... Args>
 ENOKI_INLINE Array index_sequence_(std::index_sequence<Args...>) {
-    return Array(((typename Array::Value) Args)...);
+    return Array(((value_t<Array>) Args)...);
 }
 
 template <typename Array, typename Value, size_t... Args>
@@ -892,16 +911,16 @@ ENOKI_INLINE Arg index_sequence() {
 
 /// Construct an index sequence, i.e. 0, 1, 2, ..
 template <typename Array, enable_if_sarray_t<Array> = 0>
-ENOKI_INLINE Array linspace(typename Array::Value min,
-                            typename Array::Value max) {
+ENOKI_INLINE Array linspace(value_t<Array> min,
+                            value_t<Array> max) {
     return detail::linspace_<Array>(
         std::make_index_sequence<Array::Size>(), min,
-        (max - min) / (typename Array::Value)(Array::Size - 1));
+        (max - min) / (value_t<Array>)(Array::Size - 1));
 }
 
 /// Construct an index sequence, i.e. 0, 1, 2, ..
 template <typename Array, enable_if_darray_t<Array> = 0,
-          typename Value = typename Array::Value>
+          typename Value = value_t<Array>>
 ENOKI_INLINE Array linspace(size_t size, Value min, Value max) {
     return Array::linspace_(size, min, max);
 }
@@ -963,7 +982,7 @@ ENOKI_INLINE void store_unaligned(void *mem, const Arg &a) {
 }
 
 /// Prefetch operation
-template <typename Array, size_t Stride = sizeof(typename Array::Scalar),
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
           bool Write = false, size_t Level = 2, typename Index, enable_if_sarray_t<Array> = 0,
           std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size, int> = 0>
@@ -985,7 +1004,7 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
 }
 
 /// Masked prefetch operation
-template <typename Array, size_t Stride = sizeof(typename Array::Scalar),
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
           bool Write = false, size_t Level = 2, typename Index, typename Mask,
           enable_if_sarray_t<Array> = 0,
           std::enable_if_t<std::is_integral<typename Index::Value>::value &&
@@ -1011,7 +1030,7 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index, const Mask &mask
 }
 
 /// Gather operation
-template <typename Array, size_t Stride = sizeof(typename Array::Scalar),
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
           typename Index, enable_if_sarray_t<Array> = 0,
           std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size, int> = 0>
@@ -1028,7 +1047,7 @@ ENOKI_INLINE Arg gather(const void *mem, const Index &index) {
 }
 
 /// Masked gather operation
-template <typename Array, size_t Stride = sizeof(typename Array::Scalar),
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
           typename Index, typename Mask, enable_if_sarray_t<Array> = 0,
           std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size &&
@@ -1054,7 +1073,7 @@ template <size_t Stride_ = 0, typename Array,
           std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size, int> = 0>
 ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index) {
-    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(typename Array::Value);
+    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(value_t<Array>);
     value.template scatter_<Stride>(mem, index);
 }
 
@@ -1076,7 +1095,7 @@ template <size_t Stride_ = 0, typename Array, typename Index, typename Mask,
                            Mask::Size == Array::Size, int> = 0>
 ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index,
                           const Mask &mask) {
-    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(typename Array::Value);
+    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(value_t<Array>);
     value.template scatter_<Stride>(mem, index, mask);
 }
 
@@ -1092,7 +1111,7 @@ ENOKI_INLINE void scatter(void *mem, const Arg &value, const Index &index, const
 }
 
 /// Combined gather-modify-scatter operation without conflicts
-template <typename Array, size_t Stride = sizeof(typename Array::Scalar),
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
           typename Index, typename Func, enable_if_sarray_t<Array> = 0,
           std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size, int> = 0>
@@ -1110,7 +1129,7 @@ ENOKI_INLINE void transform(void *mem, const Index &index, const Func &func) {
 }
 
 /// Combined gather-modify-scatter operation without conflicts
-template <typename Array, size_t Stride = sizeof(typename Array::Scalar),
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
           typename Index, typename Func, typename Mask,
           enable_if_sarray_t<Array> = 0,
           std::enable_if_t<std::is_integral<typename Index::Value>::value &&
