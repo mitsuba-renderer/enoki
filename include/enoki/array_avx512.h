@@ -372,37 +372,33 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
     }
 
     ENOKI_INLINE Derived rcp_() const {
-        if (Approx) {
-            /* Use best reciprocal approximation available on the current
-               hardware and potentially refine */
-            __m512 r;
-            #if defined(__AVX512ER__)
-                /* rel err < 2^28, use as is */
-                r = _mm512_rcp28_ps(m);
-            #else
-                r = _mm512_rcp14_ps(m); /* rel error < 2^-14 */
+        #if defined(__AVX512ER__)
+            /* rel err < 2^28, use as is */
+            return _mm512_rcp28_ps(m);
+        #else
+            if (Approx) {
+                /* Use best reciprocal approximation available on the current
+                   hardware and potentially refine */
+                __m512 r = _mm512_rcp14_ps(m); /* rel error < 2^-14 */
 
                 /* Refine using one Newton-Raphson iteration */
                 const __m512 two = _mm512_set1_ps(2.f);
                 r = _mm512_mul_ps(r, _mm512_fnmadd_ps(r, m, two));
-            #endif
 
-            return r;
-        } else {
-            return Base::rcp_();
-        }
+                return r;
+            } else {
+                return Base::rcp_();
+            }
+        #endif
     }
 
     ENOKI_INLINE Derived rsqrt_() const {
-        if (Approx) {
-            /* Use best reciprocal square root approximation available
-               on the current hardware and potentially refine */
-            __m512 r;
-            #if defined(__AVX512ER__)
-                /* rel err < 2^28, use as is */
-                r = _mm512_rsqrt28_ps(m);
-            #else
-                r = _mm512_rsqrt14_ps(m); /* rel error < 2^-14 */
+        #if defined(__AVX512ER__)
+            /* rel err < 2^28, use as is */
+            return _mm512_rsqrt28_ps(m);
+        #else
+            if (Approx) {
+                __m512 r = _mm512_rsqrt14_ps(m); /* rel error < 2^-14 */
 
                 /* Refine using one Newton-Raphson iteration */
                 const __m512 c0 = _mm512_set1_ps(1.5f);
@@ -412,23 +408,19 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
                     r, c0,
                     _mm512_mul_ps(_mm512_mul_ps(_mm512_mul_ps(m, c1), r),
                                   _mm512_mul_ps(r, r)));
-            #endif
 
-            return r;
-        } else {
-            return Base::rsqrt_();
-        }
+                return r;
+            } else {
+                return Base::rsqrt_();
+            }
+        #endif
     }
 
 
 #if defined(__AVX512ER__)
     ENOKI_INLINE Derived exp_() const {
-        if (Approx) {
-            return _mm512_exp2a23_ps(
-                _mm512_mul_ps(m, _mm512_set1_ps(1.4426950408889634074f)));
-        } else {
-            return Base::exp_();
-        }
+        return _mm512_exp2a23_ps(
+            _mm512_mul_ps(m, _mm512_set1_ps(1.4426950408889634074f)));
     }
 #endif
 

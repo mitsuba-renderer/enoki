@@ -563,14 +563,19 @@ rcp(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
 /// Reciprocal (scalar fallback)
 template <bool ForceApprox = false, typename Arg, enable_if_notarray_t<Arg> = 0>
 ENOKI_INLINE Arg rcp(const Arg &a) {
+#if defined(__AVX512ER__)
+    if (std::is_same<Arg, float>::value) {
+        __m128 v = _mm_set_ss((float) a);
+        return Arg(_mm_cvtss_f32(_mm_rcp28_ss(v, v))); /* rel error < 2^-28 */
+    }
+#endif
+
 #if defined(__SSE4_2__)
     if (ForceApprox && std::is_same<Arg, float>::value) {
         float v = (float) a;
         __m128 v_ = _mm_set_ss(v), r_;
 
-        #if defined(__AVX512ER__)
-            r_ = _mm_rcp28_ss(v_, v_); /* rel error < 2^-18 */
-        #elif defined(__AVX512F__)
+        #if defined(__AVX512F__)
             r_ = _mm_rcp14_ss(v_, v_); /* rel error < 2^-14 */
         #else
             r_ = _mm_rcp_ss(v_);       /* rel error < 1.5*2^-12 */
@@ -578,11 +583,9 @@ ENOKI_INLINE Arg rcp(const Arg &a) {
 
         float r = _mm_cvtss_f32(r_);
 
-        #if !defined(__AVX512ER__)
-            /* Refine using one Newton-Raphson iteration */
-            const float c0 = r + r, c1 = r * r;
-            r = c0 - c1 * v;
-        #endif
+        /* Refine using one Newton-Raphson iteration */
+        const float c0 = r + r, c1 = r * r;
+        r = c0 - c1 * v;
 
         return Arg(r);
     }
@@ -629,14 +632,19 @@ rsqrt(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
 /// Reciprocal square root (scalar fallback)
 template <bool ForceApprox = false, typename Arg, enable_if_notarray_t<Arg> = 0>
 ENOKI_INLINE Arg rsqrt(const Arg &a) {
+#if defined(__AVX512ER__)
+    if (std::is_same<Arg, float>::value) {
+        __m128 v = _mm_set_ss((float) a);
+        return Arg(_mm_cvtss_f32(_mm_rsqrt28_ss(v, v))); /* rel error < 2^-28 */
+    }
+#endif
+
 #if defined(__SSE4_2__)
     if (ForceApprox && std::is_same<Arg, float>::value) {
         float v = (float) a;
         __m128 v_ = _mm_set_ss(v), r_;
 
-        #if defined(__AVX512ER__)
-            r_ = _mm_rsqrt28_ss(v_, v_); /* rel error < 2^-18 */
-        #elif defined(__AVX512F__)
+        #if defined(__AVX512F__)
             r_ = _mm_rsqrt14_ss(v_, v_); /* rel error < 2^-14 */
         #else
             r_ = _mm_rsqrt_ss(v_);       /* rel error < 1.5*2^-12 */
@@ -644,12 +652,10 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
 
         float r = _mm_cvtss_f32(r_);
 
-        #if !defined(__AVX512ER__)
-            const float c0 = -.5f, c1 = -3.f;
-            /* Refine using one Newton-Raphson iteration */
-            float r2 = r * r, rh = r * c0;
-            r = rh * (r2 * v + c1);
-        #endif
+        const float c0 = -.5f, c1 = -3.f;
+        /* Refine using one Newton-Raphson iteration */
+        float r2 = r * r, rh = r * c0;
+        r = rh * (r2 * v + c1);
 
         return Arg(r);
     }

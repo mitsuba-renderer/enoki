@@ -222,22 +222,22 @@ template <bool Approx, typename Derived> struct alignas(16)
 #endif
 
     ENOKI_INLINE Derived rcp_() const {
-        if (Approx) {
-            /* Use best reciprocal approximation available on the current
-               hardware and potentially refine */
+        #if defined(__AVX512ER__)
+            /* rel err < 2^28, use as is */
+            return _mm512_castps512_ps128(
+                _mm512_rcp28_ps(_mm512_castps128_ps512(m)));
+        #else
+            if (Approx) {
+                /* Use best reciprocal approximation available on the current
+                   hardware and potentially refine */
 
-            __m128 r;
-            #if defined(__AVX512ER__)
-                /* rel err < 2^28, use as is */
-                r = _mm512_castps512_ps128(
-                    _mm512_rcp28_ps(_mm512_castps128_ps512(m)));
-            #elif defined(__AVX512F__)
-                r = _mm_rcp14_ps(m); /* rel error < 2^-14 */
-            #else
-                r = _mm_rcp_ps(m);   /* rel error < 1.5*2^-12 */
-            #endif
+                __m128 r;
+                #if defined(__AVX512F__)
+                    r = _mm_rcp14_ps(m); /* rel error < 2^-14 */
+                #else
+                    r = _mm_rcp_ps(m);   /* rel error < 1.5*2^-12 */
+                #endif
 
-            #if !defined(__AVX512ER__)
                 /* Refine using one Newton-Raphson iteration */
 
                 #if defined(__FMA__)
@@ -247,30 +247,30 @@ template <bool Approx, typename Derived> struct alignas(16)
                     r = _mm_sub_ps(_mm_add_ps(r, r),
                                    _mm_mul_ps(_mm_mul_ps(r, r), m));
                 #endif
-            #endif
 
-            return r;
-        } else {
-            return Base::rcp_();
-        }
+                return r;
+            } else {
+                return Base::rcp_();
+            }
+        #endif
     }
 
     ENOKI_INLINE Derived rsqrt_() const {
-        if (Approx) {
-            /* Use best reciprocal square root approximation available
-               on the current hardware and potentially refine */
-            __m128 r;
-            #if defined(__AVX512ER__)
-                /* rel err < 2^28, use as is */
-                r = _mm512_castps512_ps128(
-                    _mm512_rsqrt28_ps(_mm512_castps128_ps512(m)));
-            #elif defined(__AVX512VL__)
-                r = _mm_rsqrt14_ps(m); /* rel error < 2^-14 */
-            #else
-                r = _mm_rsqrt_ps(m);   /* rel error < 1.5*2^-12 */
-            #endif
+        #if defined(__AVX512ER__)
+            /* rel err < 2^28, use as is */
+            return _mm512_castps512_ps128(
+                _mm512_rsqrt28_ps(_mm512_castps128_ps512(m)));
+        #else
+            if (Approx) {
+                /* Use best reciprocal square root approximation available
+                   on the current hardware and potentially refine */
+                __m128 r;
+                #if defined(__AVX512VL__)
+                    r = _mm_rsqrt14_ps(m); /* rel error < 2^-14 */
+                #else
+                    r = _mm_rsqrt_ps(m);   /* rel error < 1.5*2^-12 */
+                #endif
 
-            #if !defined(__AVX512ER__)
                 /* Refine using one Newton-Raphson iteration */
 
                 const __m128 c0 = _mm_set1_ps(1.5f);
@@ -285,23 +285,19 @@ template <bool Approx, typename Derived> struct alignas(16)
                                     _mm_mul_ps(_mm_mul_ps(_mm_mul_ps(m, c1), r),
                                                _mm_mul_ps(r, r)));
                 #endif
-            #endif
 
-            return r;
-        } else {
-            return Base::rsqrt_();
-        }
+                return r;
+            } else {
+                return Base::rsqrt_();
+            }
+        #endif
     }
 
 #if defined(__AVX512ER__)
     ENOKI_INLINE Derived exp_() const {
-        if (Approx) {
-            return _mm512_castps512_ps128(
-                _mm512_exp2a23_ps(_mm512_castps128_ps512(
-                    _mm_mul_ps(m, _mm_set1_ps(1.4426950408889634074f)))));
-        } else {
-            return Base::exp_();
-        }
+        return _mm512_castps512_ps128(
+            _mm512_exp2a23_ps(_mm512_castps128_ps512(
+                _mm_mul_ps(m, _mm_set1_ps(1.4426950408889634074f)))));
     }
 #endif
 

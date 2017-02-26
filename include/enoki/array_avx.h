@@ -273,23 +273,22 @@ template <bool Approx, typename Derived> struct alignas(32)
 #endif
 
     ENOKI_INLINE Derived rcp_() const {
-        if (Approx) {
-            /* Use best reciprocal approximation available on the current
-               hardware and potentially refine */
-            __m256 r;
-            #if defined(__AVX512ER__)
-                /* rel err < 2^28, use as is */
-                r = _mm512_castps512_ps256(
-                    _mm512_rcp28_ps(_mm512_castps256_ps512(m)));
-            #elif defined(__AVX512VL__)
-                r = _mm256_rcp14_ps(m); /* rel error < 2^-14 */
-            #else
-                r = _mm256_rcp_ps(m);   /* rel error < 1.5*2^-12 */
-            #endif
+        #if defined(__AVX512ER__)
+            /* rel err < 2^28, use as is */
+            return _mm512_castps512_ps256(
+                _mm512_rcp28_ps(_mm512_castps256_ps512(m)));
+        #else
+            if (Approx) {
+                /* Use best reciprocal approximation available on the current
+                   hardware and potentially refine */
+                __m256 r;
+                #if defined(__AVX512VL__)
+                    r = _mm256_rcp14_ps(m); /* rel error < 2^-14 */
+                #else
+                    r = _mm256_rcp_ps(m);   /* rel error < 1.5*2^-12 */
+                #endif
 
-            #if !defined(__AVX512ER__)
                 /* Refine using one Newton-Raphson iteration */
-
                 #if defined(__FMA__)
                     const __m256 two = _mm256_set1_ps(2.f);
                     r = _mm256_mul_ps(r, _mm256_fnmadd_ps(r, m, two));
@@ -297,30 +296,30 @@ template <bool Approx, typename Derived> struct alignas(32)
                     r = _mm256_sub_ps(_mm256_add_ps(r, r),
                                       _mm256_mul_ps(_mm256_mul_ps(r, r), m));
                 #endif
-            #endif
 
-            return r;
-        } else {
-            return Base::rcp_();
-        }
+                return r;
+            } else {
+                return Base::rcp_();
+            }
+        #endif
     }
 
     ENOKI_INLINE Derived rsqrt_() const {
-        if (Approx) {
-            /* Use best reciprocal square root approximation available
-               on the current hardware and potentially refine */
-            __m256 r;
-            #if defined(__AVX512ER__)
-                /* rel err < 2^28, use as is */
-                r = _mm512_castps512_ps256(
-                    _mm512_rsqrt28_ps(_mm512_castps256_ps512(m)));
-            #elif defined(__AVX512VL__)
-                r = _mm256_rsqrt14_ps(m); /* rel error < 2^-14 */
-            #else
-                r = _mm256_rsqrt_ps(m);   /* rel error < 1.5*2^-12 */
-            #endif
+        #if defined(__AVX512ER__)
+            /* rel err < 2^28, use as is */
+            return _mm512_castps512_ps256(
+                _mm512_rsqrt28_ps(_mm512_castps256_ps512(m)));
+        #else
+            if (Approx) {
+                /* Use best reciprocal square root approximation available
+                   on the current hardware and potentially refine */
+                __m256 r;
+                #if defined(__AVX512VL__)
+                    r = _mm256_rsqrt14_ps(m); /* rel error < 2^-14 */
+                #else
+                    r = _mm256_rsqrt_ps(m);   /* rel error < 1.5*2^-12 */
+                #endif
 
-            #if !defined(__AVX512ER__)
                 /* Refine using one Newton-Raphson iteration */
 
                 const __m256 c0 = _mm256_set1_ps(1.5f);
@@ -337,24 +336,19 @@ template <bool Approx, typename Derived> struct alignas(32)
                         _mm256_mul_ps(_mm256_mul_ps(_mm256_mul_ps(m, c1), r),
                                       _mm256_mul_ps(r, r)));
                 #endif
-            #endif
 
-            return r;
-        } else {
-            return Base::rsqrt_();
-        }
+                return r;
+            } else {
+                return Base::rsqrt_();
+            }
+        #endif
     }
-
 
 #if defined(__AVX512ER__)
     ENOKI_INLINE Derived exp_() const {
-        if (Approx) {
-            return _mm512_castps512_ps256(
-                _mm512_exp2a23_ps(_mm512_castps256_ps512(
-                    _mm256_mul_ps(m, _mm256_set1_ps(1.4426950408889634074f)))));
-        } else {
-            return Base::exp_();
-        }
+        return _mm512_castps512_ps256(
+            _mm512_exp2a23_ps(_mm512_castps256_ps512(
+                _mm256_mul_ps(m, _mm256_set1_ps(1.4426950408889634074f)))));
     }
 #endif
 
