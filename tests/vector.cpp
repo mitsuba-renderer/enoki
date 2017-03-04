@@ -119,3 +119,11 @@ ENOKI_TEST(array_float_05_outer_product) {
     assert(to_string(broadcast<float>(Vector4f(1, 2, 3, 4)) * 3.f) == "[3, 6, 9, 12]");
     assert(to_string(broadcast<Vector3f>(3.f) * Vector3f(1, 2, 3)) == "[3, 6, 9]");
 }
+
+ENOKI_TEST(array_float_04_head_tail) {
+    using T  = Array<float, 4>;
+
+    auto t = T(1, 2, 3, 4);
+    assert(to_string(head<2>(t)) == "[1, 2]");
+    assert(to_string(tail<2>(t)) == "[3, 4]");
+}
