@@ -207,6 +207,24 @@ ENOKI_ROUTE_TERNARY(fmsub, fmsub,
                           a3.derived().coeff(i))
 )
 
+ENOKI_ROUTE_TERNARY(fmaddsub, fmaddsub,
+                    fmaddsub(std::declval<Type1>(),
+                             std::declval<Type2>(),
+                             std::declval<Type3>()),
+                    fmaddsub(a1.derived().coeff(i),
+                             a2.derived().coeff(i),
+                             a3.derived().coeff(i))
+)
+
+ENOKI_ROUTE_TERNARY(fmsubadd, fmsubadd,
+                    fmsubadd(std::declval<Type1>(),
+                             std::declval<Type2>(),
+                             std::declval<Type3>()),
+                    fmsubadd(a1.derived().coeff(i),
+                             a2.derived().coeff(i),
+                             a3.derived().coeff(i))
+)
+
 ENOKI_ROUTE_UNARY(frexp, frexp)
 ENOKI_ROUTE_UNARY(sincos, sincos)
 ENOKI_ROUTE_UNARY(sincosh, sincosh)
@@ -378,6 +396,16 @@ ENOKI_INLINE Arg fmadd(const Arg &a1, const Arg &a2, const Arg &a3) {
 
 template <typename Arg, enable_if_notarray_t<Arg> = 0>
 ENOKI_INLINE Arg fmsub(const Arg &a1, const Arg &a2, const Arg &a3) {
+    return a1 * a2 - a3;
+}
+
+template <typename Arg, enable_if_notarray_t<Arg> = 0>
+ENOKI_INLINE Arg fmsubadd(const Arg &a1, const Arg &a2, const Arg &a3) {
+    return a1 * a2 + a3;
+}
+
+template <typename Arg, enable_if_notarray_t<Arg> = 0>
+ENOKI_INLINE Arg fmaddsub(const Arg &a1, const Arg &a2, const Arg &a3) {
     return a1 * a2 - a3;
 }
 

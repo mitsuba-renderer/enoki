@@ -177,6 +177,14 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         return Derived(fmsub(a1, b.a1, c.a1), fmsub(a2, b.a2, c.a2));
     }
 
+    ENOKI_INLINE Derived fmaddsub_(Arg b, Arg c) const {
+        return Derived(fmaddsub(a1, b.a1, c.a1), fmaddsub(a2, b.a2, c.a2));
+    }
+
+    ENOKI_INLINE Derived fmsubadd_(Arg b, Arg c) const {
+        return Derived(fmsubadd(a1, b.a1, c.a1), fmsubadd(a2, b.a2, c.a2));
+    }
+
     ENOKI_INLINE Derived or_(Arg arg) const {
         return Derived(a1 | arg.a1, a2 | arg.a2);
     }

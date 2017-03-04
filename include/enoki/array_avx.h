@@ -245,13 +245,10 @@ template <bool Approx, typename Derived> struct alignas(32)
     }
 
 #if defined(__FMA__)
-    ENOKI_INLINE Derived fmadd_(Arg b, Arg c) const {
-        return _mm256_fmadd_ps(m, b.m, c.m);
-    }
-
-    ENOKI_INLINE Derived fmsub_(Arg b, Arg c) const {
-        return _mm256_fmsub_ps(m, b.m, c.m);
-    }
+    ENOKI_INLINE Derived fmadd_   (Arg b, Arg c) const { return _mm256_fmadd_ps   (m, b.m, c.m); }
+    ENOKI_INLINE Derived fmsub_   (Arg b, Arg c) const { return _mm256_fmsub_ps   (m, b.m, c.m); }
+    ENOKI_INLINE Derived fmsubadd_(Arg b, Arg c) const { return _mm256_fmsubadd_ps(m, b.m, c.m); }
+    ENOKI_INLINE Derived fmaddsub_(Arg b, Arg c) const { return _mm256_fmaddsub_ps(m, b.m, c.m); }
 #endif
 
 #if defined(__AVX2__)
@@ -611,13 +608,10 @@ template <bool Approx, typename Derived> struct alignas(32)
     }
 
 #if defined(__FMA__)
-    ENOKI_INLINE Derived fmadd_(Arg b, Arg c) const {
-        return _mm256_fmadd_pd(m, b.m, c.m);
-    }
-
-    ENOKI_INLINE Derived fmsub_(Arg b, Arg c) const {
-        return _mm256_fmsub_pd(m, b.m, c.m);
-    }
+    ENOKI_INLINE Derived fmadd_   (Arg b, Arg c) const { return _mm256_fmadd_pd   (m, b.m, c.m); }
+    ENOKI_INLINE Derived fmsub_   (Arg b, Arg c) const { return _mm256_fmsub_pd   (m, b.m, c.m); }
+    ENOKI_INLINE Derived fmsubadd_(Arg b, Arg c) const { return _mm256_fmsubadd_pd(m, b.m, c.m); }
+    ENOKI_INLINE Derived fmaddsub_(Arg b, Arg c) const { return _mm256_fmaddsub_pd(m, b.m, c.m); }
 #endif
 
 #if defined(__AVX2__)

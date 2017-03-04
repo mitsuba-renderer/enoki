@@ -330,6 +330,30 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
         return derived() * b - c;
     }
 
+    /// Fused multiply-add/subtract fallback implementation
+    ENOKI_INLINE auto fmaddsub_(const Derived &b, const Derived &c) const {
+        typename Derived::Expr result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i) {
+            if (i % 2 == 0)
+                result.coeff(i) = fmsub(derived().coeff(i), b.coeff(i), c.coeff(i));
+            else
+                result.coeff(i) = fmadd(derived().coeff(i), b.coeff(i), c.coeff(i));
+        }
+        return result;
+    }
+
+    /// Fused multiply-subtract/add fallback implementation
+    ENOKI_INLINE auto fmsubadd_(const Derived &b, const Derived &c) const {
+        typename Derived::Expr result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i) {
+            if (i % 2 == 0)
+                result.coeff(i) = fmadd(derived().coeff(i), b.coeff(i), c.coeff(i));
+            else
+                result.coeff(i) = fmsub(derived().coeff(i), b.coeff(i), c.coeff(i));
+        }
+        return result;
+    }
+
     /// Dot product fallback implementation
     ENOKI_INLINE Value dot_(const Derived &a) const { return hsum(derived() * a); }
 

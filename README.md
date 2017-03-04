@@ -984,7 +984,7 @@ the routing templates in ``enoki/enoki_router.h``.
       ``asinh_``, ``acos_``, ``acosh_``, ``atan_``, ``atanh_``.
 
     - Fused multiply-add routines (reduced to ``add_``/``sub_`` and ``mul_`` by
-      default): ``fmadd_``, ``fmsub_``.
+      default): ``fmadd_``, ``fmsub_``, ``fmaddsub_``, ``fmsubadd_``.
 
     - Reciprocal and reciprocal square root (reduced to ``div_`` and ``sqrt_``
       by default): ``rcp_``, ``rsqrt_``.

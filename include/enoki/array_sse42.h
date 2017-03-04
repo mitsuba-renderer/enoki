@@ -193,13 +193,10 @@ template <bool Approx, typename Derived> struct alignas(16)
     }
 
 #if defined(__FMA__)
-    ENOKI_INLINE Derived fmadd_(Arg b, Arg c) const {
-        return _mm_fmadd_ps(m, b.m, c.m);
-    }
-
-    ENOKI_INLINE Derived fmsub_(Arg b, Arg c) const {
-        return _mm_fmsub_ps(m, b.m, c.m);
-    }
+    ENOKI_INLINE Derived fmadd_   (Arg b, Arg c) const { return _mm_fmadd_ps   (m, b.m, c.m); }
+    ENOKI_INLINE Derived fmsub_   (Arg b, Arg c) const { return _mm_fmsub_ps   (m, b.m, c.m); }
+    ENOKI_INLINE Derived fmsubadd_(Arg b, Arg c) const { return _mm_fmsubadd_ps(m, b.m, c.m); }
+    ENOKI_INLINE Derived fmaddsub_(Arg b, Arg c) const { return _mm_fmaddsub_ps(m, b.m, c.m); }
 #endif
 
     template <int I0, int I1, int I2, int I3>
@@ -543,13 +540,10 @@ template <bool Approx, typename Derived> struct alignas(16)
     }
 
 #if defined(__FMA__)
-    ENOKI_INLINE Derived fmadd_(Arg b, Arg c) const {
-        return _mm_fmadd_pd(m, b.m, c.m);
-    }
-
-    ENOKI_INLINE Derived fmsub_(Arg b, Arg c) const {
-        return _mm_fmsub_pd(m, b.m, c.m);
-    }
+    ENOKI_INLINE Derived fmadd_   (Arg b, Arg c) const { return _mm_fmadd_pd   (m, b.m, c.m); }
+    ENOKI_INLINE Derived fmsub_   (Arg b, Arg c) const { return _mm_fmsub_pd   (m, b.m, c.m); }
+    ENOKI_INLINE Derived fmsubadd_(Arg b, Arg c) const { return _mm_fmsubadd_pd(m, b.m, c.m); }
+    ENOKI_INLINE Derived fmaddsub_(Arg b, Arg c) const { return _mm_fmaddsub_pd(m, b.m, c.m); }
 #endif
 
     #if defined(__AVX__)

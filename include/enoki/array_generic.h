@@ -492,7 +492,7 @@ public:
     ENOKI_INLINE Expr fmadd_(const Derived &d1, const Derived &d2) const {
         Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = coeff(i) * d1.coeff(i) + d2.coeff(i);
+            result.coeff(i) = fmadd(coeff(i), d1.coeff(i), d2.coeff(i));
         return result;
     }
 
@@ -500,7 +500,7 @@ public:
     ENOKI_INLINE Expr fmsub_(const Derived &d1, const Derived &d2) const {
         Expr result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = coeff(i) * d1.coeff(i) - d2.coeff(i);
+            result.coeff(i) = fmsub(coeff(i), d1.coeff(i), d2.coeff(i));
         return result;
     }
 

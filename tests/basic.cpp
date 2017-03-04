@@ -359,3 +359,12 @@ ENOKI_TEST_FLOAT(test22_copysign) {
         [](Value a, Value b) -> Value { return std::copysign(a, b); }
     );
 }
+
+ENOKI_TEST_ALL(test23_fmaddsub) {
+    auto a = fmaddsub(T(0), T(0), T(1));
+    auto b = fmsubadd(T(0), T(0), T(1));
+    assert(a == -b);
+    if (std::is_signed<scalar_t<T>>::value)
+        assert(a.coeff(0) < 0);
+    assert(b.coeff(0) > 0);
+}

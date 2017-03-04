@@ -348,13 +348,10 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
         return _mm512_roundscale_ps(m, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
     }
 
-    ENOKI_INLINE Derived fmadd_(Arg b, Arg c) const {
-        return _mm512_fmadd_round_ps(m, b.m, c.m, (int) Mode);
-    }
-
-    ENOKI_INLINE Derived fmsub_(Arg b, Arg c) const {
-        return _mm512_fmsub_round_ps(m, b.m, c.m, (int) Mode);
-    }
+    ENOKI_INLINE Derived fmadd_   (Arg b, Arg c) const { return _mm512_fmadd_round_ps   (m, b.m, c.m, (int) Mode); }
+    ENOKI_INLINE Derived fmsub_   (Arg b, Arg c) const { return _mm512_fmsub_round_ps   (m, b.m, c.m, (int) Mode); }
+    ENOKI_INLINE Derived fmsubadd_(Arg b, Arg c) const { return _mm512_fmsubadd_round_ps(m, b.m, c.m, (int) Mode); }
+    ENOKI_INLINE Derived fmaddsub_(Arg b, Arg c) const { return _mm512_fmaddsub_round_ps(m, b.m, c.m, (int) Mode); }
 
     ENOKI_INLINE static Derived select_(const Mask &m, const Derived &t,
                                         const Derived &f) {
@@ -769,13 +766,10 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
         return _mm512_roundscale_pd(m, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
     }
 
-    ENOKI_INLINE Derived fmadd_(Arg b, Arg c) const {
-        return _mm512_fmadd_round_pd(m, b.m, c.m, (int) Mode);
-    }
-
-    ENOKI_INLINE Derived fmsub_(Arg b, Arg c) const {
-        return _mm512_fmsub_round_pd(m, b.m, c.m, (int) Mode);
-    }
+    ENOKI_INLINE Derived fmadd_   (Arg b, Arg c) const { return _mm512_fmadd_round_pd   (m, b.m, c.m, (int) Mode); }
+    ENOKI_INLINE Derived fmsub_   (Arg b, Arg c) const { return _mm512_fmsub_round_pd   (m, b.m, c.m, (int) Mode); }
+    ENOKI_INLINE Derived fmsubadd_(Arg b, Arg c) const { return _mm512_fmsubadd_round_pd(m, b.m, c.m, (int) Mode); }
+    ENOKI_INLINE Derived fmaddsub_(Arg b, Arg c) const { return _mm512_fmaddsub_round_pd(m, b.m, c.m, (int) Mode); }
 
     ENOKI_INLINE static Derived select_(const Mask &m, const Derived &t,
                                         const Derived &f) {

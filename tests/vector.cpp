@@ -111,7 +111,7 @@ ENOKI_TEST(array_double_04_transpose) {
         T2(T(1, 5, 9, 13), T(2, 6, 10, 14), T(3, 7, 11, 15), T(4, 8, 12, 16)));
 }
 
-ENOKI_TEST(array_float_04_outer_product) {
+ENOKI_TEST(array_float_05_outer_product) {
     using Vector4f = Array<float, 4>;
     using Vector3f = Array<float, 3>;
 
