@@ -37,7 +37,7 @@ NAMESPACE_BEGIN(enoki)
     ENOKI_ROUTE_UNARY(name, name)                                              \
     template <typename Arg, enable_if_notarray_t<Arg> = 0>                     \
     ENOKI_INLINE auto name(const Arg &a) {                                     \
-        ENOKI_TRACK_SCALAR return expr;                                        \
+        return expr;                                                           \
     }
 
 /**
