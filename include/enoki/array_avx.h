@@ -277,7 +277,7 @@ template <bool Approx, typename Derived> struct alignas(32)
         #else
             if (Approx) {
                 /* Use best reciprocal approximation available on the current
-                   hardware and potentially refine */
+                   hardware and refine */
                 __m256 r;
                 #if defined(__AVX512VL__)
                     r = _mm256_rcp14_ps(m); /* rel error < 2^-14 */
@@ -309,7 +309,7 @@ template <bool Approx, typename Derived> struct alignas(32)
         #else
             if (Approx) {
                 /* Use best reciprocal square root approximation available
-                   on the current hardware and potentially refine */
+                   on the current hardware and refine */
                 __m256 r;
                 #if defined(__AVX512VL__)
                     r = _mm256_rsqrt14_ps(m); /* rel error < 2^-14 */

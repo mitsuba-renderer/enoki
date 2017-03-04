@@ -764,7 +764,7 @@ ENOKI_INLINE Arg atan2(const Arg &a1, const Arg &a2) {
 
 /// Shuffle the entries of an array
 template <size_t... Args, typename Array, enable_if_sarray_t<Array> = 0>
-ENOKI_INLINE Array shuffle(const Array &in) { return in.derived().template shuffle_<Args...>(); }
+ENOKI_INLINE auto shuffle(const Array &in) { return in.derived().template shuffle_<Args...>(); }
 
 /// Shuffle the entries of an array (scalar fallback)
 template <size_t Index, typename Arg, enable_if_notarray_t<Arg> = 0>

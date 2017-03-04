@@ -375,7 +375,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
         #else
             if (Approx) {
                 /* Use best reciprocal approximation available on the current
-                   hardware and potentially refine */
+                   hardware and refine */
                 __m512 r = _mm512_rcp14_ps(m); /* rel error < 2^-14 */
 
                 /* Refine using one Newton-Raphson iteration */
@@ -787,7 +787,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
     ENOKI_INLINE Derived rcp_() const {
         if (Approx) {
             /* Use best reciprocal approximation available on the current
-               hardware and potentially refine */
+               hardware and refine */
             __m512d r;
             #if defined(__AVX512ER__)
                 /* rel err < 2^28, use as is */
@@ -810,7 +810,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
     ENOKI_INLINE Derived rsqrt_() const {
         if (Approx) {
             /* Use best reciprocal square root approximation available
-               on the current hardware and potentially refine */
+               on the current hardware and refine */
             __m512d r;
             #if defined(__AVX512ER__)
                 /* rel err < 2^28, use as is */

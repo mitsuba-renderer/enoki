@@ -226,7 +226,7 @@ template <bool Approx, typename Derived> struct alignas(16)
         #else
             if (Approx) {
                 /* Use best reciprocal approximation available on the current
-                   hardware and potentially refine */
+                   hardware and refine */
 
                 __m128 r;
                 #if defined(__AVX512F__)
@@ -260,7 +260,7 @@ template <bool Approx, typename Derived> struct alignas(16)
         #else
             if (Approx) {
                 /* Use best reciprocal square root approximation available
-                   on the current hardware and potentially refine */
+                   on the current hardware and refine */
                 __m128 r;
                 #if defined(__AVX512VL__)
                     r = _mm_rsqrt14_ps(m); /* rel error < 2^-14 */
@@ -571,7 +571,7 @@ template <bool Approx, typename Derived> struct alignas(16)
     ENOKI_INLINE Derived rcp_() const {
         if (Approx) {
             /* Use best reciprocal approximation available on the current
-               hardware and potentially refine */
+               hardware and refine */
             __m128d r;
             #if defined(__AVX512ER__)
                 /* rel err < 2^28, use as is */
@@ -604,7 +604,7 @@ template <bool Approx, typename Derived> struct alignas(16)
     ENOKI_INLINE Derived rsqrt_() const {
         if (Approx) {
             /* Use best reciprocal square root approximation available
-               on the current hardware and potentially refine */
+               on the current hardware and refine */
             __m128d r;
             #if defined(__AVX512ER__)
                 /* rel err < 2^28, use as is */
