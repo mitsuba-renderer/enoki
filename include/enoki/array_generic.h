@@ -49,10 +49,6 @@ struct StaticArrayImpl<
     using Mask = Array<mask_t<Value>, Size>;
     static constexpr bool Native = false;
 
-    /// Denotes the type of an unary expression involving this type
-    using Expr = std::conditional_t<std::is_same<expr_t<Type_>, Type_>::value, Derived,
-                                    Array<expr_t<Type_>, Size, Approx_, RoundingMode::Default>>;
-
     using StorageType =
         std::conditional_t<std::is_reference<Type_>::value,
                            std::reference_wrapper<Value>, Value>;
@@ -93,6 +89,12 @@ struct StaticArrayImpl<
             m_data[i] = value;
     }
 
+    ENOKI_INLINE StaticArrayImpl& operator=(const Value &value) {
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            m_data[i] = value;
+        return *this;
+    }
+
     /// Initialize all components from a scalar
     template <typename T = Type_, std::enable_if_t<!std::is_reference<T>::value &&
                                                    !std::is_same<Value, Scalar>::value, int> = 0>
@@ -119,8 +121,9 @@ struct StaticArrayImpl<
                   detail::all_of<std::is_constructible<StorageType, Arg>::value,
                                  std::is_constructible<StorageType, Args>::value...,
                                  sizeof...(Args) + 1 == Size_ && (sizeof...(Args) > 0)>::value, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(Arg &&arg, Args &&... args)
-        : m_data{{ StorageType(std::forward<Arg>(arg)), StorageType(std::forward<Args>(args))... }} { ENOKI_CHKSCALAR }
+    ENOKI_INLINE StaticArrayImpl(Arg&& arg, Args&&... args)
+        : m_data{{ StorageType(std::forward<Arg>(arg)),
+                   StorageType(std::forward<Args>(args))... }} { ENOKI_CHKSCALAR }
 
     /// Convert a compatible array type (const)
     template <
@@ -247,24 +250,24 @@ public:
     // -----------------------------------------------------------------------
 
     /// Addition
-    ENOKI_INLINE Expr add_(const Derived &d) const {
-        Expr result;
+    ENOKI_INLINE auto add_(const Derived &d) const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = coeff(i) + d.coeff(i);
         return result;
     }
 
     /// Subtraction
-    ENOKI_INLINE Expr sub_(const Derived &d) const {
-        Expr result;
+    ENOKI_INLINE auto sub_(const Derived &d) const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = coeff(i) - d.coeff(i);
         return result;
     }
 
     /// Multiplication
-    ENOKI_INLINE Expr mul_(const Derived &d) const {
-        Expr result;
+    ENOKI_INLINE auto mul_(const Derived &d) const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = coeff(i) * d.coeff(i);
         return result;
@@ -272,24 +275,24 @@ public:
 
     /// High multiplication (integer)
     template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
-    ENOKI_INLINE Expr mulhi_(const Derived &d) const {
-        Expr result;
+    ENOKI_INLINE auto mulhi_(const Derived &d) const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = mulhi(coeff(i), d.coeff(i));
         return result;
     }
 
     /// Division
-    ENOKI_INLINE Expr div_(const Derived &d) const {
-        Expr result;
+    ENOKI_INLINE auto div_(const Derived &d) const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = coeff(i) / d.coeff(i);
         return result;
     }
 
     /// Arithmetic unary NOT operation
-    ENOKI_INLINE Expr not_() const {
-        Expr result;
+    ENOKI_INLINE auto not_() const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = detail::not_(coeff(i));
         return result;
@@ -297,8 +300,8 @@ public:
 
     /// Arithmetic OR operation
     template <typename Array>
-    ENOKI_INLINE Expr or_(const Array &d) const {
-        Expr result;
+    ENOKI_INLINE auto or_(const Array &d) const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = detail::or_(coeff(i), d.coeff(i));
         return result;
@@ -306,8 +309,8 @@ public:
 
     /// Arithmetic AND operation
     template <typename Array>
-    ENOKI_INLINE Expr and_(const Array &d) const {
-        Expr result;
+    ENOKI_INLINE auto and_(const Array &d) const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = detail::and_(coeff(i), d.coeff(i));
         return result;
@@ -315,16 +318,16 @@ public:
 
     /// Arithmetic XOR operation
     template <typename Array>
-    ENOKI_INLINE Expr xor_(const Array &d) const {
-        Expr result;
+    ENOKI_INLINE auto xor_(const Array &d) const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = detail::xor_(coeff(i), d.coeff(i));
         return result;
     }
 
     /// Arithmetic unary negation operation
-    ENOKI_INLINE Expr neg_() const {
-        Expr result;
+    ENOKI_INLINE auto neg_() const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = -coeff(i);
         return result;
@@ -332,8 +335,8 @@ public:
 
     /// Left shift operator
     template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
-    ENOKI_INLINE Expr sl_(size_t value) const {
-        Expr result;
+    ENOKI_INLINE auto sl_(size_t value) const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = coeff(i) << value;
         return result;
@@ -341,8 +344,8 @@ public:
 
     /// Left shift operator
     template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
-    ENOKI_INLINE Expr slv_(const Derived &d) const {
-        Expr result;
+    ENOKI_INLINE auto slv_(const Derived &d) const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = coeff(i) << d.coeff(i);
         return result;
@@ -350,8 +353,8 @@ public:
 
     /// Right shift operator
     template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
-    ENOKI_INLINE Expr sr_(size_t value) const {
-        Expr result;
+    ENOKI_INLINE auto sr_(size_t value) const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = coeff(i) >> value;
         return result;
@@ -359,8 +362,8 @@ public:
 
     /// Right shift operator
     template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
-    ENOKI_INLINE Expr srv_(const Derived &d) const {
-        Expr result;
+    ENOKI_INLINE auto srv_(const Derived &d) const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = coeff(i) >> d.coeff(i);
         return result;
@@ -368,8 +371,8 @@ public:
 
     /// Left shift operator (immediate)
     template <size_t Imm, typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
-    ENOKI_INLINE Expr sli_() const {
-        Expr result;
+    ENOKI_INLINE auto sli_() const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = sli<Imm>(coeff(i));
         return result;
@@ -377,8 +380,8 @@ public:
 
     /// Right shift operator (immediate)
     template <size_t Imm, typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
-    ENOKI_INLINE Expr sri_() const {
-        Expr result;
+    ENOKI_INLINE auto sri_() const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = sri<Imm>(coeff(i));
         return result;
@@ -433,99 +436,99 @@ public:
     }
 
     /// Absolute value
-    ENOKI_INLINE Expr abs_() const {
-        Expr result;
+    ENOKI_INLINE auto abs_() const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = abs(coeff(i));
         return result;
     }
 
     /// Square root
-    ENOKI_INLINE Expr sqrt_() const {
-        Expr result;
+    ENOKI_INLINE auto sqrt_() const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = sqrt(coeff(i));
         return result;
     }
 
     /// Round to smallest integral value not less than argument
-    ENOKI_INLINE Expr ceil_() const {
-        Expr result;
+    ENOKI_INLINE auto ceil_() const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = ceil(coeff(i));
         return result;
     }
 
     /// Round to largest integral value not greater than argument
-    ENOKI_INLINE Expr floor_() const {
-        Expr result;
+    ENOKI_INLINE auto floor_() const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = floor(coeff(i));
         return result;
     }
 
     /// Round to integral value
-    ENOKI_INLINE Expr round_() const {
-        Expr result;
+    ENOKI_INLINE auto round_() const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = round(coeff(i));
         return result;
     }
 
     /// Element-wise maximum
-    ENOKI_INLINE Expr max_(const Derived &d) const {
-        Expr result;
+    ENOKI_INLINE auto max_(const Derived &d) const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = max(coeff(i), d.coeff(i));
         return result;
     }
 
     /// Element-wise minimum
-    ENOKI_INLINE Expr min_(const Derived &d) const {
-        Expr result;
+    ENOKI_INLINE auto min_(const Derived &d) const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = min(coeff(i), d.coeff(i));
         return result;
     }
 
     /// Fused multiply-add
-    ENOKI_INLINE Expr fmadd_(const Derived &d1, const Derived &d2) const {
-        Expr result;
+    ENOKI_INLINE auto fmadd_(const Derived &d1, const Derived &d2) const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = fmadd(coeff(i), d1.coeff(i), d2.coeff(i));
         return result;
     }
 
     /// Fused multiply-subtract
-    ENOKI_INLINE Expr fmsub_(const Derived &d1, const Derived &d2) const {
-        Expr result;
+    ENOKI_INLINE auto fmsub_(const Derived &d1, const Derived &d2) const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = fmsub(coeff(i), d1.coeff(i), d2.coeff(i));
         return result;
     }
 
     /// Square root of the reciprocal
-    ENOKI_INLINE Expr rsqrt_() const {
-        Expr result;
+    ENOKI_INLINE auto rsqrt_() const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = rsqrt<Approx_>(coeff(i));
         return result;
     }
 
     /// Reciprocal
-    ENOKI_INLINE Expr rcp_() const {
-        Expr result;
+    ENOKI_INLINE auto rcp_() const {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = rcp<Approx_>(coeff(i));
         return result;
     }
 
     /// Ternary operator -- select between to values based on mask
-    ENOKI_INLINE static Expr select_(const Mask &m, const Derived &t, const Derived &f) {
-        Expr r;
+    ENOKI_INLINE static auto select_(const Mask &m, const Derived &t, const Derived &f) {
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            r.coeff(i) = select(m.coeff(i), t.coeff(i), f.coeff(i));
-        return r;
+            result.coeff(i) = select(m.coeff(i), t.coeff(i), f.coeff(i));
+        return result;
     }
 
     //! @}
@@ -619,6 +622,18 @@ public:
     ENOKI_INLINE Value &coeff(size_t i) { ENOKI_CHKSCALAR return m_data[i]; }
     ENOKI_INLINE const Value &coeff(size_t i) const { ENOKI_CHKSCALAR return m_data[i]; }
 
+    /// Recursive array indexing operator (const)
+    template <typename... Args, std::enable_if_t<(sizeof...(Args) >= 1), int> = 0>
+    ENOKI_INLINE const auto &coeff(size_t i0, Args... other) const {
+        return coeff(i0).coeff(size_t(other)...);
+    }
+
+    /// Recursive array indexing operator
+    template <typename... Args, std::enable_if_t<(sizeof...(Args) >= 1), int> = 0>
+    ENOKI_INLINE auto &coeff(size_t i0, Args... other) {
+        return coeff(i0).coeff(size_t(other)...);
+    }
+
     //! @}
     // -----------------------------------------------------------------------
 
@@ -626,61 +641,70 @@ public:
     //! @{ \name Higher-level functions
     // -----------------------------------------------------------------------
 
-#define ENOKI_FORWARD_FUNCTION(name)                                           \
-    Expr name##_() const {                                                     \
-        if (std::is_arithmetic<Value>::value)                                  \
-            return Base::name##_();                                            \
-        Expr result;                                                           \
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)                      \
-            result.coeff(i) = name(coeff(i));                                  \
-        return result;                                                         \
-    }
+    #define ENOKI_FORWARD_FUNCTION(name)                                     \
+        auto name##_() const {                                               \
+            expr_t<Derived> result;                                          \
+            if (std::is_arithmetic<Value>::value) {                          \
+                result = Base::name##_();                                    \
+            } else {                                                         \
+                ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)            \
+                    result.coeff(i) = name(coeff(i));                        \
+            }                                                                \
+            return result;                                                   \
+        }
 
-    Expr pow_(const Derived &arg) const {
-        if (std::is_arithmetic<Value>::value)
-            return Base::pow_(arg);
-        Expr result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = pow(coeff(i), arg.coeff(i));
+    auto pow_(const Derived &arg) const {
+        expr_t<Derived> result;
+        if (std::is_arithmetic<Value>::value) {
+            result = Base::pow_(arg);
+        } else {
+            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+                result.coeff(i) = pow(coeff(i), arg.coeff(i));
+        }
         return result;
     }
 
-    Expr ldexp_(const Derived &arg) const {
-        if (std::is_arithmetic<Value>::value)
-            return Base::ldexp_(arg);
-        Expr result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = ldexp(coeff(i), arg.coeff(i));
+    auto ldexp_(const Derived &arg) const {
+        expr_t<Derived> result;
+        if (std::is_arithmetic<Value>::value) {
+            result = Base::ldexp_(arg);
+        } else {
+            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+                result.coeff(i) = ldexp(coeff(i), arg.coeff(i));
+        }
         return result;
     }
 
-    std::pair<Expr, Expr> frexp_() const {
-        if (std::is_arithmetic<Value>::value)
-            return Base::frexp_();
-        std::pair<Expr, Expr> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            std::tie(result.first.coeff(i), result.second.coeff(i)) =
-                frexp(coeff(i));
+    auto frexp_() const {
+        std::pair<expr_t<Derived>, expr_t<Derived>> result;
+        if (std::is_arithmetic<Value>::value) {
+            result = Base::frexp_();
+        } else {
+            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+                std::tie(result.first.coeff(i), result.second.coeff(i)) = frexp(coeff(i));
+        }
         return result;
     }
 
-    std::pair<Expr, Expr> sincos_() const {
-        if (std::is_arithmetic<Value>::value)
-            return Base::sincos_();
-        std::pair<Expr, Expr> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            std::tie(result.first.coeff(i), result.second.coeff(i)) =
-                sincos(coeff(i));
+    auto sincos_() const {
+        std::pair<expr_t<Derived>, expr_t<Derived>> result;
+        if (std::is_arithmetic<Value>::value) {
+            result = Base::sincos_();
+        } else {
+            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+                std::tie(result.first.coeff(i), result.second.coeff(i)) = sincos(coeff(i));
+        }
         return result;
     }
 
-    std::pair<Expr, Expr> sincosh_() const {
-        if (std::is_arithmetic<Value>::value)
-            return Base::sincosh_();
-        std::pair<Expr, Expr> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            std::tie(result.first.coeff(i), result.second.coeff(i)) =
-                sincosh(coeff(i));
+    auto sincosh_() const {
+        std::pair<expr_t<Derived>, expr_t<Derived>> result;
+        if (std::is_arithmetic<Value>::value) {
+            result = Base::sincosh_();
+        } else {
+            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+                std::tie(result.first.coeff(i), result.second.coeff(i)) = sincosh(coeff(i));
+        }
         return result;
     }
 
@@ -717,7 +741,7 @@ public:
     //! @{ \name Initialization, loading/writing data
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE static Expr zero_() { return Expr(Value(0)); }
+    ENOKI_INLINE static auto zero_() { return expr_t<Derived>(Value(0)); }
 
     template <typename T = Derived, std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
     ENOKI_INLINE static Derived load_(const void *ptr) {
@@ -809,6 +833,16 @@ public:
     }
 
     template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
+    ENOKI_INLINE auto slice_(size_t i) {
+        return slice_(i, std::make_index_sequence<Size>());
+    }
+
+    template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
+    ENOKI_INLINE auto slice_(size_t i) const {
+        return slice_(i, std::make_index_sequence<Size>());
+    }
+
+    template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
     ENOKI_INLINE auto ref_wrap_() {
         return ref_wrap_(std::make_index_sequence<Size>());
     }
@@ -830,6 +864,20 @@ private:
     ENOKI_INLINE auto packet_(size_t i, std::index_sequence<Index...>) const {
         return Array<decltype(packet(std::declval<const Value &>(), 0)), Size>(
             packet(m_data[Index], i)...
+        );
+    }
+
+    template <size_t... Index>
+    ENOKI_INLINE auto slice_(size_t i, std::index_sequence<Index...>) {
+        return Array<decltype(slice(std::declval<Value>(), 0)), Size>(
+            slice(m_data[Index], i)...
+        );
+    }
+
+    template <size_t... Index>
+    ENOKI_INLINE auto slice_(size_t i, std::index_sequence<Index...>) const {
+        return Array<decltype(slice(std::declval<const Value &>(), 0)), Size>(
+            slice(m_data[Index], i)...
         );
     }
 

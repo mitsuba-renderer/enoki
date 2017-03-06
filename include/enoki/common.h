@@ -317,15 +317,6 @@ struct scalar<T, std::enable_if_t<is_array<T>::value>> {
     using type = scalar_t<typename std::decay_t<T>::Value>;
 };
 
-/// Type trait to access the type that would result from an unary expression involving another type
-template <typename T, typename = void> struct expr { using type = std::decay_t<T>; };
-template <typename T> using expr_t = typename expr<T>::type;
-
-template <typename T>
-struct expr<T, std::enable_if_t<is_sarray<T>::value>> {
-    using type = typename std::decay_t<T>::Expr;
-};
-
 /// Determine the nesting level of an array
 template <typename T, typename = void> struct array_depth {
     static constexpr size_t value = 0;
@@ -408,14 +399,9 @@ template <typename Type_,
           RoundingMode Mode_ = RoundingMode::Default>
 struct Array;
 
-/// Replace the base scalar type of an array (potentially nested)
+/// Replace the base scalar type of a (potentially nested) array
 template <typename T, typename Value, typename = void>
 struct like { };
-
-template <typename T, typename Value>
-struct like<T, Value, std::enable_if_t<is_sarray<T>::value>> {
-    using type = Array<typename like<value_t<T>, Value>::type, array_size<T>::value>;
-};
 
 template <typename T, typename Value>
 struct like<T, Value, std::enable_if_t<!is_sarray<T>::value>> {
@@ -423,6 +409,30 @@ struct like<T, Value, std::enable_if_t<!is_sarray<T>::value>> {
 };
 
 template <typename T, typename Value> using like_t = typename like<T, Value>::type;
+
+template <typename T, typename Value>
+struct like<T, Value, std::enable_if_t<is_sarray<T>::value>> {
+private:
+    using Array = typename std::decay_t<T>::Derived;
+    using Entry = like_t<value_t<Array>, Value>;
+public:
+    using type = typename Array::template ReplaceType<Entry>;
+};
+
+/// Type trait to access the type that would result from an unary expression involving another type
+template <typename T, typename = void> struct expr { using type = std::decay_t<T>; };
+template <typename T> using expr_t = typename expr<T>::type;
+
+template <typename T>
+struct expr<T, std::enable_if_t<is_sarray<T>::value>> {
+private:
+    using Td = std::decay_t<T>;
+    using Entry = typename Td::Type;
+    using EntryExpr = expr_t<Entry>;
+    static constexpr bool IsExpr = std::is_same<Entry, EntryExpr>::value;
+public:
+    using type = std::conditional_t<IsExpr, Td, typename Td::template ReplaceType<EntryExpr>>;
+};
 
 /// Reinterpret the binary represesentation of a data type
 template<typename T, typename U> ENOKI_INLINE T memcpy_cast(const U &val) {
@@ -717,13 +727,13 @@ ENOKI_INLINE T xor_(T a, T b) {
     return memcpy_cast<T>(memcpy_cast<Int>(a) ^ memcpy_cast<Int>(b));
 }
 
-template <typename T1, typename T2, std::enable_if_t<!std::is_floating_point<T1>::value, int> = 0>
+template <typename T1, typename T2, std::enable_if_t<!std::is_floating_point<T1>::value || !std::is_floating_point<T2>::value, int> = 0>
 ENOKI_INLINE auto or_ (const T1 &a, const T2 &b) { return a | b; }
 
-template <typename T1, typename T2, std::enable_if_t<!std::is_floating_point<T1>::value, int> = 0>
+template <typename T1, typename T2, std::enable_if_t<!std::is_floating_point<T1>::value || !std::is_floating_point<T2>::value, int> = 0>
 ENOKI_INLINE auto and_(const T1 &a, const T2 &b) { return a & b; }
 
-template <typename T1, typename T2, std::enable_if_t<!std::is_floating_point<T1>::value, int> = 0>
+template <typename T1, typename T2, std::enable_if_t<!std::is_floating_point<T1>::value || !std::is_floating_point<T2>::value, int> = 0>
 ENOKI_INLINE auto xor_(const T1 &a, const T2 &b) { return a ^ b; }
 
 template <typename T, std::enable_if_t<!std::is_floating_point<T>::value, int> = 0>

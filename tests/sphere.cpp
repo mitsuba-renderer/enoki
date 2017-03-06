@@ -39,8 +39,8 @@ using Ray3fP    = Ray<Vector3fP>;
 using Ray3fX    = Ray<Vector3fX>;
 
 /* Aliases to create types that are compatible with other type */
-template <typename T> using vector3f_t = Array<typename T::Value, 3>;
-template <typename T> using ray3f_t    = Ray<Array<typename T::Value, 3>>;
+template <typename T> using vector3f_t = Array<value_t<T>, 3>;
+template <typename T> using ray3f_t    = Ray<Array<value_t<T>, 3>>;
 
 //! @}
 // -----------------------------------------------------------------------
@@ -89,10 +89,21 @@ template <typename Vector2> ENOKI_INLINE typename Vector2::Value combined(Vector
 //! @{ \name Wrappers which execute the above kernels for dynamic arrays
 // -----------------------------------------------------------------------
 
-Ray3fX make_rays_dynamic(const Vector2fX &arg) { return vectorize(make_rays<Vector2fP>, arg); }
-Vector3fX intersect_rays_dynamic(const Ray3fX &arg) { return vectorize(intersect_rays<Ray3fP>, arg); }
-FloatX shade_hits_dynamic(const Vector3fX &arg) { return vectorize(shade_hits<Vector3fP>, arg); }
-FloatX combined_dynamic(const Vector2fX &arg) { return vectorize(combined<Vector2fP>, arg); }
+Ray3fX make_rays_dynamic(const Vector2fX &p) {
+    return vectorize([](auto &&p) { return make_rays<Vector2fP>(p); }, p);
+}
+
+Vector3fX intersect_rays_dynamic(const Ray3fX &r) {
+    return vectorize([](auto &&r) { return intersect_rays<Ray3fP>(r); }, r);
+}
+
+FloatX shade_hits_dynamic(const Vector3fX &n) {
+    return vectorize([](auto &&n) { return shade_hits<Vector3fP>(n); }, n);
+}
+
+FloatX combined_dynamic(const Vector2fX &p) {
+    return vectorize([](auto &&p) { return combined<Vector2fP>(p); }, p);
+}
 
 //! @}
 // -----------------------------------------------------------------------

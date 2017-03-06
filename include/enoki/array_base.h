@@ -167,6 +167,10 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     /// Rounding mode of arithmetic operations
     static constexpr RoundingMode Mode = Mode_;
 
+    /// Type alias for a similar-shaped array over a different type
+    template <typename T, typename T2 = Derived>
+    using ReplaceType = Array<T, T2::Size>;
+
     static_assert(std::is_same<Scalar, float>::value || !Approx,
                   "Approximate math library functions are only supported in "
                   "single precision mode!");
@@ -225,7 +229,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     /// Left rotation operation fallback implementation
     template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE auto rol_(size_t k) const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         if (!std::is_signed<Scalar>::value) {
             constexpr size_t mask = 8 * sizeof(Scalar) - 1u;
             return Expr((derived() << (k & mask)) | (derived() >> ((~k + 1u) & mask)));
@@ -237,7 +241,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     /// Right rotation operation fallback implementation
     template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE auto ror_(size_t k) const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         if (!std::is_signed<Scalar>::value) {
             constexpr size_t mask = 8 * sizeof(Scalar) - 1u;
             return Expr((derived() >> (k & mask)) | (derived() << ((~k + 1u) & mask)));
@@ -249,7 +253,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     /// Left rotation operation fallback implementation
     template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE auto rolv_(const Derived &d) const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         if (!std::is_signed<Scalar>::value) {
             Expr mask(Scalar(8 * sizeof(Scalar) - 1u));
             return Expr((derived() << (d & mask)) | (derived() >> ((~d + Scalar(1)) & mask)));
@@ -261,7 +265,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     /// Right rotation operation fallback implementation
     template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE auto rorv_(const Derived &d) const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         if (!std::is_signed<Scalar>::value) {
             Expr mask(Scalar(8 * sizeof(Scalar) - 1u));
             return Expr((derived() >> (d & mask)) | (derived() << ((~d + Scalar(1)) & mask)));
@@ -273,7 +277,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     /// Left rotation operation fallback implementation (immediate)
     template <size_t Imm, typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE auto roli_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         if (!std::is_signed<Scalar>::value) {
             constexpr size_t mask = 8 * sizeof(Scalar) - 1u;
             return Expr(sli<Imm & mask>(derived()) | sri<((~Imm + 1u) & mask)>(derived()));
@@ -285,7 +289,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     /// Right rotation operation fallback implementation (immediate)
     template <size_t Imm, typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE auto rori_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         if (!std::is_signed<Scalar>::value) {
             constexpr size_t mask = 8 * sizeof(Scalar) - 1u;
             return Expr(sri<Imm & mask>(derived()) | sli<((~Imm + 1u) & mask)>(derived()));
@@ -296,14 +300,14 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     /// Arithmetic NOT operation fallback
     ENOKI_INLINE auto not_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         const Expr mask(memcpy_cast<Scalar>(typename int_array_t<Expr>::Scalar(-1)));
         return Expr(derived() ^ mask);
     }
 
     /// Arithmetic unary negation operation fallback
     ENOKI_INLINE auto neg_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         if (std::is_floating_point<Value>::value)
             return derived() ^ Expr(Scalar(-0.f));
         else
@@ -312,12 +316,12 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     /// Reciprocal fallback implementation
     ENOKI_INLINE auto rcp_() const {
-        return typename Derived::Expr(Scalar(1)) / derived();
+        return expr_t<Derived>(Scalar(1)) / derived();
     }
 
     /// Reciprocal square root fallback implementation
     ENOKI_INLINE auto rsqrt_() const {
-        return typename Derived::Expr(Scalar(1)) / sqrt(derived());
+        return expr_t<Derived>(Scalar(1)) / sqrt(derived());
     }
 
     /// Fused multiply-add fallback implementation
@@ -332,7 +336,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     /// Fused multiply-add/subtract fallback implementation
     ENOKI_INLINE auto fmaddsub_(const Derived &b, const Derived &c) const {
-        typename Derived::Expr result;
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i) {
             if (i % 2 == 0)
                 result.coeff(i) = fmsub(derived().coeff(i), b.coeff(i), c.coeff(i));
@@ -344,7 +348,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     /// Fused multiply-subtract/add fallback implementation
     ENOKI_INLINE auto fmsubadd_(const Derived &b, const Derived &c) const {
-        typename Derived::Expr result;
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i) {
             if (i % 2 == 0)
                 result.coeff(i) = fmadd(derived().coeff(i), b.coeff(i), c.coeff(i));
@@ -385,7 +389,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     template <size_t ... Indices> ENOKI_INLINE auto shuffle_() const {
         static_assert(sizeof...(Indices) == Size ||
                       sizeof...(Indices) == Derived::Size, "shuffle(): Invalid size!");
-        typename Derived::Expr out;
+        expr_t<Derived> out;
         size_t idx = 0;
         ENOKI_CHKSCALAR bool result[] = { (out.coeff(idx++) = derived().coeff(Indices), false)... };
         (void) idx; (void) result;
@@ -410,7 +414,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     /// Gather operation fallback implementation
     template <size_t Stride, typename Index>
     ENOKI_INLINE static auto gather_(const void *mem, const Index &index) {
-        typename Derived::Expr result;
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
             result.coeff(i) = gather<Value, Stride>(mem, index.coeff(i));
         return result;
@@ -420,7 +424,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     template <size_t Stride, typename Index, typename Mask>
     ENOKI_INLINE static auto gather_(const void *mem, const Index &index,
                                      const Mask &mask) {
-        typename Derived::Expr result;
+        expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
             result.coeff(i) = gather<Value, Stride>(mem, index.coeff(i), mask.coeff(i));
         return result;
@@ -477,7 +481,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     #define ENOKI_MASKED_OPERATOR_FALLBACK(name, expr) \
         template <typename T = Derived> \
-        ENOKI_INLINE void m##name##_(const typename T::Expr &e, const typename T::Mask m) { \
+        ENOKI_INLINE void m##name##_(const expr_t<T> &e, const mask_t<T> &m) { \
             derived() = select(m, expr, derived()); \
         }
 
@@ -726,7 +730,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto tan_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
 
         Expr r;
         if (Approx) {
@@ -761,7 +765,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto asin_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         using Float = Scalar;
 
         Expr r;
@@ -813,7 +817,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto acos_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         using Float = Scalar;
 
         Expr r;
@@ -860,7 +864,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto atan2_(const Derived &x) const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         using Float = Scalar;
 
         Expr r;
@@ -912,7 +916,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto atan_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         using Float = Scalar;
 
         if (Approx) {
@@ -933,7 +937,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     // -----------------------------------------------------------------------
 
     auto exp_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
 
         Expr r;
         if (Approx) {
@@ -993,7 +997,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto log_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
 
         Expr r;
         if (Approx) {
@@ -1063,7 +1067,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     /// Multiply by integer power of 2
     auto ldexp_(const Derived &n) const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
 
         Expr r;
         if (Approx) {
@@ -1077,7 +1081,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     /// Break floating-point number into normalized fraction and power of 2
     auto frexp_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         Expr result_m, result_e;
 
         /// Caveat: does not handle denormals correctly
@@ -1114,7 +1118,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto pow_(const Derived &y) const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
 
         Expr r;
         if (Approx) {
@@ -1134,7 +1138,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     // -----------------------------------------------------------------------
 
     auto sinh_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         using Float = Scalar;
 
         Expr r;
@@ -1167,7 +1171,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto cosh_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         using Float = Scalar;
 
         Expr r;
@@ -1196,7 +1200,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto sincosh_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         using Float = Scalar;
         Expr s_out, c_out;
 
@@ -1243,7 +1247,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto tanh_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         using Float = Scalar;
 
         Expr r;
@@ -1276,7 +1280,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto csch_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         using Float = Scalar;
 
         Expr r;
@@ -1293,7 +1297,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto sech_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         using Float = Scalar;
 
         Expr r;
@@ -1310,7 +1314,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto coth_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         using Float = Scalar;
 
         Expr r;
@@ -1327,7 +1331,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto asinh_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         using Float = Scalar;
 
         Expr r;
@@ -1358,7 +1362,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto acosh_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         using Float = Scalar;
 
         Expr r;
@@ -1386,7 +1390,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto atanh_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         using Float = Scalar;
 
         Expr r;
@@ -1426,7 +1430,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     // -----------------------------------------------------------------------
 
     auto erf_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         using Float = Scalar;
 
         Expr r;
@@ -1472,7 +1476,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     auto erfi_() const {
-        using Expr = typename Derived::Expr;
+        using Expr = expr_t<Derived>;
         using Float = Scalar;
 
         // Based on "Approximating the erfi function" by Mark Giles
@@ -1577,41 +1581,46 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
 };
 
-template <typename Value, typename Derived,
-          std::enable_if_t<!is_array<std::decay_t<Value>>::value, int> = 0>
-ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
-                         const ArrayBase<Value, Derived> &a) {
+NAMESPACE_BEGIN(detail)
+
+template <typename Array, size_t N, typename... Indices,
+          std::enable_if_t<sizeof...(Indices) == N, int> = 0>
+std::ostream &print(std::ostream &os, const Array &a,
+                    const std::array<size_t, N> &,
+                    Indices... indices) {
+    os << a.derived().coeff(indices...);
+    return os;
+}
+
+template <typename Array, size_t N, typename... Indices,
+          std::enable_if_t<sizeof...(Indices) != N, int> = 0>
+std::ostream &print(std::ostream &os, const Array &a,
+                    const std::array<size_t, N> &size,
+                    Indices... indices) {
+    constexpr size_t k = N - sizeof...(Indices) - 1;
     os << "[";
-    for (size_t i = 0; i < a.derived().size(); ++i) {
-        os << a.derived().coeff(i);
-        if (i + 1 < a.derived().size())
-            os << ", ";
+    for (size_t i = 0; i < size[k]; ++i) {
+        print(os, a, size, i, indices...);
+        if (i + 1 < size[k]) {
+            if (k == 0) {
+                os << ", ";
+            } else {
+                os << ",\n";
+                for (size_t i = 0; i <= sizeof...(Indices); ++i)
+                    os << " ";
+            }
+        }
     }
     os << "]";
     return os;
 }
 
-template <typename Value, typename Derived,
-          std::enable_if_t<is_array<std::decay_t<Value>>::value, int> = 0>
+NAMESPACE_END(detail)
+
+template <typename Value, typename Derived>
 ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
                                         const ArrayBase<Value, Derived> &a) {
-    os << "[";
-    if (a.derived().size() > 0) {
-        size_t size = a.derived().coeff(0).size();
-        for (size_t i = 0; i < size; ++i) {
-            os << "[";
-            for (size_t j = 0; j < a.derived().size(); ++j) {
-                os << a.derived().coeff(j).coeff(i);
-                if (j + 1 < a.derived().size())
-                    os << ", ";
-            }
-            os << "]";
-            if (i + 1 < size)
-                os << ",\n ";
-        }
-    }
-    os << "]";
-    return os;
+    return detail::print(os, a, shape(a.derived()));
 }
 
 /// Macro to initialize uninitialized floating point arrays with NaNs in debug mode

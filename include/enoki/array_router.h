@@ -45,7 +45,7 @@ NAMESPACE_BEGIN(enoki)
  * have the same type. Otherwise perform an explicit loop over the array
  * elements and dispatch to the entry's operator+() implementation.
  */
-#define ENOKI_ROUTE_BINARY(name, func, expr1, expr2)                           \
+#define ENOKI_ROUTE_BINARY(name, func, expr)                                   \
     template <typename Type, size_t Size, bool Approx, RoundingMode Mode,      \
               typename Derived1, typename Derived2,                            \
               std::enable_if_t<Derived1::Size == Derived2::Size, int> = 0>     \
@@ -58,18 +58,20 @@ NAMESPACE_BEGIN(enoki)
               bool Approx1, bool Approx2, RoundingMode Mode1,                  \
               RoundingMode Mode2, typename Derived1, typename Derived2,        \
               std::enable_if_t<Derived1::Size == Derived2::Size &&             \
-                              !Derived1::IsMask && !Derived2::IsMask, int> = 0,\
-              typename Value = decltype(expr1)>                                \
+                              !Derived1::IsMask && !Derived2::IsMask, int> = 0>\
     ENOKI_INLINE auto name(                                                    \
         const StaticArrayBase<Type1, Size1, Approx1, Mode1, Derived1> &a1,     \
         const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a2) {   \
-        Array<Value, Derived1::Size> r;                                        \
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Derived1::Size; ++i)            \
-            r.coeff(i) = expr2;                                                \
+        size_t i = 0;                                                          \
+        using Result = typename Derived1::template ReplaceType<decltype(expr)>;\
+        using Value = value_t<Result>;                                         \
+        Result r;                                                              \
+        ENOKI_CHKSCALAR for (; i < Derived1::Size; ++i)                        \
+            r.coeff(i) = expr;                                                 \
         return r;                                                              \
     }
 
-#define ENOKI_ROUTE_TERNARY(name, func, expr1, expr2)                          \
+#define ENOKI_ROUTE_TERNARY(name, func, expr)                                  \
     template <typename Type, size_t Size, bool Approx, RoundingMode Mode,      \
               typename Derived1, typename Derived2, typename Derived3,         \
               std::enable_if_t<Derived1::Size == Derived2::Size &&             \
@@ -88,15 +90,17 @@ NAMESPACE_BEGIN(enoki)
               std::enable_if_t<Derived1::Size == Derived2::Size &&             \
                                Derived2::Size == Derived3::Size &&             \
                                !Derived1::IsMask && !Derived2::IsMask &&       \
-                               !Derived3::IsMask, int> = 0,                    \
-              typename Value = decltype(expr1)>                                \
+                               !Derived3::IsMask, int> = 0>                    \
     ENOKI_INLINE auto name(                                                    \
         const StaticArrayBase<Type1, Size1, Approx1, Mode1, Derived1> &a1,     \
         const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a2,     \
         const StaticArrayBase<Type3, Size3, Approx3, Mode3, Derived3> &a3) {   \
-        Array<Value, Derived1::Size> r;                                        \
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Derived1::Size; ++i)            \
-            r.coeff(i) = expr2;                                                \
+        size_t i = 0;                                                          \
+        using Result = typename Derived1::template ReplaceType<decltype(expr)>;\
+        using Value = value_t<Result>;                                         \
+        Result r;                                                              \
+        ENOKI_CHKSCALAR for (; i < Derived1::Size; ++i)                        \
+            r.coeff(i) = expr;                                                 \
         return r;                                                              \
     }
 
@@ -104,30 +108,28 @@ NAMESPACE_BEGIN(enoki)
     template <typename Type, size_t Size, bool Approx, RoundingMode Mode,      \
               typename Derived, typename Arg,                                  \
               std::enable_if_t<detail::bcast<Derived, Arg>::value, int> = 0,   \
-              typename = decltype(typename Derived::Expr(std::declval<Arg>()))>\
+              typename = decltype(expr_t<Derived>(std::declval<Arg>()))>\
     ENOKI_INLINE auto name(                                                    \
         const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,          \
         const Arg &a2) {                                                       \
-        return name(a1.derived(), typename Derived::Expr(a2));                 \
+        return name(a1.derived(), expr_t<Derived>(a2));                        \
     }                                                                          \
     template <typename Type, size_t Size, bool Approx, RoundingMode Mode,      \
               typename Derived, typename Arg,                                  \
               std::enable_if_t<detail::bcast<Derived, Arg>::value, int> = 0,   \
-              typename = decltype(typename Derived::Expr(std::declval<Arg>()))>\
+              typename = decltype(expr_t<Derived>(std::declval<Arg>()))>\
     ENOKI_INLINE auto name(                                                    \
         const Arg &a1,                                                         \
         const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a2) {        \
-        return name(typename Derived::Expr(a1), a2.derived());                 \
+        return name(expr_t<Derived>(a1), a2.derived());                        \
     }
 
 #define ENOKI_ROUTE_BINARY_OPERATOR(name, func)                                \
     ENOKI_ROUTE_BINARY(operator name, func,                                    \
-                       std::declval<Type1>() name std::declval<Type2>(),       \
                        a1.derived().coeff(i) name a2.derived().coeff(i))
 
 #define ENOKI_ROUTE_BINARY_FUNCTION(name, func)                                \
     ENOKI_ROUTE_BINARY(name, func,                                             \
-                       name(std::declval<Type1>(), std::declval<Type2>()),     \
                        name(a1.derived().coeff(i), a2.derived().coeff(i)))
 
 #define ENOKI_ROUTE_BINARY_OPERATOR_BCAST(name, func)                          \
@@ -156,9 +158,15 @@ ENOKI_ROUTE_BINARY_OPERATOR_BCAST(+,  add)
 ENOKI_ROUTE_BINARY_OPERATOR_BCAST(-,  sub)
 ENOKI_ROUTE_BINARY_OPERATOR_BCAST(*,  mul)
 ENOKI_ROUTE_BINARY_OPERATOR      (/,  div)
-ENOKI_ROUTE_BINARY_OPERATOR_BCAST(^,  xor)
-ENOKI_ROUTE_BINARY_OPERATOR_BCAST(|,  or)
-ENOKI_ROUTE_BINARY_OPERATOR_BCAST(&,  and)
+
+ENOKI_ROUTE_BINARY(operator&, and, detail::and_(a1.derived().coeff(i), a2.derived().coeff(i)))
+ENOKI_ROUTE_BINARY(operator^, xor, detail::xor_(a1.derived().coeff(i), a2.derived().coeff(i)))
+ENOKI_ROUTE_BINARY(operator|, or,  detail::or_(a1.derived().coeff(i), a2.derived().coeff(i)))
+
+ENOKI_ROUTE_BCAST(operator&)
+ENOKI_ROUTE_BCAST(operator^)
+ENOKI_ROUTE_BCAST(operator|)
+
 ENOKI_ROUTE_BINARY_OPERATOR      (<<, slv)
 ENOKI_ROUTE_BINARY_OPERATOR      (>>, srv)
 ENOKI_ROUTE_BINARY_OPERATOR_BCAST(<,  lt)
@@ -190,36 +198,24 @@ ENOKI_ROUTE_BINARY_FUNCTION      (rol,   rolv)
 ENOKI_ROUTE_UNARY(abs, abs)
 
 ENOKI_ROUTE_TERNARY(fmadd, fmadd,
-                    fmadd(std::declval<Type1>(),
-                          std::declval<Type2>(),
-                          std::declval<Type3>()),
                     fmadd(a1.derived().coeff(i),
                           a2.derived().coeff(i),
                           a3.derived().coeff(i))
 )
 
 ENOKI_ROUTE_TERNARY(fmsub, fmsub,
-                    fmsub(std::declval<Type1>(),
-                          std::declval<Type2>(),
-                          std::declval<Type3>()),
                     fmsub(a1.derived().coeff(i),
                           a2.derived().coeff(i),
                           a3.derived().coeff(i))
 )
 
 ENOKI_ROUTE_TERNARY(fmaddsub, fmaddsub,
-                    fmaddsub(std::declval<Type1>(),
-                             std::declval<Type2>(),
-                             std::declval<Type3>()),
                     fmaddsub(a1.derived().coeff(i),
                              a2.derived().coeff(i),
                              a3.derived().coeff(i))
 )
 
 ENOKI_ROUTE_TERNARY(fmsubadd, fmsubadd,
-                    fmsubadd(std::declval<Type1>(),
-                             std::declval<Type2>(),
-                             std::declval<Type3>()),
                     fmsubadd(a1.derived().coeff(i),
                              a2.derived().coeff(i),
                              a3.derived().coeff(i))
@@ -306,7 +302,7 @@ ENOKI_INLINE auto operator!(
 template <typename Array, typename Mask, enable_if_sarray_t<Array> = 0,
           std::enable_if_t<!std::is_same<Array, typename Array::Mask>::value &&
                             std::is_same<Mask, typename Array::Mask>::value, int> = 0>
-ENOKI_INLINE typename Array::Expr operator&(const Array &a1, const Mask &a2) {
+ENOKI_INLINE expr_t<Array> operator&(const Array &a1, const Mask &a2) {
     return a1.derived().and_(a2);
 }
 
@@ -314,14 +310,14 @@ ENOKI_INLINE typename Array::Expr operator&(const Array &a1, const Mask &a2) {
 template <typename Array, typename Mask, enable_if_sarray_t<Array> = 0,
           std::enable_if_t<!std::is_same<Array, typename Array::Mask>::value &&
                             std::is_same<Mask, typename Array::Mask>::value, int> = 0>
-ENOKI_INLINE typename Array::Expr operator|(const Array &a1, const Mask &a2) {
+ENOKI_INLINE expr_t<Array> operator|(const Array &a1, const Mask &a2) {
     return a1.derived().or_(a2);
 }
 
 template <typename Array, typename Mask, enable_if_sarray_t<Array> = 0,
           std::enable_if_t<!std::is_same<Array, typename Array::Mask>::value &&
                             std::is_same<Mask, typename Array::Mask>::value, int> = 0>
-ENOKI_INLINE typename Array::Expr operator^(const Array &a1, const Mask &a2) {
+ENOKI_INLINE expr_t<Array> operator^(const Array &a1, const Mask &a2) {
     return a1.derived().xor_(a2);
 }
 
@@ -438,15 +434,14 @@ template <typename Type1, typename Type2, typename Type3, size_t Size1,
           RoundingMode Mode3, typename Derived1, typename Derived2,
           typename Derived3,
           std::enable_if_t<Derived1::Size == Derived2::Size &&
-                           Derived2::Size == Derived3::Size, int> = 0,
-          typename Value = decltype(select(std::declval<Type1>(),
-                                            std::declval<Type2>(),
-                                            std::declval<Type3>()))>
+                           Derived2::Size == Derived3::Size, int> = 0>
 ENOKI_INLINE auto select(
     const StaticArrayBase<Type1, Size1, Approx1, Mode1, Derived1> &a1,
     const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a2,
     const StaticArrayBase<Type3, Size3, Approx3, Mode3, Derived3> &a3) {
-    Array<Value, Derived1::Size> r;
+    using Type = decltype(a2 + a3);
+    using Value = value_t<Type>;
+    Type r;
     ENOKI_CHKSCALAR for (size_t i = 0; i < Derived1::Size; ++i)
         r.coeff(i) = select(a1.derived().coeff(i),
                             a2.derived().coeff(i),
@@ -530,7 +525,7 @@ template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
 ENOKI_INLINE auto
 rol(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,
     const typename Derived::Value &a2) {
-    return rol(a1.derived(), typename Derived::Expr(a2));
+    return rol(a1.derived(), expr_t<Derived>(a2));
 }
 
 template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
@@ -546,7 +541,7 @@ template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
 ENOKI_INLINE auto
 ror(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,
     const typename Derived::Value &a2) {
-    return ror(a1.derived(), typename Derived::Expr(a2));
+    return ror(a1.derived(), expr_t<Derived>(a2));
 }
 
 template <typename Target, typename Type, size_t Size, bool Approx,
@@ -731,7 +726,7 @@ ENOKI_INLINE auto operator/(
     if (Derived::Approx) /* Fast approximate division using reciprocals */
         return a1.derived() * rcp<true>(a2);
     else
-        return a1.derived() / typename Derived::Expr(a2);
+        return a1.derived() / expr_t<Derived>(a2);
 }
 
 template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
@@ -741,7 +736,7 @@ template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
 ENOKI_INLINE auto operator/(
     const Arg &a1,
     const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a2) {
-    return operator/(typename Derived::Expr(a1), a2.derived());
+    return operator/(expr_t<Derived>(a1), a2.derived());
 }
 
 /// Multiply by integer power of 2 (scalar fallback)
@@ -809,7 +804,7 @@ ENOKI_INLINE Arg erfi(const Arg &x) {
 
 NAMESPACE_BEGIN(detail)
 template <typename Array, enable_if_sarray_t<Array> = 0>
-ENOKI_INLINE typename Array::Expr sign_mask(const Array &a) {
+ENOKI_INLINE expr_t<Array> sign_mask(const Array &a) {
     using UInt = typename uint_array_t<Array>::Scalar;
     using Float = scalar_t<Array>;
     const Float mask = memcpy_cast<Float>(UInt(1) << (sizeof(UInt) * 8 - 1));
@@ -820,7 +815,7 @@ NAMESPACE_END(detail)
 template <typename Array, enable_if_sarray_t<Array> = 0>
 ENOKI_INLINE expr_t<Array> sign(const Array &a) {
     using Expr = expr_t<Array>;
-    using Scalar = scalar_t<Array>;
+    using Scalar = scalar_t<Expr>;
 
     if (!std::is_signed<Scalar>::value)
         return Expr(1);
@@ -1238,7 +1233,7 @@ ENOKI_INLINE auto squared_norm(const Array &v) {
 
 template <typename Array, enable_if_sarray_t<Array> = 0>
 ENOKI_INLINE auto normalize(const Array &v) {
-    return v * rsqrt<Array::Approx>(squared_norm(v));
+    return v * Array(rsqrt<Array::Approx>(squared_norm(v)));
 }
 
 template <typename Array1, typename Array2,
@@ -1299,7 +1294,7 @@ ENOKI_INLINE auto broadcast(const Array &value) {
 NAMESPACE_BEGIN(detail)
 
 template <typename Return, size_t Offset, typename T, size_t... Index>
-static ENOKI_INLINE Return slice(const T &value, std::index_sequence<Index...>) {
+static ENOKI_INLINE Return extract(const T &value, std::index_sequence<Index...>) {
     return Return(value.coeff(Index + Offset)...);
 }
 
@@ -1315,14 +1310,14 @@ template <size_t Size, typename T,
           std::enable_if_t<T::ActualSize != Return::ActualSize, int> = 0>
 static ENOKI_INLINE Return head(const T &value) {
     static_assert(Size <= array_size<T>::value, "Array size mismatch");
-    return detail::slice<Return, 0>(value, std::make_index_sequence<Size>());
+    return detail::extract<Return, 0>(value, std::make_index_sequence<Size>());
 }
 
 template <size_t Size, typename T,
           typename Return = Array<value_t<T>, Size, T::Approx, T::Mode>>
 static ENOKI_INLINE Return tail(const T &value) {
     static_assert(Size <= array_size<T>::value, "Array size mismatch");
-    return detail::slice<Return, T::Size - Size>(value, std::make_index_sequence<Size>());
+    return detail::extract<Return, T::Size - Size>(value, std::make_index_sequence<Size>());
 }
 
 //! @}
@@ -1355,6 +1350,12 @@ ENOKI_INLINE auto packet(T &&value, size_t i) -> decltype(value.packet_(i)) { re
 
 template <typename T, std::enable_if_t<!is_dynamic<T>::value, int> = 0>
 ENOKI_INLINE T packet(T &&value, size_t) { return value; }
+
+template <typename T, std::enable_if_t<is_dynamic<T>::value && is_array<T>::value, int> = 0>
+ENOKI_INLINE auto slice(T &&value, size_t i) -> decltype(value.slice_(i)) { return value.slice_(i); }
+
+template <typename T, std::enable_if_t<!is_dynamic<T>::value, int> = 0>
+ENOKI_INLINE T slice(T &&value, size_t) { return value; }
 
 template <typename T, std::enable_if_t<is_dynamic<T>::value && is_array<T>::value, int> = 0>
 ENOKI_INLINE auto ref_wrap(T &&value) -> decltype(value.ref_wrap_()) { return value.ref_wrap_(); }

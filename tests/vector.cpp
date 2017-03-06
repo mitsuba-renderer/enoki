@@ -12,6 +12,7 @@
 */
 
 #include "test.h"
+#include <enoki/matrix.h>
 
 template <typename T, std::enable_if_t<std::is_signed<typename T::Value>::value, int> = 0>
 void test01_dot_signed() {
@@ -120,10 +121,26 @@ ENOKI_TEST(array_float_05_outer_product) {
     assert(to_string(broadcast<Vector3f>(3.f) * Vector3f(1, 2, 3)) == "[3, 6, 9]");
 }
 
-ENOKI_TEST(array_float_04_head_tail) {
+ENOKI_TEST(array_float_06_head_tail) {
     using T  = Array<float, 4>;
 
     auto t = T(1, 2, 3, 4);
     assert(to_string(head<2>(t)) == "[1, 2]");
     assert(to_string(tail<2>(t)) == "[3, 4]");
+}
+
+ENOKI_TEST(array_float_07_matrix) {
+    using M2f = Matrix<float, 2>;
+    using V2f = Array<float, 2>;
+
+    auto a = M2f(1, 2, 3, 4);
+    auto b = V2f(1, 1);
+    assert(to_string(a) == "[[1, 2],\n [3, 4]]");
+    assert(to_string(transpose(a)) == "[[1, 3],\n [2, 4]]");
+    assert(a(0, 1) == 2);
+    assert(to_string(a.coeff(0)) == "[1, 3]");
+    assert(to_string(a.coeff(1)) == "[2, 4]");
+    assert(to_string(a*a) == "[[7, 10],\n [15, 22]]");
+    assert(to_string(a*a) == "[[7, 10],\n [15, 22]]");
+    assert(to_string(a*b) == "[3, 7]");
 }

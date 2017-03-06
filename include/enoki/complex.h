@@ -17,30 +17,33 @@
 
 NAMESPACE_BEGIN(enoki)
 
-template <typename Scalar_>
+template <typename Type_>
 struct Complex
-    : StaticArrayImpl<Scalar_, 2, detail::approx_default<Scalar_>::value,
-                      RoundingMode::Default, Complex<Scalar_>> {
-    using Scalar = Scalar_;
+    : StaticArrayImpl<Type_, 2, detail::approx_default<Type_>::value,
+                      RoundingMode::Default, Complex<Type_>> {
+    using Type = Type_;
     using Base =
-        StaticArrayImpl<Scalar, 2, detail::approx_default<Scalar>::value,
-                        RoundingMode::Default, Complex<Scalar>>;
+        StaticArrayImpl<Type, 2, detail::approx_default<Type>::value,
+                        RoundingMode::Default, Complex<Type>>;
+
+    template <typename T> using ReplaceType = Complex<T>;
 
     using Base::Base;
     using Base::operator=;
 
-    Complex(Scalar f) : Base(f, Scalar(0)) { }
+    Complex() = default;
+    Complex(Type f) : Base(f, Type(0)) { }
 
-    template <typename T = Scalar,
+    template <typename T = Type,
               std::enable_if_t<!std::is_same<T, scalar_t<T>>::value, int> = 0>
-    Complex(scalar_t<T> f) : Base(f, Scalar(0)) { }
+    Complex(scalar_t<T> f) : Base(f, Type(0)) { }
 };
 
 template <typename T1, typename T2,
-          typename Scalar = decltype(std::declval<T1>() + std::declval<T2>())>
-ENOKI_INLINE Complex<Scalar> operator*(const Complex<T1> &z0,
-                                       const Complex<T2> &z1) {
-    using Base = Array<Scalar, 2>;
+          typename Type = decltype(std::declval<T1>() + std::declval<T2>())>
+ENOKI_INLINE Complex<Type> operator*(const Complex<T1> &z0,
+                                     const Complex<T2> &z1) {
+    using Base = Array<Type, 2>;
     Base z1_perm = shuffle<1, 0>(z1);
     Base z0_im   = shuffle<1, 1>(z0);
     Base z0_re   = shuffle<0, 0>(z0);
@@ -71,9 +74,9 @@ template <typename T> ENOKI_INLINE Complex<expr_t<T>> rcp(const Complex<T> &z) {
 }
 
 template <typename T1, typename T2,
-          typename Scalar = decltype(std::declval<T1>() + std::declval<T2>())>
-ENOKI_INLINE Complex<Scalar> operator/(const Complex<T1> &z0,
-                                       const Complex<T2> &z1) {
+          typename Type = decltype(std::declval<T1>() + std::declval<T2>())>
+ENOKI_INLINE Complex<Type> operator/(const Complex<T1> &z0,
+                                     const Complex<T2> &z1) {
     return z0 * rcp(z1);
 }
 
@@ -286,6 +289,18 @@ template <typename T> auto packet(Complex<T> &z, size_t i) {
 template <typename T> auto packet(const Complex<T> &z, size_t i) {
     using T2 = decltype(packet(z.x(), i));
     return Complex<T2>{ packet(z.x(), i), packet(z.y(), i) };
+}
+
+/* Return the i-th slice */
+template <typename T> auto slice(Complex<T> &z, size_t i) {
+    using T2 = decltype(slice(z.x(), i));
+    return Complex<T2>{ slice(z.x(), i), slice(z.y(), i) };
+}
+
+/* Return the i-th slice (const) */
+template <typename T> auto slice(const Complex<T> &z, size_t i) {
+    using T2 = decltype(slice(z.x(), i));
+    return Complex<T2>{ slice(z.x(), i), slice(z.y(), i) };
 }
 
 //! @}

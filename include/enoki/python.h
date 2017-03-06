@@ -279,6 +279,28 @@ template <typename... Arg> auto packet(const std::tuple<Arg...> &t, size_t i) {
     return packet(t, i, std::make_index_sequence<sizeof...(Arg)>());
 }
 
+template <typename... Arg, size_t... Index>
+auto slice(std::tuple<Arg...> &t, size_t i, std::index_sequence<Index...>) {
+    return std::tuple<decltype(slice(std::declval<Arg&>(), i))...>(
+        slice(std::get<Index>(t), i)...);
+}
+
+/* Return the i-th slice */
+template <typename... Arg> auto slice(std::tuple<Arg...> &t, size_t i) {
+    return slice(t, i, std::make_index_sequence<sizeof...(Arg)>());
+}
+
+template <typename... Arg, size_t... Index>
+auto slice(const std::tuple<Arg...> &t, size_t i, std::index_sequence<Index...>) {
+    return std::tuple<decltype(slice(std::declval<const Arg&>(), i))...>(
+        slice(std::get<Index>(t), i)...);
+}
+
+/* Return the i-th slice (const) */
+template <typename... Arg> auto slice(const std::tuple<Arg...> &t, size_t i) {
+    return slice(t, i, std::make_index_sequence<sizeof...(Arg)>());
+}
+
 //! @}
 // -----------------------------------------------------------------------
 

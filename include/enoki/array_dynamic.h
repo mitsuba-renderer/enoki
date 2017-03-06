@@ -166,6 +166,14 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
         return ((const Packet *) ENOKI_ASSUME_ALIGNED(m_packets))[i];
     }
 
+    ENOKI_INLINE Value &slice_(size_t i) {
+        return m_packets[i / PacketSize][i % PacketSize];
+    }
+
+    ENOKI_INLINE const Value &slice_(size_t i) const {
+        return m_packets[i / PacketSize][i % PacketSize];
+    }
+
     ENOKI_INLINE DynamicArrayReference<Packet> ref_wrap_() {
         return DynamicArrayReference<Packet>(m_packets);
     }
@@ -319,8 +327,7 @@ NAMESPACE_BEGIN(detail)
 template <typename Func, typename... Args, size_t... Index>
 ENOKI_INLINE void vectorize_inner_1(std::index_sequence<Index...>, Func &&f,
                                     size_t packet_count, Args &&... args) {
-
-    ENOKI_IVDEP ENOKI_NOUNROLL for (size_t i = 0; i < packet_count; ++i)
+    ENOKI_NOUNROLL ENOKI_IVDEP for (size_t i = 0; i < packet_count; ++i)
         f(packet(args, i)...);
 }
 
@@ -328,7 +335,7 @@ ENOKI_INLINE void vectorize_inner_1(std::index_sequence<Index...>, Func &&f,
 template <typename Func, typename Out, typename... Args, size_t... Index>
 ENOKI_INLINE void vectorize_inner_2(std::index_sequence<Index...>, Func &&f,
                                     size_t packet_count, Out&& out, Args &&... args) {
-    ENOKI_IVDEP ENOKI_NOUNROLL for (size_t i = 0; i < packet_count; ++i)
+    ENOKI_NOUNROLL ENOKI_IVDEP for (size_t i = 0; i < packet_count; ++i)
         packet(out, i) = f(packet(args, i)...);
 }
 

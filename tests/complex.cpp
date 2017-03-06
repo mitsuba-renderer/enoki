@@ -114,3 +114,33 @@ ENOKI_TEST(test17_complex_asinh_acosh_atanh) {
     assert(abs(acosh(Cf(1, 2)) - Cf(1.52857, 1.14372)) < 1e-5);
     assert(abs(atanh(Cf(1, 2)) - Cf(0.173287, 1.1781)) < 1e-5);
 }
+
+using Quat4f = Quaternion<float>;
+using FloatX = DynamicArray<Array<float>>;
+using Quat4X = Quaternion<FloatX>;
+using Mat4X = Matrix<FloatX, 4>;
+
+Mat4X slerp_matrix(const Quat4X &x, const Quat4X &y, float t) {
+    return vectorize([t](auto &&x, auto &&y) { return to_matrix(slerp(x, y, t)); }, x, y);
+};
+
+Quat4X to_quat(const Mat4X &m) {
+    return vectorize([](auto &&m) { return from_matrix(m); }, m);
+};
+
+ENOKI_TEST(test18_complex_vectorize) {
+
+    Quat4f a = normalize(Quat4f(1, 2, 3, 4));
+    Quat4f b = normalize(Quat4f(0, 0, 0, 1));
+
+    Quat4X x, y;
+    dynamic_resize(x, 1);
+    dynamic_resize(y, 1);
+    slice(x, 0) = a;
+    slice(y, 0) = b;
+    auto tmp0 = slerp_matrix(x, y, 0.5f);
+    auto tmp1 = to_quat(tmp0);
+    Quat4f result = slice(tmp1, 0);
+    Quat4f ref = normalize(a+b);
+    assert(abs(result - ref) < 1e-5f);
+}
