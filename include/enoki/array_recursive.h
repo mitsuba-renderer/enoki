@@ -60,7 +60,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         ENOKI_INLINE Mask(T b) : m1(b), m2(b) { }
 
         /// Cast another array
-        template <typename Other, enable_if_sarray_t<Other> = 0>
+        template <typename Other, enable_if_static_array_t<Other> = 0>
         ENOKI_INLINE Mask(const Other &m) : m1(low(m)), m2(high(m)) { }
 
         /// Reinterpret another array
@@ -269,7 +269,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         return Derived(ror(a1, arg.a1), ror(a2, arg.a2));
     }
 
-    ENOKI_INLINE static Derived select_(const Mask &m, Arg t, Arg f) {
+    static ENOKI_INLINE Derived select_(const Mask &m, Arg t, Arg f) {
         return Derived(select(m.m1, t.a1, f.a1),
                        select(m.m2, t.a2, f.a2));
     }
@@ -390,38 +390,38 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         store_unaligned((Value *) out + Size1, a2);
     }
 
-    ENOKI_INLINE static Derived load_(const void *a) {
+    static ENOKI_INLINE Derived load_(const void *a) {
         return Derived(
             load<Array1>((Value *) a),
             load<Array2>((Value *) a + Size1)
         );
     }
 
-    ENOKI_INLINE static Derived load_unaligned_(const void *a) {
+    static ENOKI_INLINE Derived load_unaligned_(const void *a) {
         return Derived(
             load_unaligned<Array1>((Value *) a),
             load_unaligned<Array2>((Value *) a + Size1)
         );
     }
 
-    ENOKI_INLINE static Derived zero_() {
+    static ENOKI_INLINE Derived zero_() {
         return Derived(zero<Array1>(), zero<Array2>());
     }
 
     template <size_t Stride, bool Write, size_t Level, typename Index>
-    ENOKI_INLINE static void prefetch_(const void *ptr, const Index &index) {
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
         prefetch<Array1, Stride, Write, Level>(ptr, low(index));
         prefetch<Array2, Stride, Write, Level>(ptr, high(index));
     }
 
     template <size_t Stride, bool Write, size_t Level, typename Index>
-    ENOKI_INLINE static void prefetch_(const void *ptr, const Index &index, const Mask &mask) {
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index, const Mask &mask) {
         prefetch<Array1, Stride, Write, Level>(ptr, low(index), low(mask));
         prefetch<Array2, Stride, Write, Level>(ptr, high(index), high(mask));
     }
 
     template <size_t Stride, typename Index>
-    ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index) {
         return Derived(
             gather<Array1, Stride>(ptr, low(index)),
             gather<Array2, Stride>(ptr, high(index))
@@ -429,7 +429,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     }
 
     template <size_t Stride, typename Index>
-    ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
         return Derived(
             gather<Array1, Stride>(ptr, low(index), low(mask)),
             gather<Array2, Stride>(ptr, high(index), high(mask))
@@ -454,13 +454,13 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     }
 
     template <size_t Stride, typename Index, typename Func>
-    ENOKI_INLINE static void transform_(void *ptr, const Index &index, const Func &func) {
+    static ENOKI_INLINE void transform_(void *ptr, const Index &index, const Func &func) {
         transform<Array1, Stride>(ptr, low(index),  func);
         transform<Array2, Stride>(ptr, high(index), func);
     }
 
     template <size_t Stride, typename Index, typename Func>
-    ENOKI_INLINE static void transform_(void *ptr, const Index &index, const Func &func, const Mask &mask) {
+    static ENOKI_INLINE void transform_(void *ptr, const Index &index, const Func &func, const Mask &mask) {
         transform<Array1, Stride>(ptr, low(index),  func, low(mask));
         transform<Array2, Stride>(ptr, high(index), func, high(mask));
     }

@@ -524,7 +524,7 @@ public:
     }
 
     /// Ternary operator -- select between to values based on mask
-    ENOKI_INLINE static auto select_(const Mask &m, const Derived &t, const Derived &f) {
+    static ENOKI_INLINE auto select_(const Mask &m, const Derived &t, const Derived &f) {
         expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = select(m.coeff(i), t.coeff(i), f.coeff(i));
@@ -741,10 +741,10 @@ public:
     //! @{ \name Initialization, loading/writing data
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE static auto zero_() { return expr_t<Derived>(Value(0)); }
+    static ENOKI_INLINE auto zero_() { return expr_t<Derived>(Value(0)); }
 
     template <typename T = Derived, std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
-    ENOKI_INLINE static Derived load_(const void *ptr) {
+    static ENOKI_INLINE Derived load_(const void *ptr) {
         Derived result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = load<Value>(static_cast<const Value *>(ptr) + i);
@@ -752,7 +752,7 @@ public:
     }
 
     template <typename T = Derived, std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
-    ENOKI_INLINE static Derived load_unaligned_(const void *ptr) {
+    static ENOKI_INLINE Derived load_unaligned_(const void *ptr) {
         Derived result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = load_unaligned<Value>(static_cast<const Value *>(ptr) + i);
@@ -801,98 +801,6 @@ public:
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size2; ++i)
             result.coeff(i) = coeff(Size1 + i);
         return result;
-    }
-
-    //! @}
-    // -----------------------------------------------------------------------
-
-    // -----------------------------------------------------------------------
-    //! @{ \name Operations for dynamic arrays
-    // -----------------------------------------------------------------------
-
-    template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-    ENOKI_NOINLINE void dynamic_resize_(size_t size) {
-        for (size_t i = 0; i < Size; ++i)
-            dynamic_resize(m_data[i], size);
-    }
-
-    template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-    ENOKI_INLINE size_t dynamic_size_() const { return dynamic_size(m_data[0]); }
-
-    template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-    ENOKI_INLINE size_t packets_() const { return packets(m_data[0]); }
-
-    template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-    ENOKI_INLINE auto packet_(size_t i) {
-        return packet_(i, std::make_index_sequence<Size>());
-    }
-
-    template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-    ENOKI_INLINE auto packet_(size_t i) const {
-        return packet_(i, std::make_index_sequence<Size>());
-    }
-
-    template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-    ENOKI_INLINE auto slice_(size_t i) {
-        return slice_(i, std::make_index_sequence<Size>());
-    }
-
-    template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-    ENOKI_INLINE auto slice_(size_t i) const {
-        return slice_(i, std::make_index_sequence<Size>());
-    }
-
-    template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-    ENOKI_INLINE auto ref_wrap_() {
-        return ref_wrap_(std::make_index_sequence<Size>());
-    }
-
-    template <typename T = Value, std::enable_if_t<is_dynamic<T>::value, int> = 0>
-    ENOKI_INLINE auto ref_wrap_() const {
-        return ref_wrap_(std::make_index_sequence<Size>());
-    }
-
-private:
-    template <size_t... Index>
-    ENOKI_INLINE auto packet_(size_t i, std::index_sequence<Index...>) {
-        return Array<decltype(packet(std::declval<Value>(), 0)), Size>(
-            packet(m_data[Index], i)...
-        );
-    }
-
-    template <size_t... Index>
-    ENOKI_INLINE auto packet_(size_t i, std::index_sequence<Index...>) const {
-        return Array<decltype(packet(std::declval<const Value &>(), 0)), Size>(
-            packet(m_data[Index], i)...
-        );
-    }
-
-    template <size_t... Index>
-    ENOKI_INLINE auto slice_(size_t i, std::index_sequence<Index...>) {
-        return Array<decltype(slice(std::declval<Value>(), 0)), Size>(
-            slice(m_data[Index], i)...
-        );
-    }
-
-    template <size_t... Index>
-    ENOKI_INLINE auto slice_(size_t i, std::index_sequence<Index...>) const {
-        return Array<decltype(slice(std::declval<const Value &>(), 0)), Size>(
-            slice(m_data[Index], i)...
-        );
-    }
-
-    template <size_t... Index>
-    ENOKI_INLINE auto ref_wrap_(std::index_sequence<Index...>) {
-        return Array<decltype(ref_wrap(std::declval<Value>())), Size>(
-            ref_wrap(m_data[Index])...
-        );
-    }
-
-    template <size_t... Index>
-    ENOKI_INLINE auto ref_wrap_(std::index_sequence<Index...>) const {
-        return Array<decltype(ref_wrap(std::declval<const Value &>())), Size>(
-            ref_wrap(m_data[Index])...
-        );
     }
 
     //! @}

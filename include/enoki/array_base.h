@@ -182,11 +182,12 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     /// Assign from a compatible array type
     template <
-        typename Type2, bool Approx2, RoundingMode Mode2,
+        typename Type2, size_t Size2, bool Approx2, RoundingMode Mode2,
         typename Derived2,
         std::enable_if_t<std::is_assignable<Value &, Type2>::value, int> = 0>
     ENOKI_INLINE Derived &operator=(
-        const StaticArrayBase<Type2, Size, Approx2, Mode2, Derived2> &a) {
+        const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a) {
+        static_assert(Derived2::Size == Derived::Size, "Size mismatch!");
         if (std::is_arithmetic<Value>::value) { ENOKI_TRACK_SCALAR }
         for (size_t i = 0; i < Size; ++i)
             derived().coeff(i) = a.derived().coeff(i);
@@ -398,14 +399,14 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     /// Prefetch operation fallback implementation
     template <size_t Stride, bool Write, size_t Level, typename Index>
-    ENOKI_INLINE static void prefetch_(const void *mem, const Index &index) {
+    static ENOKI_INLINE void prefetch_(const void *mem, const Index &index) {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
             prefetch<Value, Stride, Write, Level>(mem, index.coeff(i));
     }
 
     /// Masked prefetch operation fallback implementation
     template <size_t Stride, bool Write, size_t Level, typename Index, typename Mask>
-    ENOKI_INLINE static void prefetch_(const void *mem, const Index &index,
+    static ENOKI_INLINE void prefetch_(const void *mem, const Index &index,
                                        const Mask &mask) {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
             prefetch<Value, Stride, Write, Level>(mem, index.coeff(i), mask.coeff(i));
@@ -413,7 +414,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     /// Gather operation fallback implementation
     template <size_t Stride, typename Index>
-    ENOKI_INLINE static auto gather_(const void *mem, const Index &index) {
+    static ENOKI_INLINE auto gather_(const void *mem, const Index &index) {
         expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
             result.coeff(i) = gather<Value, Stride>(mem, index.coeff(i));
@@ -422,7 +423,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     /// Masked gather operation fallback implementation
     template <size_t Stride, typename Index, typename Mask>
-    ENOKI_INLINE static auto gather_(const void *mem, const Index &index,
+    static ENOKI_INLINE auto gather_(const void *mem, const Index &index,
                                      const Mask &mask) {
         expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
@@ -459,14 +460,14 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     /// Combined gather-modify-scatter operation without conflicts (fallback implementation)
     template <size_t Stride, typename Index, typename Func>
-    ENOKI_INLINE static void transform_(void *mem, const Index &index, const Func &func) {
+    static ENOKI_INLINE void transform_(void *mem, const Index &index, const Func &func) {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
             transform<Value, Stride>(mem, index.coeff(i), func);
     }
 
     /// Combined gather-modify-scatter operation without conflicts (fallback implementation)
     template <size_t Stride, typename Index, typename Func, typename Mask>
-    ENOKI_INLINE static void transform_(void *mem, const Index &index,
+    static ENOKI_INLINE void transform_(void *mem, const Index &index,
                                  const Func &func, const Mask &mask) {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
             transform<Value, Stride>(mem, index.coeff(i), func, mask.coeff(i));

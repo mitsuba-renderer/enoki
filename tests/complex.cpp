@@ -128,7 +128,7 @@ Quat4X to_quat(const Mat4X &m) {
     return vectorize([](auto &&m) { return from_matrix(m); }, m);
 };
 
-ENOKI_TEST(test18_complex_vectorize) {
+ENOKI_TEST(test18_complex_vectorize_scalar) {
 
     Quat4f a = normalize(Quat4f(1, 2, 3, 4));
     Quat4f b = normalize(Quat4f(0, 0, 0, 1));

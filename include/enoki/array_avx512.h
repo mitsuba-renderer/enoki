@@ -353,7 +353,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
     ENOKI_INLINE Derived fmsubadd_(Arg b, Arg c) const { return _mm512_fmsubadd_round_ps(m, b.m, c.m, (int) Mode); }
     ENOKI_INLINE Derived fmaddsub_(Arg b, Arg c) const { return _mm512_fmaddsub_round_ps(m, b.m, c.m, (int) Mode); }
 
-    ENOKI_INLINE static Derived select_(const Mask &m, const Derived &t,
+    static ENOKI_INLINE Derived select_(const Mask &m, const Derived &t,
                                         const Derived &f) {
         return _mm512_mask_blend_ps(m.k, f.m, t.m);
     }
@@ -444,14 +444,14 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
     ENOKI_INLINE void store_(void *ptr) const { _mm512_store_ps((Value *) ptr, m); }
     ENOKI_INLINE void store_unaligned_(void *ptr) const { _mm512_storeu_ps((Value *) ptr, m); }
 
-    ENOKI_INLINE static Derived load_(const void *ptr) { return _mm512_load_ps((const Value *) ptr); }
-    ENOKI_INLINE static Derived load_unaligned_(const void *ptr) { return _mm512_loadu_ps((const Value *) ptr); }
+    static ENOKI_INLINE Derived load_(const void *ptr) { return _mm512_load_ps((const Value *) ptr); }
+    static ENOKI_INLINE Derived load_unaligned_(const void *ptr) { return _mm512_loadu_ps((const Value *) ptr); }
 
-    ENOKI_INLINE static Derived zero_() { return _mm512_setzero_ps(); }
+    static ENOKI_INLINE Derived zero_() { return _mm512_setzero_ps(); }
 
 #if defined(__AVX512PF__)
     ENOKI_REQUIRE_INDEX_PF(Index, int32_t)
-    ENOKI_INLINE static void prefetch_(const void *ptr, const Index &index) {
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
         if (Write)
             _mm512_prefetch_i32scatter_ps(ptr, index.m, Stride, Level);
         else
@@ -459,7 +459,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int32_t)
-    ENOKI_INLINE static void prefetch_(const void *ptr, const Index &index,
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index,
                                        const Mask &mask) {
         if (Write)
             _mm512_mask_prefetch_i32scatter_ps(ptr, mask.k, index.m, Stride, Level);
@@ -468,7 +468,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int64_t)
-    ENOKI_INLINE static void prefetch_(const void *ptr, const Index &index) {
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
         if (Write) {
             _mm512_prefetch_i64scatter_ps(ptr, low(index).m, Stride, Level);
             _mm512_prefetch_i64scatter_ps(ptr, high(index).m, Stride, Level);
@@ -479,7 +479,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int64_t)
-    ENOKI_INLINE static void prefetch_(const void *ptr, const Index &index,
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index,
                                        const Mask &mask) {
         if (Write) {
             _mm512_mask_prefetch_i64scatter_ps(ptr, low(mask).k, low(index).m, Stride, Level);
@@ -492,24 +492,24 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
 #endif
 
     ENOKI_REQUIRE_INDEX(Index, int32_t)
-    ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index) {
         return _mm512_i32gather_ps(index.m, (const float *) ptr, Stride);
     }
 
     ENOKI_REQUIRE_INDEX(Index, int32_t)
-    ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
         return _mm512_mask_i32gather_ps(_mm512_setzero_ps(), mask.k, index.m, (const float *) ptr, Stride);
     }
 
     ENOKI_REQUIRE_INDEX(Index, int64_t)
-    ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index) {
         return detail::concat(
             _mm512_i64gather_ps(low(index).m, (const float *) ptr, Stride),
             _mm512_i64gather_ps(high(index).m, (const float *) ptr, Stride));
     }
 
     ENOKI_REQUIRE_INDEX(Index, int64_t)
-    ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
         return detail::concat(
             _mm512_mask_i64gather_ps(_mm256_setzero_ps(),  low(mask).k,  low(index).m, (const float *) ptr, Stride),
             _mm512_mask_i64gather_ps(_mm256_setzero_ps(), high(mask).k, high(index).m, (const float *) ptr, Stride));
@@ -771,7 +771,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
     ENOKI_INLINE Derived fmsubadd_(Arg b, Arg c) const { return _mm512_fmsubadd_round_pd(m, b.m, c.m, (int) Mode); }
     ENOKI_INLINE Derived fmaddsub_(Arg b, Arg c) const { return _mm512_fmaddsub_round_pd(m, b.m, c.m, (int) Mode); }
 
-    ENOKI_INLINE static Derived select_(const Mask &m, const Derived &t,
+    static ENOKI_INLINE Derived select_(const Mask &m, const Derived &t,
                                         const Derived &f) {
         return _mm512_mask_blend_pd(m.k, f.m, t.m);
     }
@@ -871,14 +871,14 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
     ENOKI_INLINE void store_(void *ptr) const { _mm512_store_pd((Value *) ptr, m); }
     ENOKI_INLINE void store_unaligned_(void *ptr) const { _mm512_storeu_pd((Value *) ptr, m); }
 
-    ENOKI_INLINE static Derived load_(const void *ptr) { return _mm512_load_pd((const Value *) ptr); }
-    ENOKI_INLINE static Derived load_unaligned_(const void *ptr) { return _mm512_loadu_pd((const Value *) ptr); }
+    static ENOKI_INLINE Derived load_(const void *ptr) { return _mm512_load_pd((const Value *) ptr); }
+    static ENOKI_INLINE Derived load_unaligned_(const void *ptr) { return _mm512_loadu_pd((const Value *) ptr); }
 
-    ENOKI_INLINE static Derived zero_() { return _mm512_setzero_pd(); }
+    static ENOKI_INLINE Derived zero_() { return _mm512_setzero_pd(); }
 
 #if defined(__AVX512PF__)
     ENOKI_REQUIRE_INDEX_PF(Index, int32_t)
-    ENOKI_INLINE static void prefetch_(const void *ptr, const Index &index) {
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
         if (Write)
             _mm512_prefetch_i32scatter_pd(ptr, index.m, Stride, Level);
         else
@@ -886,7 +886,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int32_t)
-    ENOKI_INLINE static void prefetch_(const void *ptr, const Index &index,
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index,
                                        const Mask &mask) {
         if (Write)
             _mm512_mask_prefetch_i32scatter_pd(ptr, mask.k, index.m, Stride, Level);
@@ -895,7 +895,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int64_t)
-    ENOKI_INLINE static void prefetch_(const void *ptr, const Index &index) {
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
         if (Write)
             _mm512_prefetch_i64scatter_pd(ptr, index.m, Stride, Level);
         else
@@ -903,7 +903,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int64_t)
-    ENOKI_INLINE static void prefetch_(const void *ptr, const Index &index,
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index,
                                        const Mask &mask) {
         if (Write)
             _mm512_mask_prefetch_i64scatter_pd(ptr, mask.k, index.m, Stride, Level);
@@ -913,22 +913,22 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
 #endif
 
     ENOKI_REQUIRE_INDEX(Index, int32_t)
-    ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index) {
         return _mm512_i32gather_pd(index.m, (const double *) ptr, Stride);
     }
 
     ENOKI_REQUIRE_INDEX(Index, int32_t)
-    ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
         return _mm512_mask_i32gather_pd(_mm512_setzero_pd(), mask.k, index.m, (const double *) ptr, Stride);
     }
 
     ENOKI_REQUIRE_INDEX(Index, int64_t)
-    ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index) {
         return _mm512_i64gather_pd(index.m, (const double *) ptr, Stride);
     }
 
     ENOKI_REQUIRE_INDEX(Index, int64_t)
-    ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
         return _mm512_mask_i64gather_pd(_mm512_setzero_pd(), mask.k, index.m, (const double *) ptr, Stride);
     }
 
@@ -1214,7 +1214,7 @@ template <typename Value_, typename Derived> struct alignas(64)
         return std::is_signed<Value>::value ? _mm512_abs_epi32(m) : m;
     }
 
-    ENOKI_INLINE static Derived select_(const Mask &m, const Derived &t,
+    static ENOKI_INLINE Derived select_(const Mask &m, const Derived &t,
                                         const Derived &f) {
         return _mm512_mask_blend_epi32(m.k, f.m, t.m);
     }
@@ -1260,14 +1260,14 @@ template <typename Value_, typename Derived> struct alignas(64)
     ENOKI_INLINE void store_(void *ptr) const { _mm512_store_si512((__m512i *) ptr, m); }
     ENOKI_INLINE void store_unaligned_(void *ptr) const { _mm512_storeu_si512((__m512i *) ptr, m); }
 
-    ENOKI_INLINE static Derived load_(const void *ptr) { return _mm512_load_si512((const __m512i *) ptr); }
-    ENOKI_INLINE static Derived load_unaligned_(const void *ptr) { return _mm512_loadu_si512((const __m512i *) ptr); }
+    static ENOKI_INLINE Derived load_(const void *ptr) { return _mm512_load_si512((const __m512i *) ptr); }
+    static ENOKI_INLINE Derived load_unaligned_(const void *ptr) { return _mm512_loadu_si512((const __m512i *) ptr); }
 
-    ENOKI_INLINE static Derived zero_() { return _mm512_setzero_si512(); }
+    static ENOKI_INLINE Derived zero_() { return _mm512_setzero_si512(); }
 
 #if defined(__AVX512PF__)
     ENOKI_REQUIRE_INDEX_PF(Index, int32_t)
-    ENOKI_INLINE static void prefetch_(const void *ptr, const Index &index) {
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
         if (Write)
             _mm512_prefetch_i32scatter_ps(ptr, index.m, Stride, Level);
         else
@@ -1275,7 +1275,7 @@ template <typename Value_, typename Derived> struct alignas(64)
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int32_t)
-    ENOKI_INLINE static void prefetch_(const void *ptr, const Index &index,
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index,
                                        const Mask &mask) {
         if (Write)
             _mm512_mask_prefetch_i32scatter_ps(ptr, mask.k, index.m, Stride, Level);
@@ -1284,7 +1284,7 @@ template <typename Value_, typename Derived> struct alignas(64)
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int64_t)
-    ENOKI_INLINE static void prefetch_(const void *ptr, const Index &index) {
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
         if (Write) {
             _mm512_prefetch_i64scatter_ps(ptr, low(index).m, Stride, Level);
             _mm512_prefetch_i64scatter_ps(ptr, high(index).m, Stride, Level);
@@ -1295,7 +1295,7 @@ template <typename Value_, typename Derived> struct alignas(64)
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int64_t)
-    ENOKI_INLINE static void prefetch_(const void *ptr, const Index &index,
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index,
                                        const Mask &mask) {
         if (Write) {
             _mm512_mask_prefetch_i64scatter_ps(ptr, low(mask).k, low(index).m, Stride, Level);
@@ -1308,24 +1308,24 @@ template <typename Value_, typename Derived> struct alignas(64)
 #endif
 
     ENOKI_REQUIRE_INDEX(Index, int32_t)
-    ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index) {
         return _mm512_i32gather_epi32(index.m, (const float *) ptr, Stride);
     }
 
     ENOKI_REQUIRE_INDEX(Index, int32_t)
-    ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
         return _mm512_mask_i32gather_epi32(_mm512_setzero_si512(), mask.k, index.m, (const float *) ptr, Stride);
     }
 
     ENOKI_REQUIRE_INDEX(Index, int64_t)
-    ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index) {
         return detail::concat(
             _mm512_i64gather_epi32(low(index).m, (const float *) ptr, Stride),
             _mm512_i64gather_epi32(high(index).m, (const float *) ptr, Stride));
     }
 
     ENOKI_REQUIRE_INDEX(Index, int64_t)
-    ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
         return detail::concat(
             _mm512_mask_i64gather_epi32(_mm256_setzero_si256(),  low(mask).k,  low(index).m, (const float *) ptr, Stride),
             _mm512_mask_i64gather_epi32(_mm256_setzero_si256(), high(mask).k, high(index).m, (const float *) ptr, Stride));
@@ -1628,7 +1628,7 @@ template <typename Value_, typename Derived> struct alignas(64)
         return std::is_signed<Value>::value ? _mm512_abs_epi64(m) : m;
     }
 
-    ENOKI_INLINE static Derived select_(const Mask &m, const Derived &t,
+    static ENOKI_INLINE Derived select_(const Mask &m, const Derived &t,
                                         const Derived &f) {
         return _mm512_mask_blend_epi64(m.k, f.m, t.m);
     }
@@ -1657,14 +1657,14 @@ template <typename Value_, typename Derived> struct alignas(64)
     ENOKI_INLINE void store_(void *ptr) const { _mm512_store_si512((__m512i *) ptr, m); }
     ENOKI_INLINE void store_unaligned_(void *ptr) const { _mm512_storeu_si512((__m512i *) ptr, m); }
 
-    ENOKI_INLINE static Derived load_(const void *ptr) { return _mm512_load_si512((const __m512i *) ptr); }
-    ENOKI_INLINE static Derived load_unaligned_(const void *ptr) { return _mm512_loadu_si512((const __m512i *) ptr); }
+    static ENOKI_INLINE Derived load_(const void *ptr) { return _mm512_load_si512((const __m512i *) ptr); }
+    static ENOKI_INLINE Derived load_unaligned_(const void *ptr) { return _mm512_loadu_si512((const __m512i *) ptr); }
 
-    ENOKI_INLINE static Derived zero_() { return _mm512_setzero_si512(); }
+    static ENOKI_INLINE Derived zero_() { return _mm512_setzero_si512(); }
 
 #if defined(__AVX512PF__)
     ENOKI_REQUIRE_INDEX_PF(Index, int32_t)
-    ENOKI_INLINE static void prefetch_(const void *ptr, const Index &index) {
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
         if (Write)
             _mm512_prefetch_i32scatter_pd(ptr, index.m, Stride, Level);
         else
@@ -1672,7 +1672,7 @@ template <typename Value_, typename Derived> struct alignas(64)
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int32_t)
-    ENOKI_INLINE static void prefetch_(const void *ptr, const Index &index,
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index,
                                        const Mask &mask) {
         if (Write)
             _mm512_mask_prefetch_i32scatter_pd(ptr, mask.k, index.m, Stride, Level);
@@ -1681,7 +1681,7 @@ template <typename Value_, typename Derived> struct alignas(64)
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int64_t)
-    ENOKI_INLINE static void prefetch_(const void *ptr, const Index &index) {
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
         if (Write)
             _mm512_prefetch_i64scatter_pd(ptr, index.m, Stride, Level);
         else
@@ -1689,7 +1689,7 @@ template <typename Value_, typename Derived> struct alignas(64)
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int64_t)
-    ENOKI_INLINE static void prefetch_(const void *ptr, const Index &index,
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index,
                                        const Mask &mask) {
         if (Write)
             _mm512_mask_prefetch_i64scatter_pd(ptr, mask.k, index.m, Stride, Level);
@@ -1699,22 +1699,22 @@ template <typename Value_, typename Derived> struct alignas(64)
 #endif
 
     ENOKI_REQUIRE_INDEX(Index, int32_t)
-    ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index) {
         return _mm512_i32gather_epi64(index.m, (const float *) ptr, Stride);
     }
 
     ENOKI_REQUIRE_INDEX(Index, int32_t)
-    ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
         return _mm512_mask_i32gather_epi64(_mm512_setzero_si512(), mask.k, index.m, (const float *) ptr, Stride);
     }
 
     ENOKI_REQUIRE_INDEX(Index, int64_t)
-    ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index) {
         return _mm512_i64gather_epi64(index.m, (const float *) ptr, Stride);
     }
 
     ENOKI_REQUIRE_INDEX(Index, int64_t)
-    ENOKI_INLINE static Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
         return _mm512_mask_i64gather_epi64(_mm512_setzero_si512(), mask.k, index.m, (const float *) ptr, Stride);
     }
 

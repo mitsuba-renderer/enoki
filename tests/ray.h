@@ -70,55 +70,44 @@ NAMESPACE_BEGIN(enoki)
 //! @{ \name Enoki accessors for static & dynamic vectorization
 // -----------------------------------------------------------------------
 
-/// Is this type dynamic?
-template <typename T> struct is_dynamic_impl<Ray<T>> {
-    static constexpr bool value = is_dynamic<T>::value;
+template <typename T> struct dynamic_support<Ray<T>> {
+    static constexpr bool is_dynamic_nested = enoki::is_dynamic_nested<T>::value;
+    using dynamic_t = Ray<enoki::make_dynamic_t<T>>;
+    using Value = Ray<T>;
+
+    static ENOKI_INLINE size_t dynamic_size(const Value &value) {
+        return enoki::dynamic_size(value.o);
+    }
+
+    static ENOKI_INLINE size_t packets(const Value &value) {
+        return enoki::packets(value.o);
+    }
+
+    static ENOKI_INLINE void dynamic_resize(Value &value, size_t size) {
+        enoki::dynamic_resize(value.o, size);
+        enoki::dynamic_resize(value.d, size);
+    }
+
+    template <typename T2>
+    static ENOKI_INLINE auto packet(T2 &&value, size_t i) {
+        return Ray<decltype(enoki::packet(value.o, i))>(
+            enoki::packet(value.o, i), enoki::packet(value.d, i));
+    }
+
+    template <typename T2>
+    static ENOKI_INLINE auto slice(T2 &&value, size_t i) {
+        return Ray<decltype(enoki::slice(value.o, i))>(
+            enoki::slice(value.o, i), enoki::slice(value.d, i));
+    }
+
+    template <typename T2> static ENOKI_INLINE auto ref_wrap(T2 &&value) {
+        return Ray<decltype(enoki::ref_wrap(value.o))>(
+            enoki::ref_wrap(value.o), enoki::ref_wrap(value.d));
+    }
 };
 
-/// Create a dynamic version of this type on demand
-template <typename T> struct dynamic_impl<Ray<T>> {
-    using type = Ray<dynamic_t<T>>;
-};
-
-/// How many packets are stored in this instance?
-template <typename T> size_t packets(const Ray<T> &r) {
-    return packets(r.o);
-}
-
-/// What is the size of the dynamic dimension of this instance?
-template <typename T> size_t dynamic_size(const Ray<T> &r) {
-    return dynamic_size(r.o);
-}
-
-/// Resize the dynamic dimension of this instance
-template <typename T> void dynamic_resize(Ray<T> &r, size_t size) {
-    dynamic_resize(r.o, size);
-    dynamic_resize(r.d, size);
-}
-
-/// Return the i-th packet
-template <typename T> auto packet(Ray<T> &r, size_t i) {
-    using T2 = decltype(packet(r.o, i));
-    return Ray<T2> { packet(r.o, i), packet(r.d, i) };
-}
-
-/// Return the i-th packet (const version)
-template <typename T> auto packet(const Ray<T> &r, size_t i) {
-    using T2 = decltype(packet(r.o, i));
-    return Ray<T2> { packet(r.o, i), packet(r.d, i) };
-}
-
-/// Construct a wrapper that references the data of this instance
-template <typename T> auto ref_wrap(Ray<T> &r) {
-    using T2 = decltype(ref_wrap(r.o));
-    return Ray<T2> { ref_wrap(r.o), ref_wrap(r.d) };
-}
-
-/// Construct a wrapper that references the data of this instance (const version)
-template <typename T> auto ref_wrap(const Ray<T> &r) {
-    using T2 = decltype(ref_wrap(r.o));
-    return Ray<T2> { ref_wrap(r.o), ref_wrap(r.d) };
-}
+//! @}
+// =======================================================================
 
 //! @}
 // -----------------------------------------------------------------------

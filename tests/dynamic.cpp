@@ -85,9 +85,9 @@ ENOKI_TEST(test03_alloc_nested)  {
     assert(to_string(y) == "[[1, 5, 9],\n [2, 6, 10]]");
     assert(to_string(z) == "[[1, 5, 0],\n [2, 6, 11]]");
 
-    assert(!is_dynamic<Float>::value && !is_dynamic<FloatP>::value &&
-           is_dynamic<FloatX>::value && !is_dynamic<Vector3fP>::value &&
-           is_dynamic<Vector3fX>::value);
+    assert(!is_dynamic_nested<Float>::value && !is_dynamic_nested<FloatP>::value &&
+           is_dynamic_nested<FloatX>::value && !is_dynamic_nested<Vector3fP>::value &&
+           is_dynamic_nested<Vector3fX>::value);
 
     assert(packets(123) == 0);
     assert(packet(123, 0) == 123);

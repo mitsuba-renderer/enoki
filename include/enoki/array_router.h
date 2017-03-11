@@ -35,7 +35,7 @@ NAMESPACE_BEGIN(enoki)
 
 #define ENOKI_ROUTE_UNARY_WITH_FALLBACK(name, expr)                            \
     ENOKI_ROUTE_UNARY(name, name)                                              \
-    template <typename Arg, enable_if_notarray_t<Arg> = 0>                     \
+    template <typename Arg, enable_if_not_array_t<Arg> = 0>                     \
     ENOKI_INLINE auto name(const Arg &a) {                                     \
         return expr;                                                           \
     }
@@ -299,7 +299,7 @@ ENOKI_INLINE auto operator!(
 }
 
 /// Arithmetic AND operator involving an array and a mask
-template <typename Array, typename Mask, enable_if_sarray_t<Array> = 0,
+template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
           std::enable_if_t<!std::is_same<Array, typename Array::Mask>::value &&
                             std::is_same<Mask, typename Array::Mask>::value, int> = 0>
 ENOKI_INLINE expr_t<Array> operator&(const Array &a1, const Mask &a2) {
@@ -307,32 +307,32 @@ ENOKI_INLINE expr_t<Array> operator&(const Array &a1, const Mask &a2) {
 }
 
 /// Arithmetic OR operator involving an array and a mask
-template <typename Array, typename Mask, enable_if_sarray_t<Array> = 0,
+template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
           std::enable_if_t<!std::is_same<Array, typename Array::Mask>::value &&
                             std::is_same<Mask, typename Array::Mask>::value, int> = 0>
 ENOKI_INLINE expr_t<Array> operator|(const Array &a1, const Mask &a2) {
     return a1.derived().or_(a2);
 }
 
-template <typename Array, typename Mask, enable_if_sarray_t<Array> = 0,
+template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
           std::enable_if_t<!std::is_same<Array, typename Array::Mask>::value &&
                             std::is_same<Mask, typename Array::Mask>::value, int> = 0>
 ENOKI_INLINE expr_t<Array> operator^(const Array &a1, const Mask &a2) {
     return a1.derived().xor_(a2);
 }
 
-template <typename Arg, enable_if_notarray_t<Arg> = 0,
+template <typename Arg, enable_if_not_array_t<Arg> = 0,
           std::enable_if_t<std::is_signed<Arg>::value, int> = 0>
 ENOKI_INLINE Arg abs(const Arg &a) { return std::abs(a); }
 
-template <typename Arg, enable_if_notarray_t<Arg> = 0,
+template <typename Arg, enable_if_not_array_t<Arg> = 0,
           std::enable_if_t<!std::is_signed<Arg>::value, int> = 0>
 ENOKI_INLINE Arg abs(const Arg &a) { return a; }
 
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE bool eq(const Arg &a1, const Arg &a2) { return a1 == a2; }
 
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE bool neq(const Arg &a1, const Arg &a2) { return a1 != a2; }
 
 /// Equality operator
@@ -377,7 +377,7 @@ dot(const StaticArrayBase<Value1, Size1, Approx1, Mode1, Derived1> &a1,
     return hsum(a1.derived() * a2.derived());
 }
 
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg dot(const Arg &a, const Arg &b) { return a*b; }
 
 template <typename Array1, typename Array2>
@@ -385,22 +385,22 @@ ENOKI_INLINE auto abs_dot(const Array1 &a1, const Array2 &a2) {
     return abs(dot(a1, a2));
 }
 
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg fmadd(const Arg &a1, const Arg &a2, const Arg &a3) {
     return a1 * a2 + a3;
 }
 
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg fmsub(const Arg &a1, const Arg &a2, const Arg &a3) {
     return a1 * a2 - a3;
 }
 
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg fmsubadd(const Arg &a1, const Arg &a2, const Arg &a3) {
     return a1 * a2 + a3;
 }
 
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg fmaddsub(const Arg &a1, const Arg &a2, const Arg &a3) {
     return a1 * a2 - a3;
 }
@@ -470,43 +470,43 @@ operator>>(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a,
     return a.derived().sr_(value);
 }
 
-template <size_t Imm, typename Array, enable_if_sarray_t<Array> = 0>
+template <size_t Imm, typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE auto sli(const Array &a) { return a.template sli_<Imm>(); }
 
-template <size_t Imm, typename Arg, enable_if_notarray_t<Arg> = 0>
+template <size_t Imm, typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg sli(const Arg &a) { return a << Imm; }
 
-template <size_t Imm, typename Array, enable_if_sarray_t<Array> = 0>
+template <size_t Imm, typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE auto sri(const Array &a) { return a.template sri_<Imm>(); }
 
-template <size_t Imm, typename Arg, enable_if_notarray_t<Arg> = 0>
+template <size_t Imm, typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg sri(const Arg &a) { return a >> Imm; }
 
-template <size_t Imm, typename Array, enable_if_sarray_t<Array> = 0>
+template <size_t Imm, typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE auto roli(const Array &a) { return a.template roli_<Imm>(); }
 
-template <size_t Imm, typename Arg, enable_if_notarray_t<Arg> = 0>
+template <size_t Imm, typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg roli(const Arg &a) {
     size_t mask = 8 * sizeof(Arg) - 1;
     return (a << (Imm & mask)) | (a >> ((~Imm + 1) & mask));
 }
 
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg rol(const Arg &a, const Arg &amt) {
     size_t mask = 8 * sizeof(Arg) - 1;
     return (a << (amt & mask)) | (a >> ((~amt + 1) & mask));
 }
 
-template <size_t Imm, typename Array, enable_if_sarray_t<Array> = 0>
+template <size_t Imm, typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE auto rori(const Array &a) { return a.template rori_<Imm>(); }
 
-template <size_t Imm, typename Arg, enable_if_notarray_t<Arg> = 0>
+template <size_t Imm, typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg rori(const Arg &a) {
     size_t mask = 8 * sizeof(Arg) - 1;
     return (a >> (Imm & mask)) | (a << ((~Imm + 1) & mask));
 }
 
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg ror(const Arg &a, const Arg &amt) {
     size_t mask = 8 * sizeof(Arg) - 1;
     return (a >> (amt & mask)) | (a << ((~amt + 1) & mask));
@@ -551,13 +551,13 @@ reinterpret_array(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
     return Target(a.derived(), detail::reinterpret_flag());
 }
 
-template <typename Target, typename Arg, enable_if_notarray_t<Arg> = 0,
+template <typename Target, typename Arg, enable_if_not_array_t<Arg> = 0,
           std::enable_if_t<!std::is_same<Target, bool>::value, int> = 0>
 ENOKI_INLINE Target reinterpret_array(const Arg &a) {
     return memcpy_cast<Target>(a);
 }
 
-template <typename Target, typename Arg, enable_if_notarray_t<Arg> = 0,
+template <typename Target, typename Arg, enable_if_not_array_t<Arg> = 0,
           std::enable_if_t<std::is_same<Target, bool>::value, int> = 0>
 ENOKI_INLINE Target reinterpret_array(const Arg &a) {
     using Int = typename detail::type_chooser<sizeof(Arg)>::Int;
@@ -565,13 +565,13 @@ ENOKI_INLINE Target reinterpret_array(const Arg &a) {
 }
 
 /// Return the element-wise maximum of two arrays (scalar fallback)
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg max(const Arg &a1, const Arg &a2) {
     return std::max(a1, a2);
 }
 
 /// Return the element-wise minimum of two arrays (scalar fallback)
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg min(const Arg &a1, const Arg &a2) {
     return std::min(a1, a2);
 }
@@ -584,7 +584,7 @@ rcp(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
 }
 
 /// Reciprocal (scalar fallback)
-template <bool ForceApprox = false, typename Arg, enable_if_notarray_t<Arg> = 0>
+template <bool ForceApprox = false, typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg rcp(const Arg &a) {
 #if defined(__AVX512ER__)
     if (std::is_same<Arg, float>::value) {
@@ -653,7 +653,7 @@ rsqrt(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
 }
 
 /// Reciprocal square root (scalar fallback)
-template <bool ForceApprox = false, typename Arg, enable_if_notarray_t<Arg> = 0>
+template <bool ForceApprox = false, typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg rsqrt(const Arg &a) {
 #if defined(__AVX512ER__)
     if (std::is_same<Arg, float>::value) {
@@ -740,40 +740,40 @@ ENOKI_INLINE auto operator/(
 }
 
 /// Multiply by integer power of 2 (scalar fallback)
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg ldexp(const Arg &a1, const Arg &a2) {
     return std::ldexp(a1, (int) a2);
 }
 
 /// Power function (scalar fallback)
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg pow(const Arg &a1, const Arg &a2) {
     return std::pow(a1, a2);
 }
 
 /// Arc tangent function (scalar fallback)
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg atan2(const Arg &a1, const Arg &a2) {
     return std::atan2(a1, a2);
 }
 
 /// Shuffle the entries of an array
-template <size_t... Args, typename Array, enable_if_sarray_t<Array> = 0>
+template <size_t... Args, typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE auto shuffle(const Array &in) { return in.derived().template shuffle_<Args...>(); }
 
 /// Shuffle the entries of an array (scalar fallback)
-template <size_t Index, typename Arg, enable_if_notarray_t<Arg> = 0>
+template <size_t Index, typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg shuffle(const Arg &arg) {
     static_assert(Index == 0, "Invalid argument to shuffle");
     return arg;
 }
 
-template <typename Array, enable_if_sarray_t<Array> = 0>
+template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE auto erfi(const Array &a) {
     return a.erfi_();
 }
 
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg erfi(const Arg &x) {
     // Based on "Approximating the erfi function" by Mark Giles
     Arg w = -log((Arg(1) - x) * (Arg(1) + x));
@@ -803,7 +803,7 @@ ENOKI_INLINE Arg erfi(const Arg &x) {
 }
 
 NAMESPACE_BEGIN(detail)
-template <typename Array, enable_if_sarray_t<Array> = 0>
+template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE expr_t<Array> sign_mask(const Array &a) {
     using UInt = typename uint_array_t<Array>::Scalar;
     using Float = scalar_t<Array>;
@@ -812,7 +812,7 @@ ENOKI_INLINE expr_t<Array> sign_mask(const Array &a) {
 }
 NAMESPACE_END(detail)
 
-template <typename Array, enable_if_sarray_t<Array> = 0>
+template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE expr_t<Array> sign(const Array &a) {
     using Expr = expr_t<Array>;
     using Scalar = scalar_t<Expr>;
@@ -825,7 +825,7 @@ ENOKI_INLINE expr_t<Array> sign(const Array &a) {
         return select(a < Scalar(0), Expr(Scalar(-1)), Expr(Scalar(1)));
 }
 
-template <typename Array, enable_if_sarray_t<Array> = 0>
+template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE expr_t<Array> copysign(const Array &a, const Array &b) {
     using Scalar = scalar_t<Array>;
 
@@ -839,28 +839,28 @@ ENOKI_INLINE expr_t<Array> copysign(const Array &a, const Array &b) {
     }
 }
 
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 inline Arg sign(const Arg &a) {
     return std::copysign(Arg(1), a);
 }
 
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 inline Arg copysign(const Arg &a, const Arg &b) {
     return std::copysign(a, b);
 }
 
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 inline std::pair<Arg, Arg> sincos(const Arg &a) {
     return std::make_pair(std::sin(a), std::cos(a));
 }
 
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 inline std::pair<Arg, Arg> sincosh(const Arg &a) {
     return std::make_pair(std::sinh(a), std::cosh(a));
 }
 
 /// Break floating-point number into normalized fraction and power of 2 (scalar fallback)
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE std::pair<Arg, Arg> frexp(const Arg &a) {
     int tmp;
     Arg result = std::frexp(a, &tmp);
@@ -884,19 +884,19 @@ ENOKI_INLINE size_t count_nested(bool value) { return value ? 1 : 0; }
 // -----------------------------------------------------------------------
 
 /// Construct a zero-initialized array
-template <typename Array, enable_if_sarray_t<Array> = 0>
+template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE Array zero() {
     return Array::zero_();
 }
 
 /// Construct a zero-initialized array
-template <typename Array, enable_if_darray_t<Array> = 0>
+template <typename Array, enable_if_dynamic_array_t<Array> = 0>
 ENOKI_INLINE Array zero(size_t size) {
     return Array::zero_(size);
 }
 
 /// Construct a zero-initialized array (scalar fallback)
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg zero() {
     return Arg(0);
 }
@@ -914,26 +914,26 @@ ENOKI_INLINE Array linspace_(std::index_sequence<Args...>, Value offset, Value s
 NAMESPACE_END(detail)
 
 /// Construct an index sequence, i.e. 0, 1, 2, ..
-template <typename Array, enable_if_sarray_t<Array> = 0>
+template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE Array index_sequence() {
     return detail::index_sequence_<Array>(
         std::make_index_sequence<Array::Size>());
 }
 
 /// Construct an index sequence, i.e. 0, 1, 2, ..
-template <typename Array, enable_if_darray_t<Array> = 0>
+template <typename Array, enable_if_dynamic_array_t<Array> = 0>
 ENOKI_INLINE Array index_sequence(size_t size) {
     return Array::index_sequence_(size);
 }
 
 /// Construct an index sequence, i.e. 0, 1, 2, .. (scalar fallback)
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg index_sequence() {
     return Arg(0);
 }
 
 /// Construct an index sequence, i.e. 0, 1, 2, ..
-template <typename Array, enable_if_sarray_t<Array> = 0>
+template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE Array linspace(value_t<Array> min,
                             value_t<Array> max) {
     return detail::linspace_<Array>(
@@ -942,71 +942,71 @@ ENOKI_INLINE Array linspace(value_t<Array> min,
 }
 
 /// Construct an index sequence, i.e. 0, 1, 2, ..
-template <typename Array, enable_if_darray_t<Array> = 0,
+template <typename Array, enable_if_dynamic_array_t<Array> = 0,
           typename Value = value_t<Array>>
 ENOKI_INLINE Array linspace(size_t size, Value min, Value max) {
     return Array::linspace_(size, min, max);
 }
 
 /// Construct an index sequence, i.e. 0, 1, 2, .. (scalar fallback)
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg linspace() {
     return Arg(0);
 }
 
 /// Load an array from aligned memory
-template <typename Array, enable_if_sarray_t<Array> = 0>
+template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE Array load(const void *mem) {
     return Array::load_(mem);
 }
 
 /// Load an array from aligned memory (scalar fallback)
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg load(const void *mem) {
     assert((uintptr_t) mem % alignof(Arg) == 0);
     return *static_cast<const Arg *>(mem);
 }
 
 /// Load an array from unaligned memory
-template <typename Array, enable_if_sarray_t<Array> = 0>
+template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE Array load_unaligned(const void *mem) {
     return Array::load_unaligned_(mem);
 }
 
 /// Load an array from unaligned memory (scalar fallback)
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg load_unaligned(const void *mem) {
     return *static_cast<const Arg *>(mem);
 }
 
 /// Store an array to aligned memory
-template <typename Array, enable_if_sarray_t<Array> = 0>
+template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE void store(void *mem, const Array &a) {
     a.store_(mem);
 }
 
 /// Store an array to aligned memory (scalar fallback)
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE void store(void *mem, const Arg &a) {
     assert((uintptr_t) mem % alignof(Arg) == 0);
     *static_cast<Arg *>(mem) = a;
 }
 
 /// Store an array to unaligned memory
-template <typename Array, enable_if_sarray_t<Array> = 0>
+template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE void store_unaligned(void *mem, const Array &a) {
     a.store_unaligned_(mem);
 }
 
 /// Store an array to unaligned memory (scalar fallback)
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE void store_unaligned(void *mem, const Arg &a) {
     *static_cast<Arg *>(mem) = a;
 }
 
 /// Prefetch operation
 template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
-          bool Write = false, size_t Level = 2, typename Index, enable_if_sarray_t<Array> = 0,
+          bool Write = false, size_t Level = 2, typename Index, enable_if_static_array_t<Array> = 0,
           std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size, int> = 0>
 ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
@@ -1015,7 +1015,7 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
 
 /// Prefetch operation (scalar fallback)
 template <typename Arg, size_t Stride = sizeof(Arg), bool Write = false,
-          size_t Level = 2, typename Index, enable_if_notarray_t<Arg> = 0,
+          size_t Level = 2, typename Index, enable_if_not_array_t<Arg> = 0,
           std::enable_if_t<std::is_integral<Index>::value, int> = 0>
 ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
     auto ptr = (const Arg *) ((const uint8_t *) mem + index * Index(Stride));
@@ -1029,7 +1029,7 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
 /// Masked prefetch operation
 template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
           bool Write = false, size_t Level = 2, typename Index, typename Mask,
-          enable_if_sarray_t<Array> = 0,
+          enable_if_static_array_t<Array> = 0,
           std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size &&
                            Mask::Size == Array::Size, int> = 0>
@@ -1040,7 +1040,7 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index,
 
 /// Masked prefetch operation (scalar fallback)
 template <typename Arg, size_t Stride = sizeof(Arg), bool Write = false,
-          size_t Level = 2, typename Index, enable_if_notarray_t<Arg> = 0,
+          size_t Level = 2, typename Index, enable_if_not_array_t<Arg> = 0,
           std::enable_if_t<std::is_integral<Index>::value, int> = 0, typename Mask>
 ENOKI_INLINE void prefetch(const void *mem, const Index &index, const Mask &mask) {
     auto ptr = (const Arg *) ((const uint8_t *) mem + index * Index(Stride));
@@ -1054,7 +1054,7 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index, const Mask &mask
 
 /// Gather operation
 template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
-          typename Index, enable_if_sarray_t<Array> = 0,
+          typename Index, enable_if_static_array_t<Array> = 0,
           std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size, int> = 0>
 ENOKI_INLINE Array gather(const void *mem, const Index &index) {
@@ -1063,7 +1063,7 @@ ENOKI_INLINE Array gather(const void *mem, const Index &index) {
 
 /// Gather operation (scalar fallback)
 template <typename Arg, size_t Stride = sizeof(Arg),
-          typename Index, enable_if_notarray_t<Arg> = 0,
+          typename Index, enable_if_not_array_t<Arg> = 0,
           std::enable_if_t<std::is_integral<Index>::value, int> = 0>
 ENOKI_INLINE Arg gather(const void *mem, const Index &index) {
     return *((const Arg *) ((const uint8_t *) mem + index * Index(Stride)));
@@ -1071,7 +1071,7 @@ ENOKI_INLINE Arg gather(const void *mem, const Index &index) {
 
 /// Masked gather operation
 template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
-          typename Index, typename Mask, enable_if_sarray_t<Array> = 0,
+          typename Index, typename Mask, enable_if_static_array_t<Array> = 0,
           std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size &&
                            Mask::Size == Array::Size, int> = 0>
@@ -1082,7 +1082,7 @@ ENOKI_INLINE Array gather(const void *mem, const Index &index,
 
 /// Masked gather operation (scalar fallback)
 template <typename Arg, size_t Stride = sizeof(Arg),
-          typename Index, typename Mask, enable_if_notarray_t<Arg> = 0,
+          typename Index, typename Mask, enable_if_not_array_t<Arg> = 0,
           std::enable_if_t<std::is_integral<Index>::value, int> = 0>
 ENOKI_INLINE Arg gather(const void *mem, const Index &index, const Mask &mask) {
     return detail::mask_active(mask)
@@ -1092,7 +1092,7 @@ ENOKI_INLINE Arg gather(const void *mem, const Index &index, const Mask &mask) {
 
 /// Scatter operation
 template <size_t Stride_ = 0, typename Array,
-          typename Index, enable_if_sarray_t<Array> = 0,
+          typename Index, enable_if_static_array_t<Array> = 0,
           std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size, int> = 0>
 ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index) {
@@ -1102,7 +1102,7 @@ ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index) {
 
 /// Scatter operation (scalar fallback)
 template <size_t Stride_ = 0, typename Arg,
-          typename Index, enable_if_notarray_t<Arg> = 0,
+          typename Index, enable_if_not_array_t<Arg> = 0,
           std::enable_if_t<std::is_integral<Index>::value, int> = 0>
 ENOKI_INLINE void scatter(void *mem, const Arg &value, const Index &index) {
     constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(Arg);
@@ -1112,7 +1112,7 @@ ENOKI_INLINE void scatter(void *mem, const Arg &value, const Index &index) {
 
 /// Masked scatter operation
 template <size_t Stride_ = 0, typename Array, typename Index, typename Mask,
-          enable_if_sarray_t<Array> = 0,
+          enable_if_static_array_t<Array> = 0,
           std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size &&
                            Mask::Size == Array::Size, int> = 0>
@@ -1124,7 +1124,7 @@ ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index,
 
 /// Masked scatter operation (scalar fallback)
 template <size_t Stride_ = 0, typename Arg, typename Index,
-          enable_if_notarray_t<Arg> = 0,
+          enable_if_not_array_t<Arg> = 0,
           std::enable_if_t<std::is_integral<Index>::value, int> = 0, typename Mask>
 ENOKI_INLINE void scatter(void *mem, const Arg &value, const Index &index, const Mask &mask) {
     constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(Arg);
@@ -1135,7 +1135,7 @@ ENOKI_INLINE void scatter(void *mem, const Arg &value, const Index &index, const
 
 /// Combined gather-modify-scatter operation without conflicts
 template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
-          typename Index, typename Func, enable_if_sarray_t<Array> = 0,
+          typename Index, typename Func, enable_if_static_array_t<Array> = 0,
           std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                            Index::Size == Array::Size, int> = 0>
 ENOKI_INLINE void transform(void *mem, const Index &index, const Func &func) {
@@ -1144,7 +1144,7 @@ ENOKI_INLINE void transform(void *mem, const Index &index, const Func &func) {
 
 /// Combined gather-modify-scatter operation without conflicts (scalar fallback)
 template <typename Arg, size_t Stride = sizeof(Arg), typename Index, typename Func,
-          enable_if_notarray_t<Arg> = 0,
+          enable_if_not_array_t<Arg> = 0,
           std::enable_if_t<std::is_integral<Index>::value, int> = 0>
 ENOKI_INLINE void transform(void *mem, const Index &index, const Func &func) {
     auto ptr = (Arg *) ((uint8_t *) mem + index * Index(Stride));
@@ -1154,7 +1154,7 @@ ENOKI_INLINE void transform(void *mem, const Index &index, const Func &func) {
 /// Combined gather-modify-scatter operation without conflicts
 template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
           typename Index, typename Func, typename Mask,
-          enable_if_sarray_t<Array> = 0,
+          enable_if_static_array_t<Array> = 0,
           std::enable_if_t<std::is_integral<typename Index::Value>::value &&
                                Index::Size == Array::Size && Mask::Size == Array::Size, int> = 0>
 ENOKI_INLINE void transform(void *mem, const Index &index,
@@ -1164,7 +1164,7 @@ ENOKI_INLINE void transform(void *mem, const Index &index,
 
 /// Combined gather-modify-scatter operation without conflicts (scalar fallback)
 template <typename Arg, size_t Stride = sizeof(Arg), typename Index, typename Func,
-          typename Mask, enable_if_notarray_t<Arg> = 0,
+          typename Mask, enable_if_not_array_t<Arg> = 0,
           std::enable_if_t<std::is_integral<Index>::value, int> = 0>
 ENOKI_INLINE void transform(void *mem, const Index &index,
                             const Func &func, const Mask &mask) {
@@ -1174,14 +1174,14 @@ ENOKI_INLINE void transform(void *mem, const Index &index,
 }
 
 /// Compressing store operation
-template <typename Array, typename Mask, enable_if_sarray_t<Array> = 0,
+template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
           std::enable_if_t<Mask::Size == Array::Size, int> = 0>
 ENOKI_INLINE void store_compress(void *&mem, const Array &value, const Mask &mask) {
     value.store_compress_(mem, mask);
 }
 
 /// Compressing store operation (scalar fallback)
-template <typename Arg, enable_if_notarray_t<Arg> = 0, typename Mask>
+template <typename Arg, enable_if_not_array_t<Arg> = 0, typename Mask>
 ENOKI_INLINE void store_compress(void *&mem, const Arg &value, const Mask &mask) {
     if (detail::mask_active(mask))
         *((Arg *&) mem)++ = value;
@@ -1214,31 +1214,31 @@ template <typename T> ENOKI_INLINE auto safe_acos(T a) {
 // -----------------------------------------------------------------------
 
 /// Extract the low elements from an array of even size
-template <typename Array, enable_if_sarray_t<Array> = 0>
+template <typename Array, enable_if_static_array_t<Array> = 0>
 auto low(const Array &a) { return a.derived().low_(); }
 
 /// Extract the high elements from an array of even size
-template <typename Array, enable_if_sarray_t<Array> = 0>
+template <typename Array, enable_if_static_array_t<Array> = 0>
 auto high(const Array &a) { return a.derived().high_(); }
 
-template <typename Array, enable_if_sarray_t<Array> = 0>
+template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE auto norm(const Array &v) {
     return sqrt(dot(v, v));
 }
 
-template <typename Array, enable_if_sarray_t<Array> = 0>
+template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE auto squared_norm(const Array &v) {
     return dot(v, v);
 }
 
-template <typename Array, enable_if_sarray_t<Array> = 0>
+template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE auto normalize(const Array &v) {
     return v * Array(rsqrt<Array::Approx>(squared_norm(v)));
 }
 
 template <typename Array1, typename Array2,
-          enable_if_sarray_t<Array1> = 0,
-          enable_if_sarray_t<Array2> = 0>
+          enable_if_static_array_t<Array1> = 0,
+          enable_if_static_array_t<Array2> = 0>
 ENOKI_INLINE auto cross(const Array1 &v1, const Array2 &v2) {
     static_assert(Array1::Derived::Size == 3 && Array2::Derived::Size == 3,
                   "cross(): requires Size = 3");
@@ -1266,13 +1266,13 @@ ENOKI_INLINE const auto& array_coeff(const Array &array, size_t index) {
 }
 
 /// Access an array element by index (scalar fallback)
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE auto& array_coeff(Arg &array, size_t) {
     return array;
 }
 
 /// Access an array element by index (const, scalar fallback)
-template <typename Arg, enable_if_notarray_t<Arg> = 0>
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE const auto& array_coeff(const Arg &array, size_t) {
     return array;
 }
@@ -1323,56 +1323,13 @@ static ENOKI_INLINE Return tail(const T &value) {
 //! @}
 // -----------------------------------------------------------------------
 
-// -----------------------------------------------------------------------
-//! @{ \name Routing functions for dynamic arrays
-// -----------------------------------------------------------------------
-
-template <typename T, std::enable_if_t<is_dynamic<T>::value && is_array<T>::value, int> = 0>
-ENOKI_INLINE size_t dynamic_size(const T &value) { return value.dynamic_size_(); }
-
-template <typename T, std::enable_if_t<!is_dynamic<T>::value, int> = 0>
-ENOKI_INLINE size_t dynamic_size(const T &) { return 0; }
-
-template <typename T, std::enable_if_t<is_dynamic<T>::value && is_array<T>::value, int> = 0>
-ENOKI_INLINE void dynamic_resize(T &value, size_t size) { value.dynamic_resize_(size); }
-
-template <typename T, std::enable_if_t<!is_dynamic<T>::value, int> = 0>
-ENOKI_INLINE void dynamic_resize(T &, size_t) { }
-
-template <typename T, std::enable_if_t<is_dynamic<T>::value && is_array<T>::value, int> = 0>
-ENOKI_INLINE size_t packets(const T &value) { return value.packets_(); }
-
-template <typename T, std::enable_if_t<!is_dynamic<T>::value, int> = 0>
-ENOKI_INLINE size_t packets(const T &) { return 0; }
-
-template <typename T, std::enable_if_t<is_dynamic<T>::value && is_array<T>::value, int> = 0>
-ENOKI_INLINE auto packet(T &&value, size_t i) -> decltype(value.packet_(i)) { return value.packet_(i); }
-
-template <typename T, std::enable_if_t<!is_dynamic<T>::value, int> = 0>
-ENOKI_INLINE T packet(T &&value, size_t) { return value; }
-
-template <typename T, std::enable_if_t<is_dynamic<T>::value && is_array<T>::value, int> = 0>
-ENOKI_INLINE auto slice(T &&value, size_t i) -> decltype(value.slice_(i)) { return value.slice_(i); }
-
-template <typename T, std::enable_if_t<!is_dynamic<T>::value, int> = 0>
-ENOKI_INLINE T slice(T &&value, size_t) { return value; }
-
-template <typename T, std::enable_if_t<is_dynamic<T>::value && is_array<T>::value, int> = 0>
-ENOKI_INLINE auto ref_wrap(T &&value) -> decltype(value.ref_wrap_()) { return value.ref_wrap_(); }
-
-template <typename T, std::enable_if_t<!is_dynamic<T>::value, int> = 0>
-ENOKI_INLINE T ref_wrap(T &&value) { return value; }
-
-//! @}
-// -----------------------------------------------------------------------
-
 #define ENOKI_MASKED_OPERATOR(name, expr)                                      \
-    template <typename Arg, enable_if_notarray_t<Arg> = 0>                     \
+    template <typename Arg, enable_if_not_array_t<Arg> = 0>                     \
     ENOKI_INLINE void name(Arg &a, const Arg &b, bool m) {                     \
         if (m)                                                                 \
             a = expr;                                                          \
     }                                                                          \
-    template <typename Array, enable_if_sarray_t<Array> = 0>                   \
+    template <typename Array, enable_if_static_array_t<Array> = 0>                   \
     ENOKI_INLINE void name(Array &a, const Array &b,                           \
                            const typename Array::Mask &m) {                    \
         a.name##_(b, m);                                                       \
@@ -1385,6 +1342,64 @@ ENOKI_MASKED_OPERATOR(mdiv, a / b)
 ENOKI_MASKED_OPERATOR(mor, a | b)
 ENOKI_MASKED_OPERATOR(mand, a & b)
 ENOKI_MASKED_OPERATOR(mxor, a ^ b)
+
+// -----------------------------------------------------------------------
+//! @{ \name Adapter and routing functions for dynamic data structures
+// -----------------------------------------------------------------------
+
+template <typename T, typename = int>
+struct dynamic_support {
+    static constexpr bool is_dynamic_nested = false;
+    using dynamic_t = T;
+
+    static ENOKI_INLINE size_t dynamic_size(const T &) { return 0; }
+    static ENOKI_INLINE size_t packets(const T&) { return 0; }
+
+    template <typename T2> static ENOKI_INLINE decltype(auto) ref_wrap(T2&& value) { return value; }
+    template <typename T2> static ENOKI_INLINE decltype(auto) packet(T2&& value, size_t) { return value; }
+    template <typename T2> static ENOKI_INLINE decltype(auto) slice(T2&& value, size_t) { return value; }
+};
+
+template <typename T> ENOKI_INLINE size_t packets(const T &value) {
+    return dynamic_support<std::decay_t<T>>::packets(value);
+}
+
+template <typename T> ENOKI_INLINE size_t dynamic_size(const T &value) {
+    return dynamic_support<std::decay_t<T>>::dynamic_size(value);
+}
+
+template <typename T> ENOKI_NOINLINE void dynamic_resize(T &value, size_t size) {
+    dynamic_support<std::decay_t<T>>::dynamic_resize(value, size);
+}
+
+template <typename T>
+ENOKI_INLINE decltype(auto) packet(T &&value, size_t i) {
+    return dynamic_support<std::decay_t<T>>::packet(value, i);
+}
+
+template <typename T>
+ENOKI_INLINE decltype(auto) slice(T &&value, size_t i) {
+    return dynamic_support<std::decay_t<T>>::slice(value, i);
+}
+
+template <typename T>
+ENOKI_INLINE decltype(auto) ref_wrap(T &&value) {
+    return dynamic_support<std::decay_t<T>>::ref_wrap(value);
+}
+
+template <typename T>
+using is_dynamic_nested =
+    std::integral_constant<bool, dynamic_support<std::decay_t<T>>::is_dynamic_nested>;
+
+template <typename T>
+using make_dynamic_t = typename dynamic_support<std::decay_t<T>>::dynamic_t;
+
+template <typename T>
+using enable_if_dynamic_nested_t =
+    std::enable_if_t<is_dynamic_nested<T>::value, int>;
+
+//! @}
+// -----------------------------------------------------------------------
 
 // -----------------------------------------------------------------------
 //! @{ \name Operations to query the depth and shape of nested arrays
@@ -1409,7 +1424,7 @@ ENOKI_INLINE bool check_shape_recursive(const T &a, const size_t *shape) {
     if (*shape != size)
         return false;
     bool match = true;
-    if (is_dynamic<typename T::Value>::value) {
+    if (is_dynamic_nested<value_t<T>>::value) {
         for (size_t i = 0; i < size; ++i)
             match &= check_shape_recursive(a.derived().coeff(i), shape + 1);
     } else {
@@ -1425,7 +1440,7 @@ template <typename T, std::enable_if_t<is_array<T>::value, int> = 0>
 ENOKI_INLINE void set_shape_recursive(T &a, const size_t *shape) {
     size_t size = a.derived().size();
     a.resize_(*shape);
-    if (is_dynamic<typename T::Value>::value) {
+    if (is_dynamic_nested<value_t<T>>::value) {
         for (size_t i = 0; i < size; ++i)
             set_shape_recursive(a.derived().coeff(i), shape + 1);
     } else {

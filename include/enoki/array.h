@@ -50,9 +50,9 @@
 
 #include "array_round.h"
 
-#include "array_dynamic.h"
-
 #include "array_misc.h"
+
+#include "array_dynamic.h"
 
 #if defined(_MSC_VER)
 #  pragma warning(pop)

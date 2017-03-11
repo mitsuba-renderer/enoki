@@ -112,93 +112,58 @@ template <typename Matrix> ENOKI_INLINE Matrix identity() {
 //! @{ \name Enoki accessors for static & dynamic vectorization
 // =======================================================================
 
-/* Is this type dynamic? */
-template <typename T, size_t Size> struct is_dynamic_impl<Matrix<T, Size>> {
-    static constexpr bool value = is_dynamic<T>::value;
+template <typename T, size_t Size> struct dynamic_support<Matrix<T, Size>, enable_if_static_array_t<Matrix<T, Size>>> {
+    static constexpr bool is_dynamic_nested = enoki::is_dynamic_nested<T>::value;
+    using dynamic_t = Matrix<enoki::make_dynamic_t<T>, Size>;
+    using Value = Matrix<T, Size>;
+
+    static ENOKI_INLINE size_t dynamic_size(const Value &value) {
+        return enoki::dynamic_size(value.coeff(0, 0));
+    }
+
+    static ENOKI_INLINE size_t packets(const Value &value) {
+        return enoki::packets(value.coeff(0, 0));
+    }
+
+    static ENOKI_INLINE void dynamic_resize(Value &value, size_t size) {
+        for (size_t i = 0; i < Size; ++i)
+            enoki::dynamic_resize(value.coeff(i), size);
+    }
+
+    template <typename T2>
+    static ENOKI_INLINE auto packet(T2&& value, size_t i) {
+        return packet(value, i, std::make_index_sequence<Size>());
+    }
+
+    template <typename T2>
+    static ENOKI_INLINE auto slice(T2&& value, size_t i) {
+        return slice(value, i, std::make_index_sequence<Size>());
+    }
+
+    template <typename T2>
+    static ENOKI_INLINE auto ref_wrap(T2&& value) {
+        return ref_wrap(value, std::make_index_sequence<Size>());
+    }
+
+private:
+    template <typename T2, size_t... Index>
+    static ENOKI_INLINE auto packet(T2&& value, size_t i, std::index_sequence<Index...>) {
+        return Matrix<decltype(enoki::packet(value.coeff(0, 0), i)), Size>(
+            enoki::packet(value.coeff(Index), i)...);
+    }
+
+    template <typename T2, size_t... Index>
+    static ENOKI_INLINE auto slice(T2&& value, size_t i, std::index_sequence<Index...>) {
+        return Matrix<decltype(enoki::slice(value.coeff(0, 0), i)), Size>(
+            enoki::slice(value.coeff(Index), i)...);
+    }
+
+    template <typename T2, size_t... Index>
+    static ENOKI_INLINE auto ref_wrap(T2&& value, std::index_sequence<Index...>) {
+        return Matrix<decltype(enoki::ref_wrap(value.coeff(0, 0))), Size>(
+            enoki::ref_wrap(value.coeff(Index))...);
+    }
 };
-
-/* Create a dynamic version of this type on demand */
-template <typename T, size_t Size> struct dynamic_impl<Matrix<T, Size>> {
-    using type = Matrix<dynamic_t<T>, Size>;
-};
-
-/* How many packets are stored in this instance? */
-template <typename T, size_t Size>
-size_t packets(const Matrix<T, Size> &v) {
-    return packets(v.coeff(0));
-}
-
-/* What is the size of the dynamic dimension of this instance? */
-template <typename T, size_t Size>
-size_t dynamic_size(const Matrix<T, Size> &v) {
-    return dynamic_size(v.coeff(0));
-}
-
-/* Resize the dynamic dimension of this instance */
-template <typename T, size_t Size>
-void dynamic_resize(Matrix<T, Size> &v, size_t size) {
-    for (size_t i = 0; i < Size; ++i)
-        dynamic_resize(v.coeff(i), size);
-}
-
-template <typename T, size_t Size, size_t... Index>
-auto ref_wrap(Matrix<T, Size> &v, std::index_sequence<Index...>) {
-    using T2 = decltype(ref_wrap(v.coeff(0, 0)));
-    return Matrix<T2, Size>{ ref_wrap(v.coeff(Index))... };
-}
-
-template <typename T, size_t Size, size_t... Index>
-auto ref_wrap(const Matrix<T, Size> &v, std::index_sequence<Index...>) {
-    using T2 = decltype(ref_wrap(v.coeff(0, 0)));
-    return Matrix<T2, Size>{ ref_wrap(v.coeff(Index))... };
-}
-
-/* Construct a wrapper that references the data of this instance */
-template <typename T, size_t Size> auto ref_wrap(Matrix<T, Size> &v) {
-    return ref_wrap(v, std::make_index_sequence<Size>());
-}
-
-/* Construct a wrapper that references the data of this instance (const) */
-template <typename T, size_t Size> auto ref_wrap(const Matrix<T, Size> &v) {
-    return ref_wrap(v, std::make_index_sequence<Size>());
-}
-
-template <typename T, size_t Size, size_t... Index>
-auto packet(Matrix<T, Size> &v, size_t i, std::index_sequence<Index...>) {
-    using T2 = decltype(packet(v.coeff(0, 0), i));
-    return Matrix<T2, Size>{ packet(v.coeff(Index), i)... };
-}
-
-template <typename T, size_t Size, size_t... Index>
-auto packet(const Matrix<T, Size> &v, size_t i,
-            std::index_sequence<Index...>) {
-    using T2 = decltype(packet(v.coeff(0, 0), i));
-    return Matrix<T2, Size>{ packet(v.coeff(Index), i)... };
-}
-
-/* Return the i-th packet */
-template <typename T, size_t Size>
-auto packet(Matrix<T, Size> &v, size_t i) {
-    return packet(v, i, std::make_index_sequence<Size>());
-}
-
-/* Return the i-th packet (const) */
-template <typename T, size_t Size>
-auto packet(const Matrix<T, Size> &v, size_t i) {
-    return packet(v, i, std::make_index_sequence<Size>());
-}
-
-/* Return the i-th slice */
-template <typename T, size_t Size>
-auto slice(Matrix<T, Size> &v, size_t i) {
-    return slice(v, i, std::make_index_sequence<Size>());
-}
-
-/* Return the i-th slice (const) */
-template <typename T, size_t Size>
-auto slice(const Matrix<T, Size> &v, size_t i) {
-    return slice(v, i, std::make_index_sequence<Size>());
-}
 
 //! @}
 // =======================================================================

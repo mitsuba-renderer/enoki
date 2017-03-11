@@ -257,7 +257,7 @@ public:
 };
 
 /// SFINAE helper to test whether a class is a static array type
-template <typename T> struct is_sarray {
+template <typename T> struct is_static_array {
 private:
     static constexpr std::false_type check(void *);
     template <typename Type, size_t Size, bool Approx, RoundingMode Mode, typename Derived>
@@ -268,7 +268,7 @@ public:
 };
 
 /// SFINAE helper to test whether a class is a dynamic array type
-template <typename T> struct is_darray {
+template <typename T> struct is_dynamic_array {
 private:
     static constexpr std::false_type check(void *);
     template <typename Type, typename Derived>
@@ -282,81 +282,64 @@ template <typename T>
 using enable_if_array_t = std::enable_if_t<is_array<T>::value, int>;
 
 template <typename T>
-using enable_if_sarray_t = std::enable_if_t<is_sarray<T>::value, int>;
+using enable_if_not_array_t = std::enable_if_t<!is_array<T>::value, int>;
 
 template <typename T>
-using enable_if_darray_t = std::enable_if_t<is_darray<T>::value, int>;
+using enable_if_static_array_t = std::enable_if_t<is_static_array<T>::value, int>;
 
 template <typename T>
-using enable_if_notarray_t = std::enable_if_t<!is_array<T>::value, int>;
+using enable_if_dynamic_array_t = std::enable_if_t<is_dynamic_array<T>::value, int>;
 
 /// Type trait to access the mask type underlying an array
-template <typename T, typename = void> struct mask { using type = bool; };
+template <typename T, typename = int> struct mask { using type = bool; };
 template <typename T> using mask_t = typename mask<T>::type;
 
-template <typename T>
-struct mask<T, std::enable_if_t<is_sarray<T>::value>> {
+template <typename T> struct mask<T, enable_if_array_t<T>> {
     using type = typename std::decay_t<T>::Mask;
 };
 
 /// Type trait to access the scalar type underlying an array
-template <typename T, typename = void> struct value { using type = T; };
+template <typename T, typename = int> struct value { using type = T; };
 template <typename T> using value_t = typename value<T>::type;
 
-template <typename T>
-struct value<T, std::enable_if_t<is_array<T>::value>> {
+template <typename T> struct value<T, enable_if_array_t<T>> {
     using type = typename std::decay_t<T>::Value;
 };
 
 /// Type trait to access the base scalar type underlying a potentially nested array
-template <typename T, typename = void> struct scalar { using type = T; };
+template <typename T, typename = int> struct scalar { using type = T; };
 template <typename T> using scalar_t = typename scalar<T>::type;
 
-template <typename T>
-struct scalar<T, std::enable_if_t<is_array<T>::value>> {
+template <typename T> struct scalar<T, enable_if_array_t<T>> {
     using type = scalar_t<typename std::decay_t<T>::Value>;
 };
 
 /// Determine the nesting level of an array
-template <typename T, typename = void> struct array_depth {
+template <typename T, typename = int> struct array_depth {
     static constexpr size_t value = 0;
 };
 
-template <typename T> struct array_depth<T, std::enable_if_t<enoki::is_array<T>::value>> {
+template <typename T> struct array_depth<T, enable_if_array_t<T>> {
     static constexpr size_t value = array_depth<typename std::decay_t<T>::Value>::value + 1;
 };
 
 /// Determine the size of an array
-template <typename T, typename = void> struct array_size {
+template <typename T, typename = int> struct array_size {
     static constexpr size_t value = 1;
 };
 
-template <typename T> struct array_size<T, std::enable_if_t<enoki::is_array<T>::value>> {
+template <typename T> struct array_size<T, enable_if_array_t<T>> {
     static constexpr size_t value = std::decay_t<T>::Derived::Size;
 };
-
-template <typename T, typename = void> struct is_dynamic_internal : std::false_type { };
-template <typename T> struct is_dynamic_impl : is_dynamic_internal<T> { };
-
-template <typename T> using is_dynamic = is_dynamic_impl<std::decay_t<T>>;
-
-template <typename T>
-struct is_dynamic_internal<T, std::enable_if_t<is_sarray<T>::value>> {
-    static constexpr bool value = is_dynamic<typename std::decay_t<T>::Value>::value;
-};
-
-template <typename T>
-struct is_dynamic_internal<T, std::enable_if_t<is_darray<T>::value>> : std::true_type { };
 
 NAMESPACE_BEGIN(detail)
 
 /// Type trait to determine if a type should be handled using approximate mode by default
-template <typename T, typename = void> struct approx_default {
+template <typename T, typename = int> struct approx_default {
     static constexpr bool value = std::is_same<std::decay_t<T>, float>::value;
 };
 
-template <typename T>
-struct approx_default<T, std::enable_if_t<is_sarray<T>::value>> {
+template <typename T> struct approx_default<T, enable_if_array_t<T>> {
     static constexpr bool value = std::decay_t<T>::Approx;
 };
 
@@ -404,14 +387,14 @@ template <typename T, typename Value, typename = void>
 struct like { };
 
 template <typename T, typename Value>
-struct like<T, Value, std::enable_if_t<!is_sarray<T>::value>> {
+struct like<T, Value, std::enable_if_t<!is_static_array<T>::value>> {
     using type = Value;
 };
 
 template <typename T, typename Value> using like_t = typename like<T, Value>::type;
 
 template <typename T, typename Value>
-struct like<T, Value, std::enable_if_t<is_sarray<T>::value>> {
+struct like<T, Value, std::enable_if_t<is_static_array<T>::value>> {
 private:
     using Array = typename std::decay_t<T>::Derived;
     using Entry = like_t<value_t<Array>, Value>;
@@ -424,7 +407,7 @@ template <typename T, typename = void> struct expr { using type = std::decay_t<T
 template <typename T> using expr_t = typename expr<T>::type;
 
 template <typename T>
-struct expr<T, std::enable_if_t<is_sarray<T>::value>> {
+struct expr<T, std::enable_if_t<is_static_array<T>::value>> {
 private:
     using Td = std::decay_t<T>;
     using Entry = typename Td::Type;
@@ -561,6 +544,8 @@ using uint_array_t = like_t<T, typename detail::type_chooser<sizeof(scalar_t<T>)
 template <typename T>
 using float_array_t = like_t<T, typename detail::type_chooser<sizeof(scalar_t<T>)>::Float>;
 
+using ssize_t = std::make_signed_t<size_t>;
+
 template <typename T> using int32_array_t   = like_t<T, int32_t>;
 template <typename T> using uint32_array_t  = like_t<T, uint32_t>;
 template <typename T> using int64_array_t   = like_t<T, int64_t>;
@@ -570,23 +555,7 @@ template <typename T> using float32_array_t = like_t<T, float>;
 template <typename T> using float64_array_t = like_t<T, double>;
 template <typename T> using bool_array_t    = like_t<T, bool>;
 template <typename T> using size_array_t    = like_t<T, size_t>;
-template <typename T> using ssize_array_t   = like_t<T, std::make_signed_t<size_t>>;
-
-/// Type trait to convert nested arrays into corresponding dynamic versions
-template <typename T, typename = void> struct dynamic_internal { using type = T; };
-template <typename T> struct dynamic_impl : dynamic_internal<T> { };
-template <typename T> using dynamic_t = typename dynamic_impl<std::decay_t<T>>::type;
-
-template <typename T>
-struct dynamic_internal<T, std::enable_if_t<array_depth<T>::value == 1>> {
-    static_assert(!is_dynamic<T>::value, "enoki::dynamic: type is already dynamic.");
-    using type = DynamicArray<std::decay_t<T>>;
-};
-
-template <typename T>
-struct dynamic_internal<T, std::enable_if_t<(array_depth<T>::value > 1)>> {
-    using type = Array<dynamic_t<value_t<T>>, T::Size>;
-};
+template <typename T> using ssize_array_t   = like_t<T, ssize_t>;
 
 /// Generic string conversion routine
 template <typename T> inline std::string to_string(const T& value) {

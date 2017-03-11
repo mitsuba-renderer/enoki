@@ -24,7 +24,7 @@ template <typename T, typename = void> struct array_shape_descr {
     static PYBIND11_DESCR name_cont() { return _(""); }
 };
 
-template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_sarray<T>::value>> {
+template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_static_array<T>::value>> {
     static PYBIND11_DESCR name() {
         return array_shape_descr<enoki::value_t<T>>::name_cont() + _<T::Size>();
     }
@@ -33,7 +33,7 @@ template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_sar
     }
 };
 
-template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_darray<T>::value>> {
+template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_dynamic_array<T>::value>> {
     static PYBIND11_DESCR name() {
         return array_shape_descr<enoki::value_t<T>>::name_cont() + _("n");
     }
@@ -111,10 +111,10 @@ template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_arra
 
 private:
     template <typename T, std::enable_if_t<!enoki::is_array<T>::value, int> = 0>
-    ENOKI_INLINE static void write_buffer(Scalar *&, const T &) { }
+    static ENOKI_INLINE void write_buffer(Scalar *&, const T &) { }
 
     template <typename T, std::enable_if_t<enoki::is_array<T>::value, int> = 0>
-    ENOKI_INLINE static void write_buffer(Scalar *&buf, const T &value_) {
+    static ENOKI_INLINE void write_buffer(Scalar *&buf, const T &value_) {
         const auto &value = value_.derived();
         size_t size = value.size();
 
@@ -128,10 +128,10 @@ private:
     }
 
     template <typename T, std::enable_if_t<!enoki::is_array<T>::value, int> = 0>
-    ENOKI_INLINE static void read_buffer(const Scalar *&, T &) { }
+    static ENOKI_INLINE void read_buffer(const Scalar *&, T &) { }
 
     template <typename T, std::enable_if_t<enoki::is_array<T>::value, int> = 0>
-    ENOKI_INLINE static void read_buffer(const Scalar *&buf, T &value_) {
+    static ENOKI_INLINE void read_buffer(const Scalar *&buf, T &value_) {
         auto &value = value_.derived();
         size_t size = value.size();
 
@@ -156,7 +156,7 @@ NAMESPACE_BEGIN(enoki)
 
 template <typename T, typename = void> struct reference_dynamic { using type = T; };
 template <typename T>
-struct reference_dynamic<T, std::enable_if_t<is_dynamic<T>::value>> {
+struct reference_dynamic<T, std::enable_if_t<is_dynamic_nested<T>::value>> {
     using type = std::add_lvalue_reference_t<T>;
 };
 template <typename T>
@@ -204,8 +204,8 @@ auto vectorize_wrapper(Return (Class::*f)(Arg...) const) {
 // -----------------------------------------------------------------------
 
 /* Is this type dynamic? */
-template <typename... Arg> struct is_dynamic_impl<std::tuple<Arg...>> {
-    static constexpr bool value = !enoki::detail::all_of<(!is_dynamic<Arg>::value)...>::value;
+template <typename... Arg> struct is_dynamic_nested_impl<std::tuple<Arg...>> {
+    static constexpr bool value = !enoki::detail::all_of<(!is_dynamic_nested<Arg>::value)...>::value;
 };
 
 /* Create a dynamic version of this type on demand */
