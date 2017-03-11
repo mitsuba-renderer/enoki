@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="https://github.com/mitsuba-renderer/enoki/raw/master/resources/enoki-logo.png" alt="Enoki logo" width="400"/>
+    <img src="https://github.com/mitsuba-renderer/enoki/raw/master/docs/enoki-logo.png" alt="Enoki logo" width="400"/>
 </p>
 
 # Enoki — fast vectorized arithmetic on modern processors
