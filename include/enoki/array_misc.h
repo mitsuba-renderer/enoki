@@ -115,4 +115,33 @@ Array<Arr, 2> meshgrid(const Arr &x, const Arr &y) {
     return Array<Arr, 2>(std::move(X), std::move(Y));
 }
 
+NAMESPACE_BEGIN(detail)
+
+template <typename Array, size_t... Index, typename Value = value_t<Array>>
+ENOKI_INLINE Array sample_shifted(Value sample, std::index_sequence<Index...>) {
+    const Array shift(Value(Index) / Value(Array::Size)...);
+
+    Array value = Array(sample) + shift;
+    value[value > Value(1)] -= Value(1);
+
+    return value;
+}
+
+NAMESPACE_END(detail)
+
+/**
+ * \brief Map a uniformly distributed sample to an array of samples with shifts
+ *
+ * Given a floating point value \c x on the interval <tt>[0, 1]</tt> return a
+ * floating point array with values <tt>[x, x+offset, x+2*offset, ...]</tt>,
+ * where \c offset is the reciprocal of the array size. Entries that become
+ * greater than 1.0 wrap around to the other side of the unit inteval.
+ *
+ * This operation is useful to implement a type of correlated stratification in
+ * the context of Monte Carlo integration.
+ */
+template <typename Array> Array sample_shifted(value_t<Array> sample) {
+    return detail::sample_shifted<Array>(sample, std::make_index_sequence<Array::Size>());
+}
+
 NAMESPACE_END(enoki)
