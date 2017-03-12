@@ -1228,7 +1228,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
                  (at x=-9.7037)
             */
             Expr exp0 = exp(derived()),
-                 exp1 = Expr(Float(1)) / exp0,
+                 exp1 = rcp(exp0),
                  half = Expr(Float(.5));
 
             s_out = select(
@@ -1267,7 +1267,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
                TBD: correct behavior for +/- inf and nan
             */
             Expr exp0 = exp(derived()),
-                 exp1 = Expr(Float(1)) / exp0;
+                 exp1 = rcp(exp0);
 
             r = select(
                 abs(derived()) < Float(1e-2), derived(),
@@ -1287,9 +1287,9 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
         Expr r;
         if (Approx) {
             Expr exp0 = exp(derived()),
-                 exp1 = Expr(Float(1)) / exp0;
+                 exp1 = rcp(exp0);
 
-            r = Expr(Float(2)) / (exp0 - exp1);
+            r = rcp(exp0 - exp1) * Expr(Float(2));
         } else {
             ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
                 r.coeff(i) = csch(derived().coeff(i));
@@ -1304,9 +1304,9 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
         Expr r;
         if (Approx) {
             Expr exp0 = exp(derived()),
-                 exp1 = Expr(Float(1)) / exp0;
+                 exp1 = rcp(exp0);
 
-            r = Expr(Float(2)) / (exp0 + exp1);
+            r = rcp(exp0 + exp1) * Expr(Float(2));
         } else {
             ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
                 r.coeff(i) = sech(derived().coeff(i));
@@ -1316,12 +1316,11 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto coth_() const {
         using Expr = expr_t<Derived>;
-        using Float = Scalar;
 
         Expr r;
         if (Approx) {
             Expr exp0 = exp(derived()),
-                 exp1 = Expr(Float(1)) / exp0;
+                 exp1 = rcp(exp0);
 
             r = (exp0 + exp1) / (exp0 - exp1);
         } else {
