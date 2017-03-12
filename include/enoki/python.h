@@ -148,7 +148,6 @@ private:
     Type value;
 };
 
-
 NAMESPACE_END(detail)
 NAMESPACE_END(pybind11)
 
@@ -164,7 +163,7 @@ using reference_dynamic_t = typename reference_dynamic<T>::type;
 
 template <typename Func, typename Return, typename... Args>
 auto vectorize_wrapper_detail(Func &&f_, Return (*)(Args...)) {
-    return [f = std::forward<Func>(f_)](reference_dynamic_t<enoki::dynamic_t<Args>>... args) {
+    return [f = std::forward<Func>(f_)](reference_dynamic_t<enoki::make_dynamic_t<Args>>... args) {
         return vectorize_safe(f, args...);
     };
 }
@@ -198,110 +197,5 @@ auto vectorize_wrapper(Return (Class::*f)(Arg...) const) {
         [f](const Class *c, Arg... args) -> Return { return (c->*f)(args...); },
         (Return(*)(const Class *, Arg...)) nullptr);
 }
-
-// -----------------------------------------------------------------------
-//! @{ \name Enoki accessors for static & dynamic vectorization over tuples
-// -----------------------------------------------------------------------
-
-/* Is this type dynamic? */
-template <typename... Arg> struct is_dynamic_nested_impl<std::tuple<Arg...>> {
-    static constexpr bool value = !enoki::detail::all_of<(!is_dynamic_nested<Arg>::value)...>::value;
-};
-
-/* Create a dynamic version of this type on demand */
-template <typename... Arg> struct dynamic_impl<std::tuple<Arg...>> {
-    using type = std::tuple<dynamic_t<Arg>...>;
-};
-
-/* How many packets are stored in this instance? */
-template <typename... Arg> size_t packets(const std::tuple<Arg...> &t) {
-    return packets(std::get<0>(t));
-}
-
-/* What is the size of the dynamic dimension of this instance? */
-template <typename... Arg> size_t dynamic_size(const std::tuple<Arg...> &t) {
-    return dynamic_size(std::get<0>(t));
-}
-
-template <typename... Arg, size_t... Index>
-void dynamic_resize(std::tuple<Arg...> &t, size_t size, std::index_sequence<Index...>) {
-    bool unused[] = { (dynamic_resize(std::get<Index>(t), size), false)... };
-    (void) unused;
-}
-
-/* Resize the dynamic dimension of this instance */
-template <typename... Arg>
-void dynamic_resize(std::tuple<Arg...> &t, size_t size) {
-    dynamic_resize(t, size, std::make_index_sequence<sizeof...(Arg)>());
-}
-
-template <typename... Arg, size_t... Index>
-auto ref_wrap(std::tuple<Arg...> &t, std::index_sequence<Index...>) {
-    return std::tuple<decltype(ref_wrap(std::declval<Arg&>()))...>(
-        ref_wrap(std::get<Index>(t))...);
-}
-
-/* Construct a wrapper that references the data of this instance */
-template <typename... Arg> auto ref_wrap(std::tuple<Arg...> &t) {
-    return ref_wrap(t, std::make_index_sequence<sizeof...(Arg)>());
-}
-
-template <typename... Arg, size_t... Index>
-auto ref_wrap(const std::tuple<Arg...> &t, std::index_sequence<Index...>) {
-    return std::tuple<decltype(ref_wrap(std::declval<const Arg&>()))...>(
-        ref_wrap(std::get<Index>(t))...);
-}
-
-/* Construct a wrapper that references the data of this instance (const) */
-template <typename... Arg> auto ref_wrap(const std::tuple<Arg...> &t) {
-    return ref_wrap(t, std::make_index_sequence<sizeof...(Arg)>());
-}
-
-template <typename... Arg, size_t... Index>
-auto packet(std::tuple<Arg...> &t, size_t i, std::index_sequence<Index...>) {
-    return std::tuple<decltype(packet(std::declval<Arg&>(), i))...>(
-        packet(std::get<Index>(t), i)...);
-}
-
-/* Return the i-th packet */
-template <typename... Arg> auto packet(std::tuple<Arg...> &t, size_t i) {
-    return packet(t, i, std::make_index_sequence<sizeof...(Arg)>());
-}
-
-template <typename... Arg, size_t... Index>
-auto packet(const std::tuple<Arg...> &t, size_t i, std::index_sequence<Index...>) {
-    return std::tuple<decltype(packet(std::declval<const Arg&>(), i))...>(
-        packet(std::get<Index>(t), i)...);
-}
-
-/* Return the i-th packet (const) */
-template <typename... Arg> auto packet(const std::tuple<Arg...> &t, size_t i) {
-    return packet(t, i, std::make_index_sequence<sizeof...(Arg)>());
-}
-
-template <typename... Arg, size_t... Index>
-auto slice(std::tuple<Arg...> &t, size_t i, std::index_sequence<Index...>) {
-    return std::tuple<decltype(slice(std::declval<Arg&>(), i))...>(
-        slice(std::get<Index>(t), i)...);
-}
-
-/* Return the i-th slice */
-template <typename... Arg> auto slice(std::tuple<Arg...> &t, size_t i) {
-    return slice(t, i, std::make_index_sequence<sizeof...(Arg)>());
-}
-
-template <typename... Arg, size_t... Index>
-auto slice(const std::tuple<Arg...> &t, size_t i, std::index_sequence<Index...>) {
-    return std::tuple<decltype(slice(std::declval<const Arg&>(), i))...>(
-        slice(std::get<Index>(t), i)...);
-}
-
-/* Return the i-th slice (const) */
-template <typename... Arg> auto slice(const std::tuple<Arg...> &t, size_t i) {
-    return slice(t, i, std::make_index_sequence<sizeof...(Arg)>());
-}
-
-//! @}
-// -----------------------------------------------------------------------
 
 NAMESPACE_END(enoki)
