@@ -803,10 +803,22 @@ struct alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
 #if defined(__AVX512DQ__) && defined(__AVX512VL__)
             m = _mm_cvttps_epu32(a.derived().m);
 #else
-            ENOKI_TRACK_SCALAR for (size_t i = 0; i < Size; ++i)
-                coeff(i) = Value(a.derived().coeff(i));
-#endif
+            constexpr uint32_t limit = 1u << 31;
+            const __m128  limit_f = _mm_set1_ps((float) limit);
+            const __m128i limit_i = _mm_set1_epi32((int) limit);
 
+            __m128 v = a.derived().m;
+
+            __m128i mask =
+                _mm_castps_si128(_mm_cmpge_ps(v, limit_f));
+
+            __m128i b2 = _mm_add_epi32(
+                _mm_cvttps_epi32(_mm_sub_ps(v, limit_f)), limit_i);
+
+            __m128i b1 = _mm_cvttps_epi32(v);
+
+            m = _mm_blendv_epi8(b1, b2, mask);
+#endif
         }
     }
 

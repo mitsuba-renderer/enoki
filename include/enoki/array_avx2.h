@@ -56,8 +56,21 @@ struct alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMode::Default,
             #if defined(__AVX512VL__)
                 m = _mm256_cvttps_epu32(a.derived().m);
             #else
-                ENOKI_TRACK_SCALAR for (size_t i = 0; i < Size; ++i)
-                    coeff(i) = Value(a.derived().coeff(i));
+                constexpr uint32_t limit = 1u << 31;
+                const __m256  limit_f = _mm256_set1_ps((float) limit);
+                const __m256i limit_i = _mm256_set1_epi32((int) limit);
+
+                __m256 v = a.derived().m;
+
+                __m256i mask =
+                    _mm256_castps_si256(_mm256_cmp_ps(v, limit_f, _CMP_GE_OQ));
+
+                __m256i b2 = _mm256_add_epi32(
+                    _mm256_cvttps_epi32(_mm256_sub_ps(v, limit_f)), limit_i);
+
+                __m256i b1 = _mm256_cvttps_epi32(v);
+
+                m = _mm256_blendv_epi8(b1, b2, mask);
             #endif
         }
     }
