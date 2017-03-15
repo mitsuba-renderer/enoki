@@ -119,7 +119,7 @@ NAMESPACE_BEGIN(detail)
 
 template <typename Array, size_t... Index, typename Value = value_t<Array>>
 ENOKI_INLINE Array sample_shifted(Value sample, std::index_sequence<Index...>) {
-    const Array shift(Value(Index) / Value(Array::Size)...);
+    const Array shift((Value(Index) / Value(Array::Size))...);
 
     Array value = Array(sample) + shift;
     value[value > Value(1)] -= Value(1);
