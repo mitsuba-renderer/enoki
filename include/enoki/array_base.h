@@ -1703,12 +1703,9 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
     using Base::derived;                                                       \
     Register m;                                                                \
     ENOKI_TRIVIAL_CONSTRUCTOR(Value_)                                          \
-    StaticArrayImpl(const StaticArrayImpl &a) : m(a.m) { }                     \
     ENOKI_INLINE StaticArrayImpl(Register value) : m(value) { }                \
-    StaticArrayImpl &operator=(const StaticArrayImpl &a) {                     \
-        m = a.m;                                                               \
-        return *this;                                                          \
-    }                                                                          \
+    StaticArrayImpl(const StaticArrayImpl &a) = default;                       \
+    StaticArrayImpl &operator=(const StaticArrayImpl &a) = default;            \
     ENOKI_INLINE Value &coeff(size_t i) { return ((Value *) &m)[i]; }          \
     ENOKI_INLINE const Value &coeff(size_t i) const {                          \
         return ((const Value *) &m)[i];                                        \
