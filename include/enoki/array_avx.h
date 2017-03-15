@@ -361,9 +361,9 @@ template <bool Approx, typename Derived> struct alignas(32)
     ENOKI_INLINE Value hmin_()  const { return hmin(min(low_(), high_())); }
     ENOKI_INLINE Value hmax_()  const { return hmax(max(low_(), high_())); }
 
-    ENOKI_INLINE bool all_() const { return _mm256_movemask_ps(m) == 0xFF; }
-    ENOKI_INLINE bool any_() const { return _mm256_movemask_ps(m) != 0x00; }
-    ENOKI_INLINE bool none_() const { return _mm256_movemask_ps(m) == 0x00; }
+    ENOKI_INLINE bool all_()  const { return _mm256_testc_ps(m, _mm256_castsi256_ps(_mm256_set1_epi32(-1))); }
+    ENOKI_INLINE bool any_()  const { return !_mm256_testz_ps(m, m); }
+    ENOKI_INLINE bool none_() const { return _mm256_testz_ps(m, m); }
 
     ENOKI_INLINE size_t count_() const {
         return (size_t) _mm_popcnt_u32((unsigned int) _mm256_movemask_ps(m));
@@ -728,9 +728,10 @@ template <bool Approx, typename Derived> struct alignas(32)
     ENOKI_INLINE Value hmin_()  const { return hmin(min(low_(), high_())); }
     ENOKI_INLINE Value hmax_()  const { return hmax(max(low_(), high_())); }
 
-    ENOKI_INLINE bool all_() const { return _mm256_movemask_pd(m) == 0xF; }
-    ENOKI_INLINE bool any_() const { return _mm256_movemask_pd(m) != 0x0; }
-    ENOKI_INLINE bool none_() const { return _mm256_movemask_pd(m) == 0x0; }
+    ENOKI_INLINE bool all_()  const { return _mm256_testc_pd(m, _mm256_castsi256_pd(_mm256_set1_epi32(-1))); }
+    ENOKI_INLINE bool any_()  const { return !_mm256_testz_pd(m, m); }
+    ENOKI_INLINE bool none_() const { return _mm256_testz_pd(m, m); }
+
 
     ENOKI_INLINE size_t count_() const {
         return (size_t) _mm_popcnt_u32((unsigned int) _mm256_movemask_pd(m));

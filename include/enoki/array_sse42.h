@@ -321,9 +321,15 @@ template <bool Approx, typename Derived> struct alignas(16)
 
     #undef ENOKI_HORIZONTAL_OP
 
-    ENOKI_INLINE bool all_() const { return _mm_movemask_ps(m) == 0xF;}
-    ENOKI_INLINE bool any_() const { return _mm_movemask_ps(m) != 0x0; }
+#if defined(__AVX__)
+    ENOKI_INLINE bool all_()  const { return _mm_testc_ps(m, _mm_castsi128_ps(_mm_set1_epi32(-1))); }
+    ENOKI_INLINE bool any_()  const { return !_mm_testz_ps(m, m); }
+    ENOKI_INLINE bool none_() const { return _mm_testz_ps(m, m); }
+#else
+    ENOKI_INLINE bool all_()  const { return _mm_movemask_ps(m) == 0xF;}
+    ENOKI_INLINE bool any_()  const { return _mm_movemask_ps(m) != 0x0; }
     ENOKI_INLINE bool none_() const { return _mm_movemask_ps(m) == 0x0; }
+#endif
 
     ENOKI_INLINE size_t count_() const {
         return (size_t) _mm_popcnt_u32((unsigned int) _mm_movemask_ps(m));
@@ -674,9 +680,15 @@ template <bool Approx, typename Derived> struct alignas(16)
     #undef ENOKI_HORIZONTAL_OP
     #undef ENOKI_SHUFFLE_PD
 
-    ENOKI_INLINE bool all_() const { return _mm_movemask_pd(m) == 0x3;}
-    ENOKI_INLINE bool any_() const { return _mm_movemask_pd(m) != 0x0; }
+#if defined(__AVX__)
+    ENOKI_INLINE bool all_()  const { return _mm_testc_pd(m, _mm_castsi128_pd(_mm_set1_epi32(-1))); }
+    ENOKI_INLINE bool any_()  const { return !_mm_testz_pd(m, m); }
+    ENOKI_INLINE bool none_() const { return _mm_testz_pd(m, m); }
+#else
+    ENOKI_INLINE bool all_()  const { return _mm_movemask_pd(m) == 0x3;}
+    ENOKI_INLINE bool any_()  const { return _mm_movemask_pd(m) != 0x0; }
     ENOKI_INLINE bool none_() const { return _mm_movemask_pd(m) == 0x0; }
+#endif
 
     ENOKI_INLINE size_t count_() const {
         return (size_t) _mm_popcnt_u32((unsigned int) _mm_movemask_pd(m));
@@ -1045,9 +1057,15 @@ struct alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     #undef ENOKI_HORIZONTAL_OP
     #undef ENOKI_HORIZONTAL_OP_SIGNED
 
-    ENOKI_INLINE bool all_() const { return _mm_movemask_ps(_mm_castsi128_ps(m)) == 0xF;}
-    ENOKI_INLINE bool any_() const { return _mm_movemask_ps(_mm_castsi128_ps(m)) != 0x0; }
+#if defined(__AVX__)
+    ENOKI_INLINE bool all_()  const { return _mm_testc_si128(m, _mm_set1_epi32(-1)); }
+    ENOKI_INLINE bool any_()  const { return !_mm_testz_si128(m, m); }
+    ENOKI_INLINE bool none_() const { return _mm_testz_si128(m, m); }
+#else
+    ENOKI_INLINE bool all_()  const { return _mm_movemask_ps(_mm_castsi128_ps(m)) == 0xF;}
+    ENOKI_INLINE bool any_()  const { return _mm_movemask_ps(_mm_castsi128_ps(m)) != 0x0; }
     ENOKI_INLINE bool none_() const { return _mm_movemask_ps(_mm_castsi128_ps(m)) == 0x0; }
+#endif
 
     ENOKI_INLINE size_t count_() const {
         return (size_t) _mm_popcnt_u32((unsigned int) _mm_movemask_ps(_mm_castsi128_ps(m)));
@@ -1425,9 +1443,15 @@ struct alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMode::Default,
 
     #undef ENOKI_HORIZONTAL_OP
 
-    ENOKI_INLINE bool all_() const { return _mm_movemask_pd(_mm_castsi128_pd(m)) == 0x3;}
-    ENOKI_INLINE bool any_() const { return _mm_movemask_pd(_mm_castsi128_pd(m)) != 0x0; }
+#if defined(__AVX__)
+    ENOKI_INLINE bool all_()  const { return _mm_testc_si128(m, _mm_set1_epi32(-1)); }
+    ENOKI_INLINE bool any_()  const { return !_mm_testz_si128(m, m); }
+    ENOKI_INLINE bool none_() const { return _mm_testz_si128(m, m); }
+#else
+    ENOKI_INLINE bool all_()  const { return _mm_movemask_pd(_mm_castsi128_pd(m)) == 0x3;}
+    ENOKI_INLINE bool any_()  const { return _mm_movemask_pd(_mm_castsi128_pd(m)) != 0x0; }
     ENOKI_INLINE bool none_() const { return _mm_movemask_pd(_mm_castsi128_pd(m)) == 0x0; }
+#endif
 
     ENOKI_INLINE size_t count_() const {
         return (size_t) _mm_popcnt_u32((unsigned int) _mm_movemask_pd(_mm_castsi128_pd(m)));
@@ -1567,8 +1591,8 @@ template <bool Approx, typename Derived> struct alignas(16)
         return _mm_cvtss_f32(_mm_dp_ps(m, a.m, 0b01110001));
     }
 
-    ENOKI_INLINE bool all_() const { return (_mm_movemask_ps(m) & 7) == 7; }
-    ENOKI_INLINE bool any_() const { return (_mm_movemask_ps(m) & 7) != 0; }
+    ENOKI_INLINE bool all_()  const { return (_mm_movemask_ps(m) & 7) == 7; }
+    ENOKI_INLINE bool any_()  const { return (_mm_movemask_ps(m) & 7) != 0; }
     ENOKI_INLINE bool none_() const { return (_mm_movemask_ps(m) & 7) == 0; }
 
     ENOKI_INLINE size_t count_() const {
@@ -1704,8 +1728,8 @@ template <typename Value_, typename Derived> struct alignas(16)
     #undef ENOKI_HORIZONTAL_OP
     #undef ENOKI_HORIZONTAL_OP_SIGNED
 
-    ENOKI_INLINE bool all_() const { return (_mm_movemask_ps(_mm_castsi128_ps(m)) & 7) == 7;}
-    ENOKI_INLINE bool any_() const { return (_mm_movemask_ps(_mm_castsi128_ps(m)) & 7) != 0; }
+    ENOKI_INLINE bool all_()  const { return (_mm_movemask_ps(_mm_castsi128_ps(m)) & 7) == 7;}
+    ENOKI_INLINE bool any_()  const { return (_mm_movemask_ps(_mm_castsi128_ps(m)) & 7) != 0; }
     ENOKI_INLINE bool none_() const { return (_mm_movemask_ps(_mm_castsi128_ps(m)) & 7) == 0; }
 
     ENOKI_INLINE size_t count_() const {
