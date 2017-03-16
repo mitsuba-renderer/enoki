@@ -835,7 +835,7 @@ ENOKI_INLINE expr_t<Array> copysign(const Array &a, const Array &b) {
         return abs(a) | detail::sign_mask(b);
     } else {
         auto abs_a = abs(a);
-        return select(b > 0, abs_a, -abs_a);
+        return select(b > Scalar(0), abs_a, -abs_a);
     }
 }
 

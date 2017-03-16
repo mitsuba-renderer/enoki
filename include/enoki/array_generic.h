@@ -571,26 +571,26 @@ public:
     }
 
     /// Check if all mask bits are set
-    ENOKI_INLINE auto all_() const {
-        auto result = coeff(0);
+    ENOKI_INLINE Value all_() const {
+        Value result = coeff(0);
         ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
-            result &= coeff(i);
+            result = result & coeff(i);
         return result;
     }
 
     /// Check if any mask bits are set
-    ENOKI_INLINE auto any_() const {
-        auto result = coeff(0);
+    ENOKI_INLINE Value any_() const {
+        Value result = coeff(0);
         ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
-            result |= coeff(i);
+            result = result | coeff(i);
         return result;
     }
 
     /// Check if none of the mask bits are set
-    ENOKI_INLINE auto none_() const {
-        auto result = coeff(0);
+    ENOKI_INLINE Value none_() const {
+        Value result = coeff(0);
         ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
-            result |= coeff(i);
+            result = result | coeff(i);
         return !result;
     }
 

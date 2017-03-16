@@ -1620,7 +1620,7 @@ std::ostream &print(std::ostream &os, const Array &a,
                 os << ", ";
             } else {
                 os << ",\n";
-                for (size_t i = 0; i <= sizeof...(Indices); ++i)
+                for (size_t j = 0; j <= sizeof...(Indices); ++j)
                     os << " ";
             }
         }

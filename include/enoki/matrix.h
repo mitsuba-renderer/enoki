@@ -45,7 +45,7 @@ struct Matrix
     /// Initialize the matrix from a set of coefficients
     template <typename... Args, std::enable_if_t<
               detail::all_of<std::is_constructible<Entry, Args>::value...,
-                             sizeof...(Args) == Size * Size>::value, int> = 0>
+                             sizeof...(Args) == Size_ * Size_>::value, int> = 0>
     ENOKI_INLINE Matrix(const Args&... args) {
         alignas(alignof(Column)) Entry values[sizeof...(Args)] = { Entry(args)... };
         for (size_t j = 0; j < Size; ++j)
