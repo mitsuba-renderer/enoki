@@ -1140,6 +1140,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto sinh_() const {
         using Expr = expr_t<Derived>;
+        using Mask = mask_t<Expr>;
         using Float = Scalar;
 
         Expr r;
@@ -1147,23 +1148,37 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
         if (Approx) {
             /*
              - sinh (in [-10, 10]):
-               * avg abs. err = 2.67105e-05
-               * avg rel. err = 4.18202e-08
-                  -> in ULPs  = 0.499102
-               * max abs. err = 0.000976562
-                 (at x=-9.99998)
-               * max rel. err = 1.65943e-05
-                 -> in ULPs   = 178
-                 (at x=-0.00998974)
+               * avg abs. err = 2.92524e-05
+               * avg rel. err = 2.80831e-08
+                  -> in ULPs  = 0.336485
+               * max abs. err = 0.00195312
+                 (at x=-9.99894)
+               * max rel. err = 2.36862e-07
+                 -> in ULPs   = 3
+                 (at x=-9.69866)
             */
+            Expr x = derived(), r_small, r_big;
 
-            Expr exp0 = exp(derived()),
-                 exp1 = Float(1) / exp0;
+            Mask mask_big = abs(x) > Float(1);
 
-            r = select(
-                abs(derived()) < Float(1e-2), derived(),
-                (exp0 - exp1) * Float(0.5)
-            );
+            if (!all_nested(mask_big)) {
+                Expr x2 = x*x;
+                r_small = fmadd(
+                    poly2(x2, Expr(Float(1.66667160211E-1)),
+                              Expr(Float(8.33028376239E-3)),
+                              Expr(Float(2.03721912945E-4))),
+                    x2 * x, x);
+            }
+
+            if (any_nested(mask_big)) {
+                Expr exp0 = exp(x),
+                     exp1 = rcp(exp0);
+
+                r_big = (exp0 - exp1) * Float(0.5);
+            }
+
+            r = select(mask_big, r_big, r_small);
+
         } else {
             ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
                 r.coeff(i) = sinh(derived().coeff(i));
@@ -1190,7 +1205,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             */
 
             Expr exp0 = exp(derived()),
-                 exp1 = Float(1) / exp0;
+                 exp1 = rcp(exp0);
 
             r = (exp0 + exp1) * Float(.5f);
         } else {
@@ -1203,19 +1218,21 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     auto sincosh_() const {
         using Expr = expr_t<Derived>;
         using Float = Scalar;
+        using Mask = mask_t<Expr>;
+
         Expr s_out, c_out;
 
         if (Approx) {
             /*
              - sinh (in [-10, 10]):
-               * avg abs. err = 2.67105e-05
-               * avg rel. err = 4.18202e-08
-                  -> in ULPs  = 0.499102
-               * max abs. err = 0.000976562
-                 (at x=-9.99998)
-               * max rel. err = 1.65943e-05
-                 -> in ULPs   = 178
-                 (at x=-0.00998974)
+               * avg abs. err = 2.92524e-05
+               * avg rel. err = 2.80831e-08
+                  -> in ULPs  = 0.336485
+               * max abs. err = 0.00195312
+                 (at x=-9.99894)
+               * max rel. err = 2.36862e-07
+                 -> in ULPs   = 3
+                 (at x=-9.69866)
 
              - cosh (in [-10, 10]):
                * avg abs. err = 4.07615e-05
@@ -1227,14 +1244,23 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
                  -> in ULPs   = 2
                  (at x=-9.7037)
             */
-            Expr exp0 = exp(derived()),
-                 exp1 = rcp(exp0),
-                 half = Expr(Float(.5));
 
-            s_out = select(
-                abs(derived()) < Float(1e-2), derived(),
-                half * (exp0 - exp1)
-            );
+            Expr x = derived(),
+                 exp0 = exp(x),
+                 exp1 = rcp(exp0);
+
+            const Expr half((Float(0.5f)));
+
+            Expr x2 = x*x;
+            Expr r_small = fmadd(
+                poly2(x2, Expr(Float(1.66667160211E-1)),
+                          Expr(Float(8.33028376239E-3)),
+                          Expr(Float(2.03721912945E-4))),
+                x2 * x, x);
+
+            Mask mask_big = abs(x) > Float(1);
+
+            s_out = select(mask_big, half * (exp0 - exp1), r_small);
 
             c_out = half * (exp0 + exp1);
         } else {
@@ -1249,30 +1275,47 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     auto tanh_() const {
         using Expr = expr_t<Derived>;
+        using Mask = mask_t<Expr>;
         using Float = Scalar;
 
         Expr r;
         if (Approx) {
             /*
              - tanh (in [-10, 10]):
-               * avg abs. err = 3.81231e-08
-               * avg rel. err = 5.9058e-08
-                  -> in ULPs  = 0.866501
-               * max abs. err = 3.32482e-07
-                 (at x=-0.00998974)
-               * max rel. err = 3.32835e-05
-                 -> in ULPs   = 357
-                 (at x=-0.00998974)
-
-               TBD: correct behavior for +/- inf and nan
+               * avg abs. err = 4.44655e-08
+               * avg rel. err = 4.58074e-08
+                  -> in ULPs  = 0.698044
+               * max abs. err = 3.57628e-07
+                 (at x=-2.12867)
+               * max rel. err = 4.1006e-07
+                 -> in ULPs   = 6
+                 (at x=-2.12867)
             */
-            Expr exp0 = exp(derived()),
-                 exp1 = rcp(exp0);
 
-            r = select(
-                abs(derived()) < Float(1e-2), derived(),
-                (exp0 - exp1) / (exp0 + exp1)
-            );
+            Expr x = derived(),
+                 r_big, r_small;
+
+            Mask mask_big = abs(x) >= Float(0.625);
+
+            if (!all_nested(mask_big)) {
+                Expr x2 = x*x;
+
+                r_small = fmadd(
+                    poly4(x2, Expr(Float(-3.33332819422E-1f)),
+                              Expr(Float( 1.33314422036E-1f)),
+                              Expr(Float(-5.37397155531E-2f)),
+                              Expr(Float( 2.06390887954E-2f)),
+                              Expr(Float(-5.70498872745E-3f))),
+                    x2 * x, x);
+            }
+
+            if (any_nested(mask_big)) {
+                Expr e  = exp(x+x),
+                     e2 = rcp(e + Expr(Float(1.0f)));
+                r_big = 1.f - (e2 + e2);
+            }
+
+            r = select(mask_big, r_big, r_small);
         } else {
             ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
                 r.coeff(i) = tanh(derived().coeff(i));
@@ -1280,22 +1323,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
         return r;
     }
 
-    auto csch_() const {
-        using Expr = expr_t<Derived>;
-        using Float = Scalar;
-
-        Expr r;
-        if (Approx) {
-            Expr exp0 = exp(derived()),
-                 exp1 = rcp(exp0);
-
-            r = rcp(exp0 - exp1) * Expr(Float(2));
-        } else {
-            ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
-                r.coeff(i) = csch(derived().coeff(i));
-        }
-        return r;
-    }
+    auto csch_() const { return rcp(sinh(derived())); }
 
     auto sech_() const {
         using Expr = expr_t<Derived>;
@@ -1314,21 +1342,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
         return r;
     }
 
-    auto coth_() const {
-        using Expr = expr_t<Derived>;
-
-        Expr r;
-        if (Approx) {
-            Expr exp0 = exp(derived()),
-                 exp1 = rcp(exp0);
-
-            r = (exp0 + exp1) / (exp0 - exp1);
-        } else {
-            ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
-                r.coeff(i) = coth(derived().coeff(i));
-        }
-        return r;
-    }
+    auto coth_() const { return rcp(tanh(derived())); }
 
     auto asinh_() const {
         using Expr = expr_t<Derived>;

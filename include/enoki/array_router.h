@@ -1469,6 +1469,74 @@ template <typename T> bool ragged(const T &a) {
 //! @}
 // -----------------------------------------------------------------------
 
+// -----------------------------------------------------------------------
+//! @{ \name Polynomial evaluation with short dependency chains and
+//           fused multply-adds based on Estrin's scheme
+// -----------------------------------------------------------------------
+
+template <typename T1, typename T2>
+ENOKI_INLINE auto poly2(T1 x, T2 c0, T2 c1, T2 c2) {
+    auto x2 = x * x;
+    return fmadd(x2, c2, fmadd(x, c1, c0));
+}
+
+template <typename T1, typename T2>
+ENOKI_INLINE auto poly2n(T1 x, T2 c0, T2 c1) {
+    auto x2 = x * x;
+    return x2 + fmadd(x, c1, c0);
+}
+
+template <typename T1, typename T2>
+ENOKI_INLINE auto poly3(T1 x, T2 c0, T2 c1, T2 c2, T2 c3) {
+    auto x2 = x * x;
+    return fmadd(fmadd(c3, x, c2), x2, fmadd(c1, x, c0));
+}
+
+template <typename T1, typename T2>
+ENOKI_INLINE auto poly3n(T1 x, T2 c0, T2 c1, T2 c2) {
+    auto x2 = x * x;
+    return fmadd(c2 + x, x2, fmadd(c1, x, c0));
+}
+
+template <typename T1, typename T2>
+ENOKI_INLINE auto poly4(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4) {
+    auto x2 = x * x, x4 = x2 * x2;
+    return fmadd(fmadd(c3, x, c2), x2, fmadd(c1, x, c0) + c4*x4);
+}
+
+template <typename T1, typename T2>
+ENOKI_INLINE auto poly4n(T1 x, T2 c0, T2 c1, T2 c2, T2 c3) {
+    auto x2 = x * x, x4 = x2 * x2;
+    return fmadd(fmadd(c3, x, c2), x2, fmadd(c1, x, c0) + x4);
+}
+
+template <typename T1, typename T2>
+ENOKI_INLINE auto poly5(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5) {
+    auto x2 = x * x, x4 = x2 * x2;
+    return fmadd(fmadd(c3, x, c2), x2, fmadd(fmadd(c5, x, c4), x4, fmadd(c1, x, c0)));
+}
+
+template <typename T1, typename T2>
+ENOKI_INLINE auto poly5n(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4) {
+    auto x2 = x * x, x4 = x2 * x2;
+    return fmadd(fmadd(c3, x, c2), x2, fmadd(c4 + x, x4, fmadd(c1, x, c0)));
+}
+
+template <typename T1, typename T2>
+ENOKI_INLINE auto poly6(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5, T2 c6) {
+    auto x2 = x * x, x4 = x2 * x2;
+    return fmadd(fmadd(c6, x2, fmadd(c5, x, c4)), x4, fmadd(fmadd(c3, x, c2), x2, fmadd(c1, x, c0)));
+}
+
+template <typename T1, typename T2>
+ENOKI_INLINE auto poly6(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5) {
+    auto x2 = x * x, x4 = x2 * x2;
+    return fmadd(fmadd(c5, x, c4 + x2), x4, fmadd(fmadd(c3, x, c2), x2, fmadd(c1, x, c0)));
+}
+
+//! @}
+// -----------------------------------------------------------------------
+
 #undef ENOKI_ROUTE_BINARY
 #undef ENOKI_ROUTE_BCAST
 #undef ENOKI_ROUTE_BINARY_OPERATOR

@@ -5,7 +5,7 @@ ENOKI_TEST_FLOAT(test01_sinh) {
         [](const T &a) -> T { return sinh(a); },
         [](double a) { return std::sinh(a); },
         Value(-10), Value(10),
-        178
+        9, false
     );
 
 
@@ -20,10 +20,11 @@ ENOKI_TEST_FLOAT(test02_cosh) {
         [](double a) { return std::cosh(a); },
         Value(-10), Value(10),
 #if defined(__AVX512ER__)
-        8
+        9,
 #else
-        3
+        3,
 #endif
+        false
     );
 
     Array<T, 4> x((Value) 1);
@@ -36,7 +37,8 @@ ENOKI_TEST_FLOAT(test03_sincosh_sin) {
         [](const T &a) -> T { return sincosh(a).first; },
         [](double a) { return std::sinh(a); },
         Value(-10), Value(10),
-        178
+        9,
+        false
     );
 
     Array<T, 4> x((Value) 1), s, c;
@@ -51,10 +53,11 @@ ENOKI_TEST_FLOAT(test04_sincosh_cos) {
         [](double a) { return std::cosh(a); },
         Value(-10), Value(10),
 #if defined(__AVX512ER__)
-        8
+        9,
 #else
-        3
+        3,
 #endif
+        false
     );
 }
 
@@ -63,14 +66,42 @@ ENOKI_TEST_FLOAT(test05_tanh) {
         [](const T &a) -> T { return tanh(a); },
         [](double a) { return std::tanh(a); },
         Value(-10), Value(10),
-        357, false
+        6, false
     );
+
     Array<T, 4> x((Value) 1);
     Array<T&, 4> y(x);
     assert(tanh(x) == tanh(y));
 }
 
-ENOKI_TEST_FLOAT(test06_asinh) {
+ENOKI_TEST_FLOAT(test06_csch) {
+    test::probe_accuracy<T>(
+        [](const T &a) -> T { return csch(a); },
+        [](double a) { return 1/std::sinh(a); },
+        Value(-10), Value(10),
+        9, false
+    );
+}
+
+ENOKI_TEST_FLOAT(test07_sech) {
+    test::probe_accuracy<T>(
+        [](const T &a) -> T { return sech(a); },
+        [](double a) { return 1/std::cosh(a); },
+        Value(-10), Value(10),
+        10, false
+    );
+}
+
+ENOKI_TEST_FLOAT(test08_coth) {
+    test::probe_accuracy<T>(
+        [](const T &a) -> T { return coth(a); },
+        [](double a) { return 1/std::tanh(a); },
+        Value(-10), Value(10),
+        7, false
+    );
+}
+
+ENOKI_TEST_FLOAT(test09_asinh) {
     test::probe_accuracy<T>(
         [](const T &a) -> T { return asinh(a); },
         [](double a) { return std::asinh(a); },
@@ -82,7 +113,7 @@ ENOKI_TEST_FLOAT(test06_asinh) {
     assert(asinh(x) == asinh(y));
 }
 
-ENOKI_TEST_FLOAT(test07_acosh) {
+ENOKI_TEST_FLOAT(test11_acosh) {
     test::probe_accuracy<T>(
         [](const T &a) -> T { return acosh(a); },
         [](double a) { return std::acosh(a); },
@@ -94,7 +125,7 @@ ENOKI_TEST_FLOAT(test07_acosh) {
     assert(acosh(x) == acosh(y));
 }
 
-ENOKI_TEST_FLOAT(test08_atanh) {
+ENOKI_TEST_FLOAT(test12_atanh) {
     test::probe_accuracy<T>(
         [](const T &a) -> T { return atanh(a); },
         [](double a) { return std::atanh(a); },
@@ -106,8 +137,3 @@ ENOKI_TEST_FLOAT(test08_atanh) {
     assert(atanh(x) == atanh(y));
 }
 
-ENOKI_TEST_FLOAT(test09_remainder) {
-    assert(std::abs(T(csch(T(1.f)) - 1 / std::sinh(1.f))[0]) < 1e-6f);
-    assert(std::abs(T(sech(T(1.f)) - 1 / std::cosh(1.f))[0]) < 1e-6f);
-    assert(std::abs(T(coth(T(1.f)) - 1 / std::tanh(1.f))[0]) < 1e-6f);
-}
