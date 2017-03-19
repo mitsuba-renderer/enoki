@@ -77,7 +77,7 @@ ENOKI_TEST_FLOAT(test07_sech) {
         [](const T &a) -> T { return sech(a); },
         [](double a) { return 1/std::cosh(a); },
         Value(-10), Value(10),
-        8
+        9
     );
 }
 
@@ -119,7 +119,7 @@ ENOKI_TEST_FLOAT(test12_atanh) {
         [](const T &a) -> T { return atanh(a); },
         [](double a) { return std::atanh(a); },
         Value(-1 + 0.001), Value(1 - 0.001),
-        1
+        2
     );
     Array<T, 4> x((Value) 0.5);
     Array<T&, 4> y(x);

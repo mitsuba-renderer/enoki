@@ -98,7 +98,7 @@ ENOKI_TEST_FLOAT(test06_erf) {
     test::probe_accuracy<T>(
         [](const T &a) -> T { return erf(a); },
         [](double a) { return std::erf(a); },
-        Value(-1), Value(1), 69
+        Value(-1), Value(1), 72
     );
 
     Array<T, 4> x((Value) 0.5);

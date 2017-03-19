@@ -1,5 +1,5 @@
 /*
-    enoki/tuple.h -- vectorization support for STL pairs and tuples
+    enoki/stl.h -- vectorization support for STL pairs, tuples, and arrays
 
     Enoki is a C++ template library that enables transparent vectorization
     of numerical kernels using SIMD instruction sets available on current
@@ -113,6 +113,59 @@ private:
     static ENOKI_INLINE auto ref_wrap(T2 &&value, std::index_sequence<Index...>) {
         return std::tuple<decltype(enoki::ref_wrap(std::get<Index>(value)))...>(
             enoki::ref_wrap(std::get<Index>(value))...);
+    }
+};
+
+template <typename T, size_t Size> struct dynamic_support<std::array<T, Size>> {
+    static constexpr bool is_dynamic_nested = enoki::is_dynamic_nested<T>::value;
+    using dynamic_t = std::array<enoki::make_dynamic_t<T>, Size>;
+    using Value = std::array<T, Size>;
+
+    static ENOKI_INLINE size_t dynamic_size(const Value &value) {
+        return enoki::dynamic_size(value[0]);
+    }
+
+    static ENOKI_INLINE size_t packets(const Value &value) {
+        return enoki::packets(value[0]);
+    }
+
+    static ENOKI_INLINE void dynamic_resize(Value &value, size_t size) {
+        for (size_t i = 0; i < Size; ++i)
+            enoki::dynamic_resize(value[i], size);
+    }
+
+    template <typename T2>
+    static ENOKI_INLINE auto packet(T2 &&value, size_t i) {
+        return packet(std::forward<T2>(value), i, std::make_index_sequence<Size>());
+    }
+
+    template <typename T2>
+    static ENOKI_INLINE auto slice(T2 &&value, size_t i) {
+        return slice(std::forward<T2>(value), i, std::make_index_sequence<Size>());
+    }
+
+    template <typename T2>
+    static ENOKI_INLINE auto ref_wrap(T2 &&value) {
+        return ref_wrap(std::forward<T2>(value), std::make_index_sequence<Size>());
+    }
+
+private:
+    template <typename T2, size_t... Index>
+    static ENOKI_INLINE auto packet(T2 &&value, size_t i, std::index_sequence<Index...>) {
+        return std::array<decltype(enoki::packet(value[0], i)), Size>{{
+            enoki::packet(value[Index], i)...}};
+    }
+
+    template <typename T2, size_t... Index>
+    static ENOKI_INLINE auto slice(T2 &&value, size_t i, std::index_sequence<Index...>) {
+        return std::array<decltype(enoki::slice(value[0], i)), Size>{{
+            enoki::slice(value[Index], i)...}};
+    }
+
+    template <typename T2, size_t... Index>
+    static ENOKI_INLINE auto ref_wrap(T2 &&value, std::index_sequence<Index...>) {
+        return std::array<decltype(enoki::ref_wrap(value[0])), Size>{{
+            enoki::ref_wrap(value[Index])...}};
     }
 };
 

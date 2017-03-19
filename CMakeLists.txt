@@ -140,7 +140,7 @@ set(ENOKI_HEADERS
   ${PROJECT_SOURCE_DIR}/include/enoki/array_router.h
   ${PROJECT_SOURCE_DIR}/include/enoki/array_sse42.h
   ${PROJECT_SOURCE_DIR}/include/enoki/quaternion.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/tuple.h
+  ${PROJECT_SOURCE_DIR}/include/enoki/stl.h
   ${PROJECT_SOURCE_DIR}/include/enoki/matrix.h
   ${PROJECT_SOURCE_DIR}/include/enoki/complex.h
   ${PROJECT_SOURCE_DIR}/include/enoki/common.h
