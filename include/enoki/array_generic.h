@@ -111,8 +111,8 @@ struct StaticArrayImpl<
               std::enable_if_t<std::is_same<T, bool>::value, int> = 0,
               typename Int = typename detail::type_chooser<sizeof(T2)>::Int>
     ENOKI_INLINE StaticArrayImpl(T b)
-        : StaticArrayImpl(b ? memcpy_cast<Value>(Int(-1))
-                            : memcpy_cast<Value>(Int(0))) { }
+        : StaticArrayImpl(b ? memcpy_cast<Scalar>(Int(-1))
+                            : memcpy_cast<Scalar>(Int(0))) { }
 
     /// Initialize the individual components
     template <typename Arg, typename... Args,
