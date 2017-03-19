@@ -1019,7 +1019,7 @@ ENOKI_INLINE void store_unaligned(void *mem, const Arg &a) {
 /// Prefetch operation
 template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
           bool Write = false, size_t Level = 2, typename Index, enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<std::is_integral<typename Index::Value>::value &&
+          std::enable_if_t<std::is_integral<scalar_t<Index>>::value &&
                            Index::Size == Array::Size, int> = 0>
 ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
     Array::template prefetch_<Stride, Write, Level>(mem, index);
@@ -1042,7 +1042,7 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
 template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
           bool Write = false, size_t Level = 2, typename Index, typename Mask,
           enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<std::is_integral<typename Index::Value>::value &&
+          std::enable_if_t<std::is_integral<scalar_t<Index>>::value &&
                            Index::Size == Array::Size &&
                            Mask::Size == Array::Size, int> = 0>
 ENOKI_INLINE void prefetch(const void *mem, const Index &index,
@@ -1067,7 +1067,7 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index, const Mask &mask
 /// Gather operation
 template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
           typename Index, enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<std::is_integral<typename Index::Value>::value &&
+          std::enable_if_t<std::is_integral<scalar_t<Index>>::value &&
                            Index::Size == Array::Size, int> = 0>
 ENOKI_INLINE Array gather(const void *mem, const Index &index) {
     return Array::template gather_<Stride>(mem, index);
@@ -1084,7 +1084,7 @@ ENOKI_INLINE Arg gather(const void *mem, const Index &index) {
 /// Masked gather operation
 template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
           typename Index, typename Mask, enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<std::is_integral<typename Index::Value>::value &&
+          std::enable_if_t<std::is_integral<scalar_t<Index>>::value &&
                            Index::Size == Array::Size &&
                            Mask::Size == Array::Size, int> = 0>
 ENOKI_INLINE Array gather(const void *mem, const Index &index,
@@ -1105,7 +1105,7 @@ ENOKI_INLINE Arg gather(const void *mem, const Index &index, const Mask &mask) {
 /// Scatter operation
 template <size_t Stride_ = 0, typename Array,
           typename Index, enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<std::is_integral<typename Index::Value>::value &&
+          std::enable_if_t<std::is_integral<scalar_t<Index>>::value &&
                            Index::Size == Array::Size, int> = 0>
 ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index) {
     constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(value_t<Array>);
@@ -1125,7 +1125,7 @@ ENOKI_INLINE void scatter(void *mem, const Arg &value, const Index &index) {
 /// Masked scatter operation
 template <size_t Stride_ = 0, typename Array, typename Index, typename Mask,
           enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<std::is_integral<typename Index::Value>::value &&
+          std::enable_if_t<std::is_integral<scalar_t<Index>>::value &&
                            Index::Size == Array::Size &&
                            Mask::Size == Array::Size, int> = 0>
 ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index,
@@ -1148,7 +1148,7 @@ ENOKI_INLINE void scatter(void *mem, const Arg &value, const Index &index, const
 /// Combined gather-modify-scatter operation without conflicts
 template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
           typename Index, typename Func, enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<std::is_integral<typename Index::Value>::value &&
+          std::enable_if_t<std::is_integral<scalar_t<Index>>::value &&
                            Index::Size == Array::Size, int> = 0>
 ENOKI_INLINE void transform(void *mem, const Index &index, const Func &func) {
     Array::template transform_<Stride>(mem, index, func);
@@ -1167,7 +1167,7 @@ ENOKI_INLINE void transform(void *mem, const Index &index, const Func &func) {
 template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
           typename Index, typename Func, typename Mask,
           enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<std::is_integral<typename Index::Value>::value &&
+          std::enable_if_t<std::is_integral<scalar_t<Index>>::value &&
                                Index::Size == Array::Size && Mask::Size == Array::Size, int> = 0>
 ENOKI_INLINE void transform(void *mem, const Index &index,
                             const Func &func, const Mask &mask) {
