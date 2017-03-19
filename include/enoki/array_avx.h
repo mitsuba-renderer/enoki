@@ -126,9 +126,16 @@ template <bool Approx, typename Derived> struct alignas(32)
     ENOKI_CONVERT(int32_t) : m(_mm256_cvtepi32_ps(a.derived().m)) { }
 #endif
 
-#if defined(__AVX512DQ__) && defined(__AVX512VL__)
-    ENOKI_CONVERT(uint32_t) : m(_mm256_cvtepu32_ps(a.derived().m)) { }
-#endif
+    ENOKI_CONVERT(uint32_t) {
+        #if defined(__AVX512DQ__) && defined(__AVX512VL__)
+            m = _mm256_cvtepu32_ps(a.derived().m);
+        #else
+            auto ai = reinterpret_array<Array<int32_t, 8>>(a);
+            auto result = Derived(ai & 0x7FFFFFFF) + (Derived(float(1u << 31)) &
+                          reinterpret_array<Mask>(ai >> 31));
+            m = result.m;
+        #endif
+    }
 
     ENOKI_CONVERT(double)
         : m(detail::concat(_mm256_cvtpd_ps(low(a).m),
@@ -285,6 +292,8 @@ template <bool Approx, typename Derived> struct alignas(32)
                     r = _mm256_rcp_ps(m);   /* rel error < 1.5*2^-12 */
                 #endif
 
+                __m256 ro = r;
+
                 /* Refine using one Newton-Raphson iteration */
                 #if defined(__FMA__)
                     const __m256 two = _mm256_set1_ps(2.f);
@@ -294,7 +303,7 @@ template <bool Approx, typename Derived> struct alignas(32)
                                       _mm256_mul_ps(_mm256_mul_ps(r, r), m));
                 #endif
 
-                return r;
+                return _mm256_blendv_ps(ro, r, _mm256_cmp_ps(r, r, _CMP_EQ_OQ));
             } else {
                 return Base::rcp_();
             }
@@ -317,11 +326,12 @@ template <bool Approx, typename Derived> struct alignas(32)
                     r = _mm256_rsqrt_ps(m);   /* rel error < 1.5*2^-12 */
                 #endif
 
-                /* Refine using one Newton-Raphson iteration */
-
                 const __m256 c0 = _mm256_set1_ps(1.5f);
                 const __m256 c1 = _mm256_set1_ps(-0.5f);
 
+                __m256 ro = r;
+
+                /* Refine using one Newton-Raphson iteration */
                 #if defined(__FMA__)
                     r = _mm256_fmadd_ps(
                         r, c0,
@@ -334,7 +344,7 @@ template <bool Approx, typename Derived> struct alignas(32)
                                       _mm256_mul_ps(r, r)));
                 #endif
 
-                return r;
+                return _mm256_blendv_ps(ro, r, _mm256_cmp_ps(r, r, _CMP_EQ_OQ));
             } else {
                 return Base::rsqrt_();
             }
@@ -646,8 +656,9 @@ template <bool Approx, typename Derived> struct alignas(32)
             #endif
 
             #if !defined(__AVX512ER__)
-                /* Refine using two Newton-Raphson iterations */
+                __m256d ro = r;
 
+                /* Refine using two Newton-Raphson iterations */
                 for (int i = 0; i < 2; ++i) {
                     #if defined(__FMA__)
                         const __m256d two = _mm256_set1_pd(2.);
@@ -657,6 +668,8 @@ template <bool Approx, typename Derived> struct alignas(32)
                                           _mm256_mul_pd(_mm256_mul_pd(r, r), m));
                     #endif
                 }
+
+                r = _mm256_blendv_pd(ro, r, _mm256_cmp_pd(r, r, _CMP_EQ_OQ));
             #endif
 
             return r;
@@ -679,10 +692,12 @@ template <bool Approx, typename Derived> struct alignas(32)
             #endif
 
             #if !defined(__AVX512ER__)
-                /* Refine using two Newton-Raphson iterations */
                 const __m256d c0 = _mm256_set1_pd(1.5);
                 const __m256d c1 = _mm256_set1_pd(-0.5);
 
+                __m256d ro = r;
+
+                /* Refine using two Newton-Raphson iterations */
                 for (int i = 0; i < 2; ++i) {
                     #if defined(__FMA__)
                         r = _mm256_fmadd_pd(r, c0,
@@ -695,6 +710,8 @@ template <bool Approx, typename Derived> struct alignas(32)
                                           _mm256_mul_pd(r, r)));
                     #endif
                 }
+
+                r = _mm256_blendv_pd(ro, r, _mm256_cmp_pd(r, r, _CMP_EQ_OQ));
             #endif
 
             return r;

@@ -604,11 +604,14 @@ ENOKI_INLINE Arg rcp(const Arg &a) {
             r_ = _mm_rcp_ss(v_);       /* rel error < 1.5*2^-12 */
         #endif
 
-        float r = _mm_cvtss_f32(r_);
+        float ro = _mm_cvtss_f32(r_), r = ro;
+        const float c0 = r + r, c1 = r * r;
 
         /* Refine using one Newton-Raphson iteration */
-        const float c0 = r + r, c1 = r * r;
         r = c0 - c1 * v;
+
+        if (ENOKI_UNLIKELY(r != r))
+            r = ro;
 
         return Arg(r);
     }
@@ -625,7 +628,7 @@ ENOKI_INLINE Arg rcp(const Arg &a) {
             r_ = _mm_rcp14_sd(v_, v_); /* rel error < 2^-14 */
         #endif
 
-        double r = _mm_cvtsd_f64(r_);
+        double ro = _mm_cvtsd_f64(r_), r = ro;
 
         #if !defined(__AVX512ER__)
             /* Newton-Raphson iteration 1 */ {
@@ -637,6 +640,9 @@ ENOKI_INLINE Arg rcp(const Arg &a) {
                 r = c0 - c1 * v;
             }
         #endif
+
+        if (ENOKI_UNLIKELY(r != r))
+            r = ro;
 
         return Arg(r);
     }
@@ -673,12 +679,15 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
             r_ = _mm_rsqrt_ss(v_);       /* rel error < 1.5*2^-12 */
         #endif
 
-        float r = _mm_cvtss_f32(r_);
+        float ro = _mm_cvtss_f32(r_), r = ro;
 
         const float c0 = -.5f, c1 = -3.f;
         /* Refine using one Newton-Raphson iteration */
         float r2 = r * r, rh = r * c0;
         r = rh * (r2 * v + c1);
+
+        if (ENOKI_UNLIKELY(r != r))
+            r = ro;
 
         return Arg(r);
     }
@@ -695,7 +704,7 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
             r_ = _mm_rsqrt14_sd(v_, v_); /* rel error < 2^-14 */
         #endif
 
-        double r = _mm_cvtsd_f64(r_);
+        double ro = _mm_cvtsd_f64(r_), r = ro;
 
         #if !defined(__AVX512ER__)
             const double c0 = -.5, c1 = -3.;
@@ -708,6 +717,9 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
                 r = rh * (r2 * v + c1);
             }
         #endif
+
+        if (ENOKI_UNLIKELY(r != r))
+            r = ro;
 
         return Arg(r);
     }
@@ -1474,64 +1486,55 @@ template <typename T> bool ragged(const T &a) {
 //           fused multply-adds based on Estrin's scheme
 // -----------------------------------------------------------------------
 
-template <typename T1, typename T2>
-ENOKI_INLINE auto poly2(T1 x, T2 c0, T2 c1, T2 c2) {
-    auto x2 = x * x;
-    return fmadd(x2, c2, fmadd(x, c1, c0));
+template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
+ENOKI_INLINE T poly2(T1 x, T2 c0, T2 c1, T2 c2) {
+    T x2 = x * x;
+    return fmadd(x2, T(S(c2)), fmadd(x, T(S(c1)), T(S(c0))));
 }
 
-template <typename T1, typename T2>
-ENOKI_INLINE auto poly2n(T1 x, T2 c0, T2 c1) {
-    auto x2 = x * x;
-    return x2 + fmadd(x, c1, c0);
+template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
+ENOKI_INLINE T poly3(T1 x, T2 c0, T2 c1, T2 c2, T2 c3) {
+    T x2 = x * x;
+    return fmadd(fmadd(T(S(c3)), x, T(S(c2))), x2, fmadd(T(S(c1)), x, T(S(c0))));
 }
 
-template <typename T1, typename T2>
-ENOKI_INLINE auto poly3(T1 x, T2 c0, T2 c1, T2 c2, T2 c3) {
-    auto x2 = x * x;
-    return fmadd(fmadd(c3, x, c2), x2, fmadd(c1, x, c0));
+template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
+ENOKI_INLINE T poly4(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4) {
+    T x2 = x * x, x4 = x2 * x2;
+    return fmadd(fmadd(T(S(c3)), x, T(S(c2))), x2,
+                 fmadd(T(S(c1)), x, T(S(c0))) + T(S(c4)) * x4);
 }
 
-template <typename T1, typename T2>
-ENOKI_INLINE auto poly3n(T1 x, T2 c0, T2 c1, T2 c2) {
-    auto x2 = x * x;
-    return fmadd(c2 + x, x2, fmadd(c1, x, c0));
+template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
+ENOKI_INLINE T poly5(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5) {
+    T x2 = x * x, x4 = x2 * x2;
+    return fmadd(fmadd(T(S(c3)), x, T(S(c2))), x2,
+                 fmadd(fmadd(T(S(c5)), x, T(S(c4))), x4, fmadd(T(S(c1)), x, T(S(c0)))));
 }
 
-template <typename T1, typename T2>
-ENOKI_INLINE auto poly4(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4) {
-    auto x2 = x * x, x4 = x2 * x2;
-    return fmadd(fmadd(c3, x, c2), x2, fmadd(c1, x, c0) + c4*x4);
+template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
+ENOKI_INLINE T poly6(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5, T2 c6) {
+    T x2 = x * x, x4 = x2 * x2;
+    return fmadd(fmadd(T(S(c6)), x2, fmadd(T(S(c5)), x, T(S(c4)))), x4,
+                 fmadd(fmadd(T(S(c3)), x, T(S(c2))), x2, fmadd(T(S(c1)),
+                       x, T(S(c0)))));
 }
 
-template <typename T1, typename T2>
-ENOKI_INLINE auto poly4n(T1 x, T2 c0, T2 c1, T2 c2, T2 c3) {
-    auto x2 = x * x, x4 = x2 * x2;
-    return fmadd(fmadd(c3, x, c2), x2, fmadd(c1, x, c0) + x4);
+template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
+ENOKI_INLINE T poly7(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5, T2 c6, T2 c7) {
+    T x2 = x * x, x4 = x2 * x2;
+    return fmadd(
+        fmadd(fmadd(T(S(c7)), x, T(S(c6))), x2, fmadd(T(S(c5)), x, T(S(c4)))), x4,
+        fmadd(fmadd(T(S(c3)), x, T(S(c2))), x2, fmadd(T(S(c1)), x, T(S(c0)))));
 }
 
-template <typename T1, typename T2>
-ENOKI_INLINE auto poly5(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5) {
-    auto x2 = x * x, x4 = x2 * x2;
-    return fmadd(fmadd(c3, x, c2), x2, fmadd(fmadd(c5, x, c4), x4, fmadd(c1, x, c0)));
-}
-
-template <typename T1, typename T2>
-ENOKI_INLINE auto poly5n(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4) {
-    auto x2 = x * x, x4 = x2 * x2;
-    return fmadd(fmadd(c3, x, c2), x2, fmadd(c4 + x, x4, fmadd(c1, x, c0)));
-}
-
-template <typename T1, typename T2>
-ENOKI_INLINE auto poly6(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5, T2 c6) {
-    auto x2 = x * x, x4 = x2 * x2;
-    return fmadd(fmadd(c6, x2, fmadd(c5, x, c4)), x4, fmadd(fmadd(c3, x, c2), x2, fmadd(c1, x, c0)));
-}
-
-template <typename T1, typename T2>
-ENOKI_INLINE auto poly6(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5) {
-    auto x2 = x * x, x4 = x2 * x2;
-    return fmadd(fmadd(c5, x, c4 + x2), x4, fmadd(fmadd(c3, x, c2), x2, fmadd(c1, x, c0)));
+template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
+ENOKI_INLINE T poly8(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5, T2 c6, T2 c7, T2 c8) {
+    T x2 = x * x, x4 = x2 * x2, x8 = x4 * x4;
+    return fmadd(
+        fmadd(fmadd(T(S(c7)), x, T(S(c6))), x2, fmadd(T(S(c5)), x, T(S(c4)))), x4,
+        fmadd(fmadd(T(S(c3)), x, T(S(c2))), x2,
+              fmadd(T(S(c1)), x, T(S(c0))) + T(S(c8)) * x8));
 }
 
 //! @}

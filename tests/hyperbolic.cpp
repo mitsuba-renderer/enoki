@@ -5,7 +5,7 @@ ENOKI_TEST_FLOAT(test01_sinh) {
         [](const T &a) -> T { return sinh(a); },
         [](double a) { return std::sinh(a); },
         Value(-10), Value(10),
-        9, false
+        8
     );
 
 
@@ -19,12 +19,7 @@ ENOKI_TEST_FLOAT(test02_cosh) {
         [](const T &a) -> T { return cosh(a); },
         [](double a) { return std::cosh(a); },
         Value(-10), Value(10),
-#if defined(__AVX512ER__)
-        9,
-#else
-        3,
-#endif
-        false
+        8
     );
 
     Array<T, 4> x((Value) 1);
@@ -37,8 +32,7 @@ ENOKI_TEST_FLOAT(test03_sincosh_sin) {
         [](const T &a) -> T { return sincosh(a).first; },
         [](double a) { return std::sinh(a); },
         Value(-10), Value(10),
-        9,
-        false
+        8
     );
 
     Array<T, 4> x((Value) 1), s, c;
@@ -52,12 +46,7 @@ ENOKI_TEST_FLOAT(test04_sincosh_cos) {
         [](const T &a) -> T { return sincosh(a).second; },
         [](double a) { return std::cosh(a); },
         Value(-10), Value(10),
-#if defined(__AVX512ER__)
-        9,
-#else
-        3,
-#endif
-        false
+        8
     );
 }
 
@@ -66,7 +55,7 @@ ENOKI_TEST_FLOAT(test05_tanh) {
         [](const T &a) -> T { return tanh(a); },
         [](double a) { return std::tanh(a); },
         Value(-10), Value(10),
-        6, false
+        7
     );
 
     Array<T, 4> x((Value) 1);
@@ -79,7 +68,7 @@ ENOKI_TEST_FLOAT(test06_csch) {
         [](const T &a) -> T { return csch(a); },
         [](double a) { return 1/std::sinh(a); },
         Value(-10), Value(10),
-        9, false
+        8
     );
 }
 
@@ -88,7 +77,7 @@ ENOKI_TEST_FLOAT(test07_sech) {
         [](const T &a) -> T { return sech(a); },
         [](double a) { return 1/std::cosh(a); },
         Value(-10), Value(10),
-        10, false
+        8
     );
 }
 
@@ -97,7 +86,7 @@ ENOKI_TEST_FLOAT(test08_coth) {
         [](const T &a) -> T { return coth(a); },
         [](double a) { return 1/std::tanh(a); },
         Value(-10), Value(10),
-        7, false
+        7
     );
 }
 
@@ -106,7 +95,7 @@ ENOKI_TEST_FLOAT(test09_asinh) {
         [](const T &a) -> T { return asinh(a); },
         [](double a) { return std::asinh(a); },
         Value(-10), Value(10),
-        178, false
+        2
     );
     Array<T, 4> x((Value) 2);
     Array<T&, 4> y(x);
@@ -118,7 +107,7 @@ ENOKI_TEST_FLOAT(test11_acosh) {
         [](const T &a) -> T { return acosh(a); },
         [](double a) { return std::acosh(a); },
         Value(1), Value(10),
-        123
+        3
     );
     Array<T, 4> x((Value) 2);
     Array<T&, 4> y(x);
@@ -130,7 +119,7 @@ ENOKI_TEST_FLOAT(test12_atanh) {
         [](const T &a) -> T { return atanh(a); },
         [](double a) { return std::atanh(a); },
         Value(-1 + 0.001), Value(1 - 0.001),
-        358
+        1
     );
     Array<T, 4> x((Value) 0.5);
     Array<T&, 4> y(x);

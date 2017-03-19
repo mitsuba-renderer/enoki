@@ -378,11 +378,13 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
                    hardware and refine */
                 __m512 r = _mm512_rcp14_ps(m); /* rel error < 2^-14 */
 
+                const __m512 two = _mm512_set1_ps(2.f),
+                             ro  = r;
+
                 /* Refine using one Newton-Raphson iteration */
-                const __m512 two = _mm512_set1_ps(2.f);
                 r = _mm512_mul_ps(r, _mm512_fnmadd_ps(r, m, two));
 
-                return r;
+                return _mm512_mask_mov_ps(ro, _mm512_cmp_ps_mask(r, r, _CMP_EQ_OQ), r);
             } else {
                 return Base::rcp_();
             }
@@ -397,16 +399,17 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
             if (Approx) {
                 __m512 r = _mm512_rsqrt14_ps(m); /* rel error < 2^-14 */
 
-                /* Refine using one Newton-Raphson iteration */
-                const __m512 c0 = _mm512_set1_ps(1.5f);
-                const __m512 c1 = _mm512_set1_ps(-0.5f);
+                const __m512 c0 = _mm512_set1_ps(1.5f),
+                             c1 = _mm512_set1_ps(-0.5f),
+                             ro = r;
 
+                /* Refine using one Newton-Raphson iteration */
                 r = _mm512_fmadd_ps(
                     r, c0,
                     _mm512_mul_ps(_mm512_mul_ps(_mm512_mul_ps(m, c1), r),
                                   _mm512_mul_ps(r, r)));
 
-                return r;
+                return _mm512_mask_mov_ps(ro, _mm512_cmp_ps_mask(r, r, _CMP_EQ_OQ), r);
             } else {
                 return Base::rsqrt_();
             }
@@ -795,10 +798,14 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
             #else
                 r = _mm512_rcp14_pd(m); /* rel error < 2^-14 */
 
+                const __m512d two = _mm512_set1_pd(2),
+                              ro  = r;
+
                 /* Refine using two Newton-Raphson iterations */
-                const __m512d two = _mm512_set1_pd(2);
                 for (int i = 0; i < 2; ++i)
                     r = _mm512_mul_pd(r, _mm512_fnmadd_pd(r, m, two));
+
+                r = _mm512_mask_mov_ps(ro, _mm512_cmp_ps_mask(r, r, _CMP_EQ_OQ), r);
             #endif
 
             return r;
@@ -818,16 +825,19 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
             #else
                 r = _mm512_rsqrt14_pd(m); /* rel error < 2^-14 */
 
-                /* Refine using two Newton-Raphson iterations */
-                const __m512d c0 = _mm512_set1_pd(1.5);
-                const __m512d c1 = _mm512_set1_pd(-0.5);
+                const __m512d c0 = _mm512_set1_pd(1.5),
+                              c1 = _mm512_set1_pd(-0.5),
+                              ro = r;
 
+                /* Refine using two Newton-Raphson iterations */
                 for (int i = 0; i< 2; ++i) {
                     r = _mm512_fmadd_pd(
                         r, c0,
                         _mm512_mul_pd(_mm512_mul_pd(_mm512_mul_pd(m, c1), r),
                                       _mm512_mul_pd(r, r)));
                 }
+
+                r = _mm512_mask_mov_ps(ro, _mm512_cmp_ps_mask(r, r, _CMP_EQ_OQ), r);
             #endif
 
             return r;
