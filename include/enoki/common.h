@@ -44,8 +44,8 @@
 #  define ENOKI_NOUNROLL
 #  define ENOKI_IVDEP             __pragma(loop(ivdep))
 #  define ENOKI_PACK
-#  define ENOKI_LIKELY(x)
-#  define ENOKI_UNLIKELY(x)
+#  define ENOKI_LIKELY(x)         x
+#  define ENOKI_UNLIKELY(x)       x
 #else
 #  define ENOKI_NOINLINE          __attribute__ ((noinline))
 #  define ENOKI_INLINE            __attribute__ ((always_inline)) inline
