@@ -298,12 +298,32 @@ ENOKI_INLINE auto operator!(
     return ~a.derived();
 }
 
+template <typename Target, typename Type, size_t Size, bool Approx,
+          RoundingMode Mode, typename Derived>
+ENOKI_INLINE Target
+reinterpret_array(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
+    return Target(a.derived(), detail::reinterpret_flag());
+}
+
+template <typename Target, typename Arg, enable_if_not_array_t<Arg> = 0,
+          std::enable_if_t<!std::is_same<Target, bool>::value, int> = 0>
+ENOKI_INLINE Target reinterpret_array(const Arg &a) {
+    return memcpy_cast<Target>(a);
+}
+
+template <typename Target, typename Arg, enable_if_not_array_t<Arg> = 0,
+          std::enable_if_t<std::is_same<Target, bool>::value, int> = 0>
+ENOKI_INLINE Target reinterpret_array(const Arg &a) {
+    using Int = typename detail::type_chooser<sizeof(Arg)>::Int;
+    return memcpy_cast<Int>(a) != 0;
+}
+
 /// Arithmetic AND operator involving an array and a mask
 template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
           std::enable_if_t<!std::is_same<Array, typename Array::Mask>::value &&
                             std::is_same<Mask, typename Array::Mask>::value, int> = 0>
 ENOKI_INLINE expr_t<Array> operator&(const Array &a1, const Mask &a2) {
-    return a1.derived().and_(a2);
+    return a1.derived().and_(reinterpret_array<mask_t<Array>>(a2));
 }
 
 /// Arithmetic OR operator involving an array and a mask
@@ -311,14 +331,14 @@ template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
           std::enable_if_t<!std::is_same<Array, typename Array::Mask>::value &&
                             std::is_same<Mask, typename Array::Mask>::value, int> = 0>
 ENOKI_INLINE expr_t<Array> operator|(const Array &a1, const Mask &a2) {
-    return a1.derived().or_(a2);
+    return a1.derived().or_(reinterpret_array<mask_t<Array>>(a2));
 }
 
 template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
           std::enable_if_t<!std::is_same<Array, typename Array::Mask>::value &&
                             std::is_same<Mask, typename Array::Mask>::value, int> = 0>
 ENOKI_INLINE expr_t<Array> operator^(const Array &a1, const Mask &a2) {
-    return a1.derived().xor_(a2);
+    return a1.derived().xor_(reinterpret_array<mask_t<Array>>(a2));
 }
 
 template <typename Arg, enable_if_not_array_t<Arg> = 0,
@@ -413,7 +433,8 @@ ENOKI_INLINE auto
 select(const Mask &a1,
        const StaticArrayBase<Type, Size, Approx, Mode, Derived1> &a2,
        const StaticArrayBase<Type, Size, Approx, Mode, Derived2> &a3) {
-    return Derived1::select_(a1.derived(), a2.derived(), a3.derived());
+    return Derived1::select_(
+        reinterpret_array<mask_t<Derived1>>(a1), a2.derived(), a3.derived());
 }
 
 template <typename Mask, typename Type, size_t Size, bool Approx,
@@ -424,7 +445,7 @@ ENOKI_INLINE auto
 select(const Mask &a1,
        const StaticArrayBase<Type, Size, Approx, Mode, Derived1> &a2,
        const StaticArrayBase<Type, Size, Approx, Mode, Derived2> &a3) {
-    return Derived1::select_(typename Derived1::Mask(a1.derived()),
+    return Derived1::select_(mask_t<Derived1>(a1.derived()),
                              a2.derived(), a3.derived());
 }
 
@@ -542,26 +563,6 @@ ENOKI_INLINE auto
 ror(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,
     const typename Derived::Value &a2) {
     return ror(a1.derived(), expr_t<Derived>(a2));
-}
-
-template <typename Target, typename Type, size_t Size, bool Approx,
-          RoundingMode Mode, typename Derived>
-ENOKI_INLINE Target
-reinterpret_array(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
-    return Target(a.derived(), detail::reinterpret_flag());
-}
-
-template <typename Target, typename Arg, enable_if_not_array_t<Arg> = 0,
-          std::enable_if_t<!std::is_same<Target, bool>::value, int> = 0>
-ENOKI_INLINE Target reinterpret_array(const Arg &a) {
-    return memcpy_cast<Target>(a);
-}
-
-template <typename Target, typename Arg, enable_if_not_array_t<Arg> = 0,
-          std::enable_if_t<std::is_same<Target, bool>::value, int> = 0>
-ENOKI_INLINE Target reinterpret_array(const Arg &a) {
-    using Int = typename detail::type_chooser<sizeof(Arg)>::Int;
-    return memcpy_cast<Int>(a) != 0;
 }
 
 /// Return the element-wise maximum of two arrays (scalar fallback)
@@ -1047,7 +1048,8 @@ template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
                            Mask::Size == Array::Size, int> = 0>
 ENOKI_INLINE void prefetch(const void *mem, const Index &index,
                            const Mask &mask) {
-    Array::template prefetch_<Stride, Write, Level>(mem, index, mask);
+    Array::template prefetch_<Stride, Write, Level>(
+        mem, index, reinterpret_array<mask_t<Array>>(mask));
 }
 
 /// Masked prefetch operation (scalar fallback)
@@ -1089,7 +1091,8 @@ template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
                            Mask::Size == Array::Size, int> = 0>
 ENOKI_INLINE Array gather(const void *mem, const Index &index,
                           const Mask &mask) {
-    return Array::template gather_<Stride>(mem, index, mask);
+    return Array::template gather_<Stride>(
+        mem, index, reinterpret_array<mask_t<Array>>(mask));
 }
 
 /// Masked gather operation (scalar fallback)
@@ -1131,7 +1134,8 @@ template <size_t Stride_ = 0, typename Array, typename Index, typename Mask,
 ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index,
                           const Mask &mask) {
     constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(value_t<Array>);
-    value.template scatter_<Stride>(mem, index, mask);
+    value.template scatter_<Stride>(mem, index,
+                                    reinterpret_array<mask_t<Array>>(mask));
 }
 
 /// Masked scatter operation (scalar fallback)
@@ -1171,7 +1175,8 @@ template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
                                Index::Size == Array::Size && Mask::Size == Array::Size, int> = 0>
 ENOKI_INLINE void transform(void *mem, const Index &index,
                             const Func &func, const Mask &mask) {
-    Array::template transform_<Stride>(mem, index, func, mask);
+    Array::template transform_<Stride>(mem, index, func,
+                                       reinterpret_array<mask_t<Array>>(mask));
 }
 
 /// Combined gather-modify-scatter operation without conflicts (scalar fallback)
@@ -1189,7 +1194,7 @@ ENOKI_INLINE void transform(void *mem, const Index &index,
 template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
           std::enable_if_t<Mask::Size == Array::Size, int> = 0>
 ENOKI_INLINE void store_compress(void *&mem, const Array &value, const Mask &mask) {
-    value.store_compress_(mem, mask);
+    value.store_compress_(mem, reinterpret_array<mask_t<Array>>(mask));
 }
 
 /// Compressing store operation (scalar fallback)
