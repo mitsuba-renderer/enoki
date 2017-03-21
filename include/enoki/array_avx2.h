@@ -380,16 +380,21 @@ struct alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMode::Default,
                              _mm256_mask_compress_epi32(_mm256_setzero_si256(), k, m));
             (Value *&) ptr += _mm_popcnt_u32(k);
         #else
-            /** Fancy LUT-based partitioning algorithm, see http://stackoverflow.com/a/36949578/1130282 */
-            const __m256i shift = _mm256_setr_epi32(29, 26, 23, 20, 17, 14, 11, 8);
-            unsigned int k = (unsigned int) _mm256_movemask_ps(_mm256_castsi256_ps(mask.m));
+            /** Clever BMI2-based partitioning algorithm by Christoph Diegelmann
+                see https://goo.gl/o3ysMN for context */
 
-            __m256i tmp  = _mm256_set1_epi32(*((int32_t *) (detail::compress_lut_256 + k*3)));
-            __m256i shuf = _mm256_srli_epi32(_mm256_sllv_epi32(tmp, shift), 29);
-            __m256i perm  = _mm256_permutevar8x32_epi32(m, shuf);
+            unsigned int k = (unsigned int) _mm256_movemask_epi8(mask.m);
+            uint32_t wanted_indices = _pext_u32(0x76543210, k);
+            uint64_t expanded_indices = _pdep_u64((uint64_t) wanted_indices,
+                                                  0x0F0F0F0F0F0F0F0Full);
+            int kn = _mm_popcnt_u32(k) >> 2;
+
+            __m128i bytevec = _mm_cvtsi64_si128((long long) expanded_indices);
+            __m256i shufmask = _mm256_cvtepu8_epi32(bytevec);
+            __m256i perm = _mm256_permutevar8x32_epi32(m, shufmask);
 
             _mm256_storeu_si256((__m256i *) ptr, perm);
-            (Value *&) ptr += _mm_popcnt_u32(k);
+            (Value *&) ptr += kn;
         #endif
     }
 
@@ -752,14 +757,31 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     }
 #endif
 
-#if defined(__AVX512VL__)
     ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
-        __mmask8 k = _mm256_test_epi64_mask(mask.m, mask.m);
-        _mm256_storeu_si256((__m256i *) ptr, _mm256_mask_compress_epi64(
-                                                 _mm256_setzero_si256(), k, m));
-        (Value *&) ptr += _mm_popcnt_u32(k);
+        #if defined(__AVX512VL__)
+            __mmask8 k = _mm256_test_epi64_mask(mask.m, mask.m);
+            _mm256_storeu_si256((__m256i *) ptr, _mm256_mask_compress_epi64(
+                                                     _mm256_setzero_si256(), k, m));
+            (Value *&) ptr += _mm_popcnt_u32(k);
+        #else
+            /** Clever BMI2-based partitioning algorithm by Christoph Diegelmann
+                see https://goo.gl/o3ysMN for context */
+
+            unsigned int k = (unsigned int) _mm256_movemask_epi8(mask.m);
+            uint32_t wanted_indices = _pext_u32(0x76543210, k);
+            uint64_t expanded_indices = _pdep_u64((uint64_t) wanted_indices,
+                                                  0x0F0F0F0F0F0F0F0Full);
+            int kn = _mm_popcnt_u32(k) >> 3;
+
+            __m128i bytevec = _mm_cvtsi64_si128((long long) expanded_indices);
+            __m256i shufmask = _mm256_cvtepu8_epi32(bytevec);
+
+            __m256i perm = _mm256_permutevar8x32_epi32(m, shufmask);
+
+            _mm256_storeu_si256((__m256i *) ptr, perm);
+            (Value *&) ptr += kn;
+        #endif
     }
-#endif
 
     //! @}
     // -----------------------------------------------------------------------
