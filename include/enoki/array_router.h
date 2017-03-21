@@ -973,11 +973,26 @@ ENOKI_INLINE Array load(const void *mem) {
     return Array::load_(mem);
 }
 
+/// Load an array from aligned memory (masked)
+template <typename Array, typename Mask,
+          enable_if_static_array_t<Array> = 0,
+          std::enable_if_t<Array::Size == Mask::Size, int> = 0>
+ENOKI_INLINE Array load(const void *mem, const Mask &mask) {
+    return Array::load_(mem, reinterpret_array<mask_t<Array>>(mask));
+}
+
 /// Load an array from aligned memory (scalar fallback)
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg load(const void *mem) {
     assert((uintptr_t) mem % alignof(Arg) == 0);
     return *static_cast<const Arg *>(mem);
+}
+
+/// Load an array from aligned memory (scalar fallback, masked)
+template <typename Arg, typename Mask, enable_if_not_array_t<Arg> = 0>
+ENOKI_INLINE Arg load(const void *mem, const Mask &mask) {
+    assert((uintptr_t) mem % alignof(Arg) == 0);
+    return detail::mask_active(mask) ? *static_cast<const Arg *>(mem) : Arg(0);
 }
 
 /// Load an array from unaligned memory
@@ -986,16 +1001,37 @@ ENOKI_INLINE Array load_unaligned(const void *mem) {
     return Array::load_unaligned_(mem);
 }
 
+/// Load an array from aligned memory (masked)
+template <typename Array, typename Mask,
+          enable_if_static_array_t<Array> = 0,
+          std::enable_if_t<Array::Size == Mask::Size, int> = 0>
+ENOKI_INLINE Array load_unaligned(const void *mem, const Mask &mask) {
+    return Array::load_unaligned_(mem, reinterpret_array<mask_t<Array>>(mask));
+}
+
 /// Load an array from unaligned memory (scalar fallback)
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg load_unaligned(const void *mem) {
     return *static_cast<const Arg *>(mem);
 }
 
+/// Load an array from unaligned memory (scalar fallback, masked)
+template <typename Arg, typename Mask, enable_if_not_array_t<Arg> = 0>
+ENOKI_INLINE Arg load_unaligned(const void *mem, Mask mask) {
+    return detail::mask_active(mask) ? *static_cast<const Arg *>(mem) : Arg(0);
+}
+
 /// Store an array to aligned memory
 template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE void store(void *mem, const Array &a) {
     a.store_(mem);
+}
+
+/// Store an array to aligned memory (masked)
+template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
+          std::enable_if_t<Array::Size == Mask::Size, int> = 0>
+ENOKI_INLINE void store(void *mem, const Array &a, const Mask &mask) {
+    a.store_(mem, reinterpret_array<mask_t<Array>>(mask));
 }
 
 /// Store an array to aligned memory (scalar fallback)
@@ -1005,16 +1041,38 @@ ENOKI_INLINE void store(void *mem, const Arg &a) {
     *static_cast<Arg *>(mem) = a;
 }
 
+/// Store an array to aligned memory (scalar fallback, masked)
+template <typename Arg, typename Mask, enable_if_not_array_t<Arg> = 0>
+ENOKI_INLINE void store(void *mem, const Arg &a, const Mask &mask) {
+    assert((uintptr_t) mem % alignof(Arg) == 0);
+    if (detail::mask_active(mask))
+        *static_cast<Arg *>(mem) = a;
+}
+
 /// Store an array to unaligned memory
 template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE void store_unaligned(void *mem, const Array &a) {
     a.store_unaligned_(mem);
 }
 
+/// Store an array to unaligned memory (masked)
+template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
+          std::enable_if_t<Array::Size == Mask::Size, int> = 0>
+ENOKI_INLINE void store_unaligned(void *mem, const Array &a, const Mask &mask) {
+    a.store_unaligned_(mem, reinterpret_array<mask_t<Array>>(mask));
+}
+
 /// Store an array to unaligned memory (scalar fallback)
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE void store_unaligned(void *mem, const Arg &a) {
     *static_cast<Arg *>(mem) = a;
+}
+
+/// Store an array to unaligned memory (scalar fallback)
+template <typename Arg, typename Mask, enable_if_not_array_t<Arg> = 0>
+ENOKI_INLINE void store_unaligned(void *mem, const Arg &a, const Mask &mask) {
+    if (detail::mask_active(mask))
+        *static_cast<Arg *>(mem) = a;
 }
 
 /// Prefetch operation

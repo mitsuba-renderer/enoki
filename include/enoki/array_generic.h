@@ -743,7 +743,8 @@ public:
 
     static ENOKI_INLINE auto zero_() { return expr_t<Derived>(Value(0)); }
 
-    template <typename T = Derived, std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
+    template <typename T = Derived,
+              std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
     static ENOKI_INLINE Derived load_(const void *ptr) {
         Derived result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -751,11 +752,30 @@ public:
         return result;
     }
 
-    template <typename T = Derived, std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
+    template <typename T = Derived,
+              std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
+    static ENOKI_INLINE Derived load_(const void *ptr, const Mask &mask) {
+        Derived result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            result.coeff(i) = load<Value>(static_cast<const Value *>(ptr) + i, mask.coeff(i));
+        return result;
+    }
+
+    template <typename T = Derived,
+              std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
     static ENOKI_INLINE Derived load_unaligned_(const void *ptr) {
         Derived result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = load_unaligned<Value>(static_cast<const Value *>(ptr) + i);
+        return result;
+    }
+
+    template <typename T = Derived,
+              std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
+    static ENOKI_INLINE Derived load_unaligned_(const void *ptr, const Mask &mask) {
+        Derived result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            result.coeff(i) = load_unaligned<Value>(static_cast<const Value *>(ptr) + i, mask.coeff(i));
         return result;
     }
 
@@ -764,9 +784,19 @@ public:
             store<Value>((void *) (static_cast<Value *>(ptr) + i), coeff(i));
     }
 
+    void store_(void *ptr, const Mask &mask) const {
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            store<Value>((void *) (static_cast<Value *>(ptr) + i), coeff(i), mask.coeff(i));
+    }
+
     void store_unaligned_(void *ptr) const {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             store_unaligned<Value>((void *) (static_cast<Value *>(ptr) + i), coeff(i));
+    }
+
+    void store_unaligned_(void *ptr, const Mask &mask) const {
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            store_unaligned<Value>((void *) (static_cast<Value *>(ptr) + i), coeff(i), mask.coeff(i));
     }
 
     //! @}

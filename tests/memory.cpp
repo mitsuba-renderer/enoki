@@ -79,7 +79,7 @@ ENOKI_TEST_ALL(test06_gather_mask) {
     auto id32 = load_unaligned<Array<uint32_t, Size>>(indices32);
     auto id64 = load_unaligned<Array<uint64_t, Size>>(indices64);
     auto idx = index_sequence<uint_array_t<T>>();
-    auto even_mask = reinterpret_array<typename T::Mask>(eq(sli<1>(sri<1>(idx)), idx));
+    auto even_mask = reinterpret_array<mask_t<T>>(eq(sli<1>(sri<1>(idx)), idx));
 
     memset(dst, 0, sizeof(Value) * Size);
     store(dst, gather<T>(mem, id32, even_mask));
@@ -130,7 +130,7 @@ ENOKI_TEST_ALL(test08_scatter_mask) {
     auto id64 = load_unaligned<Array<uint64_t, Size>>(indices64);
 
     auto idx = index_sequence<uint_array_t<T>>();
-    auto even_mask = reinterpret_array<typename T::Mask>(eq(sli<1>(sri<1>(idx)), idx));
+    auto even_mask = reinterpret_array<mask_t<T>>(eq(sli<1>(sri<1>(idx)), idx));
 
     memset(dst, 0, sizeof(Value) * Size);
     scatter(dst, load<T>(mem), id32, even_mask);
@@ -155,7 +155,7 @@ ENOKI_TEST_ALL(test09_prefetch) {
     auto id32 = load_unaligned<Array<uint32_t, Size>>(indices32);
     auto id64 = load_unaligned<Array<uint64_t, Size>>(indices64);
     auto idx = index_sequence<uint_array_t<T>>();
-    auto even_mask = reinterpret_array<typename T::Mask>(eq(sli<1>(sri<1>(idx)), idx));
+    auto even_mask = reinterpret_array<mask_t<T>>(eq(sli<1>(sri<1>(idx)), idx));
 
     /* Hard to test these, let's at least make sure that it compiles
        and does not crash .. */
@@ -181,13 +181,46 @@ ENOKI_TEST_ALL(test10_transform) {
     auto index2 = uint_array_t<T>(0u);
 
     transform<T>(tmp, index, [](auto value) { return value + Value(1); });
-    transform<T>(tmp, index, [](auto value) { return value + Value(1); }, typename T::Mask(false));
+    transform<T>(tmp, index, [](auto value) { return value + Value(1); }, mask_t<T>(false));
 
     transform<T>(tmp, index2, [](auto value) { return value + Value(1); });
-    transform<T>(tmp, index2, [](auto value) { return value + Value(1); }, typename T::Mask(false));
+    transform<T>(tmp, index2, [](auto value) { return value + Value(1); }, mask_t<T>(false));
 
     assert(tmp[0] == Size + 1);
     for (size_t i = 1; i < Size; ++i) {
         assert(tmp[i] == 1);
     }
+}
+
+ENOKI_TEST_ALL(test11_load_masked) {
+    alignas(alignof(T)) Value mem[Size];
+    Value mem_u[Size];
+    Value mem2[Size];
+    for (size_t i = 0; i < Size; ++i) {
+        mem[i] = (Value) i;
+        mem_u[i] = (Value) i;
+        mem2[i] = (i % 2 == 0) ? (Value) i : (Value) 0;
+    }
+    auto idx = index_sequence<uint_array_t<T>>();
+    auto even_mask = reinterpret_array<mask_t<T>>(eq(sli<1>(sri<1>(idx)), idx));
+    assert(load<T>(mem, even_mask) == load_unaligned<T>(mem2));
+    assert(load_unaligned<T>(mem_u, even_mask) == load_unaligned<T>(mem2));
+}
+
+ENOKI_TEST_ALL(test12_store_masked) {
+    alignas(alignof(T)) Value mem[Size];
+    Value mem_u[Size];
+    Value mem2[Size];
+    for (size_t i = 0; i < Size; ++i) {
+        mem[i] = 1;
+        mem_u[i] = 1;
+        mem2[i] = (i % 2 == 0) ? (Value) i : (Value) 1;
+    }
+    auto idx = index_sequence<uint_array_t<T>>();
+    auto even_mask = reinterpret_array<mask_t<T>>(eq(sli<1>(sri<1>(idx)), idx));
+    store(mem, T(idx), even_mask);
+    store_unaligned(mem_u, T(idx), even_mask);
+
+    assert(load_unaligned<T>(mem) == load_unaligned<T>(mem2));
+    assert(load_unaligned<T>(mem_u) == load_unaligned<T>(mem2));
 }

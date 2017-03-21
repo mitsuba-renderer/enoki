@@ -497,6 +497,22 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     #undef ENOKI_MASKED_OPERATOR_FALLBACK
 
+    template <typename Mask>
+    void store_(void *ptr, const Mask &mask) const {
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
+            store<Value>((void *) (static_cast<Value *>(ptr) + i),
+                         derived().coeff(i), mask.derived().coeff(i));
+    }
+
+    template <typename T = Derived, typename Mask,
+              std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
+    static ENOKI_INLINE Derived load_(const void *ptr, const Mask &mask) {
+        Derived result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            result.coeff(i) = load<Value>(static_cast<const Value *>(ptr) + i, mask.coeff(i));
+        return result;
+    }
+
     //! @}
     // -----------------------------------------------------------------------
 

@@ -385,9 +385,19 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         store((Value *) out + Size1, a2);
     }
 
+    ENOKI_INLINE void store_(void *out, const Mask &mask) const {
+        store((Value *) out, a1, low(mask));
+        store((Value *) out + Size1, a2, high(mask));
+    }
+
     ENOKI_INLINE void store_unaligned_(void *out) const {
         store_unaligned((Value *) out, a1);
         store_unaligned((Value *) out + Size1, a2);
+    }
+
+    ENOKI_INLINE void store_unaligned_(void *out, const Mask &mask) const {
+        store_unaligned((Value *) out, a1, low(mask));
+        store_unaligned((Value *) out + Size1, a2, high(mask));
     }
 
     static ENOKI_INLINE Derived load_(const void *a) {
@@ -397,10 +407,24 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         );
     }
 
+    static ENOKI_INLINE Derived load_(const void *a, const Mask &mask) {
+        return Derived(
+            load<Array1>((Value *) a, low(mask)),
+            load<Array2>((Value *) a + Size1, high(mask))
+        );
+    }
+
     static ENOKI_INLINE Derived load_unaligned_(const void *a) {
         return Derived(
             load_unaligned<Array1>((Value *) a),
             load_unaligned<Array2>((Value *) a + Size1)
+        );
+    }
+
+    static ENOKI_INLINE Derived load_unaligned_(const void *a, const Mask &mask) {
+        return Derived(
+            load_unaligned<Array1>((Value *) a, low(mask)),
+            load_unaligned<Array2>((Value *) a + Size1, high(mask))
         );
     }
 
