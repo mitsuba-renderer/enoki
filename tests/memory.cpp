@@ -224,3 +224,14 @@ ENOKI_TEST_ALL(test12_store_masked) {
     assert(load_unaligned<T>(mem) == load_unaligned<T>(mem2));
     assert(load_unaligned<T>(mem_u) == load_unaligned<T>(mem2));
 }
+
+ENOKI_TEST_ALL(test13_range) {
+    alignas(alignof(T)) Value mem[Size*10];
+    for (size_t i = 0; i < Size*10; ++i)
+        mem[i] = 1;
+    using Index = uint_array_t<T>;
+    T sum = zero<T>();
+    for (auto pair : range<Index>(Size+1, (10*Size)/3))
+        sum += gather<T>(mem, pair.first, pair.second);
+    assert((10*Size/3) - (Size + 1) == hsum(sum));
+}

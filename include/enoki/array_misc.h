@@ -144,4 +144,49 @@ template <typename Array> Array sample_shifted(value_t<Array> sample) {
     return detail::sample_shifted<Array>(sample, std::make_index_sequence<Array::Size>());
 }
 
+/// Vectorized 'range' iteratable with automatic mask computation
+template <typename T> struct range {
+    using Scalar = scalar_t<T>;
+
+    struct iterator {
+        iterator(size_t index) : index(index) { }
+        iterator(size_t index, T value, Scalar range_end)
+            : index(index), value(value), range_end(range_end) { }
+
+        bool operator==(const iterator &it) const { return it.index == index; }
+        bool operator!=(const iterator &it) const { return it.index != index; }
+
+        iterator &operator++() {
+            index += 1;
+            value += Scalar(T::Size);
+            return *this;
+        }
+
+        std::pair<T, typename T::Mask> operator*() const {
+            return { value, value < Scalar(range_end) };
+        }
+
+    private:
+        size_t index;
+        T value, value_end;
+        Scalar range_end;
+    };
+
+    range(size_t range_end) : range_begin(0), range_end(range_end) { }
+    range(size_t range_begin, size_t range_end)
+        : range_begin(range_begin), range_end(range_end) { }
+
+    iterator begin() {
+        return iterator{ 0, index_sequence<T>() + Scalar(range_begin),
+                         Scalar(range_end) };
+    }
+
+    iterator end() {
+        return iterator{ (range_end - range_begin + T::Size - 1) / T::Size };
+    }
+
+private:
+    size_t range_begin, range_end;
+};
+
 NAMESPACE_END(enoki)
