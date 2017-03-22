@@ -32,6 +32,11 @@ struct Complex
     using Base::operator=;
 
     Complex() = default;
+    Complex(const Complex &) = default;
+    Complex(Complex &&) = default;
+    Complex &operator=(const Complex &) = default;
+    Complex &operator=(Complex &&) = default;
+
     Complex(Type f) : Base(f, Type(0)) { }
 
     template <typename T = Type,

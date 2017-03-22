@@ -23,13 +23,13 @@ int main(int /* argc */, char * /* argv */[]) {
     using UInt32Mask  = typename UInt32::Mask;
     using RNG         = PCG32<UInt32>;
     using Float32     = RNG::Float32;
-    using UInt64      = RNG::Float64;
+    using UInt64      = RNG::UInt64;
 
     /* Bin configuration */
-    const float minValue = -4;
-    const float maxValue =  4;
-    const uint32_t binCount = 31;
-    uint32_t bins[binCount] { };
+    const float min_value = -4;
+    const float max_value =  4;
+    const uint32_t bin_count = 31;
+    uint32_t bins[bin_count] { };
 
     for (size_t j = 0; j < 16 / RNG::Size; ++j) {
         RNG rng(PCG32_DEFAULT_STATE, index_sequence<UInt64>() + (j * RNG::Size));
@@ -39,13 +39,13 @@ int main(int /* argc */, char * /* argv */[]) {
             Float32 x = rng.next_float32();
 
             /* Importance sample a normal distribution */
-            Float32 y = float(M_SQRT2) * erfi(2*x - 1.f);
+            Float32 y = float(M_SQRT2) * erfi(2.f*x - 1.f);
 
             /* Compute bin index */
-            UInt32 idx((y - minValue) * binCount / (maxValue - minValue));
+            UInt32 idx((y - min_value) * float(bin_count) / (max_value - min_value));
 
             /* Discard samples that are out of bounds */
-            UInt32Mask mask = idx >= zero<UInt32>() && idx < binCount;
+            UInt32Mask mask = idx >= zero<UInt32>() && idx < bin_count;
 
             /* Increment the bin indices */
             transform<UInt32>(
@@ -58,7 +58,7 @@ int main(int /* argc */, char * /* argv */[]) {
     }
 
     uint32_t sum = 0;
-    for (uint32_t i = 0; i < binCount; ++i) {
+    for (uint32_t i = 0; i < bin_count; ++i) {
         std::cout << "bin[" << i << "] = ";
         for (uint32_t j = 0; j < bins[i] / 50000; ++j)
             std::cout << "*";

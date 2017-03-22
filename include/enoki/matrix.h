@@ -42,6 +42,12 @@ struct Matrix
     using Base::coeff;
     using Base::Size;
 
+    Matrix() = default;
+    Matrix(const Matrix &) = default;
+    Matrix(Matrix &&) = default;
+    Matrix &operator=(const Matrix &) = default;
+    Matrix &operator=(Matrix &&) = default;
+
     /// Initialize the matrix from a set of coefficients
     template <typename... Args, std::enable_if_t<
               detail::all_of<std::is_constructible<Entry, Args>::value...,

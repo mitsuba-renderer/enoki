@@ -108,11 +108,11 @@ struct StaticArrayImpl<
     }
 
     template <typename T, typename T2 = Scalar,
-              std::enable_if_t<std::is_same<T, bool>::value, int> = 0,
-              typename Int = typename detail::type_chooser<sizeof(T2)>::Int>
-    ENOKI_INLINE StaticArrayImpl(T b)
-        : StaticArrayImpl(b ? memcpy_cast<Scalar>(Int(-1))
-                            : memcpy_cast<Scalar>(Int(0))) { }
+              std::enable_if_t<std::is_same<T, bool>::value, int> = 0>
+    ENOKI_INLINE StaticArrayImpl(T value) {
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            m_data[i] = Value(value);
+    }
 
     /// Initialize the individual components
     template <typename Arg, typename... Args,
@@ -624,13 +624,13 @@ public:
 
     /// Recursive array indexing operator (const)
     template <typename... Args, std::enable_if_t<(sizeof...(Args) >= 1), int> = 0>
-    ENOKI_INLINE const auto &coeff(size_t i0, Args... other) const {
+    ENOKI_INLINE decltype(auto) coeff(size_t i0, Args... other) const {
         return coeff(i0).coeff(size_t(other)...);
     }
 
     /// Recursive array indexing operator
     template <typename... Args, std::enable_if_t<(sizeof...(Args) >= 1), int> = 0>
-    ENOKI_INLINE auto &coeff(size_t i0, Args... other) {
+    ENOKI_INLINE decltype(auto) coeff(size_t i0, Args... other) {
         return coeff(i0).coeff(size_t(other)...);
     }
 
@@ -850,6 +850,12 @@ struct Array : StaticArrayImpl<Type_, Size_, Approx_, Mode_,
                                  Array<Type_, Size_, Approx_, Mode_>>;
     using Base::Base;
     using Base::operator=;
+
+    Array() = default;
+    Array(const Array &) = default;
+    Array(Array &&) = default;
+    Array &operator=(const Array &) = default;
+    Array &operator=(Array &&) = default;
 };
 
 NAMESPACE_END(enoki)

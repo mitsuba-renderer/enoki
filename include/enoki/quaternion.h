@@ -33,6 +33,11 @@ struct Quaternion
     using Base::operator=;
 
     Quaternion() = default;
+    Quaternion(const Quaternion &) = default;
+    Quaternion(Quaternion &&) = default;
+    Quaternion &operator=(const Quaternion &) = default;
+    Quaternion &operator=(Quaternion &&) = default;
+
     Quaternion(Type f) : Base(Type(0), Type(0), Type(0), f) { }
 
     template <typename T = Type,
@@ -159,17 +164,19 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os, const Quaternion<T> &q
     return os;
 }
 
-template <typename T>
-Matrix<expr_t<T>, 4> to_matrix(const Quaternion<T> &q) {
-    auto xx = q.x() * q.x(), yy = q.y() * q.y(), zz = q.z() * q.z();
-    auto xy = q.x() * q.y(), xz = q.x() * q.z(), yz = q.y() * q.z();
-    auto xw = q.x() * q.w(), yw = q.y() * q.w(), zw = q.z() * q.w();
+template <typename T, typename Expr = expr_t<T>>
+Matrix<Expr, 4> to_matrix(const Quaternion<T> &q) {
+    const Expr c0(0), c1(1), c2(2);
 
-    return Matrix<expr_t<T>, 4>(
-         1 - 2 * (yy + zz), 2 * (xy + zw), 2 * (xz - yw), 0,
-         2 * (xy - zw), 1 - 2 * (xx + zz), 2 * (yz + xw), 0,
-         2 * (xz + yw), 2 * (yz - xw), 1 - 2 * (xx + yy), 0,
-         0, 0, 0, 1
+    Expr xx = q.x() * q.x(), yy = q.y() * q.y(), zz = q.z() * q.z();
+    Expr xy = q.x() * q.y(), xz = q.x() * q.z(), yz = q.y() * q.z();
+    Expr xw = q.x() * q.w(), yw = q.y() * q.w(), zw = q.z() * q.w();
+
+    return Matrix<Expr, 4>(
+         c1 - c2 * (yy + zz), c2 * (xy + zw), c2 * (xz - yw), c0,
+         c2 * (xy - zw), c1 - c2 * (xx + zz), c2 * (yz + xw), c0,
+         c2 * (xz + yw), c2 * (yz - xw), c1 - c2 * (xx + yy), c0,
+         c0, c0, c0, c1
     );
 }
 
@@ -177,21 +184,23 @@ template <typename T,
           typename Expr = expr_t<T>,
           typename Quat = Quaternion<Expr>>
 Quat from_matrix(const Matrix<T, 4> &mat) {
-    //  Converting a Rotation Matrix to a Quaternion
-    //  Mike Day, Insomniac Games
-    Expr t0(1 + mat(0, 0) - mat(1, 1) - mat(2, 2));
+    const Expr c0(0), c1(1), ch(0.5f);
+
+    // Converting a Rotation Matrix to a Quaternion
+    // Mike Day, Insomniac Games
+    Expr t0(c1 + mat(0, 0) - mat(1, 1) - mat(2, 2));
     Quat q0(t0, mat(0, 1) + mat(1, 0), mat(2, 0) + mat(0, 2),
             mat(1, 2) - mat(2, 1));
 
-    Expr t1(1 - mat(0, 0) + mat(1, 1) - mat(2, 2));
+    Expr t1(c1 - mat(0, 0) + mat(1, 1) - mat(2, 2));
     Quat q1(mat(0, 1) + mat(1, 0), t1, mat(1, 2) + mat(2, 1),
             mat(2, 0) - mat(0, 2));
 
-    Expr t2(1 - mat(0, 0) - mat(1, 1) + mat(2, 2));
+    Expr t2(c1 - mat(0, 0) - mat(1, 1) + mat(2, 2));
     Quat q2(mat(2, 0) + mat(0, 2), mat(1, 2) + mat(2, 1), t2,
             mat(0, 1) - mat(1, 0));
 
-    Expr t3(1 + mat(0, 0) + mat(1, 1) + mat(2, 2));
+    Expr t3(c1 + mat(0, 0) + mat(1, 1) + mat(2, 2));
     Quat q3(mat(1, 2) - mat(2, 1), mat(2, 0) - mat(0, 2),
             mat(0, 1) - mat(1, 0), t3);
 
@@ -203,11 +212,11 @@ Quat from_matrix(const Matrix<T, 4> &mat) {
     Expr t23 = select(mask1, t2, t3);
     Quat q23 = select(typename Quat::Mask(mask1), q2, q3);
 
-    auto mask2 = mat(2, 2) < 0;
+    auto mask2 = mat(2, 2) < c0;
     Expr t0123 = select(mask2, t01, t23);
     Quat q0123 = select(typename Quat::Mask(mask2), q01, q23);
 
-    return q0123 * Quat(rsqrt(t0123) * 0.5f);
+    return q0123 * Quat(rsqrt(t0123) * ch);
 }
 
 template <typename T, typename Float, typename Return = Quaternion<expr_t<T>>>

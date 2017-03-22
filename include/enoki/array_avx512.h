@@ -825,7 +825,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
                 for (int i = 0; i < 2; ++i)
                     r = _mm512_mul_pd(r, _mm512_fnmadd_pd(r, m, two));
 
-                r = _mm512_mask_mov_ps(ro, _mm512_cmp_ps_mask(r, r, _CMP_EQ_OQ), r);
+                r = _mm512_mask_mov_pd(ro, _mm512_cmp_pd_mask(r, r, _CMP_EQ_OQ), r);
             #endif
 
             return r;
@@ -857,7 +857,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
                                       _mm512_mul_pd(r, r)));
                 }
 
-                r = _mm512_mask_mov_ps(ro, _mm512_cmp_ps_mask(r, r, _CMP_EQ_OQ), r);
+                r = _mm512_mask_mov_pd(ro, _mm512_cmp_pd_mask(r, r, _CMP_EQ_OQ), r);
             #endif
 
             return r;

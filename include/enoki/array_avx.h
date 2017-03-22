@@ -812,7 +812,7 @@ template <bool Approx, typename Derived> struct alignas(32)
 
             __m128i bytevec = _mm_cvtsi64_si128((long long) expanded_indices);
             __m256i shufmask = _mm256_cvtepu8_epi32(bytevec);
-            __m256 perm = _mm256_permutevar8x32_ps(m, shufmask);
+            __m256 perm = _mm256_permutevar8x32_ps(_mm256_castpd_ps(m), shufmask);
 
             _mm256_storeu_ps((float *) ptr, perm);
             (Value *&) ptr += kn;

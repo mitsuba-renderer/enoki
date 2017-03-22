@@ -116,19 +116,19 @@ ENOKI_TEST(test06_nested_reductions) {
     using IntP = Array<int, 16>;
     using Vector3fP = Array<FloatP, 3>;
 
-    auto my_all = [](Vector3fP x) { return all(x > 4); };
-    auto my_none = [](Vector3fP x) { return none(x > 4); };
-    auto my_any = [](Vector3fP x) { return any(x > 4); };
-    auto my_count = [](Vector3fP x) { return count(x > 4); };
+    auto my_all = [](Vector3fP x) { return all(x > 4.f); };
+    auto my_none = [](Vector3fP x) { return none(x > 4.f); };
+    auto my_any = [](Vector3fP x) { return any(x > 4.f); };
+    auto my_count = [](Vector3fP x) { return count(x > 4.f); };
 
-    auto my_all_nested = [](Vector3fP x) { return all_nested(x > 4); };
-    auto my_none_nested = [](Vector3fP x) { return none_nested(x > 4); };
-    auto my_any_nested = [](Vector3fP x) { return any_nested(x > 4); };
-    auto my_count_nested = [](Vector3fP x) { return count_nested(x > 4); };
+    auto my_all_nested = [](Vector3fP x) { return all_nested(x > 4.f); };
+    auto my_none_nested = [](Vector3fP x) { return none_nested(x > 4.f); };
+    auto my_any_nested = [](Vector3fP x) { return any_nested(x > 4.f); };
+    auto my_count_nested = [](Vector3fP x) { return count_nested(x > 4.f); };
 
     auto data =
-        Vector3fP(index_sequence<FloatP>() + 0, index_sequence<FloatP>() + 1,
-                  index_sequence<FloatP>() + 2);
+        Vector3fP(index_sequence<FloatP>() + 0.f, index_sequence<FloatP>() + 1.f,
+                  index_sequence<FloatP>() + 2.f);
 
     auto str = [](auto x) {
         return to_string(select(reinterpret_array<mask_t<IntP>>(x), IntP(1), IntP(0)));
