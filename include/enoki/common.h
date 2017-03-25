@@ -540,6 +540,14 @@ using int_array_t = like_t<T, typename detail::type_chooser<sizeof(scalar_t<T>)>
 template <typename T>
 using uint_array_t = like_t<T, typename detail::type_chooser<sizeof(scalar_t<T>)>::UInt>;
 
+/// Signed version of a given array class
+template <typename T>
+using signed_array_t = like_t<T, std::make_signed_t<scalar_t<T>>>;
+
+/// Unsigned version of a given array class
+template <typename T>
+using unsigned_array_t = like_t<T, std::make_unsigned_t<scalar_t<T>>>;
+
 /// Floating point-based version of a given array class
 template <typename T>
 using float_array_t = like_t<T, typename detail::type_chooser<sizeof(scalar_t<T>)>::Float>;
