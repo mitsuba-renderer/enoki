@@ -28,14 +28,7 @@ struct Complex
 
     template <typename T> using ReplaceType = Complex<T>;
 
-    using Base::Base;
-    using Base::operator=;
-
-    Complex() = default;
-    Complex(const Complex &) = default;
-    Complex(Complex &&) = default;
-    Complex &operator=(const Complex &) = default;
-    Complex &operator=(Complex &&) = default;
+    ENOKI_DECLARE_CUSTOM_ARRAY(Base, Complex)
 
     Complex(Type f) : Base(f, Type(0)) { }
 

@@ -843,19 +843,22 @@ private:
 //! @}
 // -----------------------------------------------------------------------
 
+#define ENOKI_DECLARE_CUSTOM_ARRAY(Base, Array)                                \
+    using Base::Base;                                                          \
+    using Base::operator=;                                                     \
+    Array() = default;                                                         \
+    Array(const Array &) = default;                                            \
+    Array(Array &&) = default;                                                 \
+    Array &operator=(const Array &) = default;                                 \
+    Array &operator=(Array &&) = default;
+
 template <typename Type_, size_t Size_, bool Approx_, RoundingMode Mode_>
 struct Array : StaticArrayImpl<Type_, Size_, Approx_, Mode_,
                                Array<Type_, Size_, Approx_, Mode_>> {
     using Base = StaticArrayImpl<Type_, Size_, Approx_, Mode_,
                                  Array<Type_, Size_, Approx_, Mode_>>;
-    using Base::Base;
-    using Base::operator=;
 
-    Array() = default;
-    Array(const Array &) = default;
-    Array(Array &&) = default;
-    Array &operator=(const Array &) = default;
-    Array &operator=(Array &&) = default;
+    ENOKI_DECLARE_CUSTOM_ARRAY(Base, Array)
 };
 
 NAMESPACE_END(enoki)

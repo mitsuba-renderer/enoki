@@ -29,14 +29,7 @@ struct Quaternion
 
     template <typename T> using ReplaceType = Quaternion<T>;
 
-    using Base::Base;
-    using Base::operator=;
-
-    Quaternion() = default;
-    Quaternion(const Quaternion &) = default;
-    Quaternion(Quaternion &&) = default;
-    Quaternion &operator=(const Quaternion &) = default;
-    Quaternion &operator=(Quaternion &&) = default;
+    ENOKI_DECLARE_CUSTOM_ARRAY(Base, Quaternion)
 
     Quaternion(Type f) : Base(Type(0), Type(0), Type(0), f) { }
 

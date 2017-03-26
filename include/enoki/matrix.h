@@ -37,16 +37,10 @@ struct Matrix
 
     template <typename T> using ReplaceType = Matrix<T, Size_>;
 
-    using Base::Base;
-    using Base::operator=;
+    ENOKI_DECLARE_CUSTOM_ARRAY(Base, Matrix)
+
     using Base::coeff;
     using Base::Size;
-
-    Matrix() = default;
-    Matrix(const Matrix &) = default;
-    Matrix(Matrix &&) = default;
-    Matrix &operator=(const Matrix &) = default;
-    Matrix &operator=(Matrix &&) = default;
 
     /// Initialize the matrix from a set of coefficients
     template <typename... Args, std::enable_if_t<
