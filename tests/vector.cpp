@@ -143,4 +143,7 @@ ENOKI_TEST(array_float_07_matrix) {
     assert(to_string(a*a) == "[[7, 10],\n [15, 22]]");
     assert(to_string(a*a) == "[[7, 10],\n [15, 22]]");
     assert(to_string(a*b) == "[3, 7]");
+
+    assert(to_string(M2f::from_rows(V2f(1, 2), V2f(3, 4))) == "[[1, 2],\n [3, 4]]");
+    assert(to_string(M2f::from_cols(V2f(1, 2), V2f(3, 4))) == "[[1, 3],\n [2, 4]]");
 }

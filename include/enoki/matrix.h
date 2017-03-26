@@ -18,7 +18,7 @@
 NAMESPACE_BEGIN(enoki)
 
 /**
- * \brief Basic dense square matrix data structure
+ * \brief Dense square matrix data structure of static size
  * \remark Uses column-major storage order to permit efficient vectorization
  */
 template <typename Type_, size_t Size_>
@@ -57,6 +57,16 @@ struct Matrix
         for (size_t j = 0; j < Size; ++j)
             for (size_t i = 0; i < Size; ++i)
                 coeff(j).coeff(i) = values[i * Size + j];
+    }
+
+    template <typename... Column>
+    ENOKI_INLINE static Matrix from_cols(const Column&... cols) {
+        return Matrix(cols...);
+    }
+
+    template <typename... Row>
+    ENOKI_INLINE static Matrix from_rows(const Row&... rows) {
+        return transpose(Matrix(rows...));
     }
 
     /// Return a reference to the (i, j) element
