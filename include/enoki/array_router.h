@@ -848,7 +848,20 @@ ENOKI_INLINE expr_t<Array> copysign(const Array &a, const Array &b) {
         return abs(a) | detail::sign_mask(b);
     } else {
         auto abs_a = abs(a);
-        return select(b > Scalar(0), abs_a, -abs_a);
+        return select(b >= Scalar(0), abs_a, -abs_a);
+    }
+}
+
+template <typename Array, enable_if_static_array_t<Array> = 0>
+ENOKI_INLINE expr_t<Array> mulsign(const Array &a, const Array &b) {
+    using Scalar = scalar_t<Array>;
+
+    if (!std::is_signed<Scalar>::value) {
+        return a;
+    } else if (std::is_floating_point<Scalar>::value) {
+        return a ^ detail::sign_mask(b);
+    } else {
+        return select(b >= 0, a, -a);
     }
 }
 
@@ -860,6 +873,11 @@ inline Arg sign(const Arg &a) {
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
 inline Arg copysign(const Arg &a, const Arg &b) {
     return std::copysign(a, b);
+}
+
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
+inline Arg mulsign(const Arg &a, const Arg &b) {
+    return a * std::copysign(Arg(1), b);
 }
 
 template <typename Arg, enable_if_not_array_t<Arg> = 0>

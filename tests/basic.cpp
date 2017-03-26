@@ -360,7 +360,16 @@ ENOKI_TEST_FLOAT(test22_copysign) {
     );
 }
 
-ENOKI_TEST_ALL(test23_fmaddsub) {
+ENOKI_TEST_FLOAT(test23_mulsign) {
+    auto sample = test::sample_values<Value>(false);
+
+    test::validate_binary<T>(sample,
+        [](const T &a, const T &b) -> T { return enoki::mulsign(a, b); },
+        [](Value a, Value b) -> Value { return a*std::copysign(Value(1), b); }
+    );
+}
+
+ENOKI_TEST_ALL(test24_fmaddsub) {
     auto a = fmaddsub(T(0), T(0), T(1));
     auto b = fmsubadd(T(0), T(0), T(1));
     assert(a == -b);
@@ -368,3 +377,4 @@ ENOKI_TEST_ALL(test23_fmaddsub) {
         assert(a.coeff(0) < 0);
     assert(b.coeff(0) > 0);
 }
+
