@@ -227,14 +227,17 @@ template <bool Approx, typename Derived> struct alignas(32)
 
                 /* Refine using one Newton-Raphson iteration */
                 #if defined(__FMA__)
-                    const __m256 two = _mm256_set1_ps(2.f);
-                    r = _mm256_mul_ps(r, _mm256_fnmadd_ps(r, m, two));
+                    __m256 two = _mm256_set1_ps(2.f);
+                    __m256 t = _mm256_fnmadd_ps(r, m, two);
+                    __m256 mask = _mm256_cmp_ps(t, t, _CMP_EQ_OQ);
+                    r = _mm256_mul_ps(r, t);
                 #else
-                    r = _mm256_sub_ps(_mm256_add_ps(r, r),
-                                      _mm256_mul_ps(_mm256_mul_ps(r, r), m));
+                    __m256 t = _mm256_mul_ps(_mm256_mul_ps(r, r), m);
+                    __m256 mask = _mm256_cmp_ps(t, t, _CMP_EQ_OQ);
+                    r = _mm256_sub_ps(_mm256_add_ps(r, r), t);
                 #endif
 
-                return _mm256_blendv_ps(ro, r, _mm256_cmp_ps(r, r, _CMP_EQ_OQ));
+                return _mm256_blendv_ps(ro, r, mask);
             } else {
                 return Base::rcp_();
             }
@@ -261,21 +264,19 @@ template <bool Approx, typename Derived> struct alignas(32)
                 const __m256 c1 = _mm256_set1_ps(-0.5f);
 
                 __m256 ro = r;
+                __m256 t = _mm256_mul_ps(_mm256_mul_ps(m, c1), r);
+                __m256 mask = _mm256_cmp_ps(t, t, _CMP_EQ_OQ);
 
                 /* Refine using one Newton-Raphson iteration */
                 #if defined(__FMA__)
-                    r = _mm256_fmadd_ps(
-                        r, c0,
-                        _mm256_mul_ps(_mm256_mul_ps(_mm256_mul_ps(m, c1), r),
-                                      _mm256_mul_ps(r, r)));
+                    r = _mm256_fmadd_ps(r, c0,
+                                        _mm256_mul_ps(t, _mm256_mul_ps(r, r)));
                 #else
-                    r = _mm256_add_ps(
-                        _mm256_mul_ps(c0, r),
-                        _mm256_mul_ps(_mm256_mul_ps(_mm256_mul_ps(m, c1), r),
-                                      _mm256_mul_ps(r, r)));
+                    r = _mm256_add_ps(_mm256_mul_ps(c0, r),
+                                      _mm256_mul_ps(t, _mm256_mul_ps(r, r)));
                 #endif
 
-                return _mm256_blendv_ps(ro, r, _mm256_cmp_ps(r, r, _CMP_EQ_OQ));
+                return _mm256_blendv_ps(ro, r, mask);
             } else {
                 return Base::rsqrt_();
             }
@@ -603,31 +604,33 @@ template <bool Approx, typename Derived> struct alignas(32)
                hardware and potentially refine */
             __m256d r;
             #if defined(__AVX512ER__)
-                /* rel err < 2^28, use as is */
+                /* rel err < 2^28 */
                 r = _mm512_castpd512_pd256(
                     _mm512_rcp28_pd(_mm512_castpd256_pd512(m)));
             #elif defined(__AVX512VL__)
-                r = _mm256_rcp14_pd(m); /* rel error < 2^-14 */
+                /* rel error < 2^-14 */
+                r = _mm256_rcp14_pd(m);
             #endif
 
-            #if !defined(__AVX512ER__)
-                __m256d ro = r;
+            __m256d ro = r, mask;
 
-                /* Refine using two Newton-Raphson iterations */
-                for (int i = 0; i < 2; ++i) {
-                    #if defined(__FMA__)
-                        const __m256d two = _mm256_set1_pd(2.);
-                        r = _mm256_mul_pd(r, _mm256_fnmadd_pd(r, m, two));
-                    #else
-                        r = _mm256_sub_pd(_mm256_add_pd(r, r),
-                                          _mm256_mul_pd(_mm256_mul_pd(r, r), m));
-                    #endif
-                }
+            /* Refine using 1-2 Newton-Raphson iterations */
+            ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
+                #if defined(__FMA__)
+                    const __m256d two = _mm256_set1_pd(2.);
+                    __m256d t = _mm256_fnmadd_pd(r, m, two);
+                    if (i == 0)
+                        mask = _mm256_cmp_pd(t, t, _CMP_EQ_OQ);
+                    r = _mm256_mul_pd(r, t);
+                #else
+                    __m256d t = _mm256_mul_pd(_mm256_mul_pd(r, r), m);
+                    if (i == 0)
+                        mask = _mm256_cmp_pd(t, t, _CMP_EQ_OQ);
+                    r = _mm256_sub_pd(_mm256_add_pd(r, r), t);
+                #endif
+            }
 
-                r = _mm256_blendv_pd(ro, r, _mm256_cmp_pd(r, r, _CMP_EQ_OQ));
-            #endif
-
-            return r;
+            return _mm256_blendv_pd(ro, r, mask);
         } else {
             return Base::rcp_();
         }
@@ -639,37 +642,33 @@ template <bool Approx, typename Derived> struct alignas(32)
                on the current hardware and potentially refine */
             __m256d r;
             #if defined(__AVX512ER__)
-                /* rel err < 2^28, use as is */
+                /* rel err < 2^28 */
                 r = _mm512_castpd512_pd256(
                     _mm512_rsqrt28_pd(_mm512_castpd256_pd512(m)));
             #elif defined(__AVX512VL__)
-                r = _mm256_rsqrt14_pd(m); /* rel error < 2^-14 */
+                /* rel error < 2^-14 */
+                r = _mm256_rsqrt14_pd(m);
             #endif
 
-            #if !defined(__AVX512ER__)
-                const __m256d c0 = _mm256_set1_pd(1.5);
-                const __m256d c1 = _mm256_set1_pd(-0.5);
+            const __m256d c0 = _mm256_set1_pd(1.5);
+            const __m256d c1 = _mm256_set1_pd(-0.5);
 
-                __m256d ro = r;
+            __m256d ro = r, mask;
 
-                /* Refine using two Newton-Raphson iterations */
-                for (int i = 0; i < 2; ++i) {
-                    #if defined(__FMA__)
-                        r = _mm256_fmadd_pd(r, c0,
-                            _mm256_mul_pd(_mm256_mul_pd(_mm256_mul_pd(m, c1), r),
-                                          _mm256_mul_pd(r, r)));
-                    #else
-                        r = _mm256_add_pd(
-                            _mm256_mul_pd(c0, r),
-                            _mm256_mul_pd(_mm256_mul_pd(_mm256_mul_pd(m, c1), r),
-                                          _mm256_mul_pd(r, r)));
-                    #endif
-                }
+            /* Refine using 1-2 Newton-Raphson iterations */
+            ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
+                __m256d t = _mm256_mul_pd(_mm256_mul_pd(m, c1), r);
+                if (i == 0)
+                    mask = _mm256_cmp_pd(t, t, _CMP_EQ_OQ);
+                #if defined(__FMA__)
+                    r = _mm256_fmadd_pd(r, c0, _mm256_mul_pd(t, _mm256_mul_pd(r, r)));
+                #else
+                    r = _mm256_add_pd(_mm256_mul_pd(c0, r),
+                            _mm256_mul_pd(t, _mm256_mul_pd(r, r)));
+                #endif
+            }
 
-                r = _mm256_blendv_pd(ro, r, _mm256_cmp_pd(r, r, _CMP_EQ_OQ));
-            #endif
-
-            return r;
+            return _mm256_blendv_pd(ro, r, mask);
         } else {
             return Base::rsqrt_();
         }

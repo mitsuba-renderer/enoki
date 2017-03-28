@@ -596,56 +596,65 @@ ENOKI_INLINE Arg rcp(const Arg &a) {
 
 #if defined(__SSE4_2__)
     if (ForceApprox && std::is_same<Arg, float>::value) {
-        float v = (float) a;
-        __m128 v_ = _mm_set_ss(v), r_;
+        __m128 v = _mm_set_ss((float) a), r;
 
         #if defined(__AVX512F__)
-            r_ = _mm_rcp14_ss(v_, v_); /* rel error < 2^-14 */
+            r = _mm_rcp14_ss(v, v); /* rel error < 2^-14 */
         #else
-            r_ = _mm_rcp_ss(v_);       /* rel error < 1.5*2^-12 */
+            r = _mm_rcp_ss(v);      /* rel error < 1.5*2^-12 */
         #endif
 
-        float ro = _mm_cvtss_f32(r_), r = ro;
-        const float c0 = r + r, c1 = r * r;
-
         /* Refine using one Newton-Raphson iteration */
-        r = c0 - c1 * v;
+        __m128 ro = r;
 
-        if (ENOKI_UNLIKELY(r != r))
-            r = ro;
+        #if defined(__FMA__)
+            __m128 two = _mm_set_ss(2.f);
+            __m128 t = _mm_fnmadd_ss(r, v, two);
+            __m128 mask = _mm_cmpeq_ss(t, t);
+            r = _mm_mul_ss(r, t);
+        #else
+            __m128 t = _mm_mul_ss(_mm_mul_ss(r, r), v);
+            __m128 mask = _mm_cmpeq_ss(t, t);
+            r = _mm_sub_ss(_mm_add_ss(r, r), t);
+        #endif
 
-        return Arg(r);
+        r = _mm_blendv_ps(ro, r, mask);
+
+        return Arg(_mm_cvtss_f32(r));
     }
 #endif
 
 #if defined(__AVX512F__) || defined(__AVX512ER__)
     if (ForceApprox && std::is_same<Arg, double>::value) {
-        double v = (double) a;
-        __m128d v_ = _mm_set_sd((double) v), r_;
+        __m128d v = _mm_set_sd((double) a), r;
 
         #if defined(__AVX512ER__)
-            r_ = _mm_rcp28_sd(v_, v_); /* rel error < 2^-18 */
+            r = _mm_rcp28_sd(v, v);   /* rel error < 2^-28 */
         #elif defined(__AVX512F__)
-            r_ = _mm_rcp14_sd(v_, v_); /* rel error < 2^-14 */
+            r = _mm_rcp14_sd(v, v);  /* rel error < 2^-14 */
         #endif
 
-        double ro = _mm_cvtsd_f64(r_), r = ro;
+        __m128d ro = r, mask;
 
-        #if !defined(__AVX512ER__)
-            /* Newton-Raphson iteration 1 */ {
-                const double c0 = r + r, c1 = r * r;
-                r = c0 - c1 * v;
-            }
-            /* Newton-Raphson iteration 2 */ {
-                const double c0 = r + r, c1 = r * r;
-                r = c0 - c1 * v;
-            }
-        #endif
+        /* Refine using 1-2 Newton-Raphson iterations */
+        ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
+            #if defined(__FMA__)
+                const __m128d two = _mm_set_sd(2.);
+                __m128d t = _mm_fnmadd_sd(r, v, two);
+                if (i == 0)
+                    mask = _mm_cmpeq_sd(t, t);
+                r = _mm_mul_sd(r, t);
+            #else
+                __m128d t = _mm_mul_sd(_mm_mul_sd(r, r), v);
+                if (i == 0)
+                    mask = _mm_cmpeq_sd(t, t);
+                r = _mm_sub_sd(_mm_add_sd(r, r), t);
+            #endif
+        }
 
-        if (ENOKI_UNLIKELY(r != r))
-            r = ro;
+        r = _mm_blendv_pd(ro, r, mask);
 
-        return Arg(r);
+        return Arg(_mm_cvtsd_f64(r));
     }
 #endif
 
@@ -671,58 +680,69 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
 
 #if defined(__SSE4_2__)
     if (ForceApprox && std::is_same<Arg, float>::value) {
-        float v = (float) a;
-        __m128 v_ = _mm_set_ss(v), r_;
+        __m128 v = _mm_set_ss((float) a), r;
 
         #if defined(__AVX512F__)
-            r_ = _mm_rsqrt14_ss(v_, v_); /* rel error < 2^-14 */
+            r = _mm_rsqrt14_ss(v, v);  /* rel error < 2^-14 */
         #else
-            r_ = _mm_rsqrt_ss(v_);       /* rel error < 1.5*2^-12 */
+            r = _mm_rsqrt_ss(v);       /* rel error < 1.5*2^-12 */
         #endif
 
-        float ro = _mm_cvtss_f32(r_), r = ro;
-
-        const float c0 = -.5f, c1 = -3.f;
         /* Refine using one Newton-Raphson iteration */
-        float r2 = r * r, rh = r * c0;
-        r = rh * (r2 * v + c1);
+        __m128 c0 = _mm_set_ss(1.5f),
+               c1 = _mm_set_ss(-0.5f),
+               ro = r;
 
-        if (ENOKI_UNLIKELY(r != r))
-            r = ro;
+        __m128 t = _mm_mul_ss(_mm_mul_ss(v, c1), r);
+        __m128 mask = _mm_cmpeq_ss(t, t);
 
-        return Arg(r);
+        #if defined(__FMA__)
+            r = _mm_fmadd_ss(r, c0,
+                             _mm_mul_ss(t, _mm_mul_ss(r, r)));
+        #else
+            r = _mm_add_ss(_mm_mul_ss(c0, r),
+                           _mm_mul_ss(t, _mm_mul_ss(r, r)));
+        #endif
+
+        r = _mm_blendv_ps(ro, r, mask);
+
+        return Arg(_mm_cvtss_f32(r));
     }
 #endif
 
 #if defined(__AVX512F__) || defined(__AVX512ER__)
     if (ForceApprox && std::is_same<Arg, double>::value) {
-        double v = (double) a;
-        __m128d v_ = _mm_set_sd((double) v), r_;
+        __m128d v = _mm_set_sd((double) a), r;
 
         #if defined(__AVX512ER__)
-            r_ = _mm_rsqrt28_sd(v_, v_); /* rel error < 2^-18 */
+            r = _mm_rsqrt28_sd(v, v);  /* rel error < 2^-28 */
         #elif defined(__AVX512F__)
-            r_ = _mm_rsqrt14_sd(v_, v_); /* rel error < 2^-14 */
+            r = _mm_rsqrt14_sd(v, v);  /* rel error < 2^-14 */
         #endif
 
-        double ro = _mm_cvtsd_f64(r_), r = ro;
+        __m128d c0 = _mm_set_sd(1.5),
+                c1 = _mm_set_sd(-0.5),
+                ro = r,
+                mask;
 
-        #if !defined(__AVX512ER__)
-            const double c0 = -.5, c1 = -3.;
-            /* Newton-Raphson iteration 1 */ {
-                double r2 = r * r, rh = r * c0;
-                r = rh * (r2 * v + c1);
-            }
-            /* Newton-Raphson iteration 2 */ {
-                double r2 = r * r, rh = r * c0;
-                r = rh * (r2 * v + c1);
-            }
-        #endif
+        /* Refine using 1-2 Newton-Raphson iterations */
+        ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
+            __m128d t = _mm_mul_sd(_mm_mul_sd(v, c1), r);
+            if (i == 0)
+                mask = _mm_cmpeq_sd(t, t);
 
-        if (ENOKI_UNLIKELY(r != r))
-            r = ro;
+            #if defined(__FMA__)
+                r = _mm_fmadd_sd(r, c0,
+                                 _mm_mul_sd(t, _mm_mul_sd(r, r)));
+            #else
+                r = _mm_add_sd(_mm_mul_sd(c0, r),
+                               _mm_mul_sd(t, _mm_mul_sd(r, r)));
+            #endif
+        }
 
-        return Arg(r);
+        r = _mm_blendv_pd(ro, r, mask);
+
+        return Arg(_mm_cvtsd_f64(r));
     }
 #endif
 

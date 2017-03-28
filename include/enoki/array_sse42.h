@@ -230,16 +230,15 @@ template <bool Approx, typename Derived> struct alignas(16)
 
     ENOKI_INLINE Derived rcp_() const {
         #if defined(__AVX512ER__)
-            /* rel err < 2^28, use as is */
+            /* rel err < 2^28, use as is (even in non-approximate mode) */
             return _mm512_castps512_ps128(
                 _mm512_rcp28_ps(_mm512_castps128_ps512(m)));
         #else
             if (Approx) {
                 /* Use best reciprocal approximation available on the current
                    hardware and refine */
-
                 __m128 r;
-                #if defined(__AVX512F__)
+                #if defined(__AVX512VL__)
                     r = _mm_rcp14_ps(m); /* rel error < 2^-14 */
                 #else
                     r = _mm_rcp_ps(m);   /* rel error < 1.5*2^-12 */
@@ -250,13 +249,16 @@ template <bool Approx, typename Derived> struct alignas(16)
                 /* Refine using one Newton-Raphson iteration */
                 #if defined(__FMA__)
                     const __m128 two = _mm_set1_ps(2.f);
-                    r = _mm_mul_ps(r, _mm_fnmadd_ps(r, m, two));
+                    __m128 t = _mm_fnmadd_ps(r, m, two);
+                    __m128 mask = _mm_cmpeq_ps(t, t);
+                    r = _mm_mul_ps(r, t);
                 #else
-                    r = _mm_sub_ps(_mm_add_ps(r, r),
-                                   _mm_mul_ps(_mm_mul_ps(r, r), m));
+                    __m128 t = _mm_mul_ps(_mm_mul_ps(r, r), m);
+                    __m128 mask = _mm_cmpeq_ps(t, t);
+                    r = _mm_sub_ps(_mm_add_ps(r, r), t);
                 #endif
 
-                return _mm_blendv_ps(ro, r, _mm_cmpeq_ps(r, r));
+                return _mm_blendv_ps(ro, r, mask);
             } else {
                 return Base::rcp_();
             }
@@ -265,7 +267,7 @@ template <bool Approx, typename Derived> struct alignas(16)
 
     ENOKI_INLINE Derived rsqrt_() const {
         #if defined(__AVX512ER__)
-            /* rel err < 2^28, use as is */
+            /* rel err < 2^28, use as is (even in non-approximate mode) */
             return _mm512_castps512_ps128(
                 _mm512_rsqrt28_ps(_mm512_castps128_ps512(m)));
         #else
@@ -284,18 +286,19 @@ template <bool Approx, typename Derived> struct alignas(16)
                 const __m128 c0 = _mm_set1_ps(1.5f);
                 const __m128 c1 = _mm_set1_ps(-0.5f);
 
+                __m128 t = _mm_mul_ps(_mm_mul_ps(m, c1), r);
+                __m128 mask = _mm_cmpeq_ps(t, t);
+
                 /* Refine using one Newton-Raphson iteration */
                 #if defined(__FMA__)
                     r = _mm_fmadd_ps(r, c0,
-                                     _mm_mul_ps(_mm_mul_ps(_mm_mul_ps(m, c1), r),
-                                                _mm_mul_ps(r, r)));
+                                     _mm_mul_ps(t, _mm_mul_ps(r, r)));
                 #else
                     r = _mm_add_ps(_mm_mul_ps(c0, r),
-                                   _mm_mul_ps(_mm_mul_ps(_mm_mul_ps(m, c1), r),
-                                              _mm_mul_ps(r, r)));
+                                   _mm_mul_ps(t, _mm_mul_ps(r, r)));
                 #endif
 
-                return _mm_blendv_ps(ro, r, _mm_cmpeq_ps(r, r));
+                return _mm_blendv_ps(ro, r, mask);
             } else {
                 return Base::rsqrt_();
             }
@@ -620,31 +623,30 @@ template <bool Approx, typename Derived> struct alignas(16)
                hardware and refine */
             __m128d r;
             #if defined(__AVX512ER__)
-                /* rel err < 2^28, use as is */
+                /* rel err < 2^28 */
                 r = _mm512_castpd512_pd128(
                     _mm512_rcp28_pd(_mm512_castpd128_pd512(m)));
             #elif defined(__AVX512VL__)
                 r = _mm_rcp14_pd(m); /* rel error < 2^-14 */
             #endif
 
-            #if !defined(__AVX512ER__)
-                __m128d ro = r;
+            __m128d ro = r, mask;
 
-                /* Refine using two Newton-Raphson iterations */
-                for (int i = 0; i < 2; ++i) {
-                    #if defined(__FMA__)
-                        const __m128d two = _mm_set1_pd(2.);
-                        r = _mm_mul_pd(r, _mm_fnmadd_pd(r, m, two));
-                    #else
-                        r = _mm_sub_pd(_mm_add_pd(r, r),
-                                       _mm_mul_pd(_mm_mul_pd(r, r), m));
-                    #endif
-                }
+            /* Refine using 1-2 Newton-Raphson iterations */
+            ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
+                #if defined(__FMA__)
+                    const __m128d two = _mm_set1_pd(2.);
+                    __m128d t = _mm_fnmadd_pd(r, m, two);
+                    if (i == 0)
+                        mask = _mm_cmpeq_pd(t, t);
+                    r = _mm_mul_pd(r, t);
+                #else
+                    __m128d t = _mm_mul_pd(_mm_mul_pd(r, r), m);
+                    r = _mm_sub_pd(_mm_add_pd(r, r), t);
+                #endif
+            }
 
-                r = _mm_blendv_pd(ro, r, _mm_cmpeq_pd(r, r));
-            #endif
-
-            return r;
+            return _mm_blendv_pd(ro, r, mask);
         } else {
             return Base::rcp_();
         }
@@ -656,37 +658,33 @@ template <bool Approx, typename Derived> struct alignas(16)
                on the current hardware and refine */
             __m128d r;
             #if defined(__AVX512ER__)
-                /* rel err < 2^28, use as is */
+                /* rel err < 2^28 */
                 r = _mm512_castpd512_pd128(
                     _mm512_rsqrt28_pd(_mm512_castpd128_pd512(m)));
             #elif defined(__AVX512VL__)
                 r = _mm_rsqrt14_pd(m); /* rel error < 2^-14 */
             #endif
 
-            #if !defined(__AVX512ER__)
-                const __m128d c0 = _mm_set1_pd(1.5);
-                const __m128d c1 = _mm_set1_pd(-0.5);
+            const __m128d c0 = _mm_set1_pd(1.5);
+            const __m128d c1 = _mm_set1_pd(-0.5);
 
-                __m128d ro = r;
+            __m128d ro = r, mask;
 
-                /* Refine using two Newton-Raphson iterations */
-                for (int i = 0; i < 2; ++i) {
-                    #if defined(__FMA__)
-                        r = _mm_fmadd_pd(r, c0,
-                            _mm_mul_pd(_mm_mul_pd(_mm_mul_pd(m, c1), r),
-                                       _mm_mul_pd(r, r)));
-                    #else
-                        r = _mm_add_pd(
-                            _mm_mul_pd(c0, r),
-                            _mm_mul_pd(_mm_mul_pd(_mm_mul_pd(m, c1), r),
-                                       _mm_mul_pd(r, r)));
-                    #endif
-                }
+            /* Refine using 1-2 Newton-Raphson iterations */
+            ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
+                __m128d t = _mm_mul_pd(_mm_mul_pd(m, c1), r);
+                if (i == 0)
+                    mask = _mm_cmpeq_pd(t, t);
+                #if defined(__FMA__)
+                    r = _mm_fmadd_pd(r, c0,
+                                     _mm_mul_pd(t, _mm_mul_pd(r, r)));
+                #else
+                    r = _mm_add_pd(_mm_mul_pd(c0, r),
+                                   _mm_mul_pd(t, _mm_mul_pd(r, r)));
+                #endif
+            }
 
-                r = _mm_blendv_pd(ro, r, _mm_cmpeq_pd(r, r));
-            #endif
-
-            return r;
+            return _mm_blendv_pd(ro, r, mask);
         } else {
             return Base::rsqrt_();
         }

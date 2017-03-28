@@ -99,8 +99,19 @@ ENOKI_TEST_FLOAT(test05_sqrt) {
 ENOKI_TEST_FLOAT(test06_rsqrt) {
     test::probe_accuracy<T>(
         [](const T &a) -> T { return rsqrt(a); },
-        [](double a) { return 1/std::sqrt(a); },
-        Value(1e-6), Value(1024), 3, false
+        [](double a) { return 1 / std::sqrt(a); },
+        Value(1e-6), Value(1024), 3
+    );
+
+    test::probe_accuracy<T>(
+        [](const T &a) -> T {
+            T result;
+            for (size_t i = 0; i < Size; ++i)
+               result.coeff(i) = rsqrt<T::Approx>(a.coeff(i));
+            return result;
+        },
+        [](double a) { return 1 / std::sqrt(a); },
+        Value(1e-6), Value(1024), 3
     );
 }
 
@@ -108,7 +119,18 @@ ENOKI_TEST_FLOAT(test07_rcp) {
     test::probe_accuracy<T>(
         [](const T &a) -> T { return rcp(a); },
         [](double a) { return 1 / a; },
-        Value(1e-6), Value(1024), 2, false
+        Value(1e-6), Value(1024), 2
+    );
+
+    test::probe_accuracy<T>(
+        [](const T &a) -> T {
+            T result;
+            for (size_t i = 0; i < Size; ++i)
+               result.coeff(i) = rcp<T::Approx>(a.coeff(i));
+            return result;
+        },
+        [](double a) { return 1 / a; },
+        Value(1e-6), Value(1024), 2
     );
 }
 
