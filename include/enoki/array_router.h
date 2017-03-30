@@ -9,7 +9,7 @@
     Copyright (c) 2017 Wenzel Jakob <wenzel.jakob@epfl.ch>
 
     All rights reserved. Use of this source code is governed by a BSD-style
-    license that can be found in the LICENSE.txt file.
+    license that can be found in the LICENSE file.
 */
 
 #include "common.h"
@@ -1309,6 +1309,10 @@ ENOKI_INLINE void store_compress(void *&mem, const Arg &value, const Mask &mask)
 
 template <typename T> ENOKI_INLINE auto safe_sqrt(T a) {
     return sqrt(max(a, zero<T>()));
+}
+
+template <typename T> ENOKI_INLINE auto safe_rsqrt(T a) {
+    return rsqrt(max(a, zero<T>()));
 }
 
 template <typename T> ENOKI_INLINE auto safe_asin(T a) {
