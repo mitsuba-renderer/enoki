@@ -16,7 +16,7 @@
 #  undef NDEBUG
 #endif
 
-#include "random.h"
+#include <enoki/random.h>
 
 int main(int /* argc */, char * /* argv */[]) {
     using UInt32      = Array<uint32_t>;

@@ -26,6 +26,8 @@
  *     http://www.pcg-random.org
  */
 
+#pragma once
+
 #include <enoki/array.h>
 
 #define PCG32_DEFAULT_STATE  0x853c49e6748fea9bULL
