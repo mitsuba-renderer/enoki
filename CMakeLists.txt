@@ -14,7 +14,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release"
     "MinSizeRel" "RelWithDebInfo")
 endif()
-string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
+string(TOUPPER "${CMAKE_BUILD_TYPE}" ENOKI_U_CMAKE_BUILD_TYPE)
 
 set(ENOKI_CXXFLAGS_BACKUP ${CMAKE_CXX_FLAGS})
 
@@ -99,7 +99,8 @@ macro(enoki_set_compile_flags)
   if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR
       CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR
       CMAKE_CXX_COMPILER_ID MATCHES "Intel")
-    if (NOT ${U_CMAKE_BUILD_TYPE} MATCHES DEBUG)
+    string(TOUPPER "${CMAKE_BUILD_TYPE}" ENOKI_U_CMAKE_BUILD_TYPE)
+    if (NOT ${ENOKI_U_CMAKE_BUILD_TYPE} MATCHES DEBUG)
       add_compile_options(-fno-stack-protector -fomit-frame-pointer -fno-math-errno)
       if (NOT CMAKE_CXX_COMPILER_ID MATCHES "Intel")
         add_compile_options(-ffp-contract=fast)
@@ -235,7 +236,7 @@ if (ENOKI_TEST)
       CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR
       CMAKE_CXX_COMPILER_ID MATCHES "Intel")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
-    if (NOT ${U_CMAKE_BUILD_TYPE} MATCHES DEBUG)
+    if (NOT ${ENOKI_U_CMAKE_BUILD_TYPE} MATCHES DEBUG)
       add_compile_options( -fvisibility=hidden)
     endif()
     add_compile_options(-Wall -Wextra -Wconversion)
