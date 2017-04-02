@@ -299,6 +299,28 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
         }
     }
 
+    /// Rotate the entries of the array right
+    template <size_t Imm>
+    ENOKI_INLINE auto ror_array_() const {
+        return ror_array_<Imm>(std::make_index_sequence<Derived::Size>());
+    }
+
+    template <size_t Imm, size_t... Index>
+    ENOKI_INLINE auto ror_array_(std::index_sequence<Index...>) const {
+        return shuffle<(Index - Imm + Derived::Size) % Derived::Size...>(derived());
+    }
+
+    /// Rotate the entries of the array left
+    template <size_t Imm>
+    ENOKI_INLINE auto rol_array_() const {
+        return rol_array_<Imm>(std::make_index_sequence<Derived::Size>());
+    }
+
+    template <size_t Imm, size_t... Index>
+    ENOKI_INLINE auto rol_array_(std::index_sequence<Index...>) const {
+        return shuffle<(Index + Imm) % Derived::Size...>(derived());
+    }
+
     /// Arithmetic NOT operation fallback
     ENOKI_INLINE auto not_() const {
         using Expr = expr_t<Derived>;

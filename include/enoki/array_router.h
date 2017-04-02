@@ -565,6 +565,16 @@ ror(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,
     return ror(a1.derived(), expr_t<Derived>(a2));
 }
 
+template <size_t Imm, typename Array, enable_if_static_array_t<Array> = 0>
+ENOKI_INLINE auto ror_array(const Array &array) {
+    return array.template ror_array_<Imm>();
+}
+
+template <size_t Imm, typename Array, enable_if_static_array_t<Array> = 0>
+ENOKI_INLINE auto rol_array(const Array &array) {
+    return array.template rol_array_<Imm>();
+}
+
 /// Return the element-wise maximum of two arrays (scalar fallback)
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg max(const Arg &a1, const Arg &a2) {

@@ -378,3 +378,10 @@ ENOKI_TEST_ALL(test24_fmaddsub) {
     assert(b.coeff(0) > 0);
 }
 
+ENOKI_TEST_ALL(test25_rorl_array) {
+    auto a = index_sequence<T>();
+    auto b = ror_array<2>(a);
+    auto c = rol_array<2>(b);
+    assert(a == c);
+}
+

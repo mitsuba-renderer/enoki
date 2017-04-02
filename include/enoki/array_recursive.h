@@ -274,6 +274,42 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
                        select(m.m2, t.a2, f.a2));
     }
 
+    template <size_t Imm, typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
+    ENOKI_INLINE auto ror_array_() const {
+        const Mask1 mask = index_sequence<Array1>() >= Scalar(Imm);
+
+        Array1 a1_r = ror_array<Imm>(a1);
+        Array1 a2_r = ror_array<Imm>(a2);
+
+        return Derived(
+            select(mask, a1_r, a2_r),
+            select(mask, a2_r, a1_r)
+        );
+    }
+
+    template <size_t Imm, typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
+    ENOKI_INLINE auto ror_array_() const {
+        return Base::template ror_array_<Imm>();
+    }
+
+    template <size_t Imm, typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
+    ENOKI_INLINE auto rol_array_() const {
+        const Mask1 mask = index_sequence<Array1>() < Scalar(Size1 - Imm);
+
+        Array1 a1_r = rol_array<Imm>(a1);
+        Array1 a2_r = rol_array<Imm>(a2);
+
+        return Derived(
+            select(mask, a1_r, a2_r),
+            select(mask, a2_r, a1_r)
+        );
+    }
+
+    template <size_t Imm, typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
+    ENOKI_INLINE auto rol_array_() const {
+        return Base::template rol_array_<Imm>();
+    }
+
     //! @}
     // -----------------------------------------------------------------------
 
