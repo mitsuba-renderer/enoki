@@ -387,7 +387,7 @@ template <typename T, typename Value, typename = void>
 struct like { };
 
 template <typename T, typename Value>
-struct like<T, Value, std::enable_if_t<!is_static_array<T>::value>> {
+struct like<T, Value, std::enable_if_t<!is_array<T>::value>> {
     using type = Value;
 };
 
@@ -400,6 +400,11 @@ private:
     using Entry = like_t<value_t<Array>, Value>;
 public:
     using type = typename Array::template ReplaceType<Entry>;
+};
+
+template <typename T, typename Value>
+struct like<T, Value, std::enable_if_t<is_dynamic_array<T>::value>> {
+    using type = DynamicArray<like_t<typename T::Packet, Value>>;
 };
 
 /// Type trait to access the type that would result from an unary expression involving another type
