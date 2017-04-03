@@ -16,6 +16,11 @@
 
 #include "array.h"
 
+#if defined(_MSC_VER)
+#  pragma warning (push)
+#  pragma warning (disable: 4310) // cast truncates constant value
+#endif
+
 NAMESPACE_BEGIN(enoki)
 NAMESPACE_BEGIN(detail)
 
@@ -155,3 +160,7 @@ ENOKI_INLINE Array morton_decode(Value value) {
 }
 
 NAMESPACE_END(enoki)
+
+#if defined(_MSC_VER)
+#  pragma warning (pop)
+#endif
