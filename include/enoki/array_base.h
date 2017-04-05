@@ -307,7 +307,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     template <size_t Imm, size_t... Index>
     ENOKI_INLINE auto ror_array_(std::index_sequence<Index...>) const {
-        return shuffle<(Index - Imm + Derived::Size) % Derived::Size...>(derived());
+        return shuffle<(Derived::Size + Index - Imm) % Derived::Size...>(derived());
     }
 
     /// Rotate the entries of the array left

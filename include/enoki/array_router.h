@@ -891,7 +891,7 @@ ENOKI_INLINE expr_t<Array> mulsign(const Array &a, const Array &b) {
     } else if (std::is_floating_point<Scalar>::value) {
         return a ^ detail::sign_mask(b);
     } else {
-        return select(b >= 0, a, -a);
+        return select(b >= Scalar(0), a, -a);
     }
 }
 
