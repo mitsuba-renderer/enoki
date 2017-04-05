@@ -194,7 +194,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
         return derived();
     }
 
-    ENOKI_INLINE Derived &operator=(Scalar value) {
+    ENOKI_INLINE Derived &operator=(const Scalar &value) {
         derived() = Derived(value);
         return derived();
     }
