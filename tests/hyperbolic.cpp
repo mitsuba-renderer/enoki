@@ -38,7 +38,11 @@ ENOKI_TEST_FLOAT(test03_sincosh_sin) {
     Array<T, 4> x((Value) 1), s, c;
     Array<T&, 4> y(x);
     auto result = sincosh(y);
+#if !defined(_WIN32)
     assert(result.first == sinh(y) && result.second == cosh(y));
+#else
+    assert(all_nested(abs(result.first - sinh(y)) < T(1e-6f)) && all_nested(abs(result.second - cosh(y)) < T(1e-6f)));
+#endif
 }
 
 ENOKI_TEST_FLOAT(test04_sincosh_cos) {

@@ -16,6 +16,7 @@
 
 template <typename T, std::enable_if_t<std::is_signed<typename T::Value>::value, int> = 0>
 void test01_dot_signed() {
+#if !defined(_MSC_VER) /// ICE in MSVC 2017 :-|
     using Value = typename T::Value;
     constexpr size_t Size = T::Size;
     Value expected1 = Value((Size * (2 * Size - 1) * (Size - 1)) / 6);
@@ -26,6 +27,7 @@ void test01_dot_signed() {
     assert(dot(value, -value2) == -expected2);
     assert(abs_dot(value, -value) == expected1);
     assert(abs_dot(value, -value2) == expected2);
+#endif
 }
 
 template <typename T, std::enable_if_t<!std::is_signed<typename T::Value>::value, int> = 0>

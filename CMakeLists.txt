@@ -142,6 +142,7 @@ set(ENOKI_HEADERS
   ${PROJECT_SOURCE_DIR}/include/enoki/array_sse42.h
   ${PROJECT_SOURCE_DIR}/include/enoki/quaternion.h
   ${PROJECT_SOURCE_DIR}/include/enoki/stl.h
+  ${PROJECT_SOURCE_DIR}/include/enoki/special.h
   ${PROJECT_SOURCE_DIR}/include/enoki/matrix.h
   ${PROJECT_SOURCE_DIR}/include/enoki/complex.h
   ${PROJECT_SOURCE_DIR}/include/enoki/common.h
@@ -179,12 +180,6 @@ else()
 endif()
 
 function(enoki_test NAME)
-  # MSVC crashes on the 'vector' example
-  if (MSVC AND ("${NAME}" STREQUAL "vector"))
-    message(STATUS "Skipping vector testcase")
-    return()
-  endif()
-
   add_executable(${NAME}_none ${ARGN} ${ENOKI_HEADERS})
   add_test(${NAME}_none_test ${NAME}_none)
   set_tests_properties(${NAME}_none_test PROPERTIES LABELS "none")

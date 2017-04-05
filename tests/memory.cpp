@@ -55,12 +55,24 @@ ENOKI_TEST_ALL(test05_gather) {
     auto id32 = load_unaligned<Array<uint32_t, Size>>(indices32);
     auto id64 = load_unaligned<Array<uint64_t, Size>>(indices64);
 
+#if defined(_MSC_VER)
+    /// MSVC doesn't seem to correctly track data dependencies involving gathers
+    std::cout << mem[0] << std::endl;
+#endif
+
     store(dst, gather<T>(mem, id32));
     for (size_t i = 0; i < Size; ++i)
         assert(dst[i] == Value(Size - 1 - i));
     memset(dst, 0, sizeof(Value) * Size);
 
+
+#if defined(_MSC_VER)
+    /// MSVC doesn't seem to correctly track data dependencies involving gathers
+    std::cout << mem[0] << std::endl;
+#endif
+
     store(dst, gather<T>(mem, id64));
+
     for (size_t i = 0; i < Size; ++i)
         assert(dst[i] == Value(Size - 1 - i));
     memset(dst, 0, sizeof(Value) * Size);
@@ -81,11 +93,21 @@ ENOKI_TEST_ALL(test06_gather_mask) {
     auto idx = index_sequence<uint_array_t<T>>();
     auto even_mask = reinterpret_array<mask_t<T>>(eq(sli<1>(sri<1>(idx)), idx));
 
+#if defined(_MSC_VER)
+    /// MSVC doesn't seem to correctly track data dependencies involving gathers
+    std::cout << mem[0] << std::endl;
+#endif
+
     memset(dst, 0, sizeof(Value) * Size);
     store(dst, gather<T>(mem, id32, even_mask));
     for (size_t i = 0; i < Size; ++i)
         assert(dst[i] == ((i % 2 == 0) ? Value(Size - 1 - i) : 0));
     memset(dst, 0, sizeof(Value) * Size);
+
+#if defined(_MSC_VER)
+    /// MSVC doesn't seem to correctly track data dependencies involving gathers
+    std::cout << mem[0] << std::endl;
+#endif
 
     store(dst, gather<T>(mem, id64, even_mask));
     for (size_t i = 0; i < Size; ++i)
@@ -216,10 +238,19 @@ ENOKI_TEST_ALL(test12_store_masked) {
         mem_u[i] = 1;
         mem2[i] = (i % 2 == 0) ? (Value) i : (Value) 1;
     }
+
     auto idx = index_sequence<uint_array_t<T>>();
+    auto idx2 = index_sequence<T>();
     auto even_mask = reinterpret_array<mask_t<T>>(eq(sli<1>(sri<1>(idx)), idx));
-    store(mem, T(idx), even_mask);
-    store_unaligned(mem_u, T(idx), even_mask);
+
+#if defined(_MSC_VER)
+    /// MSVC doesn't seem to correctly track data dependencies involving masked loads/stores
+    for (size_t i = 0; i < Size; ++i)
+        std::cout << mem[i] << " " << mem_u[i] << std::endl;
+#endif
+
+    store(mem, idx2, even_mask);
+    store_unaligned(mem_u, idx2, even_mask);
 
     assert(load_unaligned<T>(mem) == load_unaligned<T>(mem2));
     assert(load_unaligned<T>(mem_u) == load_unaligned<T>(mem2));

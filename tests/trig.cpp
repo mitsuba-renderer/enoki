@@ -122,6 +122,10 @@ ENOKI_TEST_FLOAT(test10_remainder) {
 }
 
 ENOKI_TEST_FLOAT(test11_safe_math) {
+#if defined(_MSC_VER)
+    // MSVC codegen issue :-|
+    std::cout << abs(safe_asin(T(Value(-10))) - Value(-M_PI / 2)) << std::endl;
+#endif
     assert(all(abs(safe_asin(T(Value(-10))) - Value(-M_PI / 2)) < 1e-6f));
     assert(all(abs(safe_asin(T(Value( 10))) - Value( M_PI / 2)) < 1e-6f));
     assert(all(abs(safe_acos(T(Value(-10))) - Value(M_PI)) < 1e-6f));

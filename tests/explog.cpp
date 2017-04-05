@@ -67,7 +67,7 @@ ENOKI_TEST_FLOAT(test03_exp) {
 #if defined(__AVX512ER__)
         27
 #else
-        1
+        3
 #endif
     );
 

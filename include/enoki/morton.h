@@ -63,7 +63,7 @@ ENOKI_INLINE Type scatter_bits(Type x) {
 
     constexpr Scalar magic = morton_magic<Scalar>(Dimension, Level);
     constexpr size_t shift_maybe = (1 << (Level - 1)) * (Dimension - 1);
-    constexpr size_t shift = (shift_maybe < sizeof(Type) * 8) ? shift_maybe : 0;
+    constexpr size_t shift = (shift_maybe < sizeof(Scalar) * 8) ? shift_maybe : 0;
 
     if (shift)
         x |= sli<shift>(x);
@@ -87,7 +87,7 @@ ENOKI_INLINE Type gather_bits(Type x) {
     constexpr size_t ilevel = clog2i(sizeof(Type) * 8) - Level + 1;
     constexpr Scalar magic = morton_magic<Scalar>(Dimension, ilevel);
     constexpr size_t shift_maybe = (1 << (ilevel - 1)) * (Dimension - 1);
-    constexpr size_t shift = (shift_maybe < sizeof(Type) * 8) ? shift_maybe : 0;
+    constexpr size_t shift = (shift_maybe < sizeof(Scalar) * 8) ? shift_maybe : 0;
 
     x &= magic;
 

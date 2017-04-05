@@ -477,7 +477,7 @@ template <bool Approx, typename Derived> struct alignas(32)
 
     ENOKI_CONVERT(float) : m(_mm256_cvtps_pd(a.derived().m)) { }
 
-#if defined(__AVX2__)
+#if defined(__AVX__)
     ENOKI_CONVERT(int32_t) : m(_mm256_cvtepi32_pd(a.derived().m)) { }
 #endif
 
