@@ -1,0 +1,17 @@
+version: 1.0.{build}
+image:
+- Visual Studio 2017
+test: off
+platform:
+- x64
+build:
+  parallel: true
+environment:
+  matrix:
+    - BUILD_MODE: Debug
+    - BUILD_MODE: Release
+build_script:
+- cmake -G "Visual Studio 15 2017" -A "x64"
+- set MSBuildLogger="C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
+- cmake --build . --config %BUILD_MODE% -- /v:m /m /logger:%MSBuildLogger%
+- ctest

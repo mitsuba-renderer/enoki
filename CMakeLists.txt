@@ -179,6 +179,11 @@ else()
 endif()
 
 function(enoki_test NAME)
+  # MSVC crashes on the 'vector' example
+  if (MSVC AND ("${NAME}" STREQUAL "vector") AND ("${ENOKI_U_CMAKE_BUILD_TYPE}" MATCHES "RELEASE"))
+    return()
+  endif()
+
   add_executable(${NAME}_none ${ARGN} ${ENOKI_HEADERS})
   add_test(${NAME}_none_test ${NAME}_none)
   set_tests_properties(${NAME}_none_test PROPERTIES LABELS "none")
