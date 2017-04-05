@@ -180,7 +180,8 @@ endif()
 
 function(enoki_test NAME)
   # MSVC crashes on the 'vector' example
-  if (MSVC AND ("${NAME}" STREQUAL "vector") AND ("${ENOKI_U_CMAKE_BUILD_TYPE}" MATCHES "RELEASE"))
+  if (MSVC AND ("${NAME}" STREQUAL "vector"))
+    message(STATUS "Skipping vector testcase")
     return()
   endif()
 
