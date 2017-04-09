@@ -44,6 +44,8 @@ struct half {
     half operator*(half h) const { return half(float(*this) * float(h)); }
     half operator/(half h) const { return half(float(*this) / float(h)); }
 
+    half operator-() const { return half(-float(*this)); }
+
     ENOKI_IF_SCALAR friend half operator+(Value val, half h) { return half(val) + h; }
     ENOKI_IF_SCALAR friend half operator-(Value val, half h) { return half(val) - h; }
     ENOKI_IF_SCALAR friend half operator*(Value val, half h) { return half(val) * h; }
