@@ -4,7 +4,7 @@
 
 # Enoki — fast vectorized arithmetic on modern processors
 
-[![Build Status](https://rglpc1.epfl.ch/jenkins/buildStatus/icon?job=enoki)](https://rglpc1.epfl.ch/jenkins/job/enoki/)
+[![Build status](https://rglpc1.epfl.ch/jenkins/buildStatus/icon?job=mitsuba-renderer/enoki/master)](https://rglpc1.epfl.ch/jenkins/blue/organizations/jenkins/mitsuba-renderer%2Fenoki/activity)
 [![Build status](https://ci.appveyor.com/api/projects/status/68db7e5es7el1btd/branch/master?svg=true)](https://ci.appveyor.com/project/wjakob/enoki/branch/master)
 
 ## Compiling
