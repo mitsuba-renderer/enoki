@@ -135,6 +135,11 @@ again2:
 
 NAMESPACE_END(detail)
 
+#if defined(_MSC_VER)
+#  pragma pack(push)
+#  pragma pack(1)
+#endif
+
 template <typename T, typename SFINAE = void> struct divisor { };
 
 template <typename T> struct divisor<T, std::enable_if_t<!std::is_signed<T>::value>> {
@@ -172,11 +177,6 @@ template <typename T> struct divisor<T, std::enable_if_t<!std::is_signed<T>::val
         return t >> shift;
     }
 } ENOKI_PACK;
-
-#if defined(_MSC_VER)
-#  pragma pack(push)
-#  pragma pack(1)
-#endif
 
 template <typename T> struct divisor<T, std::enable_if_t<std::is_signed<T>::value>> {
     using U = std::make_unsigned_t<T>;
