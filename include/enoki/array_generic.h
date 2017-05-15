@@ -31,11 +31,14 @@ template <typename Type_, size_t Size_, bool Approx_, typename Derived_>
 struct StaticArrayImpl<
     Type_, Size_, Approx_, RoundingMode::Default, Derived_,
     std::enable_if_t<!detail::is_native<Type_, Size_>::value &&
+                     !std::is_enum<Type_>::value &&
+                     !std::is_pointer<Type_>::value &&
                      !detail::is_recursive<Type_, Size_, RoundingMode::Default>::value>>
     : StaticArrayBase<Type_, Size_, Approx_, RoundingMode::Default, Derived_> {
 
     using Base =
         StaticArrayBase<Type_, Size_, Approx_, RoundingMode::Default, Derived_>;
+
     using Base::operator=;
     using typename Base::Value;
     using typename Base::Derived;
@@ -838,6 +841,44 @@ public:
 
 private:
     std::array<StorageType, Size> m_data;
+};
+
+/// Enumeration support
+template <typename Type_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived_>
+struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
+    std::enable_if_t<std::is_enum<Type_>::value>>
+    : StaticArrayImpl<std::underlying_type_t<Type_>, Size_, Approx_, Mode_, Derived_> {
+
+    using UnderlyingType = std::underlying_type_t<Type_>;
+    using Base = StaticArrayImpl<UnderlyingType, Size_, Approx_, Mode_, Derived_>;
+
+    using Base::Base;
+    using Base::operator=;
+    using Type = Type_;
+
+    StaticArrayImpl(Type value) : Base(UnderlyingType(value)) { }
+
+    ENOKI_INLINE const Type& coeff(size_t i) const { return (Type &) Base::coeff(i); }
+    ENOKI_INLINE Type& coeff(size_t i) { return (Type &) Base::coeff(i); }
+};
+
+/// Pointer support
+template <typename Type_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived_>
+struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
+    std::enable_if_t<std::is_pointer<Type_>::value>>
+    : StaticArrayImpl<std::uintptr_t, Size_, Approx_, Mode_, Derived_> {
+
+    using UnderlyingType = std::uintptr_t;
+    using Base = StaticArrayImpl<UnderlyingType, Size_, Approx_, Mode_, Derived_>;
+
+    using Base::Base;
+    using Base::operator=;
+    using Type = Type_;
+
+    StaticArrayImpl(Type value) : Base(UnderlyingType(value)) { }
+
+    ENOKI_INLINE const Type& coeff(size_t i) const { return (Type &) Base::coeff(i); }
+    ENOKI_INLINE Type& coeff(size_t i) { return (Type &) Base::coeff(i); }
 };
 
 //! @}

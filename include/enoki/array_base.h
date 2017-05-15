@@ -100,7 +100,7 @@ template <typename Type_, typename Derived_> struct ArrayBase {
                     std::to_string(i) + " in an array of size " +
                     std::to_string(derived().size()) + ")");
         #endif
-        return derived().coeff(i);
+        return (Value &) derived().coeff(i);
     }
 
     /// Array indexing operator with bounds checks in debug mode, const version
@@ -112,7 +112,7 @@ template <typename Type_, typename Derived_> struct ArrayBase {
                     std::to_string(i) + " in an array of size " +
                     std::to_string(derived().size()) + ")");
         #endif
-        return derived().coeff(i);
+        return (const Value &) derived().coeff(i);
     }
 
     //! @}
