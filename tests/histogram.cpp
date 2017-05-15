@@ -39,7 +39,7 @@ int main(int /* argc */, char * /* argv */[]) {
             Float32 x = rng.next_float32();
 
             /* Importance sample a normal distribution */
-            Float32 y = float(M_SQRT2) * erfi(2.f*x - 1.f);
+            Float32 y = float(M_SQRT2) * erfinv(2.f*x - 1.f);
 
             /* Compute bin index */
             UInt32 idx((y - min_value) * float(bin_count) / (max_value - min_value));

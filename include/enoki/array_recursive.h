@@ -375,7 +375,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     }
 
     Derived erf_() const  { return Derived(erf(a1),  erf(a2));  }
-    Derived erfi_() const { return Derived(erfi(a1), erfi(a2)); }
+    Derived erfinv_() const { return Derived(erfinv(a1), erfinv(a2)); }
 
     //! @}
     // -----------------------------------------------------------------------

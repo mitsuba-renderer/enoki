@@ -812,13 +812,13 @@ ENOKI_INLINE Arg shuffle(const Arg &arg) {
 }
 
 template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE auto erfi(const Array &a) {
-    return a.erfi_();
+ENOKI_INLINE auto erfinv(const Array &a) {
+    return a.erfinv_();
 }
 
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg erfi(const Arg &x) {
-    // Based on "Approximating the erfi function" by Mark Giles
+ENOKI_INLINE Arg erfinv(const Arg &x) {
+    // Based on "Approximating the erfinv function" by Mark Giles
     Arg w = -log((Arg(1) - x) * (Arg(1) + x));
     Arg w1 = w - Arg(2.5);
     Arg w2 = sqrt(w) - Arg(3);

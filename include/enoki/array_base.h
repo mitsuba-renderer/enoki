@@ -1558,10 +1558,10 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
         return r;
     }
 
-    auto erfi_() const {
+    auto erfinv_() const {
         using Expr = expr_t<Derived>;
 
-        // Based on "Approximating the erfi function" by Mark Giles
+        // Based on "Approximating the erfinv function" by Mark Giles
         Expr x = derived();
         Expr w = -log((Scalar(1) - x) * (Scalar(1) + x));
 

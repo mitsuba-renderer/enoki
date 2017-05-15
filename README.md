@@ -32,7 +32,7 @@ and Agner Fog's [vector library](http://www.agner.org/optimize/#vectorclassg)):
   ``sec``, ``cot``, ``acos``, ``asin``, ``atan``, ``atan2``, ``exp``, ``log``,
   ``pow``, ``sinh``, ``cosh``, ``sincosh``, ``tanh``, ``csch``, ``sech``,
   ``coth``, ``asinh``, ``acosh``, ``atanh``, ``frexp``, and ``ldexp``, ``erf``,
-  and ``erfi`` are supported.
+  and ``erfinv`` are supported.
 
   Efficient vectorized branch-free implementations of all of the above
   functions are available. It is worth noting that these are less accurate than
@@ -311,7 +311,7 @@ std::tie(f1, f2) = sincosh(f1);
 f2 = exp(f1);   f2 = log(f1);   f2 = pow(f1, f2);
 
 /* Error function and its inverse */
-f2 = erf(f1);   f2 = erfi(f1);
+f2 = erf(f1);   f2 = erfinv(f1);
 
 /* Exponent/mantissa manipulation */
 f1 = ldexp(f1, f2);
@@ -995,7 +995,7 @@ the routing templates in ``enoki/enoki_router.h``.
     - Exponentials, logarithms, powers, floating point exponent manipulation
       functions: ``log_``, ``exp_``, ``pow_`` ``frexp_``, ``ldexp_``.
 
-    - Error function and its inverse: ``erf_``, ``erfi_``.
+    - Error function and its inverse: ``erf_``, ``erfinv_``.
 
     - Optional bit-level rotation operations (reduced to shifts by default):
       ``rol_``, ``roli_``, ``rolv_``, ``ror_``, ``rori_``, ``rorv_``.

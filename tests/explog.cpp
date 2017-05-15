@@ -106,10 +106,10 @@ ENOKI_TEST_FLOAT(test06_erf) {
     assert(erf(x) == erf(y));
 }
 
-ENOKI_TEST_FLOAT(test07_erfi) {
+ENOKI_TEST_FLOAT(test07_erfinv) {
     for (int i = 0; i < 1000; ++i) {
         auto f = T((float) i / 1000.0f * 2 - 1 + 1e-6f);
-        auto inv = erfi(f);
+        auto inv = erfinv(f);
         auto f2 = erf(inv);
         assert(std::abs(T(f-f2)[0]) < 1e-6f);
     }
