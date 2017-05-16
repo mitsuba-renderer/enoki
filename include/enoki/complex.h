@@ -35,6 +35,8 @@ struct Complex
     template <typename T = Type,
               std::enable_if_t<!std::is_same<T, scalar_t<T>>::value, int> = 0>
     Complex(scalar_t<T> f) : Base(f, Type(0)) { }
+
+    ENOKI_ALIGNED_OPERATOR_NEW()
 };
 
 template <typename T1, typename T2,

@@ -900,6 +900,7 @@ struct Array : StaticArrayImpl<Type_, Size_, Approx_, Mode_,
                                  Array<Type_, Size_, Approx_, Mode_>>;
 
     ENOKI_DECLARE_CUSTOM_ARRAY(Base, Array)
+    ENOKI_ALIGNED_OPERATOR_NEW()
 };
 
 NAMESPACE_END(enoki)

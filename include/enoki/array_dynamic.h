@@ -15,59 +15,7 @@
 
 #include "array_generic.h"
 
-#if defined(__linux__)
-#  include <malloc.h>
-#endif
-
 NAMESPACE_BEGIN(enoki)
-
-// -----------------------------------------------------------------------
-//! @{ \name Memory allocation
-// -----------------------------------------------------------------------
-
-/// Allocate a suitably aligned memory block
-inline ENOKI_MALLOC void *alloc(size_t size) {
-    constexpr size_t align = std::max((size_t) ENOKI_MAX_PACKET_SIZE, sizeof(void *));
-    ENOKI_TRACK_ALLOC
-
-    void *ptr;
-    #if defined(_WIN32)
-        ptr = _aligned_malloc(size, align);
-    #elif defined(__APPLE__)
-        if (posix_memalign(&ptr, align, size) != 0)
-            ptr = nullptr;
-    #else
-        ptr = memalign(align, size);
-    #endif
-
-    if (!ptr)
-        throw std::bad_alloc();
-
-    return ptr;
-}
-
-/// Allocate a suitably aligned memory block of the given type
-template <typename T> static ENOKI_INLINE ENOKI_MALLOC T *alloc(size_t size) {
-    return (T *) enoki::alloc(sizeof(T) * size);
-}
-
-/// Release aligned memory
-inline void dealloc(void *ptr) {
-    ENOKI_TRACK_DEALLOC
-    #if defined(_WIN32)
-        _aligned_free(ptr);
-    #else
-        free(ptr);
-    #endif
-}
-
-/// Aligned memory deallocator
-struct aligned_deleter {
-    void operator()(void *ptr) { dealloc(ptr); }
-};
-
-//! @}
-// -----------------------------------------------------------------------
 
 template <typename T> struct dynamic_support<T, enable_if_static_array_t<T>> {
     static constexpr size_t Size = array_size<T>::value;

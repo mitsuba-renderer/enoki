@@ -41,6 +41,8 @@ struct Quaternion
               std::enable_if_t<array_size<Array>::value == 3, int> = 0>
     Quaternion(const Array &imag, const Type &real)
         : Base(imag.x(), imag.y(), imag.z(), real) { }
+
+    ENOKI_ALIGNED_OPERATOR_NEW()
 };
 
 template <typename T1, typename T2,

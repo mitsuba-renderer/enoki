@@ -36,6 +36,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     using Base::Size;
     using Base::Size1;
     using Base::Size2;
+    using Base::operator=;
 
     using Mask1 = typename Array1::Mask;
     using Mask2 = typename Array2::Mask;
@@ -108,7 +109,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     /// Default constructor
     ENOKI_INLINE StaticArrayImpl() : a1(), a2() { }
 
-    /// Initialize all entries with a constant floating point value
+    /// Initialize all entries with a constant
     ENOKI_INLINE StaticArrayImpl(Value value) : a1(value), a2(value) { }
 
     /// Initialize from a list of component values

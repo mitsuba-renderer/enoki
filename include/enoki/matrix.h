@@ -68,6 +68,8 @@ struct Matrix
 
     /// Return a reference to the (i, j) element (const)
     ENOKI_INLINE const Entry& operator()(size_t i, size_t j) const { return coeff(j, i); }
+
+    ENOKI_ALIGNED_OPERATOR_NEW()
 };
 
 template <typename Type1, typename Type2, size_t Size,
