@@ -68,13 +68,14 @@ static ENOKI_INLINE void dealloc(void *ptr) {
 template <typename T> struct aligned_allocator : public std::allocator<T> {
     using Base = std::allocator<T>;
     using typename Base::pointer;
-    using typename Base::const_pointer;
     using typename Base::size_type;
 
-    pointer allocate(size_type n, const_pointer = nullptr) {
-        return pointer(enoki::alloc(n * sizeof(T)));
-    }
+    template <typename U> struct rebind { using other = aligned_allocator<U>; };
 
+    aligned_allocator() { }
+    template <class U> aligned_allocator(const aligned_allocator<U> &) { }
+
+    pointer allocate(size_type n, const void * = nullptr) { return enoki::alloc<T>(n); }
     void deallocate(pointer p, size_type) { enoki::dealloc(p); }
 };
 
