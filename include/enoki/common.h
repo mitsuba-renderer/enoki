@@ -526,6 +526,10 @@ template <typename T> ENOKI_INLINE T log2i(T value) {
 #endif
 }
 
+#if defined(__GNUC__) && !defined(__clang__)
+int _mm_tzcnt_32(unsigned int v) { return v ? __builtin_ctz(v) : 32; }
+#endif
+
 // -----------------------------------------------------------------------
 //! @{ \name Fallbacks for high 32/64 bit integer multiplication
 // -----------------------------------------------------------------------

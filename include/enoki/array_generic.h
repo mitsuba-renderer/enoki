@@ -394,7 +394,7 @@ public:
     ENOKI_INLINE Mask eq_(const Derived &d) const {
         Mask result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = eq(coeff(i), d.coeff(i));
+            result.coeff(i) = eq(Value(coeff(i)), Value(d.coeff(i)));
         return result;
     }
 
@@ -402,7 +402,7 @@ public:
     ENOKI_INLINE Mask neq_(const Derived &d) const {
         Mask result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = neq(coeff(i), d.coeff(i));
+            result.coeff(i) = neq(Value(coeff(i)), Value(d.coeff(i)));
         return result;
     }
 
@@ -866,6 +866,8 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
     ENOKI_INLINE Type& operator[](size_t i) { return (Type &) Base::operator[](i); }
 };
 
+template <typename T> struct call_helper { call_helper(T&) { } };
+
 /// Pointer support
 template <typename Type_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived_>
 struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
@@ -877,6 +879,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
 
     using Base::Base;
     using Base::operator=;
+    using Base::derived;
     using Type = Type_;
     using Value = Type_;
     using Scalar = Type_;
@@ -887,7 +890,56 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
     ENOKI_INLINE Type& coeff(size_t i) { return (Type &) Base::coeff(i); }
     ENOKI_INLINE const Type& operator[](size_t i) const { return (Type &) Base::operator[](i); }
     ENOKI_INLINE Type& operator[](size_t i) { return (Type &) Base::operator[](i); }
+
+    call_helper<Derived_> operator->() { return call_helper<Derived_>(derived()); }
+    call_helper<const Derived_> operator->() const { return call_helper<const Derived_>(derived()); }
 };
+
+#define ENOKI_CALL_HELPER_BEGIN(T)                                              \
+    template <> struct call_helper<T> {                                         \
+        using Array = T;                                                        \
+        using Value = value_t<T>;                                               \
+        using Mask = mask_t<T>;                                                 \
+        call_helper(T &self) : self(self) {}                                    \
+        T &self;                                                                \
+        auto operator-> () { return this; }
+
+#define ENOKI_CALL_HELPER_FUNCTION(name)                                        \
+    template <typename InputMask, typename... Args,                             \
+              typename RetVal = decltype(std::declval<Value>()->name(           \
+                  std::declval<Args>()..., Mask())),                            \
+              std::enable_if_t<!std::is_void<RetVal>::value, int> = 0>          \
+    RetVal name##_masked(InputMask mask_, Args&&... args) {                     \
+        Mask mask = reinterpret_array<Mask>(mask_);                             \
+        RetVal result;                                                          \
+        while (any(mask)) {                                                     \
+            auto value  = enoki::extract(self, mask);                           \
+            Mask active = eq(self, Array(value));                               \
+            result      = select(active, value->name(active, args...), result); \
+            mask       &= ~active;                                              \
+        }                                                                       \
+        return result;                                                          \
+    }                                                                           \
+    template <typename InputMask, typename... Args,                             \
+              typename RetVal = decltype(std::declval<Value>()->name(           \
+                  std::declval<Args>()..., Mask())),                            \
+              std::enable_if_t<std::is_void<RetVal>::value, int> = 0>           \
+    void name##_masked(InputMask mask_, Args&&... args) {                       \
+        Mask mask = reinterpret_array<Mask>(mask_);                             \
+        while (any(mask)) {                                                     \
+            auto value  = enoki::extract(self, mask);                           \
+            Mask active = eq(self, Array(value));                               \
+            value->name(active, args...);                                       \
+            mask       &= ~active;                                              \
+        }                                                                       \
+    }                                                                           \
+    template <typename... Args> auto name(Args&&... args) {                     \
+        return name##_masked<Mask, Args...>(Mask(true),                         \
+                                            std::forward<Args>(args)...);       \
+    }
+
+#define ENOKI_CALL_HELPER_END(T)                                                \
+    };                                                                          \
 
 //! @}
 // -----------------------------------------------------------------------

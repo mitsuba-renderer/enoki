@@ -396,7 +396,7 @@ struct alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMode::Default,
     ENOKI_INLINE Value extract_(const Mask &mask) const {
         unsigned int k =
             (unsigned int) _mm256_movemask_ps(_mm256_castsi256_ps(mask.m));
-        return (Value) _mm256_extract_epi32(m, _mm_tzcnt_32(k));
+        return coeff((size_t) (_mm_tzcnt_32(k) & 7));
     }
 
     ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
@@ -805,7 +805,7 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     ENOKI_INLINE Value extract_(const Mask &mask) const {
         unsigned int k =
             (unsigned int) _mm256_movemask_pd(_mm256_castsi256_pd(mask.m));
-        return (Value) _mm256_extract_epi64(m, _mm_tzcnt_32(k));
+        return coeff((size_t) (_mm_tzcnt_32(k) & 3));
     }
 
     ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {

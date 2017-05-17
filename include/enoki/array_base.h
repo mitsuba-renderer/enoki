@@ -424,7 +424,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     ENOKI_INLINE Value extract_(const Mask &mask) const {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
             if (bool(mask.coeff(i)))
-                return derived().coeff(i);
+                return (Value) derived().coeff(i);
         return Value(0);
     }
 
