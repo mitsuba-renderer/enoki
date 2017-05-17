@@ -266,3 +266,9 @@ ENOKI_TEST_ALL(test13_range) {
         sum += gather<T>(mem, pair.first, pair.second);
     assert((10*Size/3) - (Size + 1) == hsum(sum));
 }
+
+ENOKI_TEST_ALL(test14_extract) {
+    auto idx = index_sequence<T>();
+    for (size_t i = 0; i < Size; ++i)
+        assert(extract(idx, eq(idx, Value(i))) == Value(i));
+}

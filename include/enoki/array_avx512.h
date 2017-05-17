@@ -563,9 +563,13 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
         _mm512_mask_i64scatter_ps(ptr, high(mask).k, high(index).m, high(derived()).m, Stride);
     }
 
+    ENOKI_INLINE Value extract_(const Mask &mask) const {
+        return _mm_cvtss_f32(_mm512_castps512_ps128(_mm512_maskz_compress_ps(mask.k, m)));
+    }
+
     ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
         __mmask16 k = mask.k;
-        _mm512_storeu_ps((float *) ptr, _mm512_mask_compress_ps(_mm512_setzero_ps(), k, m));
+        _mm512_storeu_ps((float *) ptr, _mm512_maskz_compress_ps(k, m));
         (Value *&) ptr += _mm_popcnt_u32(k);
     }
 
@@ -1009,9 +1013,13 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
         _mm512_mask_i64scatter_pd(ptr, mask.k, index.m, m, Stride);
     }
 
+    ENOKI_INLINE Value extract_(const Mask &mask) const {
+        return _mm_cvtsd_f64(_mm512_castpd512_pd128(_mm512_maskz_compress_pd(mask.k, m)));
+    }
+
     ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
         __mmask8 k = mask.k;
-        _mm512_storeu_pd((double *) ptr, _mm512_mask_compress_pd(_mm512_setzero_pd(), k, m));
+        _mm512_storeu_pd((double *) ptr, _mm512_maskz_compress_pd(k, m));
         (Value *&) ptr += _mm_popcnt_u32(k);
     }
 
@@ -1430,9 +1438,13 @@ template <typename Value_, typename Derived> struct alignas(64)
         _mm512_mask_i64scatter_epi32(ptr, high(mask).k, high(index).m, high(derived()).m, Stride);
     }
 
+    ENOKI_INLINE Value extract_(const Mask &mask) const {
+        return (Value) _mm_cvtsi128_si32(_mm512_castsi512_si128(_mm512_maskz_compress_epi32(mask.k, m)));
+    }
+
     ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
         __mmask16 k = mask.k;
-        _mm512_storeu_si512((__m512i *) ptr, _mm512_mask_compress_epi32(_mm512_setzero_si512(), k, m));
+        _mm512_storeu_si512((__m512i *) ptr, _mm512_maskz_compress_epi32(k, m));
         (Value *&) ptr += _mm_popcnt_u32(k);
     }
 
@@ -1835,9 +1847,13 @@ template <typename Value_, typename Derived> struct alignas(64)
         _mm512_mask_i64scatter_epi64(ptr, mask.k, index.m, m, Stride);
     }
 
+    ENOKI_INLINE Value extract_(const Mask &mask) const {
+        return (Value) _mm_cvtsi128_si64(_mm512_castsi512_si128(_mm512_maskz_compress_epi64(mask.k, m)));
+    }
+
     ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
         __mmask8 k = mask.k;
-        _mm512_storeu_si512((__m512i *) ptr, _mm512_mask_compress_epi64(_mm512_setzero_si512(), k, m));
+        _mm512_storeu_si512((__m512i *) ptr, _mm512_maskz_compress_epi64(k, m));
         (Value *&) ptr += _mm_popcnt_u32(k);
     }
 

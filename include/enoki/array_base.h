@@ -419,6 +419,15 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
         return out;
     }
 
+    /// Extract fallback implementation
+    template <typename Mask>
+    ENOKI_INLINE Value extract_(const Mask &mask) const {
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
+            if (bool(mask.coeff(i)))
+                return derived().coeff(i);
+        return Value(0);
+    }
+
     /// Prefetch operation fallback implementation
     template <size_t Stride, bool Write, size_t Level, typename Index>
     static ENOKI_INLINE void prefetch_(const void *mem, const Index &index) {

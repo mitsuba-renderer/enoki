@@ -855,11 +855,15 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
     using Base::Base;
     using Base::operator=;
     using Type = Type_;
+    using Value = Type_;
+    using Scalar = Type_;
 
     StaticArrayImpl(Type value) : Base(UnderlyingType(value)) { }
 
     ENOKI_INLINE const Type& coeff(size_t i) const { return (Type &) Base::coeff(i); }
     ENOKI_INLINE Type& coeff(size_t i) { return (Type &) Base::coeff(i); }
+    ENOKI_INLINE const Type& operator[](size_t i) const { return (Type &) Base::operator[](i); }
+    ENOKI_INLINE Type& operator[](size_t i) { return (Type &) Base::operator[](i); }
 };
 
 /// Pointer support
@@ -874,11 +878,15 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
     using Base::Base;
     using Base::operator=;
     using Type = Type_;
+    using Value = Type_;
+    using Scalar = Type_;
 
     StaticArrayImpl(Type value) : Base(UnderlyingType(value)) { }
 
     ENOKI_INLINE const Type& coeff(size_t i) const { return (Type &) Base::coeff(i); }
     ENOKI_INLINE Type& coeff(size_t i) { return (Type &) Base::coeff(i); }
+    ENOKI_INLINE const Type& operator[](size_t i) const { return (Type &) Base::operator[](i); }
+    ENOKI_INLINE Type& operator[](size_t i) { return (Type &) Base::operator[](i); }
 };
 
 //! @}

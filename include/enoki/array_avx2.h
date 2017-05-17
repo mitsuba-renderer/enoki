@@ -393,11 +393,16 @@ struct alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMode::Default,
     }
 #endif
 
+    ENOKI_INLINE Value extract_(const Mask &mask) const {
+        unsigned int k =
+            (unsigned int) _mm256_movemask_ps(_mm256_castsi256_ps(mask.m));
+        return (Value) _mm256_extract_epi32(m, _mm_tzcnt_32(k));
+    }
+
     ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
         #if defined(__AVX512VL__)
             __mmask8 k = _mm256_test_epi32_mask(mask.m, mask.m);
-            _mm256_storeu_si256((__m256i *) ptr,
-                             _mm256_mask_compress_epi32(_mm256_setzero_si256(), k, m));
+            _mm256_storeu_si256((__m256i *) ptr, _mm256_maskz_compress_epi32(k, m));
             (Value *&) ptr += _mm_popcnt_u32(k);
         #else
             /** Clever BMI2-based partitioning algorithm by Christoph Diegelmann
@@ -434,11 +439,11 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     // -----------------------------------------------------------------------
 
     ENOKI_INLINE StaticArrayImpl(Value value)
-        : m(_mm256_set1_epi64x((int64_t) value)) { }
+        : m(_mm256_set1_epi64x((long long) value)) { }
 
     ENOKI_INLINE StaticArrayImpl(Value v0, Value v1, Value v2, Value v3)
-        : m(_mm256_setr_epi64x((int64_t) v0, (int64_t) v1,
-                               (int64_t) v2, (int64_t) v3)) { }
+        : m(_mm256_setr_epi64x((long long) v0, (long long) v1,
+                               (long long) v2, (long long) v3)) { }
 
     //! @}
     // -----------------------------------------------------------------------
@@ -797,11 +802,16 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     }
 #endif
 
+    ENOKI_INLINE Value extract_(const Mask &mask) const {
+        unsigned int k =
+            (unsigned int) _mm256_movemask_pd(_mm256_castsi256_pd(mask.m));
+        return (Value) _mm256_extract_epi64(m, _mm_tzcnt_32(k));
+    }
+
     ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
         #if defined(__AVX512VL__)
             __mmask8 k = _mm256_test_epi64_mask(mask.m, mask.m);
-            _mm256_storeu_si256((__m256i *) ptr, _mm256_mask_compress_epi64(
-                                                     _mm256_setzero_si256(), k, m));
+            _mm256_storeu_si256((__m256i *) ptr, _mm256_maskz_compress_epi64(k, m));
             (Value *&) ptr += _mm_popcnt_u32(k);
         #else
             /** Clever BMI2-based partitioning algorithm by Christoph Diegelmann

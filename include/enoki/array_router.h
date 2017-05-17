@@ -1310,6 +1310,19 @@ ENOKI_INLINE void store_compress(void *&mem, const Arg &value, const Mask &mask)
         *((Arg *&) mem)++ = value;
 }
 
+/// Mask extraction operation
+template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
+          std::enable_if_t<Mask::Size == Array::Size, int> = 0>
+ENOKI_INLINE value_t<Array> extract(const Array &value, const Mask &mask) {
+    return value_t<Array>(value.extract_(reinterpret_array<mask_t<Array>>(mask)));
+}
+
+/// Mask extraction operation (scalar fallback)
+template <typename Arg, enable_if_not_array_t<Arg> = 0, typename Mask>
+ENOKI_INLINE Arg extract(const Arg &value, const Mask &) {
+    return value;
+}
+
 //! @}
 // -----------------------------------------------------------------------
 

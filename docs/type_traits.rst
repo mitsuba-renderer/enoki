@@ -7,7 +7,7 @@ compile time.
 1. To detect Enoki arrays
 -------------------------
 
-.. cpp:namespace:: enoki 
+.. cpp:namespace:: enoki
 
 .. cpp:class:: template <typename T> is_array
 
@@ -23,7 +23,7 @@ compile time.
     function definition for Enoki arrays using SFINAE.
 
 .. cpp:type:: template <typename T> enable_if_not_array_t = std::enable_if_t<!is_array<T>::value, int>
-    
+
     This convenience type alias can be used to selectively disable a class or
     function definition for Enoki arrays using SFINAE.
 
@@ -49,7 +49,7 @@ compile time.
     .. cpp:member:: static constexpr bool value
 
 .. cpp:type:: template <typename T> enable_if_dynamic_array_t = std::enable_if_t<is_dynamic_array<T>::value, int>
-    
+
     This convenience type alias can be used to selectively enable a class or
     function definition for dynamic Enoki arrays using SFINAE.
 
@@ -58,7 +58,7 @@ compile time.
     Checks whether *T* (which could be a nested Enoki array) contains a
     dynamic array at *any* level. If so, the the :cpp:var:`value` member is set to
     *true*. Otherwise :cpp:var:`value` is equal to *false*.
-    
+
     This is different from :cpp:class:`is_dynamic_array`, which only cares
     about the outermost level -- for instance, given static array *T*
     containing a nested dynamic array, ``is_dynamic_array<T> == false`` while
@@ -67,7 +67,7 @@ compile time.
     .. cpp:member:: static constexpr bool value
 
 .. cpp:type:: template <typename T> enable_if_dynamic_nested_t = std::enable_if_t<is_dynamic_nested<T>::value, int>
-    
+
     This convenience type alias can be used to selectively enable a class or
     function definition for a type containing a dynamic Enoki array using SFINAE.
 
