@@ -445,6 +445,11 @@ template <bool Approx, typename Derived> struct alignas(16)
     }
 #endif
 
+    ENOKI_INLINE Value extract_(const Mask &mask) const {
+        unsigned int k = (unsigned int)_mm_movemask_ps(mask.m);
+        return coeff((size_t)(tzcnt(k) & 3));
+    }
+
     ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
         #if !defined(__AVX512VL__)
             unsigned int k = (unsigned int) _mm_movemask_ps(mask.m);
@@ -1246,6 +1251,12 @@ struct alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
         _mm256_mask_i64scatter_epi32(ptr, k, index.m, m, Stride);
     }
 #endif
+
+
+    ENOKI_INLINE Value extract_(const Mask &mask) const {
+        unsigned int k = (unsigned int)_mm_movemask_ps(_mm_castsi128_ps(mask.m));
+        return coeff((size_t)(tzcnt(k) & 3));
+    }
 
     ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
         #if !defined(__AVX512VL__)

@@ -414,13 +414,11 @@ template <bool Approx, typename Derived> struct alignas(32)
     }
 #endif
 
-#if defined(__AVX2__)
     ENOKI_INLINE Value extract_(const Mask &mask) const {
         unsigned int k =
             (unsigned int) _mm256_movemask_ps(mask.m);
-        return coeff((size_t) (_mm_tzcnt_32(k) & 7));
+        return coeff((size_t) (tzcnt(k) & 7));
     }
-#endif
 
     ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
         #if defined(__AVX512VL__)
@@ -798,13 +796,11 @@ template <bool Approx, typename Derived> struct alignas(32)
     }
 #endif
 
-#if defined(__AVX2__)
     ENOKI_INLINE Value extract_(const Mask &mask) const {
         unsigned int k =
             (unsigned int) _mm256_movemask_pd(mask.m);
-        return coeff((size_t) (_mm_tzcnt_32(k) & 3));
+        return coeff((size_t) (tzcnt(k) & 3));
     }
-#endif
 
 #if defined(__AVX2__)
     ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {

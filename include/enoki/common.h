@@ -508,27 +508,47 @@ template <typename T> inline std::string to_string(const T& value) {
 /// Fast implementation for computing the base 2 log of an integer.
 template <typename T> ENOKI_INLINE T log2i(T value) {
     assert(value >= 0);
+    unsigned long result = 0;
 #if defined(__GNUC__) && defined(__x86_64__)
-    return T(sizeof(T) * 8 - 1) - (sizeof(T) <= 4 ? T(__builtin_clz((unsigned int) value))
-                                                  : T(__builtin_clzll((unsigned long long) value)));
-#elif defined(_WIN32)
-    unsigned long result;
     if (sizeof(T) <= 4)
-        _BitScanReverse(&result, static_cast<unsigned long>(value));
+        result = unsigned long(31 - __builtin_clz(unsigned int(value)));
     else
-        _BitScanReverse64(&result, static_cast<unsigned long long>(value));
-    return T(result);
+        result = unsigned long(63 - __builtin_clzll(unsigned long long(value)));
+
+#elif defined(_WIN32)
+    #if defined(__AVX2__)
+        if (sizeof(T) <= 4)
+            result = unsigned long(31 - __lzcnt(unsigned int(value)));
+        else
+            result = unsigned long(63 - __lzcnt64(unsigned long long(value)));
+    #else
+        if (sizeof(T) <= 4)
+            _BitScanReverse(&result, unsigned long(value));
+        else
+            _BitScanReverse64(&result, unsigned long long(value));
+    #endif
 #else
-    T r = 0;
     while ((value >> r) != 0)
         r++;
-    return r - 1;
+    r -= 1;
+#endif
+    return T(result);
+}
+
+int tzcnt(unsigned int v) {
+#if defined(__AVX2__)
+    return _tzcnt_u32(v);
+#else
+    #if defined(_MSC_VER)
+        unsigned long r;
+        _BitScanForward(&r, v);
+        return (int) r;
+    #else
+        return __builtin_ctz(v);
+    #endif
 #endif
 }
 
-#if defined(__GNUC__) && !defined(__clang__)
-int _mm_tzcnt_32(unsigned int v) { return v ? __builtin_ctz(v) : 32; }
-#endif
 
 // -----------------------------------------------------------------------
 //! @{ \name Fallbacks for high 32/64 bit integer multiplication
