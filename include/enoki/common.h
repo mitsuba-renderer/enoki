@@ -524,21 +524,21 @@ template <typename T> ENOKI_INLINE T log2i(T value) {
     unsigned long result = 0;
 #if defined(__GNUC__) && defined(__x86_64__)
     if (sizeof(T) <= 4)
-        result = unsigned long(31 - __builtin_clz(unsigned int(value)));
+        result = (unsigned long) (31 - __builtin_clz((unsigned int) value));
     else
-        result = unsigned long(63 - __builtin_clzll(unsigned long long(value)));
+        result = (unsigned long) (63 - __builtin_clzll((unsigned long long) value));
 
 #elif defined(_WIN32)
     #if defined(__AVX2__)
         if (sizeof(T) <= 4)
-            result = unsigned long(31 - __lzcnt(unsigned int(value)));
+            result = (unsigned long) (31 - __lzcnt((unsigned int) value));
         else
-            result = unsigned long(63 - __lzcnt64(unsigned long long(value)));
+            result = (unsigned long) (63 - __lzcnt64((unsigned long long) value));
     #else
         if (sizeof(T) <= 4)
-            _BitScanReverse(&result, unsigned long(value));
+            _BitScanReverse(&result, (unsigned long) value);
         else
-            _BitScanReverse64(&result, unsigned long long(value));
+            _BitScanReverse64(&result, (unsigned long long) value);
     #endif
 #else
     while ((value >> r) != 0)
@@ -548,9 +548,9 @@ template <typename T> ENOKI_INLINE T log2i(T value) {
     return T(result);
 }
 
-int tzcnt(unsigned int v) {
+inline int tzcnt(unsigned int v) {
 #if defined(__AVX2__)
-    return _tzcnt_u32(v);
+    return (int) _tzcnt_u32(v);
 #else
     #if defined(_MSC_VER)
         unsigned long r;
