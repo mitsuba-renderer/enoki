@@ -234,6 +234,14 @@ template <typename T> struct value<T, enable_if_array_t<T>> {
     using type = typename std::decay_t<T>::Value;
 };
 
+/// Type trait to access the scalar type underlying an array
+template <typename T, typename = int> struct type_ { using type = T; };
+template <typename T> using type_t = typename type_<T>::type;
+
+template <typename T> struct type_<T, enable_if_array_t<T>> {
+    using type = typename std::decay_t<T>::Type;
+};
+
 /// Type trait to access the base scalar type underlying a potentially nested array
 template <typename T, typename = int> struct scalar { using type = T; };
 template <typename T> using scalar_t = typename scalar<T>::type;
@@ -316,7 +324,12 @@ struct like { };
 
 template <typename T, typename Value>
 struct like<T, Value, std::enable_if_t<!is_array<T>::value>> {
-    using type = Value;
+private:
+    using T1 = std::conditional_t<std::is_const<std::remove_reference_t<T>>::value, std::add_const_t<Value>, Value>;
+    using T2 = std::conditional_t<std::is_lvalue_reference<T>::value, std::add_lvalue_reference_t<T1>, T1>;
+
+public:
+    using type = T2;
 };
 
 template <typename T, typename Value> using like_t = typename like<T, Value>::type;
@@ -325,7 +338,7 @@ template <typename T, typename Value>
 struct like<T, Value, std::enable_if_t<is_static_array<T>::value>> {
 private:
     using Array = typename std::decay_t<T>::Derived;
-    using Entry = like_t<value_t<Array>, Value>;
+    using Entry = like_t<type_t<Array>, Value>;
 public:
     using type = typename Array::template ReplaceType<Entry>;
 };
