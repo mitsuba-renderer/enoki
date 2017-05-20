@@ -518,10 +518,10 @@ just building histograms.
 
 ```
 /* Unmasked version */
-transform<Float>(hist, indices, [](auto x) { return x + 1; });
+transform<Float>(hist, indices, [](auto &x) { x += 1; });
 
 /* Masked version */
-transform<Float>(hist, indices, [](auto x) { return x + 1; }, mask);
+transform<Float>(hist, indices, mask, [](auto &x) { x += 1; });
 ```
 
 Internally, ``transform`` detects and processes conflicts using the AVX512CDI

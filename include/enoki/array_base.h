@@ -490,18 +490,22 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     /// Combined gather-modify-scatter operation without conflicts (fallback implementation)
-    template <size_t Stride, typename Index, typename Func>
-    static ENOKI_INLINE void transform_(void *mem, const Index &index, const Func &func) {
+    template <size_t Stride, typename Index, typename Func, typename Mask, typename... Args>
+    static ENOKI_INLINE void transform_masked_(void *mem, const Index &index,
+                                        const Mask &mask, const Func &func,
+                                        const Args &... args) {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
-            transform<Value, Stride>(mem, index.coeff(i), func);
+            transform<Value, Stride>(mem, index.coeff(i), mask.coeff(i),
+                                     func, args.coeff(i)...);
     }
 
     /// Combined gather-modify-scatter operation without conflicts (fallback implementation)
-    template <size_t Stride, typename Index, typename Func, typename Mask>
+    template <size_t Stride, typename Index, typename Func, typename... Args>
     static ENOKI_INLINE void transform_(void *mem, const Index &index,
-                                 const Func &func, const Mask &mask) {
+                                        const Func &func, const Args &... args) {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
-            transform<Value, Stride>(mem, index.coeff(i), func, mask.coeff(i));
+            transform<Value, Stride>(mem, index.coeff(i),
+                                     func, args.coeff(i)...);
     }
 
     //! @}
@@ -1773,7 +1777,8 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
     template <                                                                 \
         size_t Stride, typename T, typename Func,                              \
         std::enable_if_t<std::is_integral<typename T::Value>::value &&         \
-                         sizeof(typename T::Value) == sizeof(Index), int> = 0>
+                         sizeof(typename T::Value) == sizeof(Index), int> = 0, \
+        typename... Args>
 
 #define ENOKI_NATIVE_ARRAY(Value_, Size_, Approx_, Register, Mode)             \
     static constexpr bool Native = true;                                       \
@@ -1792,9 +1797,13 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
     ENOKI_INLINE StaticArrayImpl(Register value) : m(value) { }                \
     StaticArrayImpl(const StaticArrayImpl &a) = default;                       \
     StaticArrayImpl &operator=(const StaticArrayImpl &a) = default;            \
-    ENOKI_INLINE Value &coeff(size_t i) { return ((Value *) &m)[i]; }          \
+    ENOKI_INLINE Value &coeff(size_t i) {                                      \
+        union Data { Register value; Value data[Size_]; };                     \
+        return ((Data *) this)->data[i];                                       \
+    }                                                                          \
     ENOKI_INLINE const Value &coeff(size_t i) const {                          \
-        return ((const Value *) &m)[i];                                        \
+        union Data { Register value; Value data[Size_]; };                     \
+        return ((const Data *) this)->data[i];                                 \
     }                                                                          \
     template <typename Type2, typename Derived2, typename T = Derived,         \
               std::enable_if_t<std::is_assignable<Value_ &, Type2>::value &&   \

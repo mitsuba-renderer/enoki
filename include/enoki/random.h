@@ -37,7 +37,7 @@
 using namespace enoki;
 
 template <typename T> struct PCG32 {
-    static constexpr size_t Size = T::Size;
+    static constexpr size_t Size = array_size<T>::value;
 
     /* Some convenient type aliases for vectorization */
     using  Int64     = int64_array_t<T>;

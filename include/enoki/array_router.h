@@ -405,6 +405,11 @@ ENOKI_INLINE auto abs_dot(const Array1 &a1, const Array2 &a2) {
     return abs(dot(a1, a2));
 }
 
+template <typename Array>
+ENOKI_INLINE auto mean(const Array &a) {
+    return hsum(a) * (1.f / array_size<Array>::value);
+}
+
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg fmadd(const Arg &a1, const Arg &a2, const Arg &a3) {
     return a1 * a2 + a3;
@@ -1259,41 +1264,56 @@ ENOKI_INLINE void scatter(void *mem, const Arg &value, const Index &index, const
 template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
           typename Index, typename Func, enable_if_static_array_t<Array> = 0,
           std::enable_if_t<std::is_integral<scalar_t<Index>>::value &&
-                           Index::Size == Array::Size, int> = 0>
-ENOKI_INLINE void transform(void *mem, const Index &index, const Func &func) {
-    Array::template transform_<Stride>(mem, index, func);
-}
-
-/// Combined gather-modify-scatter operation without conflicts (scalar fallback)
-template <typename Arg, size_t Stride = sizeof(Arg), typename Index, typename Func,
-          enable_if_not_array_t<Arg> = 0,
-          std::enable_if_t<std::is_integral<Index>::value, int> = 0>
-ENOKI_INLINE void transform(void *mem, const Index &index, const Func &func) {
-    auto ptr = (Arg *) ((uint8_t *) mem + index * Index(Stride));
-    *ptr = func(*ptr);
+                           Index::Size == Array::Size, int> = 0,
+          typename... Args,
+          typename = decltype(std::declval<const Func &>()(
+              std::declval<Array &>(), std::declval<const Args &>()...))>
+ENOKI_INLINE void transform(void *mem, const Index &index, const Func &func,
+                            const Args &... args) {
+    Array::template transform_<Stride>(mem, index, func, args...);
 }
 
 /// Combined gather-modify-scatter operation without conflicts
 template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
-          typename Index, typename Func, typename Mask,
+          typename Index, typename Mask, typename Func,
           enable_if_static_array_t<Array> = 0,
           std::enable_if_t<std::is_integral<scalar_t<Index>>::value &&
-                               Index::Size == Array::Size && Mask::Size == Array::Size, int> = 0>
-ENOKI_INLINE void transform(void *mem, const Index &index,
-                            const Func &func, const Mask &mask) {
-    Array::template transform_<Stride>(mem, index, func,
-                                       reinterpret_array<mask_t<Array>>(mask));
+                           Index::Size == Array::Size &&
+                           Mask::Size == Array::Size, int> = 0,
+          typename... Args,
+          typename = decltype(std::declval<const Func &>()(
+              std::declval<Array &>(), std::declval<const Args &>()...))>
+ENOKI_INLINE void transform(void *mem, const Index &index, const Mask &mask, const Func &func,
+                            const Args &... args) {
+    Array::template transform_masked_<Stride>(
+        mem, index, reinterpret_array<mask_t<Array>>(mask), func, args...);
 }
 
 /// Combined gather-modify-scatter operation without conflicts (scalar fallback)
 template <typename Arg, size_t Stride = sizeof(Arg), typename Index, typename Func,
           typename Mask, enable_if_not_array_t<Arg> = 0,
-          std::enable_if_t<std::is_integral<Index>::value, int> = 0>
-ENOKI_INLINE void transform(void *mem, const Index &index,
-                            const Func &func, const Mask &mask) {
-    auto ptr = (Arg *) ((uint8_t *) mem + index * Index(Stride));
+          std::enable_if_t<std::is_integral<Index>::value, int> = 0,
+          typename... Args,
+          typename = decltype(std::declval<const Func &>()(
+              std::declval<Arg &>(), std::declval<const Args &>()...))>
+ENOKI_INLINE void transform(void *mem, const Index &index, const Mask &mask,
+                            const Func &func, const Args&... args) {
+    Arg& ptr = *(Arg *) ((uint8_t *) mem + index * Index(Stride));
     if (detail::mask_active(mask))
-        *ptr = func(*ptr);
+        func(ptr, args...);
+}
+
+/// Combined gather-modify-scatter operation without conflicts (scalar fallback)
+template <typename Arg, size_t Stride = sizeof(Arg), typename Index, typename Func,
+          enable_if_not_array_t<Arg> = 0,
+          std::enable_if_t<std::is_integral<Index>::value, int> = 0,
+          typename... Args,
+          typename = decltype(std::declval<const Func &>()(
+              std::declval<Arg &>(), std::declval<const Args &>()...))>
+ENOKI_INLINE void transform(void *mem, const Index &index,
+                            const Func &func, const Args&... args) {
+    Arg &ptr = *(Arg *) ((uint8_t *) mem + index * Index(Stride));
+    func(ptr, args...);
 }
 
 /// Compressing store operation

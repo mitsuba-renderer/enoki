@@ -202,11 +202,11 @@ ENOKI_TEST_ALL(test10_transform) {
     auto index = index_sequence<uint_array_t<T>>();
     auto index2 = uint_array_t<T>(0u);
 
-    transform<T>(tmp, index, [](auto value) { return value + Value(1); });
-    transform<T>(tmp, index, [](auto value) { return value + Value(1); }, mask_t<T>(false));
+    transform<T>(tmp, index, [](auto& value) { value += Value(1); });
+    transform<T>(tmp, index, mask_t<T>(false), [](auto& value) { value += Value(1); });
 
-    transform<T>(tmp, index2, [](auto value) { return value + Value(1); });
-    transform<T>(tmp, index2, [](auto value) { return value + Value(1); }, mask_t<T>(false));
+    transform<T>(tmp, index2, [](auto& value) { value += Value(1); });
+    transform<T>(tmp, index2, mask_t<T>(false), [](auto& value) { value += Value(1); });
 
     assert(tmp[0] == Size + 1);
     for (size_t i = 1; i < Size; ++i) {

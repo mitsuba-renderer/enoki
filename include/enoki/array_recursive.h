@@ -532,16 +532,18 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         store_compress(ptr, a2, high(mask));
     }
 
-    template <size_t Stride, typename Index, typename Func>
-    static ENOKI_INLINE void transform_(void *ptr, const Index &index, const Func &func) {
-        transform<Array1, Stride>(ptr, low(index),  func);
-        transform<Array2, Stride>(ptr, high(index), func);
+    template <size_t Stride, typename Index, typename Func, typename... Args>
+    static ENOKI_INLINE void transform_masked_(void *ptr, const Index &index, const Mask &mask,
+                                               const Func &func, const Args &... args) {
+        transform<Array1, Stride>(ptr, low(index),  low(mask),  func, low(args)...);
+        transform<Array2, Stride>(ptr, high(index), high(mask), func, high(args)...);
     }
 
-    template <size_t Stride, typename Index, typename Func>
-    static ENOKI_INLINE void transform_(void *ptr, const Index &index, const Func &func, const Mask &mask) {
-        transform<Array1, Stride>(ptr, low(index),  func, low(mask));
-        transform<Array2, Stride>(ptr, high(index), func, high(mask));
+    template <size_t Stride, typename Index, typename Func, typename... Args>
+    static ENOKI_INLINE void transform_(void *ptr, const Index &index,
+                                        const Func &func, const Args &... args) {
+        transform<Array1, Stride>(ptr, low(index),  func, low(args)...);
+        transform<Array2, Stride>(ptr, high(index), func, high(args)...);
     }
 
     // -----------------------------------------------------------------------
