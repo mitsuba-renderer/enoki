@@ -49,10 +49,9 @@ int main(int /* argc */, char * /* argv */[]) {
 
             /* Increment the bin indices */
             transform<UInt32>(
-                bins, idx, [](auto x) {
-                    return x + 1u;
-                },
-                mask
+                bins, idx, mask, [](auto &x) {
+                    x += 1u;
+                }
             );
         }
     }
