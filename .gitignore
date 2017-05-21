@@ -42,3 +42,6 @@ Release
 *_avx512_knl
 *_avx512_skx
 *.ppm
+
+# Documentation
+/html

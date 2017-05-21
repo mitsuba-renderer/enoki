@@ -913,7 +913,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
         Mask mask = reinterpret_array<Mask>(mask_);                             \
         RetVal result;                                                          \
         while (any(mask)) {                                                     \
-            auto value  = enoki::extract(self, mask);                           \
+            auto value  = extract(self, mask);                                  \
             Mask active = eq(self, Array(value));                               \
             result      = select(active, value->name(active, args...), result); \
             mask       &= ~active;                                              \
@@ -927,7 +927,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
     void name##_masked(InputMask mask_, Args&&... args) {                       \
         Mask mask = reinterpret_array<Mask>(mask_);                             \
         while (any(mask)) {                                                     \
-            auto value  = enoki::extract(self, mask);                           \
+            auto value  = extract(self, mask);                                  \
             Mask active = eq(self, Array(value));                               \
             value->name(active, args...);                                       \
             mask       &= ~active;                                              \

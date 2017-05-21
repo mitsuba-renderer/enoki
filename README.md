@@ -7,84 +7,15 @@
 [![Build status](https://rglpc1.epfl.ch/jenkins/buildStatus/icon?job=mitsuba-renderer/enoki/master)](https://rglpc1.epfl.ch/jenkins/blue/organizations/jenkins/mitsuba-renderer%2Fenoki/activity)
 [![Build status](https://ci.appveyor.com/api/projects/status/68db7e5es7el1btd/branch/master?svg=true)](https://ci.appveyor.com/project/wjakob/enoki/branch/master)
 
-## Compiling
-
-**Enoki** is a C++ template library that enables transparent vectorization
-of numerical code on Intel processors. It is implemented as a set of header
-files and has no dependencies other than a sufficiently C++14-capable compiler
-(e.g. GCC, Clang, Intel C++ Compiler 2016, Visual Studio 2017).
-
-Enoki is split into two major components: the front-end provides various
-elementary and transcendental math functions and generally resembles a standard
-math library implementation. The back-end provides the basic ingredients that
-are needed to realize these operations using the SIMD instruction set(s)
-supported by the target hardware (e.g. AVX512, AVX2, AVX, FMA, F16C, and
-SSE4.2).
-
-There are a number of differences in comparison to existing vectorized math
-libraries (e.g. Intel MKL, AMD ACML,
-[ssemath](http://gruntthepeon.free.fr/ssemath) by Julien Pommier,
-[avx_mathfun](http://software-lisc.fbk.eu/avx_mathfun) by Giovanni Garberoglio,
-and Agner Fog's [vector library](http://www.agner.org/optimize/#vectorclassg)):
-
-- Enoki has good coverage of elementary and transcendental mathematical
-  functions; specifically, ``cos``, ``sin``, ``sincos``, ``tan``, ``csc``,
-  ``sec``, ``cot``, ``acos``, ``asin``, ``atan``, ``atan2``, ``exp``, ``log``,
-  ``pow``, ``sinh``, ``cosh``, ``sincosh``, ``tanh``, ``csch``, ``sech``,
-  ``coth``, ``asinh``, ``acosh``, ``atanh``, ``frexp``, and ``ldexp``, ``erf``,
-  and ``erfinv`` are supported.
-
-  Efficient vectorized branch-free implementations of all of the above
-  functions are available. It is worth noting that these are less accurate than
-  their standard C math library counterparts: depending on the function, the
-  approximations have an average relative error between 0.1 and 4 ULPs. The C
-  math library can be used as a fallback when higher precision transcendental
-  functions are needed.
-
-- Enoki makes heavy use of SIMD intrinsics to ensure that compilers generate
-  efficient machine code. The intrinsics are contained in the different
-  back-end header files (e.g. ``array_avx.h`` for AVX intrinsics), which
-  provide rudimentary arithmetic and bit-level operations. Fancier operations
-  (e.g. ``atan2``) use the back-ends as an abstract interface to the hardware,
-  which means that it's simple to support other instruction sets such as a
-  hypothetical future AVX1024 or even an entirely different architecture (ARM?)
-  by just adding a new back-end.
-
-- Enoki supports arbitrary array sizes that don't necessarily match what is
-  supported by the underlying hardware (e.g. 16 x single precision on a machine
-  whose SSE vector only has hardware support for 4 x single precision
-  operands). The library uses template metaprogramming techniques to
-  efficiently map array expressions onto the available hardware resources.
-
-  This greatly simplifies development because it's enough to write a single
-  implementation of a numerical algorithm that can then be deployed on any
-  target architecture.
 
 - Enoki provides control over the rounding mode of elementary arithmetic
   operations. The AVX512 back-end can translate this into particularly
   efficient instruction sequences with embedded rounding flags.
-
 - Enoki has native support for 32 and 64 bit integers and single and double
   precision floating point operands. It also exposes a limited amount of
   hardware support for half precision operands (mainly conversion operations).
 
-- In addition to simple static arrays, Enoki also provides support for
-  dynamically allocated arrays and SoA-style vectors (more on this below).
 
-- There are non-vectorized fallbacks for everything, thus programs will run
-  even on unsupported architectures (albeit without the performance benefits of
-  vectorization).
-
-- Enoki is available under a non-viral open source license (3-clause BSD).
-
-The project is named after Enokitake, a type of mushroom with many long and
-parallel stalks reminiscent of data flow in SIMD arithmetic.
-
-## License
-
-Copyright (c) 2017 Wenzel Jakob. All rights reserved. Use of this source code
-is governed by a BSD-style license that can be found in the
-[LICENSE.txt](LICENSE.txt) file.
 
 # Basic overview
 
@@ -518,10 +449,10 @@ just building histograms.
 
 ```
 /* Unmasked version */
-transform<Float>(hist, indices, [](auto &x) { x += 1; });
+transform<Float>(hist, indices, [](auto x) { return x + 1; });
 
 /* Masked version */
-transform<Float>(hist, indices, mask, [](auto &x) { x += 1; });
+transform<Float>(hist, indices, [](auto x) { return x + 1; }, mask);
 ```
 
 Internally, ``transform`` detects and processes conflicts using the AVX512CDI
@@ -925,78 +856,10 @@ vectorize(
 );
 ```
 
-## Supporting new types
 
-Adding a new Enoki array type involves creating a new partial overload of the
-``StaticArrayImpl<>`` template that derives from ``StaticArrayBase``. To
-support the full feature set of Enoki, overloads must provide at least a set of
-core methods shown below. The underscores in the function names indicate that
-this is considered non-public API that should only be accessed indirectly via
-the routing templates in ``enoki/enoki_router.h``.
+## License
 
-- Required operations:
-
-    - Loads and stores: ``store_``, ``store_unaligned_``, ``load_``,
-      ``load_unaligned_``.
-
-    - Arithmetic and bit-level operations: ``add_``, ``sub_``, ``mul_``, ``mulhi_``
-      (signed/unsigned high integer multiplication), ``div_``, ``and_``, ``or_``,
-      ``xor_``.
-
-    - Unary operators: ``neg_``, ``not_``.
-
-    - Comparison operators that produce masks: ``ge_``, ``gt_``, ``lt_``, ``le_``,
-      ``eq_``, ``neq_``.
-
-    - Other elementary operations: ``abs_``, ``ceil_``, ``floor_``, ``max_``,
-      ``min_``, ``round_``, ``sqrt_``.
-
-    - Shift operations for integers: ``sl_``, ``sli_``, ``slv_``, ``sr_``, ``sri_``,
-      ``srv_``.
-
-    - Horizontal operations: ``none_``, ``all_``, ``any_``, ``hprod_``, ``hsum_``,
-      ``hmax_``, ``hmin_``, ``count_``.
-
-    - Masked blending operation: ``select_``.
-
-    - Access to low and high part (if applicable): ``high_``, ``low_``.
-
-    - Zero-valued array creation: ``zero_``.
-
-- The following operations all have default implementations in Enoki's
-  mathematical support library, hence overriding them is optional. However,
-  doing so may be worthwile if efficient hardware-level support exists on
-  the target platform.
-
-    - Shuffle operation (emulated using scalar operations by default):
-      ``shuffle_``.
-
-    - Compressed stores (emulated using scalar operations by default):
-      ``store_compress_``.
-
-    - Scatter/gather operations (emulated using scalar operations by default):
-      ``scatter_``, ``gather_``.
-
-    - Prefetch operations (no-op by default): ``prefetch_``.
-
-    - Trigonometric and hyperbolic functions: ``sin_``, ``sinh_``, ``sincos_``,
-      ``sincosh_``, ``cos_``, ``cosh_``, ``tan_``, ``tanh_``, ``csc_``,
-      ``csch_``, ``sec_``, ``sech_``, ``cot_``, ``coth_``, ``asin_``,
-      ``asinh_``, ``acos_``, ``acosh_``, ``atan_``, ``atanh_``.
-
-    - Fused multiply-add routines (reduced to ``add_``/``sub_`` and ``mul_`` by
-      default): ``fmadd_``, ``fmsub_``, ``fmaddsub_``, ``fmsubadd_``.
-
-    - Reciprocal and reciprocal square root (reduced to ``div_`` and ``sqrt_``
-      by default): ``rcp_``, ``rsqrt_``.
-
-    - Dot product (reduced to ``mul_`` and ``hsum_`` by default): ``dot_``.
-
-    - Exponentials, logarithms, powers, floating point exponent manipulation
-      functions: ``log_``, ``exp_``, ``pow_`` ``frexp_``, ``ldexp_``.
-
-    - Error function and its inverse: ``erf_``, ``erfinv_``.
-
-    - Optional bit-level rotation operations (reduced to shifts by default):
-      ``rol_``, ``roli_``, ``rolv_``, ``ror_``, ``rori_``, ``rorv_``.
+Copyright (c) 2017 Wenzel Jakob. All rights reserved. Use of this source code
+is governed by a BSD-style license that can be found in the
+[LICENSE.txt](LICENSE.txt) file.
 
