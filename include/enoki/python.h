@@ -86,12 +86,10 @@ template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_arra
         for (size_t i = 1; i < shape.size(); ++i)
             stride[i] = shape[i - 1] * stride[i - 1];
 
-        buffer_info info(nullptr, sizeof(Scalar),
-                         format_descriptor<Scalar>::value, shape.size(),
-                         std::vector<size_t>(shape.begin(), shape.end()),
-                         std::vector<size_t>(stride.begin(), stride.end()));
+        array arr(pybind11::dtype::of<Scalar>(),
+                  std::vector<ssize_t>(shape.begin(), shape.end()),
+                  std::vector<ssize_t>(stride.begin(), stride.end()));
 
-        array arr(info);
         Scalar *buf = static_cast<Scalar *>(arr.mutable_data());
         write_buffer(buf, src);
         return arr.release();
