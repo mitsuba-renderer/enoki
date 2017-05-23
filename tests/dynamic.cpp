@@ -17,7 +17,8 @@ ENOKI_TEST(test01_alloc)  {
     using T = Array<float, 4>;
     using D = DynamicArray<T>;
 
-    auto x = D(10);
+    D x;
+    dynamic_resize(x, 10);
 
     assert(x.size() == 10);
     assert(x.capacity() == 12);

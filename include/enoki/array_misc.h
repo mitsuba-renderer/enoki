@@ -88,7 +88,9 @@ transpose(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
 /// Analagous to meshgrid() in NumPy or MATLAB; for dynamic arrays
 template <typename Arr>
 Array<Arr, 2> meshgrid(const Arr &x, const Arr &y) {
-    Arr X(x.size() * y.size()), Y(x.size() * y.size());
+    Arr X, Y;
+    dynamic_resize(X, x.size() * y.size());
+    dynamic_resize(Y, x.size() * y.size());
 
     size_t pos = 0;
 

@@ -136,6 +136,7 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
 
     using typename Base::Packet;
     using typename Base::Value;
+    using typename Base::Scalar;
     using typename Base::Derived;
     using Base::derived;
     using Base::PacketSize;
@@ -151,7 +152,10 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
 
     DynamicArrayImpl(const DynamicArrayImpl &other) { operator=(other); }
 
-    DynamicArrayImpl(size_t size) { resize_(size); }
+    DynamicArrayImpl(Value value, size_t size = 1) {
+        resize_(size);
+        operator=(value);
+    }
 
     DynamicArrayImpl(Value *ptr, size_t size)
         : m_packets((Packet *) ptr), m_packets_allocated(0), m_size(size) { }
@@ -248,15 +252,13 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     // -----------------------------------------------------------------------
 
     static Derived zero_(size_t size) {
-        Derived result(size);
-        Packet packet = zero<Packet>();
-        for (size_t i = 0; i < result.packets_(); ++i)
-            result.packet_(i) = packet;
+        Derived result(zero<Value>(), size);
         return result;
     }
 
     static Derived index_sequence_(size_t size) {
-        Derived result(size);
+        Derived result;
+        result.resize_(size);
         Packet packet = index_sequence<Packet>(),
                shift = Value(PacketSize);
         for (size_t i = 0; i < result.packets_(); ++i) {
@@ -267,7 +269,8 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     }
 
     static Derived linspace_(size_t size, Value min, Value max) {
-        Derived result(size);
+        Derived result;
+        result.resize_(size);
 
         Value step = (max - min) / Value(size - 1);
 
@@ -287,6 +290,13 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     // -----------------------------------------------------------------------
     //! @{ \name Assignment operators
     // -----------------------------------------------------------------------
+
+    DynamicArrayImpl &operator=(Value value) {
+        Packet packet(value);
+        for (size_t i  = 0; i < packets_(); ++i)
+            packet_(i) = packet;
+        return derived();
+    }
 
     DynamicArrayImpl &operator=(const DynamicArrayImpl &other) {
         resize_(other.size());
