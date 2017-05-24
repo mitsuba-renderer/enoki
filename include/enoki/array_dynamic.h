@@ -465,4 +465,86 @@ ENOKI_INLINE auto vectorize_safe(Func&& f, Args&&... args) {
     return detail::vectorize<true, Return>(std::forward<Func>(f), args...);
 }
 
+// The main idea of this macro is borrowed from https://github.com/swansontec/map-macro
+// (C) William Swanson, Paul Fultz
+#define ENOKI_EVAL_0(...) __VA_ARGS__
+#define ENOKI_EVAL_1(...) ENOKI_EVAL_0(ENOKI_EVAL_0(ENOKI_EVAL_0(__VA_ARGS__)))
+#define ENOKI_EVAL_2(...) ENOKI_EVAL_1(ENOKI_EVAL_1(ENOKI_EVAL_1(__VA_ARGS__)))
+#define ENOKI_EVAL_3(...) ENOKI_EVAL_2(ENOKI_EVAL_2(ENOKI_EVAL_2(__VA_ARGS__)))
+#define ENOKI_EVAL_4(...) ENOKI_EVAL_3(ENOKI_EVAL_3(ENOKI_EVAL_3(__VA_ARGS__)))
+#define ENOKI_EVAL(...)   ENOKI_EVAL_4(ENOKI_EVAL_4(ENOKI_EVAL_4(__VA_ARGS__)))
+#define ENOKI_MAP_END(...)
+#define ENOKI_MAP_OUT
+#define ENOKI_MAP_COMMA ,
+#define ENOKI_MAP_GET_END() 0, ENOKI_MAP_END
+#define ENOKI_MAP_NEXT_0(test, next, ...) next ENOKI_MAP_OUT
+#define ENOKI_MAP_NEXT_1(test, next) ENOKI_MAP_NEXT_0(test, next, 0)
+#define ENOKI_MAP_NEXT(test, next) ENOKI_MAP_NEXT_1(ENOKI_MAP_GET_END test, next)
+#define ENOKI_EXTRACT_0(next, ...) next
+
+#if defined(_MSC_VER) // MSVC is not as eager to expand macros, hence this workaround
+#define ENOKI_MAP_LIST_NEXT_1(test, next) \
+    ENOKI_EVAL_0(ENOKI_MAP_NEXT_0(test, ENOKI_MAP_COMMA next, 0))
+#else
+#define ENOKI_MAP_LIST_NEXT_1(test, next) \
+    ENOKI_MAP_NEXT_0(test, ENOKI_MAP_COMMA next, 0)
+#endif
+
+#define ENOKI_MAP_LIST_NEXT(test, next) \
+    ENOKI_MAP_LIST_NEXT_1 (ENOKI_MAP_GET_END test, next)
+
+#define ENOKI_MAP_LIST_1_0(f, v, x, peek, ...) \
+    f(v.x) ENOKI_MAP_LIST_NEXT(peek, ENOKI_MAP_LIST_1_1)(f, v, peek, __VA_ARGS__)
+#define ENOKI_MAP_LIST_1_1(f, v, x, peek, ...) \
+    f(v.x) ENOKI_MAP_LIST_NEXT(peek, ENOKI_MAP_LIST_1_0)(f, v, peek, __VA_ARGS__)
+
+#define ENOKI_MAP_LIST_2_0(f, v, t, x, peek, ...) \
+    f(v.x, t) ENOKI_MAP_LIST_NEXT(peek, ENOKI_MAP_LIST_2_1)(f, v, t, peek, __VA_ARGS__)
+#define ENOKI_MAP_LIST_2_1(f, v, t, x, peek, ...) \
+    f(v.x, t) ENOKI_MAP_LIST_NEXT(peek, ENOKI_MAP_LIST_2_0)(f, v, t, peek, __VA_ARGS__)
+
+// ENOKI_MAP_LIST_1(f, v, a1, a2, ...) expands to f(v.a1), f(v.a2), ...
+#define ENOKI_MAP_LIST_1(f, v, ...) \
+    ENOKI_EVAL(ENOKI_MAP_LIST_1_0(f, v, __VA_ARGS__, (), 0))
+
+// ENOKI_MAP_LIST_2(f, v, t, a1, a2, ...) expands to f(v.a1, t), f(v.a2, t), ...
+#define ENOKI_MAP_LIST_2(f, v, t, ...) \
+    ENOKI_EVAL(ENOKI_MAP_LIST_2_0(f, v, t, __VA_ARGS__, (), 0))
+
+#define ENOKI_DYNAMIC_SUPPORT(Name, ...)                                       \
+    NAMESPACE_BEGIN(enoki)                                                     \
+    template <typename T> struct dynamic_support<Name<T>> {                    \
+        static constexpr bool is_dynamic_nested =                              \
+            enoki::is_dynamic_nested<T>::value;                                \
+        using dynamic_t = Name<enoki::make_dynamic_t<T>>;                      \
+        using Value     = Name<T>;                                             \
+        static ENOKI_INLINE size_t dynamic_size(const Value &value) {          \
+            return enoki::dynamic_size(value.ENOKI_EXTRACT_0(__VA_ARGS__));    \
+        }                                                                      \
+        static ENOKI_INLINE size_t packets(const Value &value) {               \
+            return enoki::packets(value.ENOKI_EXTRACT_0(__VA_ARGS__));         \
+        }                                                                      \
+        static ENOKI_INLINE void dynamic_resize(Value &value, size_t size) {   \
+            ENOKI_MAP_LIST_2(enoki::dynamic_resize, value, size, __VA_ARGS__); \
+        }                                                                      \
+        template <typename T2> static ENOKI_INLINE auto ref_wrap(T2 &&value) { \
+            using Type = decltype(enoki::ref_wrap(std::declval<T>()));         \
+            return Name<Type>(                                                 \
+                ENOKI_MAP_LIST_1(enoki::ref_wrap, value, __VA_ARGS__));        \
+        }                                                                      \
+        template <typename T2>                                                 \
+        static ENOKI_INLINE auto packet(T2 &&value, size_t index) {            \
+            using Type = decltype(enoki::packet(std::declval<T>(), index));    \
+            return Name<Type>(                                                 \
+                ENOKI_MAP_LIST_2(enoki::packet, value, index, __VA_ARGS__));   \
+        }                                                                      \
+        template <typename T2>                                                 \
+        static ENOKI_INLINE auto slice(T2 &&value, size_t index) {             \
+            using Type = decltype(enoki::slice(std::declval<T>(), index));     \
+            return Name<Type>(                                                 \
+                ENOKI_MAP_LIST_2(enoki::slice, value, index, __VA_ARGS__));    \
+        }                                                                      \
+    };                                                                         \
+    NAMESPACE_END(enoki)
+
 NAMESPACE_END(enoki)
