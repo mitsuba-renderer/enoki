@@ -43,40 +43,46 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
 
     using Arg = const Derived &;
 
-    struct Mask : StaticArrayBase<Type_, Size_, false, RoundingMode::Default, Mask> {
+    struct RMask : StaticArrayBase<Type_, Size_, false, RoundingMode::Default, RMask> {
     public:
         static constexpr size_t Size = Size_;
         static constexpr size_t ActualSize = Size_;
 
         static constexpr bool Native = false;
         static constexpr bool IsMask = true;
-        using Expr = Mask;
+        using Expr = RMask;
+        using Mask = RMask;
 
         Mask1 m1;
         Mask2 m2;
 
-        ENOKI_INLINE Mask() : m1(), m2() { }
-        ENOKI_INLINE Mask(Mask1 m1, Mask2 m2) : m1(m1), m2(m2) { }
+        ENOKI_INLINE RMask() : m1(), m2() { }
+        ENOKI_INLINE RMask(Mask1 m1, Mask2 m2) : m1(m1), m2(m2) { }
         template <typename T, std::enable_if_t<std::is_same<T, bool>::value, int> = 0>
-        ENOKI_INLINE Mask(T b) : m1(b), m2(b) { }
+        ENOKI_INLINE RMask(T b) : m1(b), m2(b) { }
 
         /// Cast another array
         template <typename Other, enable_if_static_array_t<Other> = 0>
-        ENOKI_INLINE Mask(const Other &m) : m1(low(m)), m2(high(m)) { }
+        ENOKI_INLINE RMask(const Other &m) : m1(low(m)), m2(high(m)) { }
 
         /// Reinterpret another array
         template <typename Other>
-        ENOKI_INLINE Mask(const Other &m, detail::reinterpret_flag)
+        ENOKI_INLINE RMask(const Other &m, detail::reinterpret_flag)
             : m1(reinterpret_array<Mask1>(low(m))), m2(reinterpret_array<Mask2>(high(m))) { }
 
         ENOKI_INLINE explicit operator Derived() const { return Derived((Array1) m1, (Array2) m2); }
 
-        ENOKI_INLINE Mask or_ (const Mask &m) const { return Mask(m1 | m.m1, m2 | m.m2); }
-        ENOKI_INLINE Mask and_(const Mask &m) const { return Mask(m1 & m.m1, m2 & m.m2); }
-        ENOKI_INLINE Mask xor_(const Mask &m) const { return Mask(m1 ^ m.m1, m2 ^ m.m2); }
-        ENOKI_INLINE Mask eq_ (const Mask &m) const { return Mask(eq(m1, m.m1), eq(m2, m.m2)); }
-        ENOKI_INLINE Mask neq_(const Mask &m) const { return Mask(neq(m1, m.m1), neq(m2, m.m2)); }
-        ENOKI_INLINE Mask not_() const { return Mask(~m1, ~m2); }
+        ENOKI_INLINE RMask or_ (const RMask &m) const { return RMask(m1 | m.m1, m2 | m.m2); }
+        ENOKI_INLINE RMask and_(const RMask &m) const { return RMask(m1 & m.m1, m2 & m.m2); }
+        ENOKI_INLINE RMask xor_(const RMask &m) const { return RMask(m1 ^ m.m1, m2 ^ m.m2); }
+        ENOKI_INLINE RMask eq_ (const RMask &m) const { return RMask(eq(m1, m.m1), eq(m2, m.m2)); }
+        ENOKI_INLINE RMask neq_(const RMask &m) const { return RMask(neq(m1, m.m1), neq(m2, m.m2)); }
+        ENOKI_INLINE RMask not_() const { return RMask(~m1, ~m2); }
+
+        static ENOKI_INLINE RMask select_(const RMask &m, const RMask &t, const RMask &f) {
+            return Mask(select(m.m1, t.m1, f.m1),
+                        select(m.m2, t.m2, f.m2));
+        }
 
         template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
         ENOKI_INLINE bool all_() const { return all(m1 & m2); }
@@ -105,6 +111,8 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
                 return m2.coeff(i - Size1);
         }
     };
+
+    using Mask = RMask;
 
     /// Default constructor
     ENOKI_INLINE StaticArrayImpl() : a1(), a2() { }

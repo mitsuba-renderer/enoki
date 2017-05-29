@@ -101,21 +101,21 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
 
     ENOKI_INLINE bool all_() const {
         if (std::is_same<Type, __mmask16>::value)
-            return _mm512_kortestc(k, k);
+            return _mm512_kortestc((__mmask16) k, (__mmask16) k);
         else
             return k == Type((1 << Size) - 1);
     }
 
     ENOKI_INLINE bool none_() const {
         if (std::is_same<Type, __mmask16>::value)
-            return _mm512_kortestz(k, k);
+            return _mm512_kortestz((__mmask16) k, (__mmask16) k);
         else
             return k == Type(0);
     }
 
     ENOKI_INLINE bool any_() const {
         if (std::is_same<Type, __mmask16>::value)
-            return !_mm512_kortestz(k, k);
+            return !_mm512_kortestz((__mmask16) k, (__mmask16) k);
         else
             return k != Type(0);
     }
@@ -127,6 +127,15 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
     ENOKI_INLINE KMaskBit coeff(size_t i) const {
         assert(i < Size);
         return KMaskBit { (k & (1 << i)) != 0 };
+    }
+
+    static ENOKI_INLINE KMask select_(const Mask &m, const KMask &t,
+                                      const KMask &f) {
+        if (std::is_same<Type, __mmask16>::value)
+            return KMask(_mm512_kor(_mm512_kand((__mmask16) m.k, (__mmask16) t.k),
+                                    _mm512_kandn((__mmask16) m.k, (__mmask16) f.k)));
+        else
+            return KMask((m & t) | (~m & f));
     }
 
     KMask<HalfType> low_()  const { return KMask<HalfType>(HalfType(k)); }
