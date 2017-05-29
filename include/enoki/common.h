@@ -340,7 +340,11 @@ private:
     using Array = typename std::decay_t<T>::Derived;
     using Entry = like_t<type_t<Array>, Value>;
 public:
-    using type = typename Array::template ReplaceType<Entry>;
+    using type = std::conditional_t<
+        std::is_same<Value, bool>::value,
+        mask_t<T>,
+        typename Array::template ReplaceType<Entry>
+    >;
 };
 
 template <typename T, typename Value>
