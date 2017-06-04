@@ -313,7 +313,7 @@ if (Sphinx_FOUND)
   set(SPHINX_INPUT_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/docs")
   set(SPHINX_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/html")
 
-  add_custom_target(mkdoc ALL
+  add_custom_target(mkdoc
       ${SPHINX_EXECUTABLE} -b html "${SPHINX_INPUT_DIR}" "${SPHINX_OUTPUT_DIR}"
       COMMENT "Building HTML documentation with Sphinx"
       USES_TERMINAL)
