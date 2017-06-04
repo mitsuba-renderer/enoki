@@ -920,14 +920,14 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
                  -> in ULPs   = 12
                  (at x=-0.015445)
             */
-            Expr y         = derived(),
-                 absX      = abs(x),
-                 absY      = abs(y),
-                 minVal    = min(absY, absX),
-                 maxVal    = max(absX, absY),
-                 scale     = Scalar(1) / maxVal,
-                 scaledMin = minVal * scale,
-                 z         = scaledMin * scaledMin;
+            Expr y          = derived(),
+                 abs_x      = abs(x),
+                 abs_y      = abs(y),
+                 min_val    = min(abs_y, abs_x),
+                 max_val    = max(abs_x, abs_y),
+                 scale      = Scalar(1) / max_val,
+                 scaled_min = min_val * scale,
+                 z          = scaled_min * scaled_min;
 
             // How to find these:
             // f[x_] = MiniMaxApproximation[ArcTan[Sqrt[x]]/Sqrt[x],
@@ -941,9 +941,9 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
                              -0.037006525670417265220,
                               0.0078613793713198150252);
 
-            t = t * scaledMin;
+            t = t * scaled_min;
 
-            t = select(absY > absX, Scalar(M_PI_2) - t, t);
+            t = select(abs_y > abs_x, Scalar(M_PI_2) - t, t);
             t = select(x < zero<Expr>(), Scalar(M_PI) - t, t);
             r = select(y < zero<Expr>(), -t, t);
         } else {
@@ -1548,10 +1548,8 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             Expr x = abs(x_), x2 = x_ * x_;
             Expr t = rcp(fmadd(Expr(Scalar(0.3275911)), x, Expr(Scalar(1))));
 
-            Expr y = poly4(t,  0.254829592,
-                              -0.284496736,
-                               1.421413741,
-                              -1.453152027,
+            Expr y = poly4(t,  0.254829592, -0.284496736,
+                               1.421413741, -1.453152027,
                                1.061405429);
 
             y *= t * exp(-x2);
