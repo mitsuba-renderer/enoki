@@ -26,8 +26,8 @@ template <typename T, typename Value2> void masktest() {
     using Value = typename T::Value;
     using T2 = like_t<T, Value2>;
     for (size_t i = 0; i < T::Size; ++i) {
-        typename T::Mask mask = eq(index_sequence<T>() - T(Value(i)), T(0));
-        typename T2::Mask mask2 = reinterpret_array<typename T2::Mask>(mask);
+        mask_t<T> mask = eq(index_sequence<T>() - T(Value(i)), T(0));
+        mask_t<T2> mask2 = reinterpret_array<mask_t<T2>>(mask);
         T2 result = select(mask2, T2(Value2(1)), T2(Value2(0)));
         Value2 out[T::Size];
         store_unaligned(out, result);

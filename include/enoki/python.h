@@ -43,8 +43,7 @@ template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_dyn
 };
 
 template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_array<Type>::value>> {
-    typedef typename Type::Value     Value;
-    typedef typename Type::Scalar Scalar;
+    using Scalar = std::conditional_t<Type::IsMask, bool, enoki::scalar_t<Type>>;
 
     bool load(handle src, bool) {
         auto arr = array_t<Scalar, array::f_style | array::forcecast>::ensure(src);
@@ -108,38 +107,55 @@ template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_arra
     operator Type&() { return value; }
 
 private:
-    template <typename T, std::enable_if_t<!enoki::is_array<T>::value, int> = 0>
-    static ENOKI_INLINE void write_buffer(Scalar *&, const T &) { }
+    template <typename T, std::enable_if_t<!enoki::is_array<enoki::value_t<T>>::value && !T::IsMask, int> = 0>
+    static ENOKI_INLINE void write_buffer(Scalar *&buf, const T &value) {
+        memcpy(buf, value.data(), sizeof(enoki::value_t<T>) * value.size());
+        buf += value.size();
+    }
 
-    template <typename T, std::enable_if_t<enoki::is_array<T>::value, int> = 0>
-    static ENOKI_INLINE void write_buffer(Scalar *&buf, const T &value_) {
-        const auto &value = value_.derived();
-        size_t size = value.size();
+    template <typename T, std::enable_if_t<!enoki::is_array<enoki::value_t<T>>::value && T::IsMask, int> = 0>
+    static ENOKI_INLINE void write_buffer(Scalar *&buf, const T &value) {
+        for (size_t i = 0, size = value.size(); i < size; ++i)
+            *buf++ = enoki::detail::mask_active(value.coeff(i));
+    }
 
-        if (std::is_arithmetic<enoki::value_t<T>>::value) {
-            memcpy(buf, &value.coeff(0), sizeof(enoki::value_t<T>) * size);
-            buf += size;
-        } else {
-            for (size_t i = 0; i < size; ++i)
-                write_buffer(buf, value.coeff(i));
+    template <typename T, std::enable_if_t<enoki::is_array<enoki::value_t<T>>::value, int> = 0>
+    static ENOKI_INLINE void write_buffer(Scalar *&buf, const T &value) {
+        for (size_t i = 0, size = value.size(); i < size; ++i)
+            write_buffer(buf, value.coeff(i));
+    }
+
+    template <typename T, std::enable_if_t<!enoki::is_array<enoki::value_t<T>>::value && !T::IsMask, int> = 0>
+    static ENOKI_INLINE void read_buffer(const Scalar *&buf, T &value) {
+        memcpy(value.data(), buf, sizeof(enoki::value_t<T>) * value.size());
+        buf += value.size();
+    }
+
+    template <typename T, std::enable_if_t<!enoki::is_array<enoki::value_t<T>>::value && T::IsMask &&
+                                            enoki::is_dynamic_array<T>::value, int> = 0>
+    static ENOKI_INLINE void read_buffer(const Scalar *&buf, T &value) {
+        const Scalar *end = buf + value.size();
+        for (size_t i = 0; i < enoki::packets(value); ++i) {
+            enoki::Array<bool, T::Packet::Size> value2;
+            for (size_t j = 0; j < T::Packet::Size && buf != end; ++j)
+                value2.coeff(j) = *buf++;
+            enoki::packet(value, i) = enoki::reinterpret_array<typename T::Packet>(value2);
         }
     }
 
-    template <typename T, std::enable_if_t<!enoki::is_array<T>::value, int> = 0>
-    static ENOKI_INLINE void read_buffer(const Scalar *&, T &) { }
+    template <typename T, std::enable_if_t<!enoki::is_array<enoki::value_t<T>>::value && T::IsMask &&
+                                           !enoki::is_dynamic_array<T>::value, int> = 0>
+    static ENOKI_INLINE void read_buffer(const Scalar *&buf, T &value) {
+        enoki::Array<bool, T::Size> value2;
+        for (size_t i = 0, size = value2.size(); i < size; ++i)
+            value2.coeff(i) = *buf++;
+        value = enoki::reinterpret_array<T>(value2);
+    }
 
-    template <typename T, std::enable_if_t<enoki::is_array<T>::value, int> = 0>
-    static ENOKI_INLINE void read_buffer(const Scalar *&buf, T &value_) {
-        auto &value = value_.derived();
-        size_t size = value.size();
-
-        if (std::is_arithmetic<enoki::value_t<T>>::value) {
-            memcpy(&value.coeff(0), buf, sizeof(enoki::value_t<T>) * size);
-            buf += size;
-        } else {
-            for (size_t i = 0; i < size; ++i)
-                read_buffer(buf, value.coeff(i));
-        }
+    template <typename T, std::enable_if_t<enoki::is_array<enoki::value_t<T>>::value, int> = 0>
+    static ENOKI_INLINE void read_buffer(const Scalar *&buf, T &value) {
+        for (size_t i = 0, size = value.size(); i < size; ++i)
+            read_buffer(buf, value.coeff(i));
     }
 
 private:

@@ -557,12 +557,12 @@ template <bool Approx, typename Derived> struct alignas(32)
     ENOKI_INLINE Derived and_(Arg a) const { return _mm256_and_pd(m, a.m); }
     ENOKI_INLINE Derived xor_(Arg a) const { return _mm256_xor_pd(m, a.m); }
 
-    ENOKI_INLINE Mask lt_ (Arg a) const { return _mm256_cmp_pd(m, a.m, _CMP_LT_OQ);  }
-    ENOKI_INLINE Mask gt_ (Arg a) const { return _mm256_cmp_pd(m, a.m, _CMP_GT_OQ);  }
-    ENOKI_INLINE Mask le_ (Arg a) const { return _mm256_cmp_pd(m, a.m, _CMP_LE_OQ);  }
-    ENOKI_INLINE Mask ge_ (Arg a) const { return _mm256_cmp_pd(m, a.m, _CMP_GE_OQ);  }
-    ENOKI_INLINE Mask eq_ (Arg a) const { return _mm256_cmp_pd(m, a.m, _CMP_EQ_OQ);  }
-    ENOKI_INLINE Mask neq_(Arg a) const { return _mm256_cmp_pd(m, a.m, _CMP_NEQ_UQ); }
+    ENOKI_INLINE auto lt_ (Arg a) const { return mask_t<Derived>(_mm256_cmp_pd(m, a.m, _CMP_LT_OQ));  }
+    ENOKI_INLINE auto gt_ (Arg a) const { return mask_t<Derived>(_mm256_cmp_pd(m, a.m, _CMP_GT_OQ));  }
+    ENOKI_INLINE auto le_ (Arg a) const { return mask_t<Derived>(_mm256_cmp_pd(m, a.m, _CMP_LE_OQ));  }
+    ENOKI_INLINE auto ge_ (Arg a) const { return mask_t<Derived>(_mm256_cmp_pd(m, a.m, _CMP_GE_OQ));  }
+    ENOKI_INLINE auto eq_ (Arg a) const { return mask_t<Derived>(_mm256_cmp_pd(m, a.m, _CMP_EQ_OQ));  }
+    ENOKI_INLINE auto neq_(Arg a) const { return mask_t<Derived>(_mm256_cmp_pd(m, a.m, _CMP_NEQ_UQ)); }
 
     ENOKI_INLINE Derived abs_()      const { return _mm256_andnot_pd(_mm256_set1_pd(-0.), m); }
     ENOKI_INLINE Derived min_(Arg b) const { return _mm256_min_pd(b.m, m); }
@@ -575,7 +575,8 @@ template <bool Approx, typename Derived> struct alignas(32)
         return _mm256_round_pd(m, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
     }
 
-    static ENOKI_INLINE Derived select_(const Mask &m, Arg t, Arg f) {
+    template <typename Mask_>
+    static ENOKI_INLINE Derived select_(const Mask_ &m, Arg t, Arg f) {
         return _mm256_blendv_pd(f.m, t.m, m.m);
     }
 
@@ -724,25 +725,29 @@ template <bool Approx, typename Derived> struct alignas(32)
     ENOKI_INLINE void store_(void *ptr) const {
         _mm256_store_pd((Value *) ptr, m);
     }
-    ENOKI_INLINE void store_(void *ptr, const Mask &mask) const {
+    template <typename Mask_>
+    ENOKI_INLINE void store_(void *ptr, const Mask_ &mask) const {
         _mm256_maskstore_pd((Value *) ptr, _mm256_castpd_si256(mask.m), m);
     }
     ENOKI_INLINE void store_unaligned_(void *ptr) const {
         _mm256_storeu_pd((Value *) ptr, m);
     }
-    ENOKI_INLINE void store_unaligned_(void *ptr, const Mask &mask) const {
+    template <typename Mask_>
+    ENOKI_INLINE void store_unaligned_(void *ptr, const Mask_ &mask) const {
         _mm256_maskstore_pd((Value *) ptr, _mm256_castpd_si256(mask.m), m);
     }
     static ENOKI_INLINE Derived load_(const void *ptr) {
         return _mm256_load_pd((const Value *) ptr);
     }
-    static ENOKI_INLINE Derived load_(const void *ptr, const Mask &mask) {
+    template <typename Mask_>
+    static ENOKI_INLINE Derived load_(const void *ptr, const Mask_ &mask) {
         return _mm256_maskload_pd((const Value *) ptr, _mm256_castpd_si256(mask.m));
     }
     static ENOKI_INLINE Derived load_unaligned_(const void *ptr) {
         return _mm256_loadu_pd((const Value *) ptr);
     }
-    static ENOKI_INLINE Derived load_unaligned_(const void *ptr, const Mask &mask) {
+    template <typename Mask_>
+    static ENOKI_INLINE Derived load_unaligned_(const void *ptr, const Mask_ &mask) {
         return load_(ptr, mask);
     }
 
@@ -755,7 +760,7 @@ template <bool Approx, typename Derived> struct alignas(32)
     }
 
     ENOKI_REQUIRE_INDEX(T, int32_t)
-    static ENOKI_INLINE Derived gather_(const void *ptr, const T &index, const Mask &mask) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const T &index, const Mask_ &mask) {
         return _mm256_mask_i32gather_pd(_mm256_setzero_pd(), (const double *) ptr, index.m, mask.m, Stride);
     }
 
@@ -777,7 +782,7 @@ template <bool Approx, typename Derived> struct alignas(32)
     }
 
     ENOKI_REQUIRE_INDEX(T, int32_t)
-    ENOKI_INLINE void scatter_(void *ptr, const T &index, const Mask &mask_) const {
+    ENOKI_INLINE void scatter_(void *ptr, const T &index, const Mask_ &mask_) const {
         __m256i mask = _mm256_castpd_si256(mask_.m);
         __mmask8 k = _mm256_test_epi64_mask(mask, mask);
         _mm256_mask_i32scatter_pd(ptr, k, index.m, m, Stride);
@@ -789,7 +794,7 @@ template <bool Approx, typename Derived> struct alignas(32)
     }
 
     ENOKI_REQUIRE_INDEX(T, int64_t)
-    ENOKI_INLINE void scatter_(void *ptr, const T &index, const Mask &mask_) const {
+    ENOKI_INLINE void scatter_(void *ptr, const T &index, const Mask_ &mask_) const {
         __m256i mask = _mm256_castpd_si256(mask_.m);
         __mmask8 k = _mm256_test_epi64_mask(mask, mask);
         _mm256_mask_i64scatter_pd(ptr, k, index.m, m, Stride);
@@ -803,7 +808,8 @@ template <bool Approx, typename Derived> struct alignas(32)
     }
 
 #if defined(__AVX2__)
-    ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
+    template <typename Mask_>
+    ENOKI_INLINE void store_compress_(void *&ptr, const Mask_ &mask) const {
         #if defined(__AVX512VL__)
             __mmask8 k = _mm256_test_epi64_mask(_mm256_castpd_si256(mask.m),
                                                 _mm256_castpd_si256(mask.m));
@@ -839,9 +845,9 @@ template <bool Approx, typename Derived> struct alignas(32)
     StaticArrayImpl<double, 3, Approx, RoundingMode::Default, Derived>
     : StaticArrayImpl<double, 4, Approx, RoundingMode::Default, Derived> {
     using Base = StaticArrayImpl<double, 4, Approx, RoundingMode::Default, Derived>;
+    using Mask = detail::MaskWrapper<double, 3, Approx, RoundingMode::Default>;
 
     using typename Base::Value;
-    using typename Base::Mask;
     using Arg = const Base &;
     using Base::Base;
     using Base::m;

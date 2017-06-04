@@ -19,7 +19,7 @@ NAMESPACE_BEGIN(enoki)
 
 NAMESPACE_BEGIN(detail)
 
-template <typename Derived> struct MaskWrapper {
+template <typename Derived> struct MaskedElement {
     Derived &d;
     typename Derived::Mask m;
     template <typename T> ENOKI_INLINE void operator=(T value) { d.massign_(value, m); }
@@ -201,8 +201,8 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     using Base::operator[];
     template <typename T = Derived>
-    ENOKI_INLINE detail::MaskWrapper<T> operator[](typename T::Mask m) {
-        return detail::MaskWrapper<T>{ derived(), m };
+    ENOKI_INLINE detail::MaskedElement<T> operator[](typename T::Mask m) {
+        return detail::MaskedElement<T>{ derived(), m };
     }
 
     //! @}
@@ -1672,11 +1672,18 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 NAMESPACE_BEGIN(detail)
 
 template <typename Array, size_t N, typename... Indices,
-          std::enable_if_t<sizeof...(Indices) == N, int> = 0>
+          std::enable_if_t<sizeof...(Indices) == N && !Array::Derived::IsMask, int> = 0>
 std::ostream &print(std::ostream &os, const Array &a,
-                    const std::array<size_t, N> &,
-                    Indices... indices) {
+                    const std::array<size_t, N> &, Indices... indices) {
     os << a.derived().coeff(indices...);
+    return os;
+}
+
+template <typename Array, size_t N, typename... Indices,
+          std::enable_if_t<sizeof...(Indices) == N && Array::Derived::IsMask, int> = 0>
+std::ostream &print(std::ostream &os, const Array &a,
+                    const std::array<size_t, N> &, Indices... indices) {
+    os << mask_active(a.derived().coeff(indices...));
     return os;
 }
 
@@ -1759,7 +1766,7 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
 /// SFINAE macro for strided operations (scatter, gather)
 #define ENOKI_REQUIRE_INDEX(T, Index)                                          \
     template <                                                                 \
-        size_t Stride, typename T,                                             \
+        size_t Stride, typename T, typename Mask_ = Mask,                      \
         std::enable_if_t<std::is_integral<typename T::Value>::value &&         \
                          sizeof(typename T::Value) == sizeof(Index), int> = 0>
 
@@ -1832,6 +1839,7 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
 #define ENOKI_NATIVE_ARRAY_CLASSIC(Value_, Size_, Approx_, Register)           \
     ENOKI_NATIVE_ARRAY(Value_, Size_, Approx_, Register,                       \
                        RoundingMode::Default)                                  \
-    using Mask = Derived;
+    using Mask =                                                               \
+        detail::MaskWrapper<Value_, Size_, Approx_, RoundingMode::Default>;
 
 NAMESPACE_END(enoki)

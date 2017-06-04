@@ -1594,7 +1594,7 @@ ENOKI_INLINE bool check_shape_recursive(const T &a, const size_t *shape) {
 }
 
 template <typename T, std::enable_if_t<!is_array<T>::value, int> = 0>
-ENOKI_INLINE void set_shape_recursive(T &, const size_t *) { }
+ENOKI_INLINE void set_shape_recursive(const T &, const size_t *) { }
 
 template <typename T, std::enable_if_t<is_array<T>::value, int> = 0>
 ENOKI_INLINE void set_shape_recursive(T &a, const size_t *shape) {

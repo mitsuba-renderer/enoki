@@ -106,6 +106,7 @@ struct DynamicArrayBase : ArrayBase<value_t<Packet_>, Derived_> {
     static constexpr size_t       PacketSize  = Packet::Size;
     static constexpr bool         Approx      = Packet::Approx;
     static constexpr RoundingMode Mode        = Packet::Mode;
+    static constexpr bool IsMask              = Packet::IsMask;
 };
 
 template <typename Packet>
@@ -236,12 +237,12 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
         return (Value *) ENOKI_ASSUME_ALIGNED(m_packets);
     }
 
-    ENOKI_INLINE Value& coeff(size_t i) {
-        return m_packets[i / PacketSize][i % PacketSize];
+    ENOKI_INLINE decltype(auto) coeff(size_t i) {
+        return m_packets[i / PacketSize].coeff(i % PacketSize);
     }
 
-    ENOKI_INLINE Value& coeff(size_t i) const {
-        return m_packets[i / PacketSize][i % PacketSize];
+    ENOKI_INLINE decltype(auto) coeff(size_t i) const {
+        return m_packets[i / PacketSize].coeff(i % PacketSize);
     }
 
     //! @}
@@ -368,20 +369,27 @@ struct DynamicArray : DynamicArrayImpl<Type_, DynamicArray<Type_>> {
 
 NAMESPACE_BEGIN(detail)
 
+template <typename T> struct arg_type {
+    using type = std::conditional_t<std::is_const<std::remove_reference_t<T>>::value, expr_t<T>, T>;
+};
+
+template <typename T>
+using arg_type_t = typename arg_type<T>::type;
+
 /// Vectorized inner loop (void return value)
 template <typename Func, typename... Args, size_t... Index>
 ENOKI_INLINE void vectorize_inner_1(std::index_sequence<Index...>, Func &&f,
-                                    size_t packet_count, Args &&... args) {
+                                    size_t packet_count, Args&&... args) {
     ENOKI_NOUNROLL ENOKI_IVDEP for (size_t i = 0; i < packet_count; ++i)
-        f(packet(args, i)...);
+        f((arg_type_t<decltype(packet(args, i))>) packet(args, i)...);
 }
 
 /// Vectorized inner loop (non-void return value)
 template <typename Func, typename Out, typename... Args, size_t... Index>
 ENOKI_INLINE void vectorize_inner_2(std::index_sequence<Index...>, Func &&f,
-                                    size_t packet_count, Out&& out, Args &&... args) {
+                                    size_t packet_count, Out&& out, Args&&... args) {
     ENOKI_NOUNROLL ENOKI_IVDEP for (size_t i = 0; i < packet_count; ++i)
-        packet(out, i) = f(packet(args, i)...);
+        packet(out, i) = f(((arg_type_t<decltype(packet(args, i))>) packet(args, i))...);
 }
 
 template <bool Check, typename Return, typename Func, typename... Args,

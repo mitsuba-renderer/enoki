@@ -634,35 +634,31 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     ENOKI_INLINE Derived rori_() const { return _mm256_ror_epi64(m, (int) Imm); }
 #endif
 
-    ENOKI_INLINE Mask lt_(Arg a) const {
+    ENOKI_INLINE auto lt_(Arg a) const {
         if (std::is_signed<Value>::value) {
-            return _mm256_cmpgt_epi64(a.m, m);
+            return mask_t<Derived>(_mm256_cmpgt_epi64(a.m, m));
         } else {
             const __m256i offset = _mm256_set1_epi64x((long long) 0x8000000000000000ull);
-            return _mm256_cmpgt_epi64(
-                _mm256_sub_epi64(a.m, offset),
-                _mm256_sub_epi64(m, offset)
-            );
+            return mask_t<Derived>(_mm256_cmpgt_epi64(
+                _mm256_sub_epi64(a.m, offset), _mm256_sub_epi64(m, offset)));
         }
     }
 
-    ENOKI_INLINE Mask gt_(Arg a) const {
+    ENOKI_INLINE auto gt_(Arg a) const {
         if (std::is_signed<Value>::value) {
-            return _mm256_cmpgt_epi64(m, a.m);
+            return mask_t<Derived>(_mm256_cmpgt_epi64(m, a.m));
         } else {
             const __m256i offset = _mm256_set1_epi64x((long long) 0x8000000000000000ull);
-            return _mm256_cmpgt_epi64(
-                _mm256_sub_epi64(m, offset),
-                _mm256_sub_epi64(a.m, offset)
-            );
+            return mask_t<Derived>(_mm256_cmpgt_epi64(
+                _mm256_sub_epi64(m, offset), _mm256_sub_epi64(a.m, offset)));
         }
     }
 
-    ENOKI_INLINE Mask le_(Arg a) const { return ~gt_(a); }
-    ENOKI_INLINE Mask ge_(Arg a) const { return ~lt_(a); }
+    ENOKI_INLINE auto le_(Arg a) const { return ~gt_(a); }
+    ENOKI_INLINE auto ge_(Arg a) const { return ~lt_(a); }
 
-    ENOKI_INLINE Mask eq_(Arg a)  const { return _mm256_cmpeq_epi64(m, a.m); }
-    ENOKI_INLINE Mask neq_(Arg a) const { return ~eq_(a); }
+    ENOKI_INLINE auto eq_(Arg a)  const { return mask_t<Derived>(_mm256_cmpeq_epi64(m, a.m)); }
+    ENOKI_INLINE auto neq_(Arg a) const { return ~eq_(a); }
 
     ENOKI_INLINE Derived min_(Arg a) const {
         #if defined(__AVX512VL__)
@@ -697,7 +693,8 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
         #endif
     }
 
-    static ENOKI_INLINE Derived select_(const Mask &m, Arg t, Arg f) {
+    template <typename Mask_>
+    static ENOKI_INLINE Derived select_(const Mask_ &m, Arg t, Arg f) {
         return _mm256_blendv_epi8(f.m, t.m, m.m);
     }
 
@@ -731,26 +728,30 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     ENOKI_INLINE void store_(void *ptr) const {
         _mm256_store_si256((__m256i *) ptr, m);
     }
-    ENOKI_INLINE void store_(void *ptr, const Mask &mask) const {
+    template <typename Mask_>
+    ENOKI_INLINE void store_(void *ptr, const Mask_ &mask) const {
         _mm256_maskstore_epi64((long long *) ptr, mask.m, m);
     }
     ENOKI_INLINE void store_unaligned_(void *ptr) const {
         _mm256_storeu_si256((__m256i *) ptr, m);
     }
-    ENOKI_INLINE void store_unaligned_(void *ptr, const Mask &mask) const {
+    template <typename Mask_>
+    ENOKI_INLINE void store_unaligned_(void *ptr, const Mask_ &mask) const {
         store_(ptr, mask);
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
         return _mm256_load_si256((const __m256i *) ptr);
     }
-    static ENOKI_INLINE Derived load_(const void *ptr, const Mask &mask) {
+    template <typename Mask_>
+    static ENOKI_INLINE Derived load_(const void *ptr, const Mask_ &mask) {
         return _mm256_maskload_epi64((const long long *) ptr, mask.m);
     }
     static ENOKI_INLINE Derived load_unaligned_(const void *ptr) {
         return _mm256_loadu_si256((const __m256i *) ptr);
     }
-    static ENOKI_INLINE Derived load_unaligned_(const void *ptr, const Mask &mask) {
+    template <typename Mask_>
+    static ENOKI_INLINE Derived load_unaligned_(const void *ptr, const Mask_ &mask) {
         return load_(ptr, mask);
     }
 
@@ -762,7 +763,7 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     }
 
     ENOKI_REQUIRE_INDEX(Index, int32_t)
-    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index, const Mask_ &mask) {
         return _mm256_mask_i32gather_epi64(
             _mm256_setzero_si256(), (const long long *) ptr, index.m, mask.m, Stride);
     }
@@ -773,7 +774,7 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     }
 
     ENOKI_REQUIRE_INDEX(Index, int64_t)
-    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index, const Mask_ &mask) {
         return _mm256_mask_i64gather_epi64(_mm256_setzero_si256(), (const long long *) ptr,
                                         index.m, mask.m, Stride);
     }
@@ -785,7 +786,7 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     }
 
     ENOKI_REQUIRE_INDEX(Index, int32_t)
-    ENOKI_INLINE void scatter_(void *ptr, const Index &index, const Mask &mask) const {
+    ENOKI_INLINE void scatter_(void *ptr, const Index &index, const Mask_ &mask) const {
         __mmask8 k = _mm256_test_epi64_mask(mask.m, mask.m);
         _mm256_mask_i32scatter_epi64(ptr, k, index.m, m, Stride);
     }
@@ -802,13 +803,15 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     }
 #endif
 
-    ENOKI_INLINE Value extract_(const Mask &mask) const {
+    template <typename Mask_>
+    ENOKI_INLINE Value extract_(const Mask_ &mask) const {
         unsigned int k =
             (unsigned int) _mm256_movemask_pd(_mm256_castsi256_pd(mask.m));
         return coeff((size_t) (tzcnt(k) & 3));
     }
 
-    ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
+    template <typename Mask_>
+    ENOKI_INLINE void store_compress_(void *&ptr, const Mask_ &mask) const {
         #if defined(__AVX512VL__)
             __mmask8 k = _mm256_test_epi64_mask(mask.m, mask.m);
             _mm256_storeu_si256((__m256i *) ptr, _mm256_maskz_compress_epi64(k, m));
@@ -842,9 +845,9 @@ template <typename Value_, typename Derived> struct alignas(32)
     StaticArrayImpl<Value_, 3, false, RoundingMode::Default, Derived, detail::is_int64_t<Value_>>
     : StaticArrayImpl<Value_, 4, false, RoundingMode::Default, Derived> {
     using Base = StaticArrayImpl<Value_, 4, false, RoundingMode::Default, Derived>;
+    using Mask = detail::MaskWrapper<Value_, 3, false, RoundingMode::Default>;
 
     using typename Base::Value;
-    using typename Base::Mask;
     using Arg = const Base &;
     using Base::Base;
     using Base::m;

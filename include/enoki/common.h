@@ -243,7 +243,7 @@ template <typename T> struct type_<T, enable_if_array_t<T>> {
 };
 
 /// Type trait to access the base scalar type underlying a potentially nested array
-template <typename T, typename = int> struct scalar { using type = T; };
+template <typename T, typename = int> struct scalar { using type = std::decay_t<T>; };
 template <typename T> using scalar_t = typename scalar<T>::type;
 
 template <typename T> struct scalar<T, enable_if_array_t<T>> {

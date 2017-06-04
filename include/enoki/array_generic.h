@@ -276,7 +276,7 @@ public:
         return result;
     }
 
-    /// High multiplication (integer)
+    /// Integer high multiplication
     template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE auto mulhi_(const Derived &d) const {
         expr_t<Derived> result;
@@ -962,5 +962,20 @@ struct Array : StaticArrayImpl<Type_, Size_, Approx_, Mode_,
     ENOKI_DECLARE_CUSTOM_ARRAY(Base, Array)
     ENOKI_ALIGNED_OPERATOR_NEW()
 };
+
+NAMESPACE_BEGIN(detail)
+
+template <typename Type_, size_t Size_, bool Approx_, RoundingMode Mode_>
+struct MaskWrapper : StaticArrayImpl<Type_, Size_, Approx_, Mode_,
+                                     MaskWrapper<Type_, Size_, Approx_, Mode_>> {
+    using Base = StaticArrayImpl<Type_, Size_, Approx_, Mode_,
+                                 MaskWrapper<Type_, Size_, Approx_, Mode_>>;
+    static constexpr bool IsMask = true;
+
+    ENOKI_DECLARE_CUSTOM_ARRAY(Base, MaskWrapper)
+    ENOKI_ALIGNED_OPERATOR_NEW()
+};
+
+NAMESPACE_END(detail)
 
 NAMESPACE_END(enoki)
