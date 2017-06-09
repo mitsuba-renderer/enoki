@@ -906,8 +906,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
 
 // Static utility to extract the first type of a variadic template.
 template <typename Arg1 = void, typename ...Args>
-struct first_arg
-{
+struct first_arg {
     typedef Arg1 type;
 };
 
@@ -977,7 +976,7 @@ struct first_arg
     template <typename... Args,                                                 \
               typename RetVal = decltype(std::declval<Value>()->name(           \
                   std::declval<Args>()...)),                                    \
-              typename RetValP = ::Array<RetVal, Array::Size>, /*TODO: use like_t*/\
+              typename RetValP = enoki::Array<RetVal, Array::Size>, /*TODO: use like_t*/\
               std::enable_if_t<!std::is_void<RetVal>::value, int> = 0,          \
               std::enable_if_t<                                                 \
                 !std::is_same<typename first_arg<Args...>::type, Mask>::value,  \
