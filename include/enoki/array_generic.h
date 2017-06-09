@@ -904,11 +904,15 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
         T &self;                                                                \
         auto operator-> () { return this; }
 
+// Static utility to extract the first type of a variadic template.
+template <typename Arg1 = void, typename ...Args>
+struct first_arg
+{
+    typedef Arg1 type;
+};
+
 #define ENOKI_CALL_HELPER_FUNCTION(name)                                        \
-    template <typename InputMask, typename... Args,                             \
-              typename RetVal = decltype(std::declval<Value>()->name(           \
-                  std::declval<Args>()..., Mask())),                            \
-              std::enable_if_t<!std::is_void<RetVal>::value, int> = 0>          \
+    template <typename InputMask, typename RetVal, typename... Args>            \
     RetVal name##_masked(InputMask mask_, Args&&... args) {                     \
         Mask mask = reinterpret_array<Mask>(mask_);                             \
         RetVal result;                                                          \
@@ -920,11 +924,8 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
         }                                                                       \
         return result;                                                          \
     }                                                                           \
-    template <typename InputMask, typename... Args,                             \
-              typename RetVal = decltype(std::declval<Value>()->name(           \
-                  std::declval<Args>()..., Mask())),                            \
-              std::enable_if_t<std::is_void<RetVal>::value, int> = 0>           \
-    void name##_masked(InputMask mask_, Args&&... args) {                       \
+    template <typename InputMask, typename RetVal, typename... Args>            \
+    void name##_masked_void(InputMask mask_, Args&&... args) {                  \
         Mask mask = reinterpret_array<Mask>(mask_);                             \
         while (any(mask)) {                                                     \
             auto value  = extract(self, mask);                                  \
@@ -933,9 +934,56 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
             mask       &= ~active;                                              \
         }                                                                       \
     }                                                                           \
-    template <typename... Args> auto name(Args&&... args) {                     \
-        return name##_masked<Mask, Args...>(Mask(true),                         \
-                                            std::forward<Args>(args)...);       \
+    template <typename RetValP, typename... Args>                               \
+    RetValP name##_unmasked(Args&&... args) {                                   \
+        RetValP result;                                                         \
+        for (size_t i = 0; i < Array::Size; ++i) {                              \
+            result.coeff(i) = self.coeff(i)->name(args...);                     \
+        }                                                                       \
+        return result;                                                          \
+    }                                                                           \
+    template <typename RetVal, typename... Args>                                \
+    void name##_unmasked_void(Args&&... args) {                                 \
+        for (size_t i = 0; i < Array::Size; ++i) {                              \
+            self.coeff(i)->name(args...);                                       \
+        }                                                                       \
+    }                                                                           \
+    template <typename... Args,                                                 \
+              typename RetVal = decltype(std::declval<Value>()->name(           \
+                  Mask(), std::declval<Args>()...)),                            \
+              std::enable_if_t<std::is_void<RetVal>::value, int> = 0>           \
+    void name(Args&&... args) {                                                 \
+        name##_masked_void<Mask, RetVal, Args...>(                              \
+            Mask(true), std::forward<Args>(args)...);                           \
+    }                                                                           \
+    template <typename... Args,                                                 \
+              typename RetVal = decltype(std::declval<Value>()->name(           \
+                  Mask(), std::declval<Args>()...)),                            \
+              std::enable_if_t<!std::is_void<RetVal>::value, int> = 0>          \
+    RetVal name(Args&&... args) {                                               \
+        return name##_masked<Mask, RetVal, Args...>(                            \
+            Mask(true), std::forward<Args>(args)...);                           \
+    }                                                                           \
+    template <typename... Args,                                                 \
+              typename RetVal = decltype(std::declval<Value>()->name(           \
+                  std::declval<Args>()...)),                                    \
+              std::enable_if_t<std::is_void<RetVal>::value, int> = 0,           \
+              std::enable_if_t<                                                 \
+                !std::is_same<typename first_arg<Args...>::type, Mask>::value,  \
+                int> = 0>                                                       \
+    void name(Args&&... args) {                                                 \
+        name##_unmasked_void<RetVal, Args...>(std::forward<Args>(args)...);     \
+    }                                                                           \
+    template <typename... Args,                                                 \
+              typename RetVal = decltype(std::declval<Value>()->name(           \
+                  std::declval<Args>()...)),                                    \
+              typename RetValP = ::Array<RetVal, Array::Size>, /*TODO: use like_t*/\
+              std::enable_if_t<!std::is_void<RetVal>::value, int> = 0,          \
+              std::enable_if_t<                                                 \
+                !std::is_same<typename first_arg<Args...>::type, Mask>::value,  \
+                int> = 0>                                                       \
+    RetValP name(Args&&... args) {                                              \
+        return name##_unmasked<RetValP, Args...>(std::forward<Args>(args)...);  \
     }
 
 #define ENOKI_CALL_HELPER_END(T)                                                \
