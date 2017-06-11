@@ -218,6 +218,11 @@ using enable_if_static_array_t = std::enable_if_t<is_static_array<T>::value, int
 template <typename T>
 using enable_if_dynamic_array_t = std::enable_if_t<is_dynamic_array<T>::value, int>;
 
+template <typename T>
+using enable_if_mask_t = std::enable_if_t<T::IsMask, int>;
+template <typename T>
+using enable_if_not_mask_t = std::enable_if_t<!T::IsMask, int>;
+
 /// Type trait to access the mask type underlying an array
 template <typename T, typename = int> struct mask { using type = bool; };
 template <typename T> using mask_t = typename mask<T>::type;
