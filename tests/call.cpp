@@ -81,8 +81,8 @@ ENOKI_TEST(test00_pointer_forward_vectorized_call) {
 
 ENOKI_TEST(test01_pointer_forward_simple_call) {
     // Not a mask, just an array of bool
-    using BoolP = Array<bool, Test2PtrP::Size>;
-    using IntP = Array<int, Test2PtrP::Size>;
+    using Mask = mask_t<Test2PtrP>;
+    using IntP = like_t<Test2PtrP, int>;
 
     Test2 *a = new Test2(false);
     Test2 *b = new Test2(true);
@@ -94,15 +94,20 @@ ENOKI_TEST(test01_pointer_forward_simple_call) {
     pointers.coeff(2) = c;
     pointers.coeff(3) = d;
 
-    assert(pointers->is_working() == BoolP(false, true, false, true));
+    Mask expected(Test2PtrP::Mask1(false, true), Test2PtrP::Mask1(false, true));
+    expected[1] = true;
+
+    assert(pointers->is_working() == expected);
 
     pointers->toggle_working();
-    assert(pointers->is_working() == BoolP(true, false, true, false));
+    expected = ! expected;
+    assert(pointers->is_working() == expected);
     assert(a->is_working() == true);
     assert(b->is_working() == false);
 
     pointers->set_working(true);
-    assert(pointers->is_working() == BoolP(true, true, true, true));
+    expected = Mask(true);
+    assert(pointers->is_working() == expected);
     assert(a->is_working() == true);
     assert(b->is_working() == true);
 

@@ -933,11 +933,21 @@ struct first_arg {
             mask       &= ~active;                                              \
         }                                                                       \
     }                                                                           \
-    template <typename RetValP, typename... Args>                               \
+    template <typename RetValP, typename... Args,                               \
+              enable_if_not_mask_t<RetValP> = 0>                                \
     RetValP name##_unmasked(Args&&... args) {                                   \
         RetValP result;                                                         \
         for (size_t i = 0; i < Array::Size; ++i) {                              \
             result.coeff(i) = self.coeff(i)->name(args...);                     \
+        }                                                                       \
+        return result;                                                          \
+    }                                                                           \
+    template <typename RetValP, typename... Args,                               \
+              enable_if_mask_t<RetValP> = 0>                                    \
+    RetValP name##_unmasked(Args&&... args) {                                   \
+        RetValP result(true);                                                   \
+        for (size_t i = 0; i < Array::Size; ++i) {                              \
+            result[i] = self.coeff(i)->name(args...);                           \
         }                                                                       \
         return result;                                                          \
     }                                                                           \
@@ -976,7 +986,7 @@ struct first_arg {
     template <typename... Args,                                                 \
               typename RetVal = decltype(std::declval<Value>()->name(           \
                   std::declval<Args>()...)),                                    \
-              typename RetValP = enoki::Array<RetVal, Array::Size>, /*TODO: use like_t*/\
+              typename RetValP = like_t<Array, RetVal>,                         \
               std::enable_if_t<!std::is_void<RetVal>::value, int> = 0,          \
               std::enable_if_t<                                                 \
                 !std::is_same<typename first_arg<Args...>::type, Mask>::value,  \
