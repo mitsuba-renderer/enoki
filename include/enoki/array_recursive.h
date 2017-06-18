@@ -26,7 +26,6 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     std::enable_if_t<detail::is_recursive<Type_, Size_, Mode_>::value>>
     : StaticArrayBase<Type_, Size_, Approx_, Mode_, Derived> {
 
-    static constexpr bool Native = false;
     using Base = StaticArrayBase<Type_, Size_, Approx_, Mode_, Derived>;
     using Expr = Derived;
     using typename Base::Value;
@@ -48,7 +47,6 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         static constexpr size_t Size = Size_;
         static constexpr size_t ActualSize = Size_;
 
-        static constexpr bool Native = false;
         static constexpr bool IsMask = true;
         using Expr = RMask;
         using Mask = RMask;

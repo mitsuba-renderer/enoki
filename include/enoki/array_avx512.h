@@ -42,7 +42,6 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
     using Base = StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
                                  RoundingMode::Default, KMask<Type>>;
     static constexpr bool IsMask = true;
-    static constexpr bool Native = true;
     using Base::Size;
     using Expr = KMask;
     using Mask = KMask;

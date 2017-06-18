@@ -50,7 +50,6 @@ struct StaticArrayImpl<
     using Base::Size2;
     using Base::data;
     using Mask = Array<mask_t<Value>, Size>;
-    static constexpr bool Native = false;
 
     using StorageType =
         std::conditional_t<std::is_reference<Type_>::value,

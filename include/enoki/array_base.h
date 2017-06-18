@@ -1786,7 +1786,6 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
         typename... Args>
 
 #define ENOKI_NATIVE_ARRAY(Value_, Size_, Approx_, Register, Mode)             \
-    static constexpr bool Native = true;                                       \
     using Base = StaticArrayBase<Value_, Size_, Approx_, Mode, Derived>;       \
     using Arg = Derived;                                                       \
     using Expr = Derived;                                                      \
