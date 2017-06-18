@@ -385,3 +385,17 @@ ENOKI_TEST_ALL(test25_rorl_array) {
     assert(a == c);
 }
 
+ENOKI_TEST_ALL(test26_mask_op) {
+    auto sample = test::sample_values<Value>();
+
+    test::validate_binary<T>(sample,
+        [](const T &a, const T &b) -> T { T result(1); result[a <= b] = T(0); return result; },
+        [](Value a, Value b) -> Value { return Value(a <= b ? 0 : 1); }
+    );
+
+    test::validate_binary<T>(sample,
+        [](const T &a, const T &b) -> T { T result(1); result[a <= b] -= T(1); return result; },
+        [](Value a, Value b) -> Value { return Value(a <= b ? 0 : 1); }
+    );
+}
+

@@ -155,7 +155,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     using Scalar = scalar_t<Value>;
 
     /// Is this array exclusively for mask usage? (overridden in some subclasses)
-    static constexpr bool IsMask = std::is_same<Value, bool>::value;
+    static constexpr bool IsMask = is_mask<Type_>::value;
 
     /// Number of array entries
     static constexpr size_t Size = Size_;
@@ -200,9 +200,9 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     using Base::operator[];
-    template <typename T = Derived>
-    ENOKI_INLINE detail::MaskedElement<T> operator[](typename T::Mask m) {
-        return detail::MaskedElement<T>{ derived(), m };
+    template <typename T = Derived, typename Mask, enable_if_mask_t<Mask> = 0>
+    ENOKI_INLINE detail::MaskedElement<T> operator[](Mask m) {
+        return detail::MaskedElement<T>{ derived(), reinterpret_array<mask_t<Derived>>(m) };
     }
 
     //! @}
