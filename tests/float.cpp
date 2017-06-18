@@ -27,6 +27,11 @@ ENOKI_TEST_FLOAT(test01_div_fp) {
     );
 
     test::validate_unary<T>(sample,
+        [](const T &a) -> T { return a / 3; },
+        [](Value a) -> Value { return a / 3; }, 1e-6f
+    );
+
+    test::validate_unary<T>(sample,
         [](const T &a) -> T { return a / Value(3); },
         [](Value a) -> Value { return a / Value(3); }, 1e-6f
     );

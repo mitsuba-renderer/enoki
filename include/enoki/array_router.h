@@ -767,12 +767,12 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
 template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
           typename Derived, typename Arg,
           std::enable_if_t<detail::bcast<Derived, Arg>::value &&
-          std::is_floating_point<typename Derived::Scalar>::value, int> = 0>
-ENOKI_INLINE auto operator/(
+          std::is_floating_point<scalar_t<Derived>>::value, int> = 0>
+ENOKI_INLINE expr_t<Derived> operator/(
     const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,
     const Arg &a2) {
     if (Derived::Approx) /* Fast approximate division using reciprocals */
-        return a1.derived() * rcp<true>(a2);
+        return a1.derived() * rcp<true>(like_t<Arg, scalar_t<Derived>>(a2));
     else
         return a1.derived() / expr_t<Derived>(a2);
 }
@@ -780,7 +780,7 @@ ENOKI_INLINE auto operator/(
 template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
           typename Derived, typename Arg,
           std::enable_if_t<detail::bcast<Derived, Arg>::value &&
-          std::is_floating_point<typename Derived::Scalar>::value , int> = 0>
+          std::is_floating_point<typename Derived::Scalar>::value, int> = 0>
 ENOKI_INLINE auto operator/(
     const Arg &a1,
     const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a2) {
