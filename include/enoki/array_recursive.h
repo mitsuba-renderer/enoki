@@ -517,22 +517,17 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         scatter<Stride>(ptr, a2, high(index), high(mask));
     }
 
+    template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
     ENOKI_INLINE Value extract_(const Mask &mask) const {
-        Value r1 = extract(a1, low(mask));
-        Value r2 = extract(a2, high(mask));
-        return any(low(mask)) ? r1 : r2;
+        return extract(select(low(mask), a1, a2), low(mask) | high(mask));
     }
 
     template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
-    ENOKI_INLINE Derived extract_(const Mask &mask) const {
-        Value result;
-
+    ENOKI_INLINE Value extract_(const Mask &mask) const {
         if (ENOKI_LIKELY(any(low(mask))))
-            result = extract(a1, low(mask)).coeff(0);
+            return extract(a1, low(mask));
         else
-            result = extract(a2, high(mask)).coeff(0);
-
-        return Derived(result);
+            return extract(a2, high(mask));
     }
 
     ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
