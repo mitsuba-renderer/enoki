@@ -74,6 +74,20 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
             k |= (a.derived().coeff(i) ? 1 : 0) << i;
     }
 
+    ENOKI_INLINE KMask eq_(KMask a) const {
+        if (Size == 16) /* Use intrinsic if possible */
+            return KMask(Type(_mm512_kxnor((__mmask16) k, (__mmask16) (a.k))));
+        else
+            return KMask(Type(~(k ^ a.k)));
+    }
+
+    ENOKI_INLINE KMask neq_(KMask a) const {
+        if (Size == 16) /* Use intrinsic if possible */
+            return KMask(Type(_mm512_kxor((__mmask16) k, (__mmask16) (a.k))));
+        else
+            return KMask(Type(k ^ a.k));
+    }
+
     ENOKI_INLINE KMask or_(KMask a) const {
         if (Size == 16) /* Use intrinsic if possible */
             return KMask(Type(_mm512_kor((__mmask16) k, (__mmask16) (a.k))));
@@ -135,8 +149,8 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
     static ENOKI_INLINE KMask select_(const Mask &m, const KMask &t,
                                       const KMask &f) {
         if (std::is_same<Type, __mmask16>::value)
-            return KMask(_mm512_kor(_mm512_kand((__mmask16) m.k, (__mmask16) t.k),
-                                    _mm512_kandn((__mmask16) m.k, (__mmask16) f.k)));
+            return KMask(Type(_mm512_kor(_mm512_kand((__mmask16) m.k, (__mmask16) t.k),
+                                         _mm512_kandn((__mmask16) m.k, (__mmask16) f.k))));
         else
             return KMask((m & t) | (~m & f));
     }

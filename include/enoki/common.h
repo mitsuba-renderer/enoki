@@ -501,6 +501,13 @@ ENOKI_INLINE bool mask_active(const bool &value) {
     return value;
 }
 
+/* Extract the nth entry of a parameter pack */
+template <size_t N, typename... Args> struct nth { };
+template <size_t N, typename Head, typename... Tail> struct nth<N, Head, Tail...> : nth<N-1, Tail...> { };
+template <typename Head, typename... Tail> struct nth<0, Head, Tail...> { using type = Head; };
+template <> struct nth<0> { using type = std::nullptr_t; };
+template <size_t N, typename... Args> using nth_t = typename nth<N, Args...>::type;
+
 NAMESPACE_END(detail)
 
 /// Integer-based version of a given array class
