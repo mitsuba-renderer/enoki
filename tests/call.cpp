@@ -44,16 +44,17 @@ ENOKI_CALL_SUPPORT_SCALAR(func3)
 ENOKI_CALL_SUPPORT_END(TestP)
 
 ENOKI_TEST(test00_call) {
+    size_t offset = std::min((size_t) 2, TestP::Size-1);
     Test *a = new Test(10);
     Test *b = new Test(20);
 
     TestP pointers(a);
-    pointers.coeff(2) = b;
+    pointers.coeff(offset) = b;
 
     Int32P index = index_sequence<Int32P>();
     Int32P result = pointers->func1(index);
     Int32P ref = index_sequence<Int32P>() + 10;
-    ref.coeff(2) += 10;
+    ref.coeff(offset) += 10;
     assert(result == ref);
 
     pointers->func2(index);

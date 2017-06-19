@@ -771,7 +771,7 @@ template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
 ENOKI_INLINE expr_t<Derived> operator/(
     const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,
     const Arg &a2) {
-    like_t<Arg, scalar_t<Derived>> float_value(a2);
+    auto float_value = like_t<Arg, scalar_t<Derived>>(a2);
     if (Derived::Approx) /* Fast approximate division using reciprocals */
         return a1.derived() * rcp<true>(float_value);
     else
