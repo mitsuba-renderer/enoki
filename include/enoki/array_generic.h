@@ -878,7 +878,7 @@ template <typename T> struct call_support_base {
     template <typename Func, typename InputMask, typename... Args,
               typename Result = decltype((std::declval<Value>()->*std::declval<Func>())(
                   std::declval<Args>()..., std::declval<Mask>())),
-              std::enable_if_t<!std::is_void<Result>::value, int> = 0>
+              std::enable_if_t<!std::is_void<Result>::value && sizeof...(Args) != 0, int> = 0>
     ENOKI_INLINE Result dispatch_(Func func, Args&&... args, InputMask mask_) {
         Mask mask = reinterpret_array<Mask>(mask_);
         Result result = zero<Result>();
@@ -888,6 +888,24 @@ template <typename T> struct call_support_base {
             Mask active    = mask & eq(self, T(value));
             mask          &= ~active;
             result[active] = (value->*func)(args..., active);
+        }
+
+        return result;
+    }
+
+    template <typename Func, typename InputMask,
+        typename Result = decltype((std::declval<Value>()->*std::declval<Func>())(
+            std::declval<Mask>())),
+        std::enable_if_t<!std::is_void<Result>::value, int> = 0>
+    ENOKI_INLINE Result dispatch_(Func func, InputMask mask_) {
+        Mask mask = reinterpret_array<Mask>(mask_);
+        Result result = zero<Result>();
+
+        while (any(mask)) {
+            Value value = extract(self, mask);
+            Mask active = mask & eq(self, T(value));
+            mask &= ~active;
+            result[active] = (value->*func)(active);
         }
 
         return result;
@@ -912,7 +930,7 @@ template <typename T> struct call_support_base {
               typename Result = decltype((std::declval<Value>()->*std::declval<Func>())(
                   std::declval<Args>()...)),
               typename ResultArray = like_t<T, Result>,
-              std::enable_if_t<!std::is_void<Result>::value, int> = 0>
+              std::enable_if_t<!std::is_void<Result>::value && sizeof...(Args) != 0, int> = 0>
     ENOKI_INLINE ResultArray dispatch_scalar_(Func func, Args&&... args, InputMask mask_) {
         Mask mask = reinterpret_array<Mask>(mask_);
         ResultArray result = zero<Result>();
@@ -922,6 +940,24 @@ template <typename T> struct call_support_base {
             Mask active    = mask & eq(self, T(value));
             mask          &= ~active;
             result[active] = (value->*func)(args...);
+        }
+
+        return result;
+    }
+
+    template <typename Func, typename InputMask,
+        typename Result = decltype((std::declval<Value>()->*std::declval<Func>())()),
+        typename ResultArray = like_t<T, Result>,
+        std::enable_if_t<!std::is_void<Result>::value, int> = 0>
+    ENOKI_INLINE ResultArray dispatch_scalar_(Func func, InputMask mask_) {
+        Mask mask = reinterpret_array<Mask>(mask_);
+        ResultArray result = zero<Result>();
+
+        while (any(mask)) {
+            Value value = extract(self, mask);
+            Mask active = mask & eq(self, T(value));
+            mask &= ~active;
+            result[active] = (value->*func)();
         }
 
         return result;
