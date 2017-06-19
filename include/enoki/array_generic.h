@@ -50,7 +50,6 @@ struct StaticArrayImpl<
     using Base::Size2;
     using Base::data;
     using Mask = Array<mask_t<Value>, Size>;
-    static constexpr bool Native = false;
 
     using StorageType =
         std::conditional_t<std::is_reference<Type_>::value,
@@ -866,7 +865,154 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
     ENOKI_INLINE Type& operator[](size_t i) { return (Type &) Base::operator[](i); }
 };
 
-template <typename T> struct call_helper { call_helper(T&) { } };
+template <typename T> struct call_support {
+    call_support(T &) { }
+};
+
+template <typename T> struct call_support_base {
+    using Value = value_t<T>;
+    using Mask = mask_t<T>;
+    call_support_base(T &self) : self(self) {}
+    T &self;
+
+    template <typename Func, typename InputMask, typename... Args,
+              typename Result = decltype((std::declval<Value>()->*std::declval<Func>())(
+                  std::declval<Args>()..., std::declval<Mask>())),
+              std::enable_if_t<!std::is_void<Result>::value && sizeof...(Args) != 0, int> = 0>
+    ENOKI_INLINE Result dispatch_(Func func, Args&&... args, InputMask mask_) {
+        Mask mask = reinterpret_array<Mask>(mask_);
+        Result result = zero<Result>();
+
+        while (any(mask)) {
+            Value value    = extract(self, mask);
+            Mask active    = mask & eq(self, T(value));
+            mask          &= ~active;
+            result[active] = (value->*func)(args..., active);
+        }
+
+        return result;
+    }
+
+    template <typename Func, typename InputMask,
+        typename Result = decltype((std::declval<Value>()->*std::declval<Func>())(
+            std::declval<Mask>())),
+        std::enable_if_t<!std::is_void<Result>::value, int> = 0>
+    ENOKI_INLINE Result dispatch_(Func func, InputMask mask_) {
+        Mask mask = reinterpret_array<Mask>(mask_);
+        Result result = zero<Result>();
+
+        while (any(mask)) {
+            Value value = extract(self, mask);
+            Mask active = mask & eq(self, T(value));
+            mask &= ~active;
+            result[active] = (value->*func)(active);
+        }
+
+        return result;
+    }
+
+    template <typename Func, typename InputMask, typename... Args,
+              typename Result = decltype((std::declval<Value>()->*std::declval<Func>())(
+                  std::declval<Args>()..., std::declval<Mask>())),
+              std::enable_if_t<std::is_void<Result>::value, int> = 0>
+    ENOKI_INLINE void dispatch_(Func func, Args&&... args, InputMask mask_) {
+        Mask mask = reinterpret_array<Mask>(mask_);
+
+        while (any(mask)) {
+            Value value    = extract(self, mask);
+            Mask active    = mask & eq(self, T(value));
+            mask          &= ~active;
+            (value->*func)(args..., active);
+        }
+    }
+
+    template <typename Func, typename InputMask, typename... Args,
+              typename Result = decltype((std::declval<Value>()->*std::declval<Func>())(
+                  std::declval<Args>()...)),
+              typename ResultArray = like_t<T, Result>,
+              std::enable_if_t<!std::is_void<Result>::value && sizeof...(Args) != 0, int> = 0>
+    ENOKI_INLINE ResultArray dispatch_scalar_(Func func, Args&&... args, InputMask mask_) {
+        Mask mask = reinterpret_array<Mask>(mask_);
+        ResultArray result = zero<Result>();
+
+        while (any(mask)) {
+            Value value    = extract(self, mask);
+            Mask active    = mask & eq(self, T(value));
+            mask          &= ~active;
+            result[active] = (value->*func)(args...);
+        }
+
+        return result;
+    }
+
+    template <typename Func, typename InputMask,
+        typename Result = decltype((std::declval<Value>()->*std::declval<Func>())()),
+        typename ResultArray = like_t<T, Result>,
+        std::enable_if_t<!std::is_void<Result>::value, int> = 0>
+    ENOKI_INLINE ResultArray dispatch_scalar_(Func func, InputMask mask_) {
+        Mask mask = reinterpret_array<Mask>(mask_);
+        ResultArray result = zero<Result>();
+
+        while (any(mask)) {
+            Value value = extract(self, mask);
+            Mask active = mask & eq(self, T(value));
+            mask &= ~active;
+            result[active] = (value->*func)();
+        }
+
+        return result;
+    }
+
+    template <typename Func, typename InputMask, typename... Args,
+              typename Result = decltype((std::declval<Value>()->*std::declval<Func>())(
+                  std::declval<Args>()...)),
+              std::enable_if_t<std::is_void<Result>::value, int> = 0>
+    ENOKI_INLINE void dispatch_scalar_(Func func, Args&&... args, InputMask mask_) {
+        Mask mask = reinterpret_array<Mask>(mask_);
+
+        while (any(mask)) {
+            Value value    = extract(self, mask);
+            mask          &= neq(self, T(value));
+            (value->*func)(args...);
+        }
+    }
+
+    template <typename Func, size_t... Index, typename... Args,
+              typename Last = detail::nth_t<sizeof...(Index), Args...>,
+              enable_if_mask_t<Last> = 0>
+    ENOKI_INLINE decltype(auto)
+    dispatch_scalar_(Func func, std::index_sequence<Index...>, Args&&... args) {
+        return dispatch_scalar_<Func, Last, detail::nth_t<Index, Args...>...>(
+            func, std::forward<Args>(args)...);
+    }
+
+    template <typename Func, size_t... Index, typename... Args,
+              typename Last = detail::nth_t<sizeof...(Index), Args...>,
+              enable_if_not_mask_t<Last> = 0>
+    ENOKI_INLINE decltype(auto)
+    dispatch_scalar_(Func func, std::index_sequence<Index...>, Args&&... args) {
+        return dispatch_scalar_<Func, Mask, Args...>(
+            func, std::forward<Args>(args)..., Mask(true));
+    }
+
+    template <typename Func, size_t... Index, typename... Args,
+              typename Last = detail::nth_t<sizeof...(Index), Args...>,
+              enable_if_mask_t<Last> = 0>
+    ENOKI_INLINE decltype(auto)
+    dispatch_(Func func, std::index_sequence<Index...>, Args&&... args) {
+        return dispatch_<Func, Last, detail::nth_t<Index, Args...>...>(
+            func, std::forward<Args>(args)...);
+    }
+
+    template <typename Func, size_t... Index, typename... Args,
+              typename Last = detail::nth_t<sizeof...(Index), Args...>,
+              enable_if_not_mask_t<Last> = 0>
+    ENOKI_INLINE decltype(auto)
+    dispatch_(Func func, std::index_sequence<Index...>, Args&&... args) {
+        return dispatch_<Func, Mask, Args...>(
+            func, std::forward<Args>(args)..., Mask(true));
+    }
+};
 
 /// Pointer support
 template <typename Type_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived_>
@@ -891,55 +1037,39 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
     ENOKI_INLINE const Type& operator[](size_t i) const { return (Type &) Base::operator[](i); }
     ENOKI_INLINE Type& operator[](size_t i) { return (Type &) Base::operator[](i); }
 
-    call_helper<Derived_> operator->() { return call_helper<Derived_>(derived()); }
-    call_helper<const Derived_> operator->() const { return call_helper<const Derived_>(derived()); }
+    call_support<Derived_> operator->() { return call_support<Derived_>(derived()); }
+    call_support<const Derived_> operator->() const { return call_support<const Derived_>(derived()); }
 };
 
-#define ENOKI_CALL_HELPER_BEGIN(T)                                              \
-    template <> struct call_helper<T> {                                         \
-        using Array = T;                                                        \
-        using Value = value_t<T>;                                               \
-        using Mask = mask_t<T>;                                                 \
-        call_helper(T &self) : self(self) {}                                    \
-        T &self;                                                                \
+#define ENOKI_CALL_SUPPORT_BEGIN(T)                                            \
+    namespace enoki {                                                          \
+    template <> struct call_support<T> : call_support_base<T> {                \
+        using Base = call_support_base<T>;                                     \
+        using Base::Base;                                                      \
+        using Base::dispatch_;                                                 \
+        using Base::dispatch_scalar_;                                          \
+        using Type = std::remove_pointer_t<Base::Value>;                       \
         auto operator-> () { return this; }
 
-#define ENOKI_CALL_HELPER_FUNCTION(name)                                        \
-    template <typename InputMask, typename... Args,                             \
-              typename RetVal = decltype(std::declval<Value>()->name(           \
-                  std::declval<Args>()..., Mask())),                            \
-              std::enable_if_t<!std::is_void<RetVal>::value, int> = 0>          \
-    RetVal name##_masked(InputMask mask_, Args&&... args) {                     \
-        Mask mask = reinterpret_array<Mask>(mask_);                             \
-        RetVal result;                                                          \
-        while (any(mask)) {                                                     \
-            auto value  = extract(self, mask);                                  \
-            Mask active = eq(self, Array(value));                               \
-            result      = select(active, value->name(active, args...), result); \
-            mask       &= ~active;                                              \
-        }                                                                       \
-        return result;                                                          \
-    }                                                                           \
-    template <typename InputMask, typename... Args,                             \
-              typename RetVal = decltype(std::declval<Value>()->name(           \
-                  std::declval<Args>()..., Mask())),                            \
-              std::enable_if_t<std::is_void<RetVal>::value, int> = 0>           \
-    void name##_masked(InputMask mask_, Args&&... args) {                       \
-        Mask mask = reinterpret_array<Mask>(mask_);                             \
-        while (any(mask)) {                                                     \
-            auto value  = extract(self, mask);                                  \
-            Mask active = eq(self, Array(value));                               \
-            value->name(active, args...);                                       \
-            mask       &= ~active;                                              \
-        }                                                                       \
-    }                                                                           \
-    template <typename... Args> auto name(Args&&... args) {                     \
-        return name##_masked<Mask, Args...>(Mask(true),                         \
-                                            std::forward<Args>(args)...);       \
+#define ENOKI_CALL_SUPPORT(name)                                               \
+    template <typename... Args>                                                \
+    ENOKI_INLINE decltype(auto) name(Args &&... args) {                        \
+        constexpr size_t Size = sizeof...(Args) > 0 ? sizeof...(Args) - 1 : 0; \
+        return dispatch_(&Type::name, std::make_index_sequence<Size>(),        \
+                         std::forward<Args>(args)...);                         \
     }
 
-#define ENOKI_CALL_HELPER_END(T)                                                \
-    };                                                                          \
+#define ENOKI_CALL_SUPPORT_SCALAR(name)                                        \
+    template <typename... Args>                                                \
+    ENOKI_INLINE decltype(auto) name(Args &&... args) {                        \
+        constexpr size_t Size = sizeof...(Args) > 0 ? sizeof...(Args) - 1 : 0; \
+        return dispatch_scalar_(&Type::name, std::make_index_sequence<Size>(), \
+                                std::forward<Args>(args)...);                  \
+    }
+
+#define ENOKI_CALL_SUPPORT_END(T)                                              \
+        };                                                                     \
+    }
 
 //! @}
 // -----------------------------------------------------------------------

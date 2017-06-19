@@ -184,6 +184,21 @@ public:
     static constexpr bool value = type::value;
 };
 
+/// SFINAE helper to test whether a class is a static or dynamic mask type
+template <typename T> struct is_mask {
+private:
+    static constexpr std::false_type check(void *);
+    template <typename T2 = T>
+    static constexpr std::integral_constant<bool, T2::Derived::IsMask> check(T2 *);
+public:
+    using type = decltype(check((std::decay_t<T> *) nullptr));
+    static constexpr bool value = type::value;
+};
+
+template <> struct is_mask<bool> {
+    static constexpr bool value = true;
+};
+
 /// SFINAE helper to test whether a class is a static array type
 template <typename T> struct is_static_array {
 private:
@@ -210,7 +225,13 @@ template <typename T>
 using enable_if_array_t = std::enable_if_t<is_array<T>::value, int>;
 
 template <typename T>
+using enable_if_mask_t = std::enable_if_t<is_mask<T>::value, int>;
+
+template <typename T>
 using enable_if_not_array_t = std::enable_if_t<!is_array<T>::value, int>;
+
+template <typename T>
+using enable_if_not_mask_t = std::enable_if_t<!is_mask<T>::value, int>;
 
 template <typename T>
 using enable_if_static_array_t = std::enable_if_t<is_static_array<T>::value, int>;
@@ -480,6 +501,13 @@ ENOKI_INLINE bool mask_active(const bool &value) {
     return value;
 }
 
+/* Extract the nth entry of a parameter pack */
+template <size_t N, typename... Args> struct nth { };
+template <size_t N, typename Head, typename... Tail> struct nth<N, Head, Tail...> : nth<N-1, Tail...> { };
+template <typename Head, typename... Tail> struct nth<0, Head, Tail...> { using type = Head; };
+template <> struct nth<0> { using type = std::nullptr_t; };
+template <size_t N, typename... Args> using nth_t = typename nth<N, Args...>::type;
+
 NAMESPACE_END(detail)
 
 /// Integer-based version of a given array class
@@ -531,7 +559,6 @@ template <typename T> ENOKI_INLINE T log2i(T value) {
         result = (unsigned long) (31 - __builtin_clz((unsigned int) value));
     else
         result = (unsigned long) (63 - __builtin_clzll((unsigned long long) value));
-
 #elif defined(_WIN32)
     #if defined(__AVX2__)
         if (sizeof(T) <= 4)

@@ -15,38 +15,52 @@
 
 struct Test;
 
-using Int32P = Array<int, 4>;
-using TestPtrP = Array<const Test*, 4>;
+using Int32P = Array<int>;
+using TestP = Array<const Test*, Int32P::Size>;
+using TestPMask = mask_t<TestP>;
+
 
 struct Test {
     Test(int32_t value) : value(value) { }
     virtual ~Test() { }
 
-    // A vector function call that accepts a mask
-    using Mask = mask_t<Array<Test *, 4>>;
+    // Vectorized function (accepts a mask, which is ignored here)
+    virtual Int32P func1(Int32P i, TestPMask /* unused */) const { return i + value; }
 
-    virtual Int32P my_function(Mask /* unused */, Int32P i) const { return i + value; }
+    // Vectorized function (accepts a mask, which is ignored here)
+    virtual void func2(Int32P &i, TestPMask mask) const { i[mask] += value; }
+
+    bool func3() const { return value == 20; }
 
     int32_t value;
 };
 
 /* Allow Enoki arrays containing pointers to transparently forward function
    calls (with the appropriate masks) */
-NAMESPACE_BEGIN(enoki)
-ENOKI_CALL_HELPER_BEGIN(TestPtrP)
-ENOKI_CALL_HELPER_FUNCTION(my_function)
-ENOKI_CALL_HELPER_END(Test)
-NAMESPACE_END(enoki)
+ENOKI_CALL_SUPPORT_BEGIN(TestP)
+ENOKI_CALL_SUPPORT(func1)
+ENOKI_CALL_SUPPORT(func2)
+ENOKI_CALL_SUPPORT_SCALAR(func3)
+ENOKI_CALL_SUPPORT_END(TestP)
 
-ENOKI_TEST(test00_complex_str) {
+ENOKI_TEST(test00_call) {
     Test *a = new Test(10);
     Test *b = new Test(20);
 
-    TestPtrP pointers(a);
+    TestP pointers(a);
     pointers.coeff(2) = b;
 
-    auto result = pointers->my_function(index_sequence<Int32P>());
-    assert(result == Int32P(10, 11, 22, 13));
+    Int32P index = index_sequence<Int32P>();
+    Int32P result = pointers->func1(index);
+    Int32P ref = index_sequence<Int32P>() + 10;
+    ref.coeff(2) += 10;
+    assert(result == ref);
+
+    pointers->func2(index);
+    assert(index == ref);
+
+    auto mask = pointers->func3();
+    assert(mask == eq(pointers, b));
 
     delete a;
     delete b;
