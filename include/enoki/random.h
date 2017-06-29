@@ -177,7 +177,7 @@ template <typename T> struct PCG32 {
 
     /// Compute the distance between two PCG32 pseudorandom number generators
     Int64 operator-(const PCG32 &other) const {
-        Assert(inc == other.inc);
+        assert(inc == other.inc);
 
         UInt64 cur_mult = PCG32_MULT,
                cur_plus = inc,
@@ -189,7 +189,7 @@ template <typename T> struct PCG32 {
             auto mask = neq(state & the_bit, cur_state & the_bit);
             cur_state = select(mask, cur_state * cur_mult + cur_plus, cur_state);
             distance = select(mask, distance | the_bit, distance);
-            Assert((state & the_bit) == (cur_state & the_bit));
+            assert((state & the_bit) == (cur_state & the_bit));
             the_bit = sli<1>(the_bit);
             cur_plus = (cur_mult + UInt64(1)) * cur_plus;
             cur_mult *= cur_mult;

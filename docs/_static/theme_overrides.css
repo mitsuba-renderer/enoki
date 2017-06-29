@@ -1,11 +1,23 @@
-.wy-table-responsive table td,
-.wy-table-responsive table th {
-    white-space: initial !important;
+table.docutils td, table.docutils th {
+    padding:.5em;
 }
-.rst-content table.docutils td {
-    vertical-align: top !important;
+
+table.docutils th {
+    vertical-align:middle;
 }
-div[class^='highlight'] pre {
-    white-space: pre;
-    white-space: pre-wrap;
+
+.toggle .header {
+    display: block;
+    clear: both;
 }
+
+.toggle .header:after {
+    content: " ▼";
+}
+
+.toggle .header.open:after {
+    content: " ▲";
+}
+
+.MathJax .mo { color: inherit }
+.MathJax .mi { color: inherit }

@@ -1533,14 +1533,14 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
         if (Approx) {
             /*
              - erf (in [-1, 1]):
-               * avg abs. err = 1.01113e-07
-               * avg rel. err = 3.23606e-07
-                  -> in ULPs  = 3.89448
-               * max abs. err = 4.76837e-07
-                 (at x=-0.0811131)
-               * max rel. err = 5.22126e-06
-                 -> in ULPs   = 64
-                 (at x=-0.0811131)
+               * avg abs. err = 1.02865e-07
+               * avg rel. err = 3.29449e-07
+                  -> in ULPs  = 3.96707
+               * max abs. err = 5.58794e-07
+                 (at x=-0.0803231)
+               * max rel. err = 6.17859e-06
+                 -> in ULPs   = 75
+                 (at x=-0.0803231)
              */
 
             // A&S formula 7.1.26
@@ -1548,9 +1548,9 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             Expr x = abs(x_), x2 = x_ * x_;
             Expr t = rcp(fmadd(Expr(Scalar(0.3275911)), x, Expr(Scalar(1))));
 
-            Expr y = poly4(t,  0.254829592, -0.284496736,
-                               1.421413741, -1.453152027,
-                               1.061405429);
+            Expr y = poly4(t, 0.254829592, -0.284496736,
+                              1.421413741, -1.453152027,
+                              1.061405429);
 
             y *= t * exp(-x2);
 
@@ -1833,7 +1833,13 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
         typename Int = typename detail::type_chooser<sizeof(Value)>::Int>      \
     ENOKI_INLINE StaticArrayImpl(T b)                                          \
         : StaticArrayImpl(b ? memcpy_cast<Value>(Int(-1))                      \
-                            : memcpy_cast<Value>(Int(0))) { }
+                            : memcpy_cast<Value>(Int(0))) { }                  \
+    template <                                                                 \
+        typename T, std::enable_if_t<std::is_same<T, bool>::value, int> = 0,   \
+        typename Int = typename detail::type_chooser<sizeof(Value)>::Int>      \
+    ENOKI_INLINE StaticArrayImpl& operator=(T b)                               \
+        { operator=(b ? memcpy_cast<Value>(Int(-1))                            \
+                      : memcpy_cast<Value>(Int(0))); return *this; }
 
 #define ENOKI_NATIVE_ARRAY_CLASSIC(Value_, Size_, Approx_, Register)           \
     ENOKI_NATIVE_ARRAY(Value_, Size_, Approx_, Register,                       \

@@ -54,6 +54,8 @@
 
 #include "array_dynamic.h"
 
+#include "array_macro.h"
+
 #if defined(_MSC_VER)
 #  pragma warning(pop)
 #endif

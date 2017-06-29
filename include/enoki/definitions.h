@@ -11,11 +11,15 @@
     license that can be found in the LICENSE file.
 */
 
+#pragma once
+
 #if defined(_MSC_VER)
 #  if !defined(_USE_MATH_DEFINES)
 #    define _USE_MATH_DEFINES
 #  endif
 #endif
+
+#include <cstddef>
 
 #if defined(_MSC_VER)
 #  define ENOKI_INLINE            __forceinline
@@ -32,7 +36,7 @@
 #  define ENOKI_NOINLINE          __attribute__ ((noinline))
 #  define ENOKI_INLINE            __attribute__ ((always_inline)) inline
 #  define ENOKI_MALLOC            __attribute__ ((malloc))
-#  define ENOKI_ASSUME_ALIGNED(x) __builtin_assume_aligned(x, ENOKI_MAX_PACKET_SIZE)
+#  define ENOKI_ASSUME_ALIGNED(x) __builtin_assume_aligned(x, ::enoki::max_packet_size)
 #  define ENOKI_LIKELY(x)         __builtin_expect(!!(x), 1)
 #  define ENOKI_UNLIKELY(x)       __builtin_expect(!!(x), 0)
 #  define ENOKI_PACK              __attribute__ ((packed))
@@ -77,13 +81,17 @@
 
 #define ENOKI_CHKSCALAR if (std::is_arithmetic<Value>::value) { ENOKI_TRACK_SCALAR }
 
+NAMESPACE_BEGIN(enoki)
+
 /// Maximum hardware-supported packet size in bytes
 #if defined(__AVX512F__)
-#  define ENOKI_MAX_PACKET_SIZE 64
+    static constexpr size_t max_packet_size = 64;
 #elif defined(__AVX__)
-#  define ENOKI_MAX_PACKET_SIZE 32
+    static constexpr size_t max_packet_size = 32;
 #elif defined(__SSE4_2__)
-#  define ENOKI_MAX_PACKET_SIZE 16
+    static constexpr size_t max_packet_size = 16;
 #else
-#  define ENOKI_MAX_PACKET_SIZE 4
+    static constexpr size_t max_packet_size = 4;
 #endif
+
+NAMESPACE_END(enoki)

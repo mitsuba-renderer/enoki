@@ -11,6 +11,8 @@
     license that can be found in the LICENSE file.
 */
 
+#pragma once
+
 #if defined(NDEBUG)
 #  undef NDEBUG
 #endif
@@ -34,6 +36,14 @@ namespace test {
 #include <iostream>
 #include <cassert>
 #include <random>
+#include <sstream>
+
+/// Generic string conversion routine
+template <typename T> inline std::string to_string(const T& value) {
+    std::ostringstream oss;
+    oss << value;
+    return oss.str();
+}
 
 using namespace enoki;
 
@@ -181,6 +191,16 @@ void assert_close(Value result, Value result_ref, Value eps) {
     }
 }
 
+std::string print_float(double value) {
+    double exp = std::log10(std::abs(value));
+    exp += std::copysign(1.f, exp);
+    double mant = value * std::pow(10.0, -double(int(exp)));
+    std::ostringstream oss;
+    oss.precision(2);
+    oss << mant << " \\cdot 10^{" << int(exp) << "}";
+    return oss.str();
+}
+
 template <typename T>
 void probe_accuracy(T (*func)(const T &), double (*ref)(double),
                     typename T::Value min, typename T::Value max,
@@ -249,6 +269,7 @@ void probe_accuracy(T (*func)(const T &), double (*ref)(double),
     bool success = max_ulp <= max_ulp_assert || max_ulp_assert == 0;
 
     if (test::detailed || !success) {
+#if 0
         std::cout << "(in [" << min << ", " << max << "]):" << std::endl
               << "     * avg abs. err = " << avg_err / float(nTries) << std::endl
               << "     * avg rel. err = " << avg_err_rel / float(nTries) << std::endl
@@ -258,6 +279,27 @@ void probe_accuracy(T (*func)(const T &), double (*ref)(double),
               << "     * max rel. err = " << max_err_rel << std::endl
               << "       -> in ULPs   = " << max_ulp << std::endl
               << "       (at x=" << max_ulp_pos << ")" << std::endl;
+#else
+        std::cout << "* - :math:`name(x)`" << std::endl;
+        std::cout << "  - :math:`" << min << " < x < " << max << "`" << std::endl;
+        // abs.error
+        std::cout << "  - :math:`" << print_float(avg_err / float(nTries)) << "`"<< std::endl;
+        std::cout << "  - :math:`" << print_float(max_err) << "`"<< std::endl;
+        std::cout.precision(2);
+        std::cout << "  - :math:`" << print_float(avg_err_rel / float(nTries))
+                        << "\\,(" << avg_ulp / float(nTries) << "\\,\\mathrm{ulp})"<< "`"<< std::endl;
+        std::cout << "  - :math:`" << print_float(max_err_rel) << "\\,(" << max_ulp<< "\\,\\mathrm{ulp})"<< "`"<< std::endl;
+
+#if 0
+
+    * - ``sin(x)``
+      - :math:`|x|<8192`
+      - :math:`6.61\cdot 10^{-9}`
+      - :math:`1.37\cdot 10^{-8}\,(0.16)`
+      - :math:`5.96\cdot 10^{-8}`
+      - :math:`1.176\cdot 10^{-6}\,(19)`
+#endif
+#endif
     }
     assert(success);
 }

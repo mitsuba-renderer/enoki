@@ -29,8 +29,8 @@ NAMESPACE_BEGIN(enoki)
 
 /// Allocate a suitably aligned memory block
 inline ENOKI_MALLOC void *alloc(size_t size) {
-    constexpr size_t align = sizeof(void *) > size_t(ENOKI_MAX_PACKET_SIZE)
-        ? sizeof(void *) : ENOKI_MAX_PACKET_SIZE;
+    constexpr size_t align = sizeof(void *) > size_t(max_packet_size)
+        ? sizeof(void *) : max_packet_size;
     ENOKI_TRACK_ALLOC
 
     void *ptr;

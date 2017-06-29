@@ -20,7 +20,7 @@ errors=0
 IFS=$'\n'
 found=
 # The mt=41 sets a red background for matched tabs:
-GREP_COLORS='mt=41' GREP_COLOR='41' grep $'\t' include/ tests/*.{h,cpp} -rn --color=always |
+GREP_COLORS='mt=41' GREP_COLOR='41' grep $'\t' include/ tests/*.{h,cpp} docs/*.rst -rn --color=always |
 while read f; do
     if [ -z "$found" ]; then
         echo -e '\033[31m\033[01mError: found tabs instead of spaces in the following files:\033[0m'
@@ -33,7 +33,7 @@ done
 
 found=
 # The mt=41 sets a red background for matched MS-DOS CRLF characters
-GREP_COLORS='mt=41' GREP_COLOR='41' grep -IUlr $'\r' include/ tests/*.{h,cpp} --color=always |
+GREP_COLORS='mt=41' GREP_COLOR='41' grep -IUlr $'\r' include/ tests/*.{h,cpp} docs/*.rst --color=always |
 while read f; do
     if [ -z "$found" ]; then
         echo -e '\033[31m\033[01mError: found CRLF characters in the following files:\033[0m'
@@ -46,7 +46,7 @@ done
 
 found=
 # The mt=41 sets a red background for matched trailing spaces
-GREP_COLORS='mt=41' GREP_COLOR='41' grep '[[:blank:]]\+$' include/ tests/*.{h,cpp} -rn --color=always |
+GREP_COLORS='mt=41' GREP_COLOR='41' grep '[[:blank:]]\+$' include/ tests/*.{h,cpp} docs/*.rst -rn --color=always |
 while read f; do
     if [ -z "$found" ]; then
         echo -e '\033[31m\033[01mError: found trailing spaces in the following files:\033[0m'

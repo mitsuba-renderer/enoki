@@ -291,6 +291,23 @@ template <typename T> struct array_size<T, enable_if_array_t<T>> {
 
 NAMESPACE_BEGIN(detail)
 
+template <typename T, typename U> struct copy_flags {
+private:
+    using R = std::remove_reference_t<T>;
+    using U1 =
+        std::conditional_t<std::is_const<R>::value, std::add_const_t<U>, U>;
+    using U2 = std::conditional_t<std::is_lvalue_reference<T>::value,
+                                  std::add_lvalue_reference_t<U1>, U1>;
+    using U3 = std::conditional_t<std::is_rvalue_reference<T>::value,
+                                  std::add_rvalue_reference_t<U2>, U2>;
+
+public:
+    using type = U3;
+};
+
+template <typename T, typename U>
+using copy_flags_t = typename copy_flags<T, U>::type;
+
 /// Type trait to determine if a type should be handled using approximate mode by default
 template <typename T, typename = int> struct approx_default {
     static constexpr bool value = std::is_same<std::decay_t<T>, float>::value;
@@ -333,8 +350,8 @@ NAMESPACE_END(detail)
 
 /// Array type
 template <typename Type_,
-          size_t Size_ = (ENOKI_MAX_PACKET_SIZE / sizeof(Type_) > 1)
-                        ? ENOKI_MAX_PACKET_SIZE / sizeof(Type_) : 1,
+          size_t Size_ = (max_packet_size / sizeof(Type_) > 1)
+                        ? max_packet_size / sizeof(Type_) : 1,
           bool Approx_ = detail::approx_default<Type_>::value,
           RoundingMode Mode_ = RoundingMode::Default>
 struct Array;
@@ -345,12 +362,7 @@ struct like { };
 
 template <typename T, typename Value>
 struct like<T, Value, std::enable_if_t<!is_array<T>::value>> {
-private:
-    using T1 = std::conditional_t<std::is_const<std::remove_reference_t<T>>::value, std::add_const_t<Value>, Value>;
-    using T2 = std::conditional_t<std::is_lvalue_reference<T>::value, std::add_lvalue_reference_t<T1>, T1>;
-
-public:
-    using type = T2;
+    using type = detail::copy_flags_t<T, Value>;
 };
 
 template <typename T, typename Value> using like_t = typename like<T, Value>::type;
@@ -361,16 +373,24 @@ private:
     using Array = typename std::decay_t<T>::Derived;
     using Entry = like_t<type_t<Array>, Value>;
 public:
+    using type = detail::copy_flags_t<T, std::conditional_t<
+        std::is_same<Value, bool>::value,
+        mask_t<T>,
+        typename Array::template ReplaceType<Entry>
+    >>;
+};
+
+template <typename T, typename Value>
+struct like<T, Value, std::enable_if_t<is_dynamic_array<T>::value>> {
+private:
+    using Array = typename std::decay_t<T>::Derived;
+    using Entry = like_t<typename Array::Packet, Value>;
+public:
     using type = std::conditional_t<
         std::is_same<Value, bool>::value,
         mask_t<T>,
         typename Array::template ReplaceType<Entry>
     >;
-};
-
-template <typename T, typename Value>
-struct like<T, Value, std::enable_if_t<is_dynamic_array<T>::value>> {
-    using type = DynamicArray<like_t<typename T::Packet, Value>>;
 };
 
 /// Type trait to access the type that would result from an unary expression involving another type
@@ -463,8 +483,11 @@ struct reinterpret_flag { };
 template <bool...> struct bools { };
 
 /// C++14 substitute for std::conjunction
-template <bool... value> using all_of = std::is_same<
-    bools<value..., true>, bools<true, value...>>;
+template <bool... value>
+using all_of = std::is_same<bools<value..., true>, bools<true, value...>>;
+
+template <bool... value>
+using any_of = std::integral_constant<bool, !all_of<!value...>::value>;
 
 /// Convenience class to choose an arithmetic type based on its size and flavor
 template <size_t Size> struct type_chooser { };
@@ -542,13 +565,6 @@ template <typename T> using float64_array_t = like_t<T, double>;
 template <typename T> using bool_array_t    = like_t<T, bool>;
 template <typename T> using size_array_t    = like_t<T, size_t>;
 template <typename T> using ssize_array_t   = like_t<T, ssize_t>;
-
-/// Generic string conversion routine
-template <typename T> inline std::string to_string(const T& value) {
-    std::ostringstream oss;
-    oss << value;
-    return oss.str();
-}
 
 /// Fast implementation for computing the base 2 log of an integer.
 template <typename T> ENOKI_INLINE T log2i(T value) {
@@ -816,7 +832,7 @@ ENOKI_INLINE __m128i mm256_cvtepi64_epi32(__m128i x0, __m128i x1) {
 template <typename Array>
 ENOKI_INLINE Array *alloca_helper(uint8_t *ptr, size_t size, bool clear) {
     (uintptr_t &) ptr +=
-        ((ENOKI_MAX_PACKET_SIZE - (uintptr_t) ptr) % ENOKI_MAX_PACKET_SIZE);
+        ((max_packet_size - (uintptr_t) ptr) % max_packet_size);
     if (clear)
         memset(ptr, 0, size);
     return (Array *) ptr;
@@ -832,9 +848,9 @@ NAMESPACE_END(detail)
  * \brief Wrapper around alloca(), which returns aligned (and potentially
  * zero-initialized) memory
  */
-#define ENOKI_ALIGNED_ALLOCA(Array, Count, Clear)                              \
-    enoki::detail::alloca_helper<Array>((uint8_t *) alloca(                    \
-        sizeof(Array) * (Count) + ENOKI_MAX_PACKET_SIZE - 4),                  \
+#define ENOKI_ALIGNED_ALLOCA(Array, Count, Clear)                             \
+    enoki::detail::alloca_helper<Array>((uint8_t *) alloca(                   \
+        sizeof(Array) * (Count) + enoki::max_packet_size - 4),                \
         sizeof(Array) * (Count), Clear)
 
 //! @}

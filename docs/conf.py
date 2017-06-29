@@ -34,7 +34,7 @@ import subprocess
 # extensions = []
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['.templates']
+templates_path = ['_templates']
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
@@ -115,10 +115,12 @@ import guzzle_sphinx_theme
 
 html_theme_path = guzzle_sphinx_theme.html_theme_path()
 html_theme = 'guzzle_sphinx_theme'
+html_static_path = ['_static']
 
 # Register the theme as an extension to generate a sitemap.xml
 extensions = []
 extensions.append("guzzle_sphinx_theme")
+extensions.append("sphinx.ext.mathjax")
 
 # Guzzle theme options (see theme.conf for more information)
 html_theme_options = {
@@ -133,6 +135,9 @@ html_theme_options = {
 
 # Add any paths that contain custom themes here, relative to this directory.
 #html_theme_path = []
+
+def setup(app):
+    app.add_stylesheet('theme_overrides.css')
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
@@ -163,10 +168,6 @@ html_static_path = ['_static']
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
 #html_last_updated_fmt = '%b %d, %Y'
-
-# If true, SmartyPants will be used to convert quotes and dashes to
-# typographically correct entities.
-#html_use_smartypants = True
 
 # Custom sidebar templates, maps document names to template names.
 #html_sidebars = {}
