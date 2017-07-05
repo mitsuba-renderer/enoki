@@ -352,9 +352,19 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
         return derived() * b + c;
     }
 
+    /// Fused negative multiply-add fallback implementation
+    ENOKI_INLINE auto fnmadd_(const Derived &b, const Derived &c) const {
+        return -derived() * b + c;
+    }
+
     /// Fused multiply-subtract fallback implementation
     ENOKI_INLINE auto fmsub_(const Derived &b, const Derived &c) const {
         return derived() * b - c;
+    }
+
+    /// Fused negative multiply-subtract fallback implementation
+    ENOKI_INLINE auto fnmsub_(const Derived &b, const Derived &c) const {
+        return -derived() * b - c;
     }
 
     /// Fused multiply-add/subtract fallback implementation

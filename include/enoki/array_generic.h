@@ -501,11 +501,27 @@ public:
         return result;
     }
 
+    /// Fused negative multiply-add
+    ENOKI_INLINE auto fnmadd_(const Derived &d1, const Derived &d2) const {
+        expr_t<Derived> result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            result.coeff(i) = fnmadd(coeff(i), d1.coeff(i), d2.coeff(i));
+        return result;
+    }
+
     /// Fused multiply-subtract
     ENOKI_INLINE auto fmsub_(const Derived &d1, const Derived &d2) const {
         expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = fmsub(coeff(i), d1.coeff(i), d2.coeff(i));
+        return result;
+    }
+
+    /// Fused negative multiply-subtract
+    ENOKI_INLINE auto fnmsub_(const Derived &d1, const Derived &d2) const {
+        expr_t<Derived> result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            result.coeff(i) = fnmsub(coeff(i), d1.coeff(i), d2.coeff(i));
         return result;
     }
 

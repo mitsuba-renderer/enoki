@@ -215,11 +215,23 @@ Elementary Arithmetic Functions
     hardware. Otherwise, the operation is emulated using conventional
     multiplication and addition (i.e. ``x * y + z``).
 
+.. cpp:function:: template <typename Array> Array fnmadd(Array x, Array y, Array z)
+
+    Performs a fused negative multiply-add operation if supported by the target
+    hardware. Otherwise, the operation is emulated using conventional
+    multiplication and addition (i.e. ``-x * y + z``).
+
 .. cpp:function:: template <typename Array> Array fmsub(Array x, Array y, Array z)
 
     Performs a fused multiply-subtract operation if supported by the target
     hardware. Otherwise, the operation is emulated using conventional
     multiplication and subtraction (i.e. ``x * y - z``).
+
+.. cpp:function:: template <typename Array> Array fnmsub(Array x, Array y, Array z)
+
+    Performs a fused negative multiply-subtract operation if supported by the
+    target hardware. Otherwise, the operation is emulated using conventional
+    multiplication and subtraction (i.e. ``-x * y - z``).
 
 .. cpp:function:: template <typename Array> Array ldexp(Array x, Array n)
 

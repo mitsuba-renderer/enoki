@@ -376,6 +376,8 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
 
     ENOKI_INLINE Derived fmadd_   (Arg b, Arg c) const { return _mm512_fmadd_round_ps   (m, b.m, c.m, (int) Mode); }
     ENOKI_INLINE Derived fmsub_   (Arg b, Arg c) const { return _mm512_fmsub_round_ps   (m, b.m, c.m, (int) Mode); }
+    ENOKI_INLINE Derived fnmadd_  (Arg b, Arg c) const { return _mm512_fnmadd_round_ps  (m, b.m, c.m, (int) Mode); }
+    ENOKI_INLINE Derived fnmsub_  (Arg b, Arg c) const { return _mm512_fnmsub_round_ps  (m, b.m, c.m, (int) Mode); }
     ENOKI_INLINE Derived fmsubadd_(Arg b, Arg c) const { return _mm512_fmsubadd_round_ps(m, b.m, c.m, (int) Mode); }
     ENOKI_INLINE Derived fmaddsub_(Arg b, Arg c) const { return _mm512_fmaddsub_round_ps(m, b.m, c.m, (int) Mode); }
 
@@ -837,6 +839,8 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
 
     ENOKI_INLINE Derived fmadd_   (Arg b, Arg c) const { return _mm512_fmadd_round_pd   (m, b.m, c.m, (int) Mode); }
     ENOKI_INLINE Derived fmsub_   (Arg b, Arg c) const { return _mm512_fmsub_round_pd   (m, b.m, c.m, (int) Mode); }
+    ENOKI_INLINE Derived fnmadd_  (Arg b, Arg c) const { return _mm512_fnmadd_round_pd  (m, b.m, c.m, (int) Mode); }
+    ENOKI_INLINE Derived fnmsub_  (Arg b, Arg c) const { return _mm512_fnmsub_round_pd  (m, b.m, c.m, (int) Mode); }
     ENOKI_INLINE Derived fmsubadd_(Arg b, Arg c) const { return _mm512_fmsubadd_round_pd(m, b.m, c.m, (int) Mode); }
     ENOKI_INLINE Derived fmaddsub_(Arg b, Arg c) const { return _mm512_fmaddsub_round_pd(m, b.m, c.m, (int) Mode); }
 

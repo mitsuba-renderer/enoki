@@ -209,6 +209,18 @@ ENOKI_ROUTE_TERNARY(fmsub, fmsub,
                           a3.derived().coeff(i))
 )
 
+ENOKI_ROUTE_TERNARY(fnmadd, fnmadd,
+                    fnmadd(a1.derived().coeff(i),
+                           a2.derived().coeff(i),
+                           a3.derived().coeff(i))
+)
+
+ENOKI_ROUTE_TERNARY(fnmsub, fnmsub,
+                    fnmsub(a1.derived().coeff(i),
+                           a2.derived().coeff(i),
+                           a3.derived().coeff(i))
+)
+
 ENOKI_ROUTE_TERNARY(fmaddsub, fmaddsub,
                     fmaddsub(a1.derived().coeff(i),
                              a2.derived().coeff(i),
@@ -416,8 +428,18 @@ ENOKI_INLINE Arg fmadd(const Arg &a1, const Arg &a2, const Arg &a3) {
 }
 
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
+ENOKI_INLINE Arg fnmadd(const Arg &a1, const Arg &a2, const Arg &a3) {
+    return -a1 * a2 + a3;
+}
+
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg fmsub(const Arg &a1, const Arg &a2, const Arg &a3) {
     return a1 * a2 - a3;
+}
+
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
+ENOKI_INLINE Arg fnmsub(const Arg &a1, const Arg &a2, const Arg &a3) {
+    return -a1 * a2 - a3;
 }
 
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
