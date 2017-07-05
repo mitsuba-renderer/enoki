@@ -131,7 +131,7 @@ ENOKI_TEST(array_float_06_head_tail) {
     assert(to_string(tail<2>(t)) == "[3, 4]");
 }
 
-ENOKI_TEST(array_float_07_matrix) {
+ENOKI_TEST(array_float_02_test07_matrix) {
     using M2f = Matrix<float, 2>;
     using V2f = Array<float, 2>;
 
@@ -149,3 +149,13 @@ ENOKI_TEST(array_float_07_matrix) {
     assert(to_string(M2f::from_rows(V2f(1, 2), V2f(3, 4))) == "[[1, 2],\n [3, 4]]");
     assert(to_string(M2f::from_cols(V2f(1, 2), V2f(3, 4))) == "[[1, 3],\n [2, 4]]");
 }
+
+template <typename T> void test_concat() {
+    assert((concat(Array<T, 3>((T) 1, (T) 2, (T) 3), (T) 4) ==
+            Array<T, 4>((T) 1, (T) 2, (T) 3, (T) 4)));
+}
+
+ENOKI_TEST(array_float_04_concat) { test_concat<float>(); }
+ENOKI_TEST(array_uint32_04_concat) { test_concat<uint32_t>(); }
+ENOKI_TEST(array_double_04_concat) { test_concat<double>(); }
+ENOKI_TEST(array_uint64_t_04_concat) { test_concat<uint64_t>(); }

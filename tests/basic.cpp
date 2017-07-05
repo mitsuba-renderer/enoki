@@ -326,6 +326,7 @@ template <typename T,
 void test19_lowhi_impl() {
     auto value = index_sequence<T>();
     assert(T(low(value), high(value)) == value);
+    assert(concat(low(value), high(value)) == value);
 }
 ENOKI_TEST_ALL(test19_lowhi) { test19_lowhi_impl<T>(); }
 

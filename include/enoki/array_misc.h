@@ -85,6 +85,68 @@ transpose(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
     return result;
 }
 
+template <typename Type, size_t Size1, size_t Size2, bool Approx1, bool Approx2,
+          RoundingMode Mode1, RoundingMode Mode2, typename Derived1,
+          typename Derived2, typename Result = Array<Type, Derived1::Size + Derived2::Size>,
+          std::enable_if_t<(Size1 + Size2) / 2 != Size1 || (Size1 + Size2) / 2 != Size2, int> = 0>
+Result
+concat(const StaticArrayBase<Type, Size1, Approx1, Mode1, Derived1> &a1,
+       const StaticArrayBase<Type, Size2, Approx2, Mode2, Derived2> &a2) {
+    Result result;
+    for (size_t i = 0; i < Derived1::Size; ++i)
+        result.coeff(i) = a1.derived().coeff(i);
+    for (size_t i = 0; i < Derived2::Size; ++i)
+        result.coeff(i + Derived1::Size) = a2.derived().coeff(i);
+    return result;
+}
+
+template <typename Type, size_t Size1, size_t Size2, bool Approx1, bool Approx2,
+          RoundingMode Mode1, RoundingMode Mode2, typename Derived1,
+          typename Derived2, typename Result = Array<Type, Derived1::Size + Derived2::Size>,
+          std::enable_if_t<(Size1 + Size2) / 2 == Size1 && (Size1 + Size2) / 2 == Size2, int> = 0>
+Result
+concat(const StaticArrayBase<Type, Size1, Approx1, Mode1, Derived1> &a1,
+       const StaticArrayBase<Type, Size2, Approx2, Mode2, Derived2> &a2) {
+    return Result(a1, a2);
+}
+
+template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
+          typename Derived, typename Result = Array<Type, Derived::Size + 1, Approx, Mode>>
+Result concat(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a,
+              value_t<Type> value) {
+    Result result;
+    for (size_t i = 0; i < Derived::Size; ++i)
+        result.coeff(i) = a.derived().coeff(i);
+    result.coeff(Derived::Size) = value;
+    return result;
+}
+
+template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
+          typename Derived, typename Result = Array<Type, Derived::Size + 1, Approx, Mode>,
+          std::enable_if_t<!std::is_same<scalar_t<Type>, value_t<Type>>::value, int> = 0>
+Result concat(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a,
+              scalar_t<Type> value) {
+    Result result;
+    for (size_t i = 0; i < Derived::Size; ++i)
+        result.coeff(i) = a.derived().coeff(i);
+    result.coeff(Derived::Size) = value;
+    return result;
+}
+
+template <typename Type, bool Approx, RoundingMode Mode, typename Derived, std::enable_if_t<Derived::Size == 3, int> = 0>
+Array<Type, 4> concat(const StaticArrayBase<Type, 4, Approx, Mode, Derived> &a, Type value) {
+    Array<Type, 4, Approx, Mode> result = a.derived();
+    result.w() = value;
+    return result;
+}
+
+#if defined(__SSE4_2__)
+template <bool Approx, RoundingMode Mode, typename Derived, std::enable_if_t<Derived::Size == 3, int> = 0>
+Array<float, 4, Approx, Mode> concat(const StaticArrayBase<float, 4, Approx, Mode, Derived> &a, float value) {
+    return _mm_insert_ps(a.derived().m, _mm_set_ss(value), 0b00110000);
+}
+#endif
+
 /// Analagous to meshgrid() in NumPy or MATLAB; for dynamic arrays
 template <typename Arr>
 Array<Arr, 2> meshgrid(const Arr &x, const Arr &y) {
