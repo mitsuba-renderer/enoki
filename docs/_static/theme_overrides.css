@@ -9,6 +9,7 @@ table.docutils th {
 .toggle .header {
     display: block;
     clear: both;
+    padding-bottom: 1em;
 }
 
 .toggle .header:after {
@@ -21,3 +22,13 @@ table.docutils th {
 
 .MathJax .mo { color: inherit }
 .MathJax .mi { color: inherit }
+
+.sidebar-toc .caption-text {
+    font-variant: small-caps;
+    font-weight: bold;
+    margin-left: 1em;
+}
+
+.sidebar-block h2 {
+    margin-left: -.5em;
+}

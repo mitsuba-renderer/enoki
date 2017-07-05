@@ -1,5 +1,5 @@
-Benchmark
-=========
+A Benchmark
+===========
 
 We now turn to the results of a microbenchmark which runs the previously
 discussed GPS record distance function on a dynamic array with 10 million
@@ -10,8 +10,6 @@ entries.
     .. container:: header
 
         **Show/Hide Code**
-
-
 
     .. code-block:: cpp
        :linenos:
@@ -139,7 +137,7 @@ speedup of 16 from the vectorized instructions alone!).
 
 Relative to the C math library, Enoki obtains an even larger speedup of
 **38.7x**. Using the standard C math library on this platform is fairly
-expensive, presumably because of function call overheads (whereas Enoki
+expensive, presumably because of function call penalties on Xeon Phi (Enoki
 generally inlines functions), and because it is compiled for a generic x86_64
 machine rather than the native architecture.
 
@@ -157,7 +155,7 @@ single precision point values. Significant speedups are observed for packets of
 8 and 16 entries. It is likely that more involved functions (i.e. with a higher
 register pressure) will have a sharper performance drop after :math:`n=16` due
 to the relatively small number of registers on this platform. Enoki
-single-precision transcendentals only slightly faster than the standard C math
+single-precision transcendentals are only slightly faster than the standard C math
 library on this platform. The max. speedup relative to the standard C math
 library is **10.0x**.
 

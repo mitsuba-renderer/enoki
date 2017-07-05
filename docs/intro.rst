@@ -71,7 +71,7 @@ modern C++ applications with nontrivial control flow and data structures,
 dynamic memory allocation, virtual function calls, and vector calls across
 module boundaries. It has the following design goals:
 
-1. **Legacy code**: Only minor modifications are necessary to convert existing
+1. **Unobtrusive**: Only minor modifications are necessary to convert existing
    C++ code into its Enoki-vectorized equivalent, which remains readable and
    maintainable.
 

@@ -7,7 +7,7 @@ TODO: Python integration, matrix, Morton, half precision, for loops horizontal
 ops, nested horizontal ops, slice, packet, dynamic_resize, dynamic_size
 (operations), bool_array_t, like_t, etc. ENOKI_UNLIKELY, meshgrid,
 set_flush_denormals, memory allocator, concat, low(), high(), head<>()
-copysign, mulsign
+copysign, mulsign, concat
 
 - broadcasting
 - arithmetic involving arrays of references
@@ -29,7 +29,7 @@ TBD
 Reinterpreting the contents of arrays
 -------------------------------------
 
-In additions to casts between different types, it is apossible to reinterpret
+In additions to casts between different types, it is possible to reinterpret
 the bit-level representation as a different type when both source and target
 types have matching sizes and layouts:
 

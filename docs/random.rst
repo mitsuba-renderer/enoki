@@ -14,8 +14,40 @@ generator <http://www.pcg-random.org/>`_ developed by `Melissa O'Neill
 The following reference is based on the original `PCG32 documentation
 <http://www.pcg-random.org/using-pcg-c.html>`_.
 
-The *PCG32* class
------------------
+Usage
+-----
+
+The :cpp:class:`enoki::PCG32` class takes a single template parameter ``T``
+that denotes the "shape" of the output. This can be any scalar type like
+``uint32_t``, in which case the implementation generates scalar variates:
+
+.. code-block:: cpp
+
+    /* Scalar RNG */
+    using RNG_1x = PCG32<uint32_t>;
+
+    RNG_1x my_rng;
+    float value = my_rng.next_float32();
+
+Alternatively, it can be an Enoki array, in which case the implementation
+produces arrays of variates.
+
+.. code-block:: cpp
+
+    using FloatP = Array<float, 16>;
+
+    /* Vector RNG -- generates 16 independent variates at once */
+    using RNG_16x = PCG32<FloatP>;
+
+    RNG_16x my_rng;
+    FloatP value = my_rng.next_float32();
+
+PCG32 is *fast*: on a Skylake i7-6920HQ processor, the vectorized
+implementation provided here generates around 1.4 billion single precision
+variates per second.
+
+Reference
+---------
 
 .. cpp:class:: template <typename T> PCG32
 
@@ -23,35 +55,6 @@ The *PCG32* class
     period of :math:`2^{64}` and supports :math:`2^{63}` seperate *streams*.
     Each stream produces a different unique sequence of random numbers, which
     is particularly useful in the context of vectorized computations.
-
-    PCG32 is *fast*: on a Skylake i7-6920HQ processor, the vectorized
-    implementation provided here generates around 1.4 billion single precision
-    variates per second.
-
-    The :cpp:class:`enoki::PCG32` class takes a single template parameter ``T``
-    that denotes the "shape" of the output. This can be any scalar type like
-    ``uint32_t``, in which case the implementation generates scalar variates:
-
-    .. code-block:: cpp
-
-        /* Scalar RNG */
-        using RNG_1x = PCG32<uint32_t>;
-
-        RNG_1x my_rng;
-        float value = my_rng.next_float32();
-
-    Alternatively, it can be an Enoki array, in which case the implementation
-    produces arrays of variates.
-
-    .. code-block:: cpp
-
-        using FloatP = Array<float, 16>;
-
-        /* Vector RNG -- generates 16 independent variates at once */
-        using RNG_16x = PCG32<FloatP>;
-
-        RNG_16x my_rng;
-        FloatP value = my_rng.next_float32();
 
 Member types
 ************
@@ -182,7 +185,7 @@ Methods
     Inequality operator
 
 Macros
-------
+******
 
 The following macros are defined in :file:`enoki/random.h`:
 
