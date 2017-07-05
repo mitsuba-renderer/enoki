@@ -129,7 +129,6 @@ Quat4X to_quat(const Mat4X &m) {
 };
 
 ENOKI_TEST(test18_complex_vectorize_scalar) {
-
     Quat4f a = normalize(Quat4f(1, 2, 3, 4));
     Quat4f b = normalize(Quat4f(0, 0, 0, 1));
 
@@ -138,9 +137,15 @@ ENOKI_TEST(test18_complex_vectorize_scalar) {
     dynamic_resize(y, 1);
     slice(x, 0) = a;
     slice(y, 0) = b;
+    std::cout << "a = "<< a << std::endl;
+    std::cout << "b = "<< b << std::endl;
     auto tmp0 = slerp_matrix(x, y, 0.5f);
     auto tmp1 = to_quat(tmp0);
+    std::cout << "tmp0 = "<< tmp0 << std::endl;
+    std::cout << "tmp1 = "<< tmp1 << std::endl;
     Quat4f result = slice(tmp1, 0);
+    std::cout << "result = " << result << std::endl;
     Quat4f ref = normalize(a+b);
+    std::cout << "ref = " << ref << std::endl;
     assert(abs(result - ref) < 1e-5f);
 }

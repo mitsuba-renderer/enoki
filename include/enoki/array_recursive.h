@@ -37,8 +37,8 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     using Base::Size2;
     using Base::operator=;
 
-    using Mask1 = typename Array1::Mask;
-    using Mask2 = typename Array2::Mask;
+    using Mask1 = mask_t<Array1>;
+    using Mask2 = mask_t<Array2>;
 
     using Arg = const Derived &;
 
@@ -61,12 +61,15 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
 
         /// Cast another array
         template <typename Other, enable_if_static_array_t<Other> = 0>
-        ENOKI_INLINE RMask(const Other &m) : m1(low(m)), m2(high(m)) { }
+        ENOKI_INLINE RMask(const Other &m)
+            : m1(reinterpret_array<Mask1>(low(m))),
+              m2(reinterpret_array<Mask2>(high(m))) { }
 
         /// Reinterpret another array
-        template <typename Other>
+        template <typename Other, enable_if_static_array_t<Other> = 0>
         ENOKI_INLINE RMask(const Other &m, detail::reinterpret_flag)
-            : m1(reinterpret_array<Mask1>(low(m))), m2(reinterpret_array<Mask2>(high(m))) { }
+            : m1(reinterpret_array<Mask1>(low(m))),
+              m2(reinterpret_array<Mask2>(high(m))) { }
 
         ENOKI_INLINE explicit operator Derived() const { return Derived((Array1) m1, (Array2) m2); }
 

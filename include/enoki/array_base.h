@@ -1837,19 +1837,7 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
         const Value off = memcpy_cast<Value>(Int(0));                          \
         ENOKI_TRACK_SCALAR for (size_t i = 0; i < Derived2::Size; ++i)         \
             coeff(i) = a.derived().coeff(i) ? on : off;                        \
-    }                                                                          \
-    template <                                                                 \
-        typename T, std::enable_if_t<std::is_same<T, bool>::value, int> = 0,   \
-        typename Int = typename detail::type_chooser<sizeof(Value)>::Int>      \
-    ENOKI_INLINE StaticArrayImpl(T b)                                          \
-        : StaticArrayImpl(b ? memcpy_cast<Value>(Int(-1))                      \
-                            : memcpy_cast<Value>(Int(0))) { }                  \
-    template <                                                                 \
-        typename T, std::enable_if_t<std::is_same<T, bool>::value, int> = 0,   \
-        typename Int = typename detail::type_chooser<sizeof(Value)>::Int>      \
-    ENOKI_INLINE StaticArrayImpl& operator=(T b)                               \
-        { operator=(b ? memcpy_cast<Value>(Int(-1))                            \
-                      : memcpy_cast<Value>(Int(0))); return *this; }
+    }
 
 #define ENOKI_NATIVE_ARRAY_CLASSIC(Value_, Size_, Approx_, Register)           \
     ENOKI_NATIVE_ARRAY(Value_, Size_, Approx_, Register,                       \

@@ -52,6 +52,10 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
     ENOKI_INLINE explicit KMask(Type k) : k(k) { }
     template <typename T, std::enable_if_t<std::is_same<T, bool>::value, int> = 0>
     ENOKI_INLINE KMask(T b) : k(b ? Type(-1) : Type(0)) { }
+    /// Convert a compatible mask
+    template <typename T, std::enable_if_t<T::IsMask, int> = 0>
+    ENOKI_INLINE KMask(T value) : k(reinterpret_array<KMask>(value).k) { }
+
     ENOKI_INLINE KMask(KMask k, reinterpret_flag) : k(k.k) { }
 
 #if defined(__AVX512VL__)

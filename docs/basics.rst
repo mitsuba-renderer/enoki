@@ -449,6 +449,60 @@ Generally, a better way to work with 3D data while achieving much greater
 instruction level parallelism is via nested arrays and the *Structure of
 Arrays* (SoA) approach discussed next.
 
+Performance gotchas
+-------------------
+
+When writing expressions that involve Enoki arrays with different underlying
+scalar types, always make sure to add explicit casts that convert them to the
+same base type. For instance, instead of
+
+.. code-block:: cpp
+    :emphasize-lines: 7
+
+    using Vector4f = Array<float, 4>;
+    using Vector4i = Array<int32_t, 4>;
+
+    Vector4f a = ...;
+    Vector4i b = ...;
+
+    Vector4f c = a + b; // <- don't do this
+
+write
+
+.. code-block:: cpp
+
+    Vector4f c = a + Vector4f(b); // good.
+
+The two implementations are sematically equivalent, but the former may not
+generate an optimal instruction sequence (i.e. a vectorized int->float cast
+followed by an addition). The reason for this is that Enoki operations
+involving arrays with different underlying scalar types essentially fall back
+to a ``for`` loop over the array components. The C++ compiler used may be
+smart enough to determine that a vectorized hardware cast instruction is
+available, but Enoki cannot guarantee that this happens.
+
+What may be less obvious is that the same also applies to masks, which are
+generally coupled to the comparison that produced them. On AVX2, a mask
+resulting from a comparison involving an ``Array<uint64_t, 4>`` versus
+``Array<uint32_t, 4>`` will e.g. occupy 32 versus 64 bits per entry, respectively.
+The mask type associated with an array can be retrieved using the
+:cpp:type:`enoki::mask_t` type trait.
+
+To avoid any issues, instead of
+
+.. code-block:: cpp
+    :emphasize-lines: 4
+
+    Vector4f a = ...;
+    Vector4i b = ...;
+
+    auto mask = a > 1.f & b > 1; // <- don't do this
+
+write
+
+.. code-block:: cpp
+
+    auto mask = a > 1.f & mask_t<Vector4f>(b > 1); // good.
 
 .. rubric:: Footnotes
 

@@ -1117,6 +1117,26 @@ struct MaskWrapper : StaticArrayImpl<Type_, Size_, Approx_, Mode_,
     using Base = StaticArrayImpl<Type_, Size_, Approx_, Mode_,
                                  MaskWrapper<Type_, Size_, Approx_, Mode_>>;
     static constexpr bool IsMask = true;
+    using typename Base::Value;
+
+    /// Convert a compatible mask
+    template <typename T,
+        std::enable_if_t<T::IsMask && !std::is_same<scalar_t<T>, scalar_t<Value>>::value, int> = 0>
+    ENOKI_INLINE MaskWrapper(T value)
+        : Base(reinterpret_array<MaskWrapper>(value)) { }
+
+    template <typename T,
+              std::enable_if_t<std::is_same<T, bool>::value, int> = 0,
+              typename Int = typename detail::type_chooser<sizeof(Value)>::Int>
+    ENOKI_INLINE MaskWrapper(T b)
+        : MaskWrapper(b ? memcpy_cast<Value>(Int(-1))
+                        : memcpy_cast<Value>(Int(0))) { }
+
+    template <typename T, std::enable_if_t<std::is_same<T, bool>::value, int> = 0,
+              typename Int = typename detail::type_chooser<sizeof(Value)>::Int>
+    ENOKI_INLINE MaskWrapper& operator=(T b)
+        { operator=(b ? memcpy_cast<Value>(Int(-1))
+                      : memcpy_cast<Value>(Int(0))); return *this; }
 
     ENOKI_DECLARE_CUSTOM_ARRAY(Base, MaskWrapper)
     ENOKI_ALIGNED_OPERATOR_NEW()
