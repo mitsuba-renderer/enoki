@@ -3,11 +3,11 @@ Advanced topics
 
 This section is still under construction.
 
-TODO: Python integration, matrix, complex, quaternion, PCG32, Morton, half precision, for loops
-horizontal ops, nested horizontal ops, slice, packet, dynamic_resize, dynamic_size (operations),
-bool_array_t, like_t, etc. ENOKI_UNLIKELY
-
-memory allocator
+TODO: Python integration, matrix, Morton, half precision, for loops horizontal
+ops, nested horizontal ops, slice, packet, dynamic_resize, dynamic_size
+(operations), bool_array_t, like_t, etc. ENOKI_UNLIKELY, meshgrid,
+set_flush_denormals, memory allocator, concat, low(), high(), head<>()
+copysign, mulsign
 
 - broadcasting
 - arithmetic involving arrays of references

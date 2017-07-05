@@ -44,7 +44,7 @@ ENOKI_TEST_ALL(test01_dot) {
 }
 
 template <typename T> void test02_vecops_float() {
-    typedef typename T::Value Value;
+    using Value = value_t<T>;
 
     /* Extra tests for horizontal operations */
     T v(1.f, 2.f, 3.f);
