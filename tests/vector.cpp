@@ -159,3 +159,33 @@ ENOKI_TEST(array_float_04_concat) { test_concat<float>(); }
 ENOKI_TEST(array_uint32_04_concat) { test_concat<uint32_t>(); }
 ENOKI_TEST(array_double_04_concat) { test_concat<double>(); }
 ENOKI_TEST(array_uint64_t_04_concat) { test_concat<uint64_t>(); }
+
+template <typename Type_, size_t Size_>
+struct Vector : enoki::StaticArrayImpl<Type_, Size_, enoki::detail::approx_default<Type_>::value,
+                                       RoundingMode::Default,
+                                       Vector<Type_, Size_>> {
+
+    using Base = enoki::StaticArrayImpl<Type_, Size_, enoki::detail::approx_default<Type_>::value,
+                                        RoundingMode::Default,
+                                        Vector<Type_, Size_>>;
+
+    ENOKI_DECLARE_CUSTOM_ARRAY(Base, Vector)
+
+    /// Helper alias used to transition between vector types (used by enoki::vectorize)
+    template <typename T> using ReplaceType = Vector<T, Size_>;
+};
+
+
+template <typename T> void test_bcast() {
+    using ArrayP = Array<T, 4>;
+    using Vector4 = Vector<T, 4>;
+    using Vector4P = Vector<ArrayP, 4>;
+
+    assert(hsum(Vector4P(Vector4(T(1), T(2), T(3), T(4)))) == Vector4(T(10), T(10), T(10), T(10)));
+    assert(hsum(Vector4P(ArrayP(T(1), T(2), T(3), T(4)))) == Vector4(T(4), T(8), T(12), T(16)));
+}
+
+ENOKI_TEST(array_float_04_bcast) { test_bcast<float>(); }
+ENOKI_TEST(array_uint32_04_bcast) { test_bcast<uint32_t>(); }
+ENOKI_TEST(array_double_04_bcast) { test_bcast<double>(); }
+ENOKI_TEST(array_uint64_t_04_bcast) { test_bcast<uint64_t>(); }
