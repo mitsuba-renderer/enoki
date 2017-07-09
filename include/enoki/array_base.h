@@ -1746,7 +1746,7 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
          std::enable_if_t<std::is_floating_point<T>::value &&                  \
                           std::is_default_constructible<T>::value, int> = 0>   \
     ENOKI_INLINE StaticArrayImpl()                                             \
-     : StaticArrayImpl(std::numeric_limits<scalar_t<T>>::quiet_NaN()) { } \
+        : StaticArrayImpl(std::numeric_limits<scalar_t<T>>::quiet_NaN()) { }   \
     template <typename T = Type_,                                              \
          std::enable_if_t<!std::is_floating_point<T>::value &&                 \
                           std::is_default_constructible<T>::value, int> = 0>   \

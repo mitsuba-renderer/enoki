@@ -18,7 +18,7 @@ ENOKI_TEST(test01_alloc)  {
     using D = DynamicArray<T>;
 
     D x;
-    dynamic_resize(x, 10);
+    set_slices(x, 10);
 
     assert(x.size() == 10);
     assert(x.capacity() == 12);
@@ -138,10 +138,82 @@ ENOKI_TEST(test05_meshgrid) {
         auto y = linspace<FloatX>(4, 1.f, 4.f);
         auto xy = meshgrid(x, y);
 
-        assert(dynamic_size(xy) == 12);
+        assert(slices(xy) == 12);
         assert(to_string(xy) == "[[0, 1],\n [1, 1],\n [2, 1],\n [0, 2],\n [1, 2],\n [2, 2],\n [0, 3],\n [1, 3],\n [2, 3],\n [0, 4],\n [1, 4],\n [2, 4]]");
     }
 
     assert(test::alloc_count - ac == 4);
     assert(test::dealloc_count - dc == 4);
 }
+
+template <typename Value> struct GPSCoord2 {
+    using Vector2 = Array<Value, 2>;
+    using UInt64  = uint64_array_t<Value>;
+    using Bool    = bool_array_t<Value>;
+
+    UInt64 time;
+    Vector2 pos;
+    Bool reliable;
+
+    ENOKI_STRUCT(GPSCoord2, time, pos, reliable)
+};
+
+ENOKI_STRUCT_DYNAMIC(GPSCoord2, time, pos, reliable)
+
+
+/// Calculate the distance in kilometers between 'r1' and 'r2' using the haversine formula
+template <typename Value_, typename Value = expr_t<Value_>>
+ENOKI_INLINE Value distance(const GPSCoord2<Value_> &r1, const GPSCoord2<Value_> &r2) {
+    using Scalar = scalar_t<Value>;
+    using Mask = mask_t<Value>;
+
+    const Value deg_to_rad = Scalar(M_PI / 180.0);
+
+    auto sin_diff_h = sin(deg_to_rad * Scalar(.5) * (r2.pos - r1.pos));
+    sin_diff_h *= sin_diff_h;
+
+    Value a = sin_diff_h.x() + sin_diff_h.y() *
+              cos(r1.pos.x() * deg_to_rad) *
+              cos(r2.pos.x() * deg_to_rad);
+
+    return select(
+        Mask(r1.reliable) & Mask(r2.reliable),
+        Scalar(6371.0 * 2.0) * atan2(sqrt(a), sqrt(Scalar(1.0) - a)),
+        Value(std::numeric_limits<Scalar>::quiet_NaN())
+    );
+}
+
+template <size_t PacketSize> void test06_haversine() {
+    using FloatP       = Array<float, PacketSize>;
+    using FloatX       = DynamicArray<FloatP>;
+    using GPSCoord2fX  = GPSCoord2<FloatX>;
+    using GPSCoord2f   = GPSCoord2<float>;
+    using Vector2f     = Array<float, 2>;
+
+    GPSCoord2fX coord1;
+    GPSCoord2fX coord2;
+    FloatX result;
+
+    size_t size = 100;
+    set_slices(coord1, size);
+    set_slices(coord2, size);
+    set_slices(result, size);
+
+    slice(coord1, 0) = GPSCoord2f(
+        0ull, Vector2f(51.5f, 0.0f), true);
+
+    slice(coord2, 0) = GPSCoord2f(
+        0ull, Vector2f(38.8f, -77.1f), true
+    );
+
+    vectorize([](auto &&result, auto &&coord1, auto &&coord2) {
+                  result = distance<FloatP>(coord1, coord2);
+              }, result, coord1, coord2);
+
+    assert(std::abs(slice(result, 0) - 5918.18f) < 1e-2f);
+}
+
+ENOKI_TEST(array_float_04_haversine) { test06_haversine<4>();  }
+ENOKI_TEST(array_float_08_haversine) { test06_haversine<8>();  }
+ENOKI_TEST(array_float_16_haversine) { test06_haversine<16>(); }
+ENOKI_TEST(array_float_32_haversine) { test06_haversine<32>(); }

@@ -241,17 +241,17 @@ template <typename T, size_t Size> struct dynamic_support<Matrix<T, Size>, enabl
     using dynamic_t = Matrix<enoki::make_dynamic_t<T>, Size>;
     using Value = Matrix<T, Size>;
 
-    static ENOKI_INLINE size_t dynamic_size(const Value &value) {
-        return enoki::dynamic_size(value.coeff(0, 0));
+    static ENOKI_INLINE size_t slices(const Value &value) {
+        return enoki::slices(value.coeff(0, 0));
     }
 
     static ENOKI_INLINE size_t packets(const Value &value) {
         return enoki::packets(value.coeff(0, 0));
     }
 
-    static ENOKI_INLINE void dynamic_resize(Value &value, size_t size) {
+    static ENOKI_INLINE void set_slices(Value &value, size_t size) {
         for (size_t i = 0; i < Size; ++i)
-            enoki::dynamic_resize(value.coeff(i), size);
+            enoki::set_slices(value.coeff(i), size);
     }
 
     template <typename T2>

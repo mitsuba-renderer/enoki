@@ -27,89 +27,11 @@ template <typename Vector_> struct Ray {
     Vector o;
     Vector d;
 
-    // -----------------------------------------------------------------------
-    //! @{ \name Constructors & assignment operators
-    // -----------------------------------------------------------------------
-
-    Ray() { }
-    Ray(const Vector &o, const Vector &d) : o(o), d(d) { }
-
-    template <typename T> Ray(const Ray<T> &r) : o(r.o), d(r.d) { }
-    template <typename T> Ray(Ray<T> &&r) : o(std::move(r.o)), d(std::move(r.d)) { }
-
-    template <typename T> Ray &operator=(const Ray<T> &r) {
-        o = r.o;
-        d = r.d;
-        return *this;
-    }
-
-    template <typename T> Ray &operator=(Ray<T> &&r) {
-        o = std::move(r.o);
-        d = std::move(r.d);
-        return *this;
-    }
-
-    //! @}
-    // -----------------------------------------------------------------------
-
-    // -----------------------------------------------------------------------
-    //! @{ \name Miscellaneous
-    // -----------------------------------------------------------------------
-
     /// Compute a position along a ray
     Vector operator()(Value t) const { return o + t*d; }
 
-    //! @}
-    // -----------------------------------------------------------------------
+    ENOKI_STRUCT(Ray, o, d)
 };
 
+ENOKI_STRUCT_DYNAMIC(Ray, o, d)
 
-NAMESPACE_BEGIN(enoki)
-
-// -----------------------------------------------------------------------
-//! @{ \name Enoki accessors for static & dynamic vectorization
-// -----------------------------------------------------------------------
-
-template <typename T> struct dynamic_support<Ray<T>> {
-    static constexpr bool is_dynamic_nested = enoki::is_dynamic_nested<T>::value;
-    using dynamic_t = Ray<enoki::make_dynamic_t<T>>;
-    using Value = Ray<T>;
-
-    static ENOKI_INLINE size_t dynamic_size(const Value &value) {
-        return enoki::dynamic_size(value.o);
-    }
-
-    static ENOKI_INLINE size_t packets(const Value &value) {
-        return enoki::packets(value.o);
-    }
-
-    static ENOKI_INLINE void dynamic_resize(Value &value, size_t size) {
-        enoki::dynamic_resize(value.o, size);
-        enoki::dynamic_resize(value.d, size);
-    }
-
-    template <typename T2>
-    static ENOKI_INLINE auto packet(T2 &&value, size_t i) {
-        return Ray<decltype(enoki::packet(value.o, i))>(
-            enoki::packet(value.o, i), enoki::packet(value.d, i));
-    }
-
-    template <typename T2>
-    static ENOKI_INLINE auto slice(T2 &&value, size_t i) {
-        return Ray<decltype(enoki::slice(value.o, i))>(
-            enoki::slice(value.o, i), enoki::slice(value.d, i));
-    }
-
-    template <typename T2> static ENOKI_INLINE auto ref_wrap(T2 &&value) {
-        return Ray<decltype(enoki::ref_wrap(value.o))>(
-            enoki::ref_wrap(value.o), enoki::ref_wrap(value.d));
-    }
-};
-
-//! @}
-// =======================================================================
-
-//! @}
-// -----------------------------------------------------------------------
-
-NAMESPACE_END(enoki)

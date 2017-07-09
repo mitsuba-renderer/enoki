@@ -23,17 +23,17 @@ template <typename Arg0, typename Arg1> struct dynamic_support<std::pair<Arg0, A
     using dynamic_t = std::pair<enoki::make_dynamic_t<Arg0>, enoki::make_dynamic_t<Arg1>>;
     using Value = std::pair<Arg0, Arg1>;
 
-    static ENOKI_INLINE size_t dynamic_size(const Value &value) {
-        return enoki::dynamic_size(value.first);
+    static ENOKI_INLINE size_t slices(const Value &value) {
+        return enoki::slices(value.first);
     }
 
     static ENOKI_INLINE size_t packets(const Value &value) {
         return enoki::packets(value.first);
     }
 
-    static ENOKI_INLINE void dynamic_resize(Value &value, size_t size) {
-        enoki::dynamic_resize(value.first, size);
-        enoki::dynamic_resize(value.second, size);
+    static ENOKI_INLINE void set_slices(Value &value, size_t size) {
+        enoki::set_slices(value.first, size);
+        enoki::set_slices(value.second, size);
     }
 
     template <typename T2>
@@ -63,16 +63,16 @@ template <typename... Args> struct dynamic_support<std::tuple<Args...>> {
     using dynamic_t = std::tuple<enoki::make_dynamic_t<Args>...>;
     using Value = std::tuple<Args...>;
 
-    static ENOKI_INLINE size_t dynamic_size(const Value &value) {
-        return enoki::dynamic_size(std::get<0>(value));
+    static ENOKI_INLINE size_t slices(const Value &value) {
+        return enoki::slices(std::get<0>(value));
     }
 
     static ENOKI_INLINE size_t packets(const Value &value) {
         return enoki::packets(std::get<0>(value));
     }
 
-    static ENOKI_INLINE void dynamic_resize(Value &value, size_t size) {
-        dynamic_resize(value, size, std::make_index_sequence<sizeof...(Args)>());
+    static ENOKI_INLINE void set_slices(Value &value, size_t size) {
+        set_slices(value, size, std::make_index_sequence<sizeof...(Args)>());
     }
 
     template <typename T2>
@@ -92,8 +92,8 @@ template <typename... Args> struct dynamic_support<std::tuple<Args...>> {
 
 private:
     template <size_t... Index>
-    static ENOKI_INLINE void dynamic_resize(Value &value, size_t i, std::index_sequence<Index...>) {
-        bool unused[] = { (enoki::dynamic_resize(std::get<Index>(value), i), false)... };
+    static ENOKI_INLINE void set_slices(Value &value, size_t i, std::index_sequence<Index...>) {
+        bool unused[] = { (enoki::set_slices(std::get<Index>(value), i), false)... };
         (void) unused;
     }
 
@@ -121,17 +121,17 @@ template <typename T, size_t Size> struct dynamic_support<std::array<T, Size>> {
     using dynamic_t = std::array<enoki::make_dynamic_t<T>, Size>;
     using Value = std::array<T, Size>;
 
-    static ENOKI_INLINE size_t dynamic_size(const Value &value) {
-        return enoki::dynamic_size(value[0]);
+    static ENOKI_INLINE size_t slices(const Value &value) {
+        return enoki::slices(value[0]);
     }
 
     static ENOKI_INLINE size_t packets(const Value &value) {
         return enoki::packets(value[0]);
     }
 
-    static ENOKI_INLINE void dynamic_resize(Value &value, size_t size) {
+    static ENOKI_INLINE void set_slices(Value &value, size_t size) {
         for (size_t i = 0; i < Size; ++i)
-            enoki::dynamic_resize(value[i], size);
+            enoki::set_slices(value[i], size);
     }
 
     template <typename T2>

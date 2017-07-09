@@ -52,7 +52,7 @@ Reference
 .. cpp:class:: template <typename T> PCG32
 
     This class implements the PCG32 pseudorandom number generator. It has a
-    period of :math:`2^{64}` and supports :math:`2^{63}` seperate *streams*.
+    period of :math:`2^{64}` and supports :math:`2^{63}` separate *streams*.
     Each stream produces a different unique sequence of random numbers, which
     is particularly useful in the context of vectorized computations.
 
@@ -170,7 +170,7 @@ Methods
     This operation provides jump-ahead; it advances the RNG by ``delta`` steps,
     doing so in :math:`\log(\texttt{delta})` time. Because of the periodic
     nature of generation, advancing by :math:`2^{64}-d` (i.e., passing
-    :math:`-d`) is equivalent to backstepping the generator by d steps.
+    :math:`-d`) is equivalent to backstepping the generator by :math:`d` steps.
 
 .. cpp:function:: Int64 operator-(const PCG32 &other)
 

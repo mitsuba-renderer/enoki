@@ -3,11 +3,12 @@ Advanced topics
 
 This section is still under construction.
 
-TODO: Python integration, Morton, half precision, for loops, horizontal ops,
-nested horizontal ops, slice, packet, dynamic_resize, dynamic_size
-(operations), bool_array_t, like_t, etc. ENOKI_UNLIKELY, meshgrid,
+TODO: Python integration, for loops,
+bool_array_t, like_t, etc. ENOKI_UNLIKELY, meshgrid,
 set_flush_denormals, memory allocator, low(), high(), head<>(), copysign,
-mulsign, concat
+mulsign, concat, function calls
+
+dynamic array class & set_slices, slices, packet, slice
 
 - broadcasting
 - arithmetic involving arrays of references
@@ -42,14 +43,6 @@ types have matching sizes and layouts:
     Target target = reinterpret_array<Target>(source);
 
 This feature can also be used to convert between mask types.
-
-Half precision floats
----------------------
-
-In addition to all of the standard types, fast vectorized conversions between
-single precision values and a special 16-bit half precision floating point type
-``enoki::half`` are available if the host processor supports the F16C
-instruction set.
 
 .. _platform-differences:
 

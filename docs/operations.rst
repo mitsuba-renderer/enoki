@@ -153,6 +153,85 @@ Elementary Arithmetic Operators
     Integer division is handled specially, see :ref:`integer-division` for
     details.
 
+.. cpp:function:: template <typename Array> Array operator|(Array x, Array y)
+
+    Binary bitwise OR operator.
+
+.. cpp:function:: template <typename Array> Array operator||(Array x, Array y)
+
+    Binary logical OR operator (identical to ``operator|``, as no
+    short-circuiting is supported in operator overloads).
+
+.. cpp:function:: template <typename Array> Array operator&(Array x, Array y)
+
+    Binary bitwise AND operator.
+
+.. cpp:function:: template <typename Array> Array operator&&(Array x, Array y)
+
+    Binary logical AND operator. (identical to ``operator&``, as no
+    short-circuiting is supported in operator overloads).
+
+.. cpp:function:: template <typename Array> Array operator^(Array x, Array y)
+
+    Binary bitwise XOR operator.
+
+.. cpp:function:: template <typename Array> Array operator<<(Array x, Array y)
+
+    Left shift operator. See also: :cpp:func:`sli`, :cpp:func:`rol`, and
+    :cpp:func:`roli`.
+
+.. cpp:function:: template <typename Array> Array operator>>(Array x, Array y)
+
+    Right shift operator. See also: :cpp:func:`sri`, :cpp:func:`ror`, and
+    :cpp:func:`rori`.
+
+.. cpp:function:: template <typename Array> mask_t<Array> operator<(Array x, Array y)
+
+    Less-than comparison operator.
+
+.. cpp:function:: template <typename Array> mask_t<Array> operator<=(Array x, Array y)
+
+    Less-than-or-equal comparison operator.
+
+.. cpp:function:: template <typename Array> mask_t<Array> operator>(Array x, Array y)
+
+    Greater-than comparison operator.
+
+.. cpp:function:: template <typename Array> mask_t<Array> operator>=(Array x, Array y)
+
+    Greater-than-or-equal comparison operator.
+
+.. cpp:function:: template <typename Array> mask_t<Array> eq(Array x, Array y)
+
+    Equality operator (vertical operation).
+
+.. cpp:function:: template <typename Array> mask_t<Array> neq(Array x, Array y)
+
+    Inequality operator (vertical operation).
+
+.. cpp:function:: template <size_t Imm, typename Array> Array sli(Array x)
+
+    Left shift by an immediate amount ``Imm``.
+
+.. cpp:function:: template <size_t Imm, typename Array> Array sri(Array x)
+
+    Right shift by an immediate amount ``Imm``.
+
+.. cpp:function:: template <typename Array> Array rol(Array x, Array y)
+
+    Left shift with rotation.
+
+.. cpp:function:: template <typename Array> Array ror(Array x, Array y)
+
+    Right shift with rotation.
+
+.. cpp:function:: template <size_t Imm, typename Array> Array roli(Array x)
+
+    Left shift with rotation by an immediate amount ``Imm``.
+
+.. cpp:function:: template <size_t Imm, typename Array> Array rori(Array x)
+
+    Right shift with rotation by an immediate amount ``Imm``.
 
 Elementary Arithmetic Functions
 -------------------------------
@@ -244,20 +323,163 @@ Elementary Arithmetic Functions
     power of 2. Analogous to ``std::frexp`` except that both return values are
     floating point values.
 
-Mask-related operations
------------------------
+Horizontal operations
+---------------------
 
-.. cpp:function:: template <typename Array> mask_t<Array> isnan(Array x)
+.. cpp:function:: template <typename Array> bool operator==(Array x, Array y)
 
-    Checks for NaN values and returns a mask, analogous to ``std::isnan``.
+    Equality operator.
 
-.. cpp:function:: template <typename Array> mask_t<Array> isinf(Array x)
+    .. warning::
 
-    Checks for infinite values and returns a mask, analogous to ``std::isinf``.
+        Following the principle of least surprise,
+        :cpp:func:`enoki::operator==` is a horizontal operations that returns a
+        boolean value; a vertical alternatives named :cpp:func:`eq` is also
+        available. The following pair of operations is equivalent:
 
-.. cpp:function:: template <typename Array> mask_t<Array> isfinite(Array x)
+        .. code-block:: cpp
 
-    Checks for finite values and returns a mask, analogous to ``std::isfinite``.
+            bool b1 = (f1 == f2);
+            bool b2 = all(eq(f1, f2));
+
+.. cpp:function:: template <typename Array> bool operator!=(Array x, Array y)
+
+    .. warning::
+
+        Following the principle of least surprise,
+        :cpp:func:`enoki::operator!=` is a horizontal operations that returns a
+        boolean value; a vertical alternatives named :cpp:func:`neq` is also
+        available. The following pair of operations is equivalent:
+
+        .. code-block:: cpp
+
+            bool b1 = (f1 != f2);
+            bool b2 = any(neq(f1, f2));
+
+.. cpp:function:: template <typename Array> value_t<Array> hsum(Array value)
+
+    Efficiently computes the horizontal sum of the components of ``value``, i.e.
+
+    .. code-block:: cpp
+
+        value[0] + .. + value[Array::Size-1];
+
+    The return value is of type ``value_t<Array>``, which is a scalar (e.g.
+    ``float``) for ordinary inputs and an array for nested array inputs.
+
+.. cpp:function:: template <typename Array> scalar_t<Array> hsum_nested(Array value)
+
+    Recursive version of :cpp:func:`hsum`, which always returns a scalar.
+
+.. cpp:function:: template <typename Array> value_t<Array> hprod(Array value)
+
+    Efficiently computes the horizontal product of the components of ``value``, i.e.
+
+    .. code-block:: cpp
+
+        value[0] * .. * value[Array::Size-1];
+
+    The return value is of type ``value_t<Array>``, which is a scalar (e.g.
+    ``float``) for ordinary inputs and an array for nested array inputs.
+
+.. cpp:function:: template <typename Array> scalar_t<Array> hprod_nested(Array value)
+
+    Recursive version of :cpp:func:`hprod`, which always returns a scalar.
+
+.. cpp:function:: template <typename Array> value_t<Array> hmax(Array value)
+
+    Efficiently computes the horizontal maximum of the components of ``value``, i.e.
+
+    .. code-block:: cpp
+
+        max(value[0], max(value[1], ...))
+
+    The return value is of type ``value_t<Array>``, which is a scalar (e.g.
+    ``float``) for ordinary inputs and an array for nested array inputs.
+
+.. cpp:function:: template <typename Array> scalar_t<Array> hmax_nested(Array value)
+
+    Recursive version of :cpp:func:`hmax`, which always returns a scalar.
+
+.. cpp:function:: template <typename Array> value_t<Array> hmin(Array value)
+
+    Efficiently computes the horizontal minimum of the components of ``value``, i.e.
+
+    .. code-block:: cpp
+
+        min(value[0], min(value[1], ...))
+
+    The return value is of type ``value_t<Array>``, which is a scalar (e.g.
+    ``float``) for ordinary inputs and an array for nested array inputs.
+
+.. cpp:function:: template <typename Array> scalar_t<Array> hmin_nested(Array value)
+
+    Recursive version of :cpp:func:`hmin`, which always returns a scalar.
+
+.. cpp:function:: template <typename Mask> auto any(Mask value)
+
+    Efficiently computes the horizontal OR (i.e. logical disjunction) of the
+    components of the mask ``value``, i.e.
+
+    .. code-block:: cpp
+
+        value[0] | ... | value[Size-1]
+
+    The return value is of type ``bool`` for ordinary mask inputs. When an
+    array of masks is provided, the return type matches the array components.
+
+.. cpp:function:: template <typename Mask> bool any_nested(Mask value)
+
+    Recursive version of :cpp:func:`any`, which always returns a boolean value.
+
+.. cpp:function:: template <typename Mask> auto all(Mask value)
+
+    Efficiently computes the horizontal AND (i.e. logical conjunction) of the
+    components of the mask ``value``, i.e.
+
+    .. code-block:: cpp
+
+        value[0] & ... & value[Size-1]
+
+    The return value is of type ``bool`` for ordinary mask inputs. When an
+    array of masks is provided, the return type matches the array components.
+
+.. cpp:function:: template <typename Mask> bool all_nested(Mask value)
+
+    Recursive version of :cpp:func:`all`, which always returns a boolean value.
+
+.. cpp:function:: template <typename Mask> auto none(Mask value)
+
+    Efficiently computes the negated horizontal OR of the components of the
+    mask ``value``, i.e.
+
+    .. code-block:: cpp
+
+        ~(value[0] | ... | value[Size-1])
+
+    The return value is of type ``bool`` for ordinary mask inputs. When an
+    array of masks is provided, the return type matches the array components.
+
+.. cpp:function:: template <typename Mask> bool none_nested(Mask value)
+
+    Recursive version of :cpp:func:`none`, which always returns a boolean value.
+
+.. cpp:function:: template <typename Mask> auto count(Mask value)
+
+    Efficiently computes the number of components whose mask bits
+    are turned on, i.e.
+
+    .. code-block:: cpp
+
+        (value[0] ? 1 : 0) + ... (value[Size - 1] ? 1 : 0)
+
+    The return value is of type ``size_t`` for ordinary mask inputs. When an
+    array of masks is provided, the return value is of type
+    ``size_array_t<value_t<Mask>>``.
+
+.. cpp:function:: template <typename Mask> size_t count_nested(Mask value)
+
+    Recursive version of :cpp:func:`count`, which always returns a ``size_t`` value.
 
 Transcendental functions
 ------------------------
@@ -501,3 +723,18 @@ Exponential, logarithm, and others
 
     Approximation of the exponentially scaled modified Bessel function of order
     zero.
+
+Miscellaneous operations
+------------------------
+
+.. cpp:function:: template <typename Array> mask_t<Array> isnan(Array x)
+
+    Checks for NaN values and returns a mask, analogous to ``std::isnan``.
+
+.. cpp:function:: template <typename Array> mask_t<Array> isinf(Array x)
+
+    Checks for infinite values and returns a mask, analogous to ``std::isinf``.
+
+.. cpp:function:: template <typename Array> mask_t<Array> isfinite(Array x)
+
+    Checks for finite values and returns a mask, analogous to ``std::isfinite``.

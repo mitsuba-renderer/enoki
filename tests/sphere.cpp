@@ -40,7 +40,7 @@ using Ray3fX    = Ray<Vector3fX>;
 
 /* Aliases to create types that are compatible with other type */
 template <typename T> using vector3f_t = Array<value_t<T>, 3>;
-template <typename T> using ray3f_t    = Ray<Array<value_t<T>, 3>>;
+template <typename T> using ray3f_t    = Ray<vector3f_t<T>>;
 
 //! @}
 // -----------------------------------------------------------------------

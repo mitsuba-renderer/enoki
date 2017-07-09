@@ -77,7 +77,7 @@ following example shows how to compute the inverse of a matrix array.
     using MatrixX = Matrix<FloatX, 4>;   // arbitrarily many 4x4 matrices
 
     MatrixX matrices;
-    dynamic_resize(matrices, 1000);
+    set_slices(matrices, 1000);
 
     // .. fill matrices with contents ..
 
@@ -163,4 +163,5 @@ Supported operations
     .. warning::
 
          This function is only implemented for :math:`1\times 1`,
-         :math:`2\times 2`, :math:`3\times 3`, and :math:`4\times 4` matrices.
+         :math:`2\times 2`, :math:`3\times 3`, and :math:`4\times 4` matrices
+         (which are allowed to be packets of matrices).

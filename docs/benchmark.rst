@@ -34,19 +34,18 @@ entries.
         template <typename Value> struct GPSCoord2 {
             using Vector2 = Array<Value, 2>;
             using UInt64  = uint64_array_t<Value>;
-            using Bool    = bool_array_t<Value>;
+            using Bool    = mask_t<Value>;
 
             UInt64 time;
             Vector2 pos;
             Bool reliable;
 
-            ENOKI_STRUCT(GPSCoord2,           /* <- name of this class */
-                         time, pos, reliable  /* <- list of all attributes in correct order */)
+            ENOKI_STRUCT(GPSCoord2, time, pos, reliable)
         };
 
         ENOKI_STRUCT_DYNAMIC(GPSCoord2, time, pos, reliable)
 
-        using FloatP       = Array<float, SIMD_WIDTH, false>;
+        using FloatP       = Array<float, SIMD_WIDTH>;
         using FloatX       = DynamicArray<FloatP>;
         using GPSCoord2fX  = GPSCoord2<FloatX>;
         using GPSCoord2fP  = GPSCoord2<FloatP>;
@@ -84,9 +83,9 @@ entries.
                 auto clk0 = clk();
 
                 size_t size = 10000000;
-                dynamic_resize(coord1, size);
-                dynamic_resize(coord2, size);
-                dynamic_resize(result, size);
+                set_slices(coord1, size);
+                set_slices(coord2, size);
+                set_slices(result, size);
 
                 auto clk1 = clk();
 

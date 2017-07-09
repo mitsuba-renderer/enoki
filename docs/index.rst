@@ -27,6 +27,7 @@ Enoki — fast vectorized arithmetic on modern processors
    complex
    quaternions
    matrix
+   half
    python
    advanced
 

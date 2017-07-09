@@ -75,15 +75,15 @@ which means that 3 entries at the end are unused.
     FloatX x;
 
     /* Allocate memory for at least 5 entries */
-    dynamic_resize(x, 5);
+    set_slices(x, 5);
 
-    /* Query the size of the dynamic array */
-    size_t size = dynamic_size(x);
-    assert(size == 5);
+    /* Query the size (a.k.a number of "slices") of the dynamic array */
+    size_t slice_count = slices(x);
+    assert(slice_count == 5);
 
     /* Query the number of packets */
-    size_t size = packets(x);
-    assert(size == 2);
+    size_t packet_count = packets(x);
+    assert(packet_count == 2);
 
 A few convenience initialization methods also exist:
 
@@ -146,7 +146,7 @@ definition of ``FloatP``):
    using GPSCoord2fX = GPSCoord2<FloatX>;
 
    GPSCoord2fX coord;
-   dynamic_resize(coord, 1000);
+   set_slices(coord, 1000);
 
 In memory, this data will be arranged as follows:
 
@@ -157,11 +157,11 @@ In memory, this data will be arranged as follows:
 In other words: each field references a dynamic array that contiguously stores
 the contents in a SoA organization.
 
-Accessing packets
------------------
+Accessing array packets
+-----------------------
 
 The :cpp:func:`enoki::packet` function can be used to create a reference to the
-:math:`n`-th packet of a dynamic array or a custom dynamic data structure.
+:math:`i`-th packet of a dynamic array or a custom dynamic data structure.
 For instance, the following code iterates over all packets and resets their
 time values
 
@@ -176,7 +176,7 @@ time values
 The ``packet()`` function is interesting because it returns an instance of a
 new type ``GPSRecord2<FloatP&>`` (note the ampersand) that was not discussed
 yet. Instead of directly storing data, all of its fields are references
-pointing to data elsewhere in memory. In this case, overwriting a field of this
+pointing to packets of data elsewhere in memory. In this case, overwriting a field of this
 structure of references will change the corresponding entry of the dynamic
 array. Conceptually, this looks as follows:
 
@@ -194,6 +194,45 @@ References can also be cast into their associated packet types and vice versa:
     /* Assign a GPSRecord2<FloatP> to a GPSRecord2<FloatP&> */
     packet(coord, n + 1) = cp;
 
+Accessing array slices
+----------------------
+
+Enoki provides a second way of indexing into dynamic arrays: the
+:cpp:func:`enoki::slice` function creates a reference to the
+:math:`i`-th *slice* of a dynamic array or a custom dynamic data
+structure. Elements of a slice store references to *scalar*
+elements representing a vertical slice through the data structure.
+
+The following code iterates over all slices and initializes the time values to an increasing sequence:
+
+.. code-block:: cpp
+
+    /* Set the i-th time value to 'i' */
+    for (size_t i = 0; i < slices(coord); ++i) {
+        auto ref = slice(coord, n);
+        ref.time = i;
+    }
+
+Here, the :cpp:func:`enoki::slice()` function returns an instance
+of a new type ``GPSRecord2<float&>`` (note the ampersand),
+Conceptually, this looks as follows:
+
+.. image:: dynamic-06.svg
+    :width: 600px
+    :align: center
+
+Slice reference types can also be cast into their associated scalar data types
+and vice versa:
+
+.. code-block:: cpp
+
+    /* Read a GPSRecord2<float&> and convert to GPSRecord2<float> */
+    GPSCoord2f c = slice(coord, n);
+
+    /* Assign a GPSRecord2<float> to a GPSRecord2<float&> */
+    slice(coord, n + 1) = c;
+
+
 Dynamic vectorization
 ---------------------
 
@@ -207,7 +246,7 @@ discussed ingredients leads to the following overall structure:
     GPSCoord2fX coord2;
     FloatX result;
 
-    // Allocate memory and fill input arrays with contents
+    // Allocate memory and fill input arrays with contents (e.g. using slice(...))
     ...
 
     // Call SIMD-vectorized function for each packet
@@ -242,6 +281,10 @@ function is required:
         );
     }
 
+The modified version above uses the :cpp:type:`enoki::expr_t` type trait to
+determine a suitable type that is able to hold the result of an expression
+involving its argument (which turns ``FloatP&`` into ``FloatP`` in this case).
+
 .. note::
 
     The issue with the original code was that it was called with a
@@ -249,10 +292,6 @@ function is required:
     FloatP&``. However, the ``Value`` type is also used for the return value as
     well as various intermediate computations, which is illegal since these
     temporaries are not associated with an address in memory.
-
-The modified version above uses the :cpp:type:`enoki::expr_t` type trait to
-determine a suitable type that is able to hold the result of an expression
-involving its argument (which turns ``FloatP&`` into ``FloatP`` in this case).
 
 With these modifications, we are now finally able to vectorize over the dynamic
 array:
@@ -300,7 +339,7 @@ calling call :cpp:func:`enoki::vectorize` with a lambda function.
         coord2
     );
 
-Note the use of a varadic lambda with ``auto&&`` arguments: it would be
+Note the use of a variadic lambda with ``auto&&`` arguments: it would be
 redundant to specify the argument types since they are automatically inferred
 from the function inputs.
 
@@ -337,3 +376,4 @@ Naturally, we could also perform the complete calculation within the lambda func
 It is not necessary to "route" all parameters through
 :cpp:func:`enoki::vectorize`. Auxiliary data structures or constants are easily
 accessible via the lambda capture object using the standard ``[&]`` notation.
+

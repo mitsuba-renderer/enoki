@@ -62,12 +62,24 @@
 #define ENOKI_MAP_EXPR_COPY_V_1(v, x, peek, ...) \
     x(v.x) ENOKI_MAP_EXPR_NEXT(peek, ENOKI_MAP_EXPR_COPY_V_0)(v, peek, __VA_ARGS__)
 
+#define ENOKI_MAP_EXPR_MOVE_V_0(v, x, peek, ...) \
+    x(std::move(v.x)) ENOKI_MAP_EXPR_NEXT(peek, ENOKI_MAP_EXPR_MOVE_V_1)(v, peek, __VA_ARGS__)
+#define ENOKI_MAP_EXPR_MOVE_V_1(v, x, peek, ...) \
+    x(std::move(v.x)) ENOKI_MAP_EXPR_NEXT(peek, ENOKI_MAP_EXPR_MOVE_V_0)(v, peek, __VA_ARGS__)
+
 #define ENOKI_MAP_STMT_ASSIGN_0(v, x, peek, ...)                               \
     this->x = v.x;                                                             \
     ENOKI_MAP_STMT_NEXT(peek, ENOKI_MAP_STMT_ASSIGN_1)(v, peek, __VA_ARGS__)
 #define ENOKI_MAP_STMT_ASSIGN_1(v, x, peek, ...)                               \
     this->x = v.x;                                                             \
     ENOKI_MAP_STMT_NEXT(peek, ENOKI_MAP_STMT_ASSIGN_0)(v, peek, __VA_ARGS__)
+
+#define ENOKI_MAP_STMT_MOVE_0(v, x, peek, ...)                                 \
+    this->x = std::move(v.x);                                                  \
+    ENOKI_MAP_STMT_NEXT(peek, ENOKI_MAP_STMT_MOVE_1)(v, peek, __VA_ARGS__)
+#define ENOKI_MAP_STMT_MOVE_1(v, x, peek, ...)                                 \
+    this->x = std::move(v.x);                                                  \
+    ENOKI_MAP_STMT_NEXT(peek, ENOKI_MAP_STMT_MOVE_0)(v, peek, __VA_ARGS__)
 
 #define ENOKI_MAP_EXPR_F1_0(f, v, x, peek, ...) \
     f(v.x) ENOKI_MAP_EXPR_NEXT(peek, ENOKI_MAP_EXPR_F1_1)(f, v, peek, __VA_ARGS__)
@@ -91,9 +103,17 @@
 #define ENOKI_MAP_EXPR_COPY_V(v, ...) \
     ENOKI_EVAL(ENOKI_MAP_EXPR_COPY_V_0(v, __VA_ARGS__, (), 0))
 
+// ENOKI_MAP_EXPR_MOVE_V(v, a1, a2, ...) expands to a1(std::move(v.a1)), a2(std::move(v.a2)), ...
+#define ENOKI_MAP_EXPR_MOVE_V(v, ...) \
+    ENOKI_EVAL(ENOKI_MAP_EXPR_MOVE_V_0(v, __VA_ARGS__, (), 0))
+
 // ENOKI_MAP_STMT_ASSIGN(v, a1, a2, ...) expands to this->a1 = v.a1; ..
 #define ENOKI_MAP_STMT_ASSIGN(v, ...) \
     ENOKI_EVAL(ENOKI_MAP_STMT_ASSIGN_0(v, __VA_ARGS__, (), 0))
+
+// ENOKI_MAP_STMT_MOVE(v, a1, a2, ...) expands to this->a1 = std::move(v.a1); ..
+#define ENOKI_MAP_STMT_MOVE(v, ...) \
+    ENOKI_EVAL(ENOKI_MAP_STMT_MOVE_0(v, __VA_ARGS__, (), 0))
 
 // ENOKI_MAP_EXPR_F1(f, v, a1, a2, ...) expands to f(v.a1), f(v.a2), ...
 #define ENOKI_MAP_EXPR_F1(f, v, ...) \
@@ -111,8 +131,16 @@
     Struct(const Struct<Args...> &value)                                       \
         : ENOKI_MAP_EXPR_COPY_V(value, __VA_ARGS__) {}                         \
     template <typename... Args>                                                \
+    Struct(Struct<Args...> &&value)                                            \
+        : ENOKI_MAP_EXPR_MOVE_V(value, __VA_ARGS__) {}                         \
+    template <typename... Args>                                                \
     Struct &operator=(const Struct<Args...> &value) {                          \
         ENOKI_MAP_STMT_ASSIGN(value, __VA_ARGS__)                              \
+        return *this;                                                          \
+    }                                                                          \
+    template <typename... Args>                                                \
+    Struct &operator=(Struct<Args...> &&value) {                               \
+        ENOKI_MAP_STMT_MOVE(value, __VA_ARGS__)                                \
         return *this;                                                          \
     }
 
@@ -123,34 +151,39 @@
             enoki::is_dynamic_nested<Args>::value...>::value;                  \
         using dynamic_t = Struct<enoki::make_dynamic_t<Args>...>;              \
         using Value = Struct<Args...>;                                         \
-        static ENOKI_INLINE size_t dynamic_size(const Value &value) {          \
-            return enoki::dynamic_size(value.ENOKI_EXTRACT_0(__VA_ARGS__));    \
-        }                                                                      \
         static ENOKI_INLINE size_t packets(const Value &value) {               \
             return enoki::packets(value.ENOKI_EXTRACT_0(__VA_ARGS__));         \
         }                                                                      \
-        static ENOKI_INLINE void dynamic_resize(Value &value, size_t size) {   \
-            ENOKI_MAP_EXPR_F2(enoki::dynamic_resize, value, size,              \
-                              __VA_ARGS__);                                    \
+        static ENOKI_INLINE size_t slices(const Value &value) {                \
+            return enoki::slices(value.ENOKI_EXTRACT_0(__VA_ARGS__));          \
         }                                                                      \
-        template <typename T> static ENOKI_INLINE auto ref_wrap(T &&value) {   \
-            using Type =                                                       \
-                Struct<decltype(enoki::ref_wrap(std::declval<Args>()))...>;    \
-            return Type{ ENOKI_MAP_EXPR_F1(enoki::ref_wrap, value,             \
+        static ENOKI_INLINE void set_slices(Value &value, size_t size) {       \
+            ENOKI_MAP_EXPR_F2(enoki::set_slices, value, size, __VA_ARGS__);    \
+        }                                                                      \
+        template <typename T>                                                  \
+        static ENOKI_INLINE auto slice(T &&value, size_t index) {              \
+            constexpr static bool co_ = std::is_const<                         \
+                std::remove_reference_t<T>>::value;                            \
+            using Type = Struct<decltype(enoki::slice(std::declval<            \
+                std::conditional_t<co_, const Args &, Args &>>(), index))...>; \
+            return Type{ ENOKI_MAP_EXPR_F2(enoki::slice, value, index,         \
                                            __VA_ARGS__) };                     \
         }                                                                      \
         template <typename T>                                                  \
         static ENOKI_INLINE auto packet(T &&value, size_t index) {             \
-            using Type = Struct<decltype(                                      \
-                enoki::packet(std::declval<Args>(), index))...>;               \
+            constexpr static bool co_ = std::is_const<                         \
+                std::remove_reference_t<T>>::value;                            \
+            using Type = Struct<decltype(enoki::packet(std::declval<           \
+                std::conditional_t<co_, const Args &, Args &>>(), index))...>; \
             return Type{ ENOKI_MAP_EXPR_F2(enoki::packet, value, index,        \
                                            __VA_ARGS__) };                     \
         }                                                                      \
-        template <typename T>                                                  \
-        static ENOKI_INLINE auto slice(T &&value, size_t index) {              \
-            using Type = Struct<decltype(                                      \
-                enoki::slice(std::declval<Args>(), index))...>;                \
-            return Type{ ENOKI_MAP_EXPR_F2(enoki::slice, value, index,         \
+        template <typename T> static ENOKI_INLINE auto ref_wrap(T &&value) {   \
+            constexpr static bool co_ = std::is_const<                         \
+                std::remove_reference_t<T>>::value;                            \
+            using Type = Struct<decltype(enoki::ref_wrap(std::declval<         \
+                std::conditional_t<co_, const Args &, Args &>>()))...>;        \
+            return Type{ ENOKI_MAP_EXPR_F1(enoki::ref_wrap, value,             \
                                            __VA_ARGS__) };                     \
         }                                                                      \
     };                                                                         \

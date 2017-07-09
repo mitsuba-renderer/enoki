@@ -1535,7 +1535,7 @@ struct dynamic_support {
     static constexpr bool is_dynamic_nested = false;
     using dynamic_t = T;
 
-    static ENOKI_INLINE size_t dynamic_size(const T &) { return 0; }
+    static ENOKI_INLINE size_t slices(const T &) { return 0; }
     static ENOKI_INLINE size_t packets(const T&) { return 0; }
 
     template <typename T2> static ENOKI_INLINE decltype(auto) ref_wrap(T2&& value) { return value; }
@@ -1547,12 +1547,12 @@ template <typename T> ENOKI_INLINE size_t packets(const T &value) {
     return dynamic_support<std::decay_t<T>>::packets(value);
 }
 
-template <typename T> ENOKI_INLINE size_t dynamic_size(const T &value) {
-    return dynamic_support<std::decay_t<T>>::dynamic_size(value);
+template <typename T> ENOKI_INLINE size_t slices(const T &value) {
+    return dynamic_support<std::decay_t<T>>::slices(value);
 }
 
-template <typename T> ENOKI_NOINLINE void dynamic_resize(T &value, size_t size) {
-    dynamic_support<std::decay_t<T>>::dynamic_resize(value, size);
+template <typename T> ENOKI_NOINLINE void set_slices(T &value, size_t size) {
+    dynamic_support<std::decay_t<T>>::set_slices(value, size);
 }
 
 template <typename T>

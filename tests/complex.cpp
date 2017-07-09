@@ -133,8 +133,8 @@ ENOKI_TEST(test18_complex_vectorize_scalar) {
     Quat4f b = normalize(Quat4f(0, 0, 0, 1));
 
     Quat4X x, y;
-    dynamic_resize(x, 1);
-    dynamic_resize(y, 1);
+    set_slices(x, 1);
+    set_slices(y, 1);
     slice(x, 0) = a;
     slice(y, 0) = b;
     std::cout << "a = "<< a << std::endl;

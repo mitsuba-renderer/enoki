@@ -244,11 +244,8 @@ if (ENOKI_TEST)
     endif()
     add_compile_options(-Wall -Wextra -Wconversion)
   elseif(WIN32)
+    add_compile_options("/std:c++14")
     add_compile_options("/bigobj")
-  endif()
-
-  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_compile_options(-Wno-injected-class-name)
   endif()
 
   include(CheckCXXSourceRuns)

@@ -192,8 +192,8 @@ Array<float, 4, Approx, Mode> concat(const StaticArrayBase<float, 4, Approx, Mod
 template <typename Arr>
 Array<Arr, 2> meshgrid(const Arr &x, const Arr &y) {
     Arr X, Y;
-    dynamic_resize(X, x.size() * y.size());
-    dynamic_resize(Y, x.size() * y.size());
+    set_slices(X, x.size() * y.size());
+    set_slices(Y, x.size() * y.size());
 
     size_t pos = 0;
 

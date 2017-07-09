@@ -6,9 +6,9 @@ Custom data structures
 The previous sections introduced Enoki arrays as a powerful ingredient for
 designing vectorized algorithms that are capable of processing multiple inputs
 at the same time. However, in many cases, vectorizing an algorithm will also
-require a corresponding change to the data structures that underly it. This
+require a corresponding change to the data structures that underlie it. This
 section demonstrates how C++ templates provide a natural framework for
-archieving this goal while satisfying the desiderata of Enoki (readability,
+achieving this goal while satisfying the desiderata of Enoki (readability,
 portability, no code duplication, etc.).
 
 We will focus on an simple example data structure that represents a position
@@ -33,7 +33,7 @@ flag stating whether the data is considered reliable).
 
 Next, consider the following function, which computes the distance between two
 GPS coordinates using the haversine formula. When either of the two positions
-is deemed unreliable, it returns a NaN value to inform the caller about this.
+is deemed unreliable, it returns a *NaN* value to inform the caller about this.
 
 .. code-block:: cpp
 
@@ -154,7 +154,7 @@ Note how the overall structure is preserved. There are two noteworthy changes:
    the right precision.
 
    It is sometimes useful to be able to work with a higher precision. Our
-   templated ``distance`` function can nicely accomodate this need by simply
+   templated ``distance`` function can nicely accommodate this need by simply
    switching to the following types:
 
    .. code-block:: cpp

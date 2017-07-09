@@ -221,28 +221,28 @@ public:
 
     ENOKI_CONVERT_GENERIC(float, half, 4) {
         __m128i value = _mm_cvtps_ph(a.derived().m, _MM_FROUND_CUR_DIRECTION);
-        memcpy(data(), &value, sizeof(uint16_t) * Derived::Size);
+        memcpy(m_data.data(), &value, sizeof(uint16_t) * Derived::Size);
     }
 
 
 #if defined(__AVX__)
     ENOKI_CONVERT_GENERIC(double, half, 4) {
         __m128i value = _mm_cvtps_ph(_mm256_cvtpd_ps(a.derived().m), _MM_FROUND_CUR_DIRECTION);
-        memcpy(data(), &value, sizeof(uint16_t) * Derived::Size);
+        memcpy(m_data.data(), &value, sizeof(uint16_t) * Derived::Size);
     }
 
     ENOKI_CONVERT_GENERIC(float, half, 8) {
-        _mm_storeu_si128((__m128i *) data(), _mm256_cvtps_ph(a.derived().m, _MM_FROUND_CUR_DIRECTION));
+        _mm_storeu_si128((__m128i *) m_data.data(), _mm256_cvtps_ph(a.derived().m, _MM_FROUND_CUR_DIRECTION));
     }
 #endif
 
 #if defined(__AVX512F__)
     ENOKI_CONVERT_GENERIC(double, half, 8) {
-        _mm_storeu_si128((__m128i *) data(), _mm256_cvtps_ph(_mm512_cvtpd_ps(a.derived().m), _MM_FROUND_CUR_DIRECTION));
+        _mm_storeu_si128((__m128i *) m_data.data(), _mm256_cvtps_ph(_mm512_cvtpd_ps(a.derived().m), _MM_FROUND_CUR_DIRECTION));
     }
 
     ENOKI_CONVERT_GENERIC(float, half, 16) {
-        _mm256_storeu_si256((__m256i *) data(), _mm512_cvtps_ph(a.derived().m, _MM_FROUND_CUR_DIRECTION));
+        _mm256_storeu_si256((__m256i *) m_data.data(), _mm512_cvtps_ph(a.derived().m, _MM_FROUND_CUR_DIRECTION));
     }
 #endif
 
@@ -259,14 +259,14 @@ public:
         __m128i m = _mm_and_si128((__m128i &) a.derived().m, _mm_set1_epi8(1));
         uint16_t result = (uint16_t) _mm_cvtsi128_si32(_mm_shuffle_epi8(
             m, _mm_set1_epi32(0 + (8 << 8))));
-        memcpy(data(), &result, T::Size);
+        memcpy(m_data.data(), &result, T::Size);
     }
 
     ENOKI_REINTERPRET_MASK(4, 4) {
         __m128i m = _mm_and_si128((__m128i &) a.derived().m, _mm_set1_epi8(1));
         uint32_t result = (uint32_t) _mm_cvtsi128_si32(_mm_shuffle_epi8(
             m, _mm_set1_epi32((0 << 0) + (4 << 8) + (8 << 16) + (12 << 24))));
-        memcpy(data(), &result, T::Size);
+        memcpy(m_data.data(), &result, T::Size);
     }
 #endif
 
@@ -290,7 +290,7 @@ public:
             hi = _mm_shuffle_epi8(hi, shufmask);
         #endif
         uint32_t result = (uint32_t) _mm_cvtsi128_si32(_mm_unpacklo_epi16(hi, lo));
-        memcpy(data(), &result, T::Size);
+        memcpy(m_data.data(), &result, T::Size);
     }
 
     ENOKI_REINTERPRET_MASK(8, 4) {
@@ -312,7 +312,7 @@ public:
             hi = _mm_shuffle_epi8(hi, shufmask);
         #endif
         uint64_t result = (uint64_t) _mm_cvtsi128_si64(_mm_unpacklo_epi32(hi, lo));
-        memcpy(data(), &result, T::Size);
+        memcpy(m_data.data(), &result, T::Size);
     }
 #endif
 
@@ -320,12 +320,12 @@ public:
     ENOKI_REINTERPRET_MASK(16, 1) {
         #if defined(__AVX512BW__) && defined(__AVX512VL__)
             __m128i value = _mm_maskz_set1_epi8(a.derived().k, 1);
-            _mm_storeu_si128((__m128i *) data(), value);
+            _mm_storeu_si128((__m128i *) m_data.data(), value);
         #else
             uint64_t low = (uint64_t) _pdep_u64(a.derived().k,      0x0101010101010101ull);
             uint64_t hi  = (uint64_t) _pdep_u64(a.derived().k >> 8, 0x0101010101010101ull);
-            memcpy(data(), &low, 8);
-            memcpy(data() + 8, &hi, 8);
+            memcpy(m_data.data(), &low, 8);
+            memcpy(m_data.data() + 8, &hi, 8);
         #endif
     }
 
@@ -336,7 +336,7 @@ public:
         #else
             uint64_t result = (uint64_t) _pdep_u64(a.derived().k, 0x0101010101010101ull);
         #endif
-        memcpy(data(), &result, T::Size);
+        memcpy(m_data.data(), &result, T::Size);
     }
 
 #endif

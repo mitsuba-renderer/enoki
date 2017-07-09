@@ -371,8 +371,16 @@ The following range tests also generate masks
 .. code-block:: cpp
 
     mask = isnan(f1);    /* Per-component NaN test */
-    mask = isinf(f1);    /* Per-compoment +/- infinity test */
+    mask = isinf(f1);    /* Per-component +/- infinity test */
     mask = isfinite(f1); /* Per-component test for finite values */
+
+Enoki provides a number of helpful trait classes to access array-related types.
+For instance, :cpp:type:`enoki::mask_t` determines the mask type associated
+with an array, which permits replacing the ``auto`` statement above.
+
+.. code-block:: cpp
+
+    mask_t<MyFloat> mask = f1 > 1;
 
 As with floating point values, there are also horizontal operations for masks:
 
@@ -392,10 +400,11 @@ As with floating point values, there are also horizontal operations for masks:
 
 .. note::
 
-    Following the principle of least surprise, ``operator==`` and ``operator!=``
-    are horizontal operations that return a boolean value; vertical alternatives
-    named ``eq()`` and ``neq()`` are also available. The following pairs of operations
-    are equivalent:
+    Following the principle of least surprise, :cpp:func:`enoki::operator==`
+    and :cpp:func:`enoki::operator!=` are horizontal operations that return a
+    boolean value; vertical alternatives named :cpp:func:`eq` and
+    :cpp:func:`neq()` are also available. The following pairs of operations are
+    equivalent:
 
     .. code-block:: cpp
 
@@ -428,7 +437,7 @@ of an array matching the given mask:
 
 Compared to ``select()``, a masked update may generate slightly more efficient
 code on some platforms. Apart from this, the two approaches can be used
-interchangably.
+interchangeably.
 
 The special case of 3D arrays
 -----------------------------
@@ -473,22 +482,23 @@ write
 
     Vector4f c = a + Vector4f(b); // good.
 
-The two implementations are sematically equivalent, but the former may not
-generate an optimal instruction sequence (i.e. a vectorized int->float cast
-followed by an addition). The reason for this is that Enoki operations
-involving arrays with different underlying scalar types essentially fall back
-to a ``for`` loop over the array components. The C++ compiler used may be
-smart enough to determine that a vectorized hardware cast instruction is
-available, but Enoki cannot guarantee that this happens.
+The two implementations are semantically equivalent, but the former may not
+generate an optimal instruction sequence (i.e. a vectorized ``int32_t``
+:math:`\to` ``float`` cast followed by an addition). The reason for this is
+that Enoki operations involving arrays with different underlying scalar types
+essentially fall back to a ``for`` loop over the array components. The C++
+compiler used may be smart enough to determine that a vectorized hardware cast
+instruction is available, but Enoki cannot guarantee that this happens.
 
 What may be less obvious is that the same also applies to masks, which are
 generally coupled to the comparison that produced them. On AVX2, a mask
-resulting from a comparison involving an ``Array<uint64_t, 4>`` versus
-``Array<uint32_t, 4>`` will e.g. occupy 32 versus 64 bits per entry, respectively.
-The mask type associated with an array can be retrieved using the
-:cpp:type:`enoki::mask_t` type trait.
+resulting from a comparison involving an ``Array<uint64_t, 4>`` will e.g.
+occupy 32 bits per mask entry, while the same mask resulting from a
+``Array<uint32_t, 4>`` comparison would occupy 64 bits per entry. A conversion
+is needed when using both in the same expression.
 
-To avoid any issues, instead of
+The mask type associated with an array can be retrieved using the
+:cpp:type:`enoki::mask_t` type trait. To avoid any issues, instead of
 
 .. code-block:: cpp
     :emphasize-lines: 4

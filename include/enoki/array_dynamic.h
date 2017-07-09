@@ -27,12 +27,12 @@ template <typename T> struct dynamic_support<T, enable_if_static_array_t<T>> {
         array_depth<T>::value == 1, DynamicArray<std::decay_t<T>>,
         typename T::template ReplaceType<make_dynamic_t<Value>>>;
 
-    static ENOKI_INLINE size_t dynamic_size(const T &value) { return enoki::dynamic_size(value.x()); }
+    static ENOKI_INLINE size_t slices(const T &value) { return enoki::slices(value.x()); }
     static ENOKI_INLINE size_t packets(const T& value) { return enoki::packets(value.x()); }
 
-    static ENOKI_INLINE void dynamic_resize(T &value, size_t size) {
+    static ENOKI_INLINE void set_slices(T &value, size_t size) {
         for (size_t i = 0; i < Size; ++i)
-            enoki::dynamic_resize(value.coeff(i), size);
+            enoki::set_slices(value.coeff(i), size);
     }
 
     template <typename T2>
@@ -77,11 +77,11 @@ template <typename T> struct dynamic_support<T, enable_if_dynamic_array_t<T>> {
     static constexpr bool is_dynamic_nested = true;
     using dynamic_t = T;
 
-    static ENOKI_INLINE size_t dynamic_size(const T &value) { return value.dynamic_size_(); }
+    static ENOKI_INLINE size_t slices(const T &value) { return value.slices_(); }
     static ENOKI_INLINE size_t packets(const T& value) { return value.packets_(); }
 
-    static ENOKI_INLINE void dynamic_resize(T &value, size_t size) {
-        value.dynamic_resize_(size);
+    static ENOKI_INLINE void set_slices(T &value, size_t size) {
+        value.set_slices_(size);
     }
 
     template <typename T2> static ENOKI_INLINE decltype(auto) packet(T2 &&value, size_t i) {
@@ -199,7 +199,7 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     //! @{ \name Helper routines used to implement enoki::vectorize()
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE size_t dynamic_size_() const { return m_size; }
+    ENOKI_INLINE size_t slices_() const { return m_size; }
 
     ENOKI_INLINE size_t packets_() const { return (m_size + PacketSize - 1) / PacketSize; }
 
@@ -323,7 +323,7 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     //! @}
     // -----------------------------------------------------------------------
 
-    void dynamic_resize_(size_t size) { resize_(size); }
+    void set_slices_(size_t size) { resize_(size); }
 
     /**
      * \brief Resize the buffer to the desired size
@@ -406,12 +406,12 @@ ENOKI_INLINE void vectorize(Func&& f, Args&&... args) {
     if (Check) {
         size_t dsize = 0;
         bool unused2[] = { (
-            (dsize = (is_dynamic_nested<Args>::value ? dynamic_size(args) : dsize)),
+            (dsize = (is_dynamic_nested<Args>::value ? slices(args) : dsize)),
             false)... };
         (void) unused2;
 
         bool status[] = { (!is_dynamic_nested<Args>::value ||
-                           (dynamic_size(args) == dsize))... };
+                           (slices(args) == dsize))... };
         for (bool flag : status)
             if (!flag)
                 throw std::length_error("vectorize(): vector arguments have incompatible lengths");
@@ -431,18 +431,18 @@ ENOKI_INLINE auto vectorize(Func&& f, Args&&... args) {
         false)... };
 
     bool unused2[] = { (
-        (dsize = (is_dynamic_nested<Args>::value ? dynamic_size(args) : dsize)),
+        (dsize = (is_dynamic_nested<Args>::value ? slices(args) : dsize)),
         false)... };
 
     (void) unused;
     (void) unused2;
 
     make_dynamic_t<Return> out;
-    dynamic_resize(out, dsize);
+    set_slices(out, dsize);
 
     if (Check) {
         bool status[] = { (!is_dynamic_nested<Args>::value ||
-                           (dynamic_size(args) == dsize))... };
+                           (slices(args) == dsize))... };
         for (bool flag : status)
             if (!flag)
                 throw std::length_error("vectorize(): vector arguments have incompatible lengths");
