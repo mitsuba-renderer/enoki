@@ -84,6 +84,20 @@ template <bool Approx, typename Derived> struct alignas(32)
     //! @{ \name Reinterpreting constructors, mask converters
     // -----------------------------------------------------------------------
 
+    ENOKI_REINTERPRET(bool) {
+        uint64_t ival;
+        memcpy(&ival, a.data(), 8);
+        __m128i value = _mm_cmpgt_epi8(
+            _mm_cvtsi64_si128((long long) ival), _mm_setzero_si128());
+        #if defined(__AVX2__)
+            m = _mm256_castsi256_ps(_mm256_cvtepi8_epi32(value));
+        #else
+        m = _mm256_castsi256_ps(_mm256_insertf128_si256(
+                _mm256_castsi128_si256(_mm_cvtepi8_epi32(value)),
+                _mm_cvtepi8_epi32(_mm_srli_si128(value, 4)), 1));
+        #endif
+    }
+
     ENOKI_REINTERPRET(float) : m(a.derived().m) { }
 
 #if defined(__AVX2__)
@@ -507,6 +521,20 @@ template <bool Approx, typename Derived> struct alignas(32)
     //! @{ \name Reinterpreting constructors, mask converters
     // -----------------------------------------------------------------------
 
+    ENOKI_REINTERPRET(bool) {
+        int ival;
+        memcpy(&ival, a.data(), 4);
+        __m128i value = _mm_cmpgt_epi8(
+            _mm_cvtsi32_si128(ival), _mm_setzero_si128());
+        #if defined(__AVX2__)
+            m = _mm256_castsi256_pd(_mm256_cvtepi8_epi64(value));
+        #else
+            m = _mm256_castsi256_pd(_mm256_insertf128_si256(
+                    _mm256_castsi128_si256(_mm_cvtepi8_epi64(value)),
+                    _mm_cvtepi8_epi64(_mm_srli_si128(value, 2)), 1));
+        #endif
+    }
+
     ENOKI_REINTERPRET(float)
         : m(_mm256_castsi256_pd(
               detail::mm256_cvtepi32_epi64(_mm_castps_si128(a.derived().m)))) { }
@@ -902,6 +930,20 @@ template <bool Approx, typename Derived> struct alignas(32)
         m = _mm256_cvtps_pd(_mm_cvtph_ps(_mm_loadl_epi64((const __m128i *) temp)));
     }
 #endif
+
+    ENOKI_REINTERPRET(bool) {
+        int ival = 0;
+        memcpy(&ival, a.data(), 3);
+        __m128i value = _mm_cmpgt_epi8(
+            _mm_cvtsi32_si128(ival), _mm_setzero_si128());
+        #if defined(__AVX2__)
+            m = _mm256_castsi256_pd(_mm256_cvtepi8_epi64(value));
+        #else
+            m = _mm256_castsi256_pd(_mm256_insertf128_si256(
+                    _mm256_castsi128_si256(_mm_cvtepi8_epi64(value)),
+                    _mm_cvtepi8_epi64(_mm_srli_si128(value, 2)), 1));
+        #endif
+    }
 
     // -----------------------------------------------------------------------
     //! @{ \name Horizontal operations (adapted for the n=3 case)

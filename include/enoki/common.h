@@ -294,15 +294,16 @@ NAMESPACE_BEGIN(detail)
 template <typename T, typename U> struct copy_flags {
 private:
     using R = std::remove_reference_t<T>;
-    using U1 =
-        std::conditional_t<std::is_const<R>::value, std::add_const_t<U>, U>;
-    using U2 = std::conditional_t<std::is_lvalue_reference<T>::value,
-                                  std::add_lvalue_reference_t<U1>, U1>;
-    using U3 = std::conditional_t<std::is_rvalue_reference<T>::value,
-                                  std::add_rvalue_reference_t<U2>, U2>;
+    using U1 = std::conditional_t<std::is_const<R>::value, std::add_const_t<U>, U>;
+    using U2 = std::conditional_t<std::is_pointer<T>::value,
+                                  std::add_pointer_t<U1>, U1>;
+    using U3 = std::conditional_t<std::is_lvalue_reference<T>::value,
+                                  std::add_lvalue_reference_t<U2>, U2>;
+    using U4 = std::conditional_t<std::is_rvalue_reference<T>::value,
+                                  std::add_rvalue_reference_t<U3>, U3>;
 
 public:
-    using type = U3;
+    using type = U4;
 };
 
 template <typename T, typename U>
@@ -317,7 +318,7 @@ template <typename T> struct approx_default<T, enable_if_array_t<T>> {
     static constexpr bool value = std::decay_t<T>::Approx;
 };
 
-/// Determines when an operand of a binary operation requires a prior bcast step
+/// Determines when an operand of a binary operation requires a prior broadcast step
 template <typename Target, typename Source, typename = void>
 struct bcast {
     static constexpr bool value = is_array<Target>::value;
@@ -373,11 +374,7 @@ private:
     using Array = typename std::decay_t<T>::Derived;
     using Entry = like_t<type_t<Array>, Value>;
 public:
-    using type = detail::copy_flags_t<T, std::conditional_t<
-        std::is_same<Value, bool>::value,
-        mask_t<T>,
-        typename Array::template ReplaceType<Entry>
-    >>;
+    using type = detail::copy_flags_t<T, typename Array::template ReplaceType<Entry>>;
 };
 
 template <typename T, typename Value>
@@ -386,11 +383,7 @@ private:
     using Array = typename std::decay_t<T>::Derived;
     using Entry = like_t<typename Array::Packet, Value>;
 public:
-    using type = std::conditional_t<
-        std::is_same<Value, bool>::value,
-        mask_t<T>,
-        typename Array::template ReplaceType<Entry>
-    >;
+    using type = typename Array::template ReplaceType<Entry>;
 };
 
 /// Type trait to access the type that would result from an unary expression involving another type
@@ -633,12 +626,12 @@ ENOKI_INLINE uint64_t mulhi(uint64_t x, uint64_t y) {
 #else
     // full 128 bits are x0 * y0 + (x0 * y1 << 32) + (x1 * y0 << 32) + (x1 * y1 << 64)
     const uint32_t mask = 0xFFFFFFFF;
-    const uint32_t x0 = (uint32_t)(x & mask), x1 = (uint32_t)(x >> 32);
-    const uint32_t y0 = (uint32_t)(y & mask), y1 = (uint32_t)(y >> 32);
+    const uint32_t x0 = (uint32_t) (x & mask), x1 = (uint32_t) (x >> 32);
+    const uint32_t y0 = (uint32_t) (y & mask), y1 = (uint32_t) (y >> 32);
     const uint32_t x0y0_hi = mulhi(x0, y0);
-    const uint64_t x0y1 = x0 * (uint64_t)y1;
-    const uint64_t x1y0 = x1 * (uint64_t)y0;
-    const uint64_t x1y1 = x1 * (uint64_t)y1;
+    const uint64_t x0y1 = x0 * (uint64_t) y1;
+    const uint64_t x1y0 = x1 * (uint64_t) y0;
+    const uint64_t x1y1 = x1 * (uint64_t) y1;
     const uint64_t temp = x1y0 + x0y0_hi;
     const uint64_t temp_lo = temp & mask, temp_hi = temp >> 32;
 
@@ -655,8 +648,8 @@ ENOKI_INLINE int64_t mulhi(int64_t x, int64_t y) {
 #else
     // full 128 bits are x0 * y0 + (x0 * y1 << 32) + (x1 * y0 << 32) + (x1 * y1 << 64)
     const uint32_t mask = 0xFFFFFFFF;
-    const uint32_t x0 = (uint32_t)(x & mask), y0 = (uint32_t)(y & mask);
-    const int32_t x1 = (int32_t)(x >> 32), y1 = (int32_t)(y >> 32);
+    const uint32_t x0 = (uint32_t) (x & mask), y0 = (uint32_t) (y & mask);
+    const int32_t x1 = (int32_t) (x >> 32), y1 = (int32_t) (y >> 32);
     const uint32_t x0y0_hi = mulhi(x0, y0);
     const int64_t t = x1 * (int64_t) y0 + x0y0_hi;
     const int64_t w1 = x0 * (int64_t) y1 + (t & mask);
@@ -821,10 +814,14 @@ ENOKI_INLINE __m256i mm512_cvtepi64_epi32(__m256i x0, __m256i x1) {
 }
 #endif
 
+#if defined(__SSE4_2__)
+
 ENOKI_INLINE __m128i mm256_cvtepi64_epi32(__m128i x0, __m128i x1) {
     return _mm_castps_si128(_mm_shuffle_ps(
         _mm_castsi128_ps(x0), _mm_castsi128_ps(x1), _MM_SHUFFLE(2, 0, 2, 0)));
 }
+
+#endif
 
 //! @}
 // -----------------------------------------------------------------------

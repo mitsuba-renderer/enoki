@@ -42,6 +42,7 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
     using Base = StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
                                  RoundingMode::Default, KMask<Type>>;
     static constexpr bool IsMask = true;
+    static constexpr bool IsNative = true;
     using Base::Size;
     using Expr = KMask;
     using Mask = KMask;
@@ -58,6 +59,24 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
 
     ENOKI_INLINE KMask(KMask k, reinterpret_flag) : k(k.k) { }
 
+    ENOKI_REINTERPRET_KMASK(bool, 16) {
+        __m128i value = _mm_loadu_si128((__m128i *) a.data());
+        #if defined(__AVX512VL__) && defined(__AVX512BW__)
+            k = _mm_test_epi8_mask(value, _mm_set1_epi8((char) 0xFF));
+        #else
+            k = _mm512_test_epi32_mask(_mm512_cvtepi8_epi32(value), _mm512_set1_epi8((char) 0xFF));
+        #endif
+    }
+
+    ENOKI_REINTERPRET_KMASK(bool, 8) {
+        __m128i value = _mm_loadl_epi64((const __m128i *) a.data());
+        #if defined(__AVX512VL__) && defined(__AVX512BW__)
+            k = (__mmask8) _mm_test_epi8_mask(value, _mm_set1_epi8((char) 0xFF));
+        #else
+            k = _mm512_test_epi64_mask(_mm512_cvtepi8_epi64(value), _mm512_set1_epi8((char) 0xFF));
+        #endif
+    }
+
 #if defined(__AVX512VL__)
     ENOKI_REINTERPRET_KMASK(float, 8)
         : k(_mm256_test_epi32_mask(_mm256_castps_si256(a.derived().m),
@@ -73,10 +92,6 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
     ENOKI_REINTERPRET_KMASK(double, 16)   { k = _mm512_kunpackb(high(a).k, low(a).k); }
     ENOKI_REINTERPRET_KMASK(int64_t, 16)  { k = _mm512_kunpackb(high(a).k, low(a).k); }
     ENOKI_REINTERPRET_KMASK(uint64_t, 16) { k = _mm512_kunpackb(high(a).k, low(a).k); }
-    ENOKI_REINTERPRET_KMASK(bool, 16) : k(0) {
-        for (size_t i = 0; i < 16; ++i)
-            k |= (a.derived().coeff(i) ? 1 : 0) << i;
-    }
 
     ENOKI_INLINE KMask eq_(KMask a) const {
         if (Size == 16) /* Use intrinsic if possible */

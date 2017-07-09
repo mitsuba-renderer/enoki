@@ -119,6 +119,14 @@ struct alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMode::Default,
     //! @{ \name Reinterpreting constructors, mask converters
     // -----------------------------------------------------------------------
 
+    ENOKI_REINTERPRET(bool) {
+        uint64_t ival;
+        memcpy(&ival, a.data(), 8);
+        __m128i value = _mm_cmpgt_epi8(_mm_cvtsi64_si128((long long) ival),
+                                       _mm_setzero_si128());
+        m = _mm256_castsi256_ps(_mm256_cvtepi8_epi32(value));
+    }
+
     ENOKI_REINTERPRET(float) : m(_mm256_castps_si256(a.derived().m)) { }
     ENOKI_REINTERPRET(int32_t) : m(a.derived().m) { }
     ENOKI_REINTERPRET(uint32_t) : m(a.derived().m) { }
@@ -480,6 +488,13 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     //! @{ \name Reinterpreting constructors, mask converters
     // -----------------------------------------------------------------------
 
+    ENOKI_REINTERPRET(bool) {
+        int ival;
+        memcpy(&ival, a.data(), 4);
+        m = _mm256_cvtepi8_epi64(
+            _mm_cmpgt_epi8(_mm_cvtsi32_si128(ival), _mm_setzero_si128()));
+    }
+
     ENOKI_REINTERPRET(float)
         : m(_mm256_cvtepi32_epi64(_mm_castps_si128(a.derived().m))) { }
     ENOKI_REINTERPRET(int32_t) : m(_mm256_cvtepi32_epi64(a.derived().m)) { }
@@ -522,7 +537,7 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
             __m256i mix1  = _mm256_mul_epu32(h0, a.m);
             __m256i mix   = _mm256_add_epi64(mix0, mix1);
             __m256i mix_s = _mm256_slli_epi64(mix, 32);
-            return  _mm256_add_epi64(mix_s, low);
+            return _mm256_add_epi64(mix_s, low);
         #endif
     }
 
@@ -867,6 +882,13 @@ template <typename Value_, typename Derived> struct alignas(32)
         const StaticArrayBase<Type2, 3, Approx2, Mode2, Derived2> &a) {
         ENOKI_TRACK_SCALAR for (size_t i = 0; i < 3; ++i)
             coeff(i) = Value(a.derived().coeff(i));
+    }
+
+    ENOKI_REINTERPRET(bool) {
+        int ival = 0;
+        memcpy(&ival, a.data(), 3);
+        m = _mm256_cvtepi8_epi64(
+            _mm_cmpgt_epi8(_mm_cvtsi32_si128(ival), _mm_setzero_si128()));
     }
 
     template <int I0, int I1, int I2>

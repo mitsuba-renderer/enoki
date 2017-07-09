@@ -42,12 +42,15 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
 
     using Arg = const Derived &;
 
+    static constexpr bool IsRecursive = true;
+
     struct RMask : StaticArrayBase<Type_, Size_, false, RoundingMode::Default, RMask> {
     public:
         static constexpr size_t Size = Size_;
         static constexpr size_t ActualSize = Size_;
-
         static constexpr bool IsMask = true;
+        static constexpr bool IsRecursive = true;
+
         using Expr = RMask;
         using Mask = RMask;
 

@@ -157,6 +157,12 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     /// Is this array exclusively for mask usage? (overridden in some subclasses)
     static constexpr bool IsMask = is_mask<Type_>::value;
 
+    /// Can this array be represented using a processor vector register? (no by default)
+    static constexpr bool IsNative = false;
+
+    /// Does this array instantiate itself recursively? (see 'array_recursive.h')
+    static constexpr bool IsRecursive = false;
+
     /// Number of array entries
     static constexpr size_t Size = Size_;
     static constexpr size_t ActualSize = Size;
@@ -621,7 +627,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             s = fmadd(s, x, x);
             c = fmadd(c, z, fmadd(z, Expr(Scalar(-0.5)), Expr(Scalar(1))));
 
-            auto polymask = reinterpret_array<mask_t<Expr>>(
+            auto polymask = mask_t<Expr>(
                 eq(j & Int(2), zero<IntArray>()));
 
             r = select(polymask, s, c) ^ sign;
@@ -689,7 +695,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             c = fmadd(c, z, fmadd(z, Expr(Scalar(-0.5)), Expr(Scalar(1))));
 
 
-            auto polymask = reinterpret_array<mask_t<Expr>>(
+            auto polymask = mask_t<Expr>(
                 eq(j & Int(2), zero<IntArray>()));
 
             r = select(polymask, c, s) ^ sign;
@@ -768,7 +774,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             s = fmadd(s, x, x);
             c = fmadd(c, z, fmadd(z, Expr(Scalar(-0.5)), Expr(Scalar(1))));
 
-            auto polymask = reinterpret_array<mask_t<Expr>>(
+            auto polymask = mask_t<Expr>(
                 eq(j & Int(2), zero<IntArray>()));
 
             s_out = select(polymask, s, c) ^ sign_sin;
@@ -1139,7 +1145,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
             /* Detect zero/inf/NaN */
             IntMask is_normal =
-                reinterpret_array<IntMask>(neq(derived(), zero<Expr>())) &
+                IntMask(neq(derived(), zero<Expr>())) &
                 neq(exponent_bits, exponentMask);
 
             IntArray exponent_i = (sri<23>(exponent_bits)) - biasMinus1;
@@ -1796,6 +1802,7 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
         typename... Args>
 
 #define ENOKI_NATIVE_ARRAY(Value_, Size_, Approx_, Register, Mode)             \
+    static constexpr bool IsNative = true;                                     \
     using Base = StaticArrayBase<Value_, Size_, Approx_, Mode, Derived>;       \
     using Arg = Derived;                                                       \
     using Expr = Derived;                                                      \
@@ -1825,18 +1832,6 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
     ENOKI_INLINE StaticArrayImpl(const ArrayBase<Type2, Derived2> &a) {        \
         ENOKI_TRACK_SCALAR for (size_t i = 0; i < Derived2::Size; ++i)         \
             derived().coeff(i) = Value(a.derived().coeff(i));                  \
-    }                                                                          \
-    template <size_t Size2, bool Approx2, RoundingMode Mode2,                  \
-              typename Derived2>                                               \
-    ENOKI_INLINE StaticArrayImpl(                                              \
-        const StaticArrayBase<bool, Size2, Approx2, Mode2, Derived2> &a,       \
-        detail::reinterpret_flag) {                                            \
-        static_assert(Derived::Size == Derived2::Size, "Size mismatch!");      \
-        using Int = typename detail::type_chooser<sizeof(Value)>::Int;         \
-        const Value on = memcpy_cast<Value>(Int(-1));                          \
-        const Value off = memcpy_cast<Value>(Int(0));                          \
-        ENOKI_TRACK_SCALAR for (size_t i = 0; i < Derived2::Size; ++i)         \
-            coeff(i) = a.derived().coeff(i) ? on : off;                        \
     }
 
 #define ENOKI_NATIVE_ARRAY_CLASSIC(Value_, Size_, Approx_, Register)           \

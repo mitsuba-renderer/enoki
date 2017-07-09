@@ -113,6 +113,13 @@ template <bool Approx, typename Derived> struct alignas(16)
     //! @{ \name Reinterpreting constructors, mask converters
     // -----------------------------------------------------------------------
 
+    ENOKI_REINTERPRET(bool) {
+        int ival;
+        memcpy(&ival, a.data(), 4);
+        m = _mm_castsi128_ps(_mm_cvtepi8_epi32(
+            _mm_cmpgt_epi8(_mm_cvtsi32_si128(ival), _mm_setzero_si128())));
+    }
+
     ENOKI_REINTERPRET(float) : m(a.derived().m) { }
     ENOKI_REINTERPRET(int32_t) : m(_mm_castsi128_ps(a.derived().m)) { }
     ENOKI_REINTERPRET(uint32_t) : m(_mm_castsi128_ps(a.derived().m)) { }
@@ -519,6 +526,13 @@ template <bool Approx, typename Derived> struct alignas(16)
     // -----------------------------------------------------------------------
     //! @{ \name Reinterpreting constructors, mask converters
     // -----------------------------------------------------------------------
+
+    ENOKI_REINTERPRET(bool) {
+        int16_t ival;
+        memcpy(&ival, a.data(), 2);
+        m = _mm_castsi128_pd(_mm_cvtepi8_epi64(_mm_cmpgt_epi8(
+            _mm_cvtsi32_si128((int) ival), _mm_setzero_si128())));
+    }
 
     ENOKI_REINTERPRET(float) {
         ENOKI_TRACK_SCALAR
@@ -941,6 +955,13 @@ struct alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     //! @{ \name Reinterpreting constructors, mask converters
     // -----------------------------------------------------------------------
 
+    ENOKI_REINTERPRET(bool) {
+        int ival;
+        memcpy(&ival, a.data(), 4);
+        m = _mm_cvtepi8_epi32(
+            _mm_cmpgt_epi8(_mm_cvtsi32_si128(ival), _mm_setzero_si128()));
+    }
+
     ENOKI_REINTERPRET(float) : m(_mm_castps_si128(a.derived().m)) { }
     ENOKI_REINTERPRET(int32_t) : m(a.derived().m) { }
     ENOKI_REINTERPRET(uint32_t) : m(a.derived().m) { }
@@ -1344,6 +1365,13 @@ struct alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMode::Default,
     //! @{ \name Reinterpreting constructors, mask converters
     // -----------------------------------------------------------------------
 
+    ENOKI_REINTERPRET(bool) {
+        int16_t ival;
+        memcpy(&ival, a.data(), 2);
+        m = _mm_cvtepi8_epi64(
+            _mm_cmpgt_epi8(_mm_cvtsi32_si128((int) ival), _mm_setzero_si128()));
+    }
+
     ENOKI_REINTERPRET(float) {
         ENOKI_TRACK_SCALAR
         auto v0 = a.derived().coeff(0), v1 = a.derived().coeff(1);
@@ -1731,6 +1759,13 @@ template <bool Approx, typename Derived> struct alignas(16)
     }
 #endif
 
+    ENOKI_REINTERPRET(bool) {
+        int ival = 0;
+        memcpy(&ival, a.data(), 3);
+        m = _mm_castsi128_ps(_mm_cvtepi8_epi32(
+            _mm_cmpgt_epi8(_mm_cvtsi32_si128(ival), _mm_setzero_si128())));
+    }
+
     template <int I0, int I1, int I2>
     ENOKI_INLINE Derived shuffle_() const {
         return Base::template shuffle_<I0, I1, I2, 3>();
@@ -1865,6 +1900,13 @@ template <typename Value_, typename Derived> struct alignas(16)
 
     StaticArrayImpl(const StaticArrayImpl &) = default;
     StaticArrayImpl &operator=(const StaticArrayImpl &) = default;
+
+    ENOKI_REINTERPRET(bool) {
+        int ival = 0;
+        memcpy(&ival, a.data(), 3);
+        m = _mm_cvtepi8_epi32(
+            _mm_cmpgt_epi8(_mm_cvtsi32_si128(ival), _mm_setzero_si128()));
+    }
 
     template <
         typename Type2, bool Approx2, RoundingMode Mode2, typename Derived2>

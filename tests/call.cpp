@@ -60,7 +60,7 @@ ENOKI_TEST(test00_call) {
     pointers->func2(index);
     assert(index == ref);
 
-    auto mask = pointers->func3();
+    auto mask = mask_t<TestP>(pointers->func3());
     assert(mask == eq(pointers, b));
 
     delete a;
