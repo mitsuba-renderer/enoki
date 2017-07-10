@@ -1028,14 +1028,29 @@ struct alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     }
 
     ENOKI_INLINE Derived sl_(size_t k) const {
-        return _mm_sll_epi32(m, _mm_set1_epi64x((long long) k));
+        #if 0
+            return _mm_sll_epi32(m, _mm_set1_epi64x((long long) k));
+        #else
+            /* This is not strictly correct (k may not be a compile-time constant),
+               but all targeted compilers figure it out and generate better code */
+            return _mm_slli_epi32(m, (int) k);
+        #endif
     }
 
     ENOKI_INLINE Derived sr_(size_t k) const {
-        if (std::is_signed<Value>::value)
-            return _mm_sra_epi32(m, _mm_set1_epi64x((long long) k));
-        else
-            return _mm_srl_epi32(m, _mm_set1_epi64x((long long) k));
+        #if 0
+            if (std::is_signed<Value>::value)
+                return _mm_sra_epi32(m, _mm_set1_epi64x((long long) k));
+            else
+                return _mm_srl_epi32(m, _mm_set1_epi64x((long long) k));
+        #else
+            /* This is not strictly correct (k may not be a compile-time constant),
+               but all targeted compilers figure it out and generate better code */
+            if (std::is_signed<Value>::value)
+                return _mm_srai_epi32(m, (int) k);
+            else
+                return _mm_srli_epi32(m, (int) k);
+        #endif
     }
 
     ENOKI_INLINE Derived slv_(Arg k) const {
@@ -1438,13 +1453,13 @@ struct alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMode::Default,
     ENOKI_INLINE Derived xor_(Arg a) const { return _mm_xor_si128(m, a.m);   }
 
     template <size_t k> ENOKI_INLINE Derived sli_() const {
-        return _mm_slli_epi64(m, k);
+        return _mm_slli_epi64(m, (int) k);
     }
 
     template <size_t k> ENOKI_INLINE Derived sri_() const {
         if (std::is_signed<Value>::value) {
             #if defined(__AVX512VL__)
-                return _mm_srai_epi64(m, k);
+                return _mm_srai_epi64(m, (int) k);
             #else
                 Derived result;
                 ENOKI_TRACK_SCALAR for (size_t i = 0; i < Size; ++i)
@@ -1452,18 +1467,30 @@ struct alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMode::Default,
                 return result;
             #endif
         } else {
-            return _mm_srli_epi64(m, k);
+            return _mm_srli_epi64(m, (int) k);
         }
     }
 
     ENOKI_INLINE Derived sl_(size_t k) const {
-        return _mm_sll_epi64(m, _mm_set1_epi64x((long long) k));
+        #if 0
+            return _mm_sll_epi64(m, _mm_set1_epi64x((long long) k));
+        #else
+            /* This is not strictly correct (k may not be a compile-time constant),
+               but all targeted compilers figure it out and generate better code */
+            return _mm_slli_epi64(m, (int) k);
+        #endif
     }
 
     ENOKI_INLINE Derived sr_(size_t k) const {
         if (std::is_signed<Value>::value) {
             #if defined(__AVX512VL__)
-                return _mm_sra_epi64(m, _mm_set1_epi64x((long long) k));
+                #if 0
+                    return _mm_sra_epi64(m, _mm_set1_epi64x((long long) k));
+                #else
+                    /* This is not strictly correct (k may not be a compile-time constant),
+                       but all targeted compilers figure it out and generate better code */
+                    return _mm_srai_epi64(m, (int) k);
+                #endif
             #else
                 Derived result;
                 ENOKI_TRACK_SCALAR for (size_t i = 0; i < Size; ++i)
@@ -1471,7 +1498,13 @@ struct alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMode::Default,
                 return result;
             #endif
         } else {
-            return _mm_srl_epi64(m, _mm_set1_epi64x((long long) k));
+            #if 0
+                return _mm_srl_epi64(m, _mm_set1_epi64x((long long) k));
+            #else
+                /* This is not strictly correct (k may not be a compile-time constant),
+                   but all targeted compilers figure it out and generate better code */
+                return _mm_srli_epi64(m, (int) k);
+            #endif
         }
     }
 

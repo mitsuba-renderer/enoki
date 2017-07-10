@@ -35,7 +35,7 @@ NAMESPACE_BEGIN(enoki)
 
 #define ENOKI_ROUTE_UNARY_WITH_FALLBACK(name, expr)                            \
     ENOKI_ROUTE_UNARY(name, name)                                              \
-    template <typename Arg, enable_if_not_array_t<Arg> = 0>                     \
+    template <typename Arg, enable_if_not_array_t<Arg> = 0>                    \
     ENOKI_INLINE auto name(const Arg &a) {                                     \
         return expr;                                                           \
     }

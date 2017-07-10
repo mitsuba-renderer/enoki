@@ -125,9 +125,100 @@ several disabled entries.
 
 .. _integer-division:
 
-Integer division
-----------------
-TBD
+Vectorized integer division by constants
+----------------------------------------
+
+Integer division is a surprisingly expensive operation on current processor
+architectures: for instance, the Knight's Landing architecture requires up to a
+whopping *108 cycles* (95 cycles on Skylake) to perform a single 64-bit signed
+integer division with remainder. The hardware unit implementing the division
+cannot accept any new inputs until it is done with the current input (in other
+words, it is not *pipelined* in contrast to most other operations).
+Given the challenges of efficiently realizing integer division in hardware,
+current processors don't even provide an vector instruction to perform multiple
+divisions at once.
+
+Although Enoki can't do anything clever to provide an efficient array division
+instruction given these constraints, it does provide a highly efficient
+division operation for a special case that is often applicable: *dividing by an
+integer constant*. The following snippet falls under this special case because
+all array entries are divided by the same constant, which is furthermore known
+at compile time.
+
+.. code-block:: cpp
+
+    using Int32 = enoki::Array<uint32_t, 8>;
+
+    Int32 div_43(Int32 a) {
+        return a / 43;
+    }
+
+This generates the following AVX2 assembly code (with comments):
+
+.. code-block:: nasm
+
+    _div_43:
+        ; Load magic constant into 'ymm1'
+        vpbroadcastd  ymm1, dword ptr [rip + LCPI0_0]
+
+        ; Compute high part of 64 bit multiplication with 'ymm1'
+        vpmuludq      ymm2, ymm1, ymm0
+        vpsrlq        ymm2, ymm2, 32
+        vpsrlq        ymm3, ymm0, 32
+        vpmuludq      ymm1, ymm1, ymm3
+        vpblendd      ymm1, ymm2, ymm1, 170
+
+        ; Correction & shift
+        vpsubd        ymm0, ymm0, ymm1
+        vpsrld        ymm0, ymm0, 1
+        vpaddd        ymm0, ymm0, ymm1
+        vpsrld        ymm0, ymm0, 5
+        ret
+
+We've effectively turned the division into a sequence of 2 multiplies, 4
+shifts, and 2 additions/subtractions. Needless to say, this is going to be much
+faster than sequence of high-latency/low-througput scalar divisions.
+
+In cases where the constant is not known at compile time, a
+:cpp:class:`enoki::divisor` instance can be precomputed and efficiently applied
+using :cpp:func:`enoki::divisor::operator()`, as shown in the following example:
+
+.. code-block:: cpp
+
+    using Int32 = enoki::Array<uint32_t, 8>;
+
+    void divide(Int32 *a, int32_t b, size_t n) {
+        /* Precompute magic constants */
+        divisor<int32_t> prec_div = b;
+
+        /* Now apply the precomputed division efficiently */
+        for (size_t i = 0; i < n; ++i)
+            a[i] = prec_div(a[i]);
+    }
+
+The following plots show the speedup compared to scalar division when dividing
+16-packets by a compile-time constant. As can be seen, the difference is fairly
+significant on consumer processors (up to **13.2x** on Skylake) and *huge* on
+the simple cores found on a Xeon Phi (up to **61.2x** on Knight's Landing).
+
+.. image:: advanced-03.svg
+    :width: 600px
+    :align: center
+
+.. image:: advanced-02.svg
+    :width: 600px
+    :align: center
+
+Enoki's implementation of division by constants is based on the excellent
+`libdivide <https://github.com/ridiculousfish/libdivide>`_ library.
+
+.. note::
+
+    As can be seen, unsigned divisions are generally cheaper than signed
+    division, and 32 bit division is considerably cheaper than 64 bit
+    divisions. The reason for this is that a *64 bit high multiplication*
+    instruction required by the algorithm does not exist and must be emulated.
+
 
 Reinterpreting the contents of arrays
 -------------------------------------

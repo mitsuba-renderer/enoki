@@ -186,14 +186,29 @@ struct alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMode::Default,
     }
 
     ENOKI_INLINE Derived sl_(size_t k) const {
-        return _mm256_sll_epi32(m, _mm_set1_epi64x((long long) k));
+        #if 0
+            return _mm256_sll_epi32(m, _mm_set1_epi64x((long long) k));
+        #else
+            /* This is not strictly correct (k may not be a compile-time constant),
+               but all targeted compilers figure it out and generate better code */
+            return _mm256_slli_epi32(m, (int) k);
+        #endif
     }
 
     ENOKI_INLINE Derived sr_(size_t k) const {
-        if (std::is_signed<Value>::value)
-            return _mm256_sra_epi32(m, _mm_set1_epi64x((long long) k));
-        else
-            return _mm256_srl_epi32(m, _mm_set1_epi64x((long long) k));
+        #if 0
+            if (std::is_signed<Value>::value)
+                return _mm256_sra_epi32(m, _mm_set1_epi64x((long long) k));
+            else
+                return _mm256_srl_epi32(m, _mm_set1_epi64x((long long) k));
+        #else
+            /* This is not strictly correct (k may not be a compile-time constant),
+               but all targeted compilers figure it out and generate better code */
+            if (std::is_signed<Value>::value)
+                return _mm256_srai_epi32(m, (int) k);
+            else
+                return _mm256_srli_epi32(m, (int) k);
+        #endif
     }
 
     ENOKI_INLINE Derived slv_(Arg k) const {
@@ -545,40 +560,45 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
         #endif
     }
 
-    ENOKI_INLINE Derived mulhi_(Arg a) const {
-        /* Signed high multiplication is too costly to emulate
-           using intrinsics, fall back to scalar version */
+    ENOKI_INLINE Derived mulhi_(Arg b) const {
+        if (std::is_unsigned<Value>::value) {
+            const __m256i low_bits = _mm256_set1_epi64x(0xffffffffu);
+            __m256i al = m, bl = b.m;
 
-        if (std::is_signed<Value>::value) {
-            Derived result;
-            for (size_t i = 0; i < Size; ++i)
-                result.coeff(i) = mulhi(coeff(i), a.coeff(i));
-            return result;
+            __m256i ah = _mm256_srli_epi64(al, 32);
+            __m256i bh = _mm256_srli_epi64(bl, 32);
+
+            // 4x unsigned 32x32->64 bit multiplication
+            __m256i albl = _mm256_mul_epu32(al, bl);
+            __m256i albh = _mm256_mul_epu32(al, bh);
+            __m256i ahbl = _mm256_mul_epu32(ah, bl);
+            __m256i ahbh = _mm256_mul_epu32(ah, bh);
+
+            // Calculate a possible carry from the low bits of the multiplication.
+            __m256i carry = _mm256_add_epi64(
+                _mm256_srli_epi64(albl, 32),
+                _mm256_add_epi64(_mm256_and_si256(albh, low_bits),
+                                 _mm256_and_si256(ahbl, low_bits)));
+
+            __m256i s0 = _mm256_add_epi64(ahbh, _mm256_srli_epi64(carry, 32));
+            __m256i s1 = _mm256_add_epi64(_mm256_srli_epi64(albh, 32),
+                                          _mm256_srli_epi64(ahbl, 32));
+
+            return _mm256_add_epi64(s0, s1);
+
+        } else {
+            const Derived mask(0xffffffff);
+            const Derived a = derived();
+            Derived ah = sri<32>(a), bh = sri<32>(b),
+                    al = a & mask, bl = b & mask;
+
+            Derived albl_hi = _mm256_srli_epi64(_mm256_mul_epu32(m, b.m), 32);
+
+            Derived t = ah * bl + albl_hi;
+            Derived w1 = al * bh + (t & mask);
+
+            return ah * bh + sri<32>(t) + sri<32>(w1);
         }
-
-        const __m256i low_bits = _mm256_set1_epi64x(0xffffffffu);
-        __m256i al = m, bl = a.m;
-
-        __m256i ah = _mm256_srli_epi64(al, 32);
-        __m256i bh = _mm256_srli_epi64(bl, 32);
-
-        // 4x unsigned 32x32->64 bit multiplication
-        __m256i albl = _mm256_mul_epu32(al, bl);
-        __m256i albh = _mm256_mul_epu32(al, bh);
-        __m256i ahbl = _mm256_mul_epu32(ah, bl);
-        __m256i ahbh = _mm256_mul_epu32(ah, bh);
-
-        // Calculate a possible carry from the low bits of the multiplication.
-        __m256i carry = _mm256_add_epi64(
-            _mm256_srli_epi64(albl, 32),
-            _mm256_add_epi64(_mm256_and_si256(albh, low_bits),
-                             _mm256_and_si256(ahbl, low_bits)));
-
-        __m256i s0 = _mm256_add_epi64(ahbh, _mm256_srli_epi64(carry, 32));
-        __m256i s1 = _mm256_add_epi64(_mm256_srli_epi64(albh, 32),
-                                      _mm256_srli_epi64(ahbl, 32));
-
-        return _mm256_add_epi64(s0, s1);
     }
 
     ENOKI_INLINE Derived or_ (Arg a) const { return _mm256_or_si256(m, a.m);    }
@@ -605,13 +625,25 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     }
 
     ENOKI_INLINE Derived sl_(size_t k) const {
-        return _mm256_sll_epi64(m, _mm_set1_epi64x((long long) k));
+        #if 0
+            return _mm256_sll_epi64(m, _mm_set1_epi64x((long long) k));
+        #else
+            /* This is not strictly correct (k may not be a compile-time constant),
+               but all targeted compilers figure it out and generate better code */
+            return _mm256_slli_epi64(m, (int) k);
+        #endif
     }
 
     ENOKI_INLINE Derived sr_(size_t k) const {
         if (std::is_signed<Value>::value) {
             #if defined(__AVX512VL__)
-                return _mm256_sra_epi64(m, _mm_set1_epi64x((long long) k));
+                #if 0
+                    return _mm256_sra_epi64(m, _mm_set1_epi64x((long long) k));
+                #else
+                    /* This is not strictly correct (k may not be a compile-time constant),
+                       but all targeted compilers figure it out and generate better code */
+                    return _mm256_srai_epi64(m, (int) k);
+                #endif
             #else
                 Derived result;
                 ENOKI_TRACK_SCALAR for (size_t i = 0; i < Size; ++i)
@@ -619,7 +651,13 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
                 return result;
             #endif
         } else {
-            return _mm256_srl_epi64(m, _mm_set1_epi64x((long long) k));
+            #if 0
+                return _mm256_srl_epi64(m, _mm_set1_epi64x((long long) k));
+            #else
+                /* This is not strictly correct (k may not be a compile-time constant),
+                   but all targeted compilers figure it out and generate better code */
+                return _mm256_srli_epi64(m, (int) k);
+            #endif
         }
     }
 

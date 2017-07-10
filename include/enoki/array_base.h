@@ -233,6 +233,14 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
         return abs(derived()) < std::numeric_limits<Scalar>::max();
     }
 
+    /// Division fallback implementation
+    ENOKI_INLINE auto div_(const Derived &d) const {
+        expr_t<Derived> result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            result.coeff(i) = derived().coeff(i) / d.coeff(i);
+        return result;
+    }
+
     /// Left rotation operation fallback implementation
     template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE auto rol_(size_t k) const {
