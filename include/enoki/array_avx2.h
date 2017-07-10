@@ -124,7 +124,7 @@ struct alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMode::Default,
         memcpy(&ival, a.data(), 8);
         __m128i value = _mm_cmpgt_epi8(_mm_cvtsi64_si128((long long) ival),
                                        _mm_setzero_si128());
-        m = _mm256_castsi256_ps(_mm256_cvtepi8_epi32(value));
+        m = _mm256_cvtepi8_epi32(value);
     }
 
     ENOKI_REINTERPRET(float) : m(_mm256_castps_si256(a.derived().m)) { }

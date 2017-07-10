@@ -3,8 +3,7 @@ Advanced topics
 
 This section is still under construction.
 
-TODO: Python integration, for loops,
-bool_array_t, like_t, etc. ENOKI_UNLIKELY, meshgrid,
+TODO: Python integration, bool_array_t, like_t, etc. ENOKI_UNLIKELY, meshgrid,
 set_flush_denormals, memory allocator, low(), high(), head<>(), copysign,
 mulsign, concat, function calls,
 stl.h
@@ -78,6 +77,51 @@ filtered:
 
     /* Now that the final number of slices is known, adjust the output array size */
     set_slices(output, final_size);
+
+.. warning::
+
+    The writes performed by :cpp:func:`enoki::compress` are at the granularity
+    of entire packets, which means that some extra scratch space generally
+    needs to be allocated at the end of the output array.
+
+    For instance, even if it is known that a compression operation will find
+    exactly ``N`` elements, you are required to reserve memory for ``N +
+    Packet::Size`` elements to avoid undefined behavior.
+
+    Note that :cpp:func:`enoki::compress` will never require more memory than
+    the input array, hence this provides a safe upper bound.
+
+Vectorized for loops
+--------------------
+
+Enoki provides a powerful :cpp:func:`enoki::range` iterator that enables for
+loops with index vectors. The following somewhat contrived piece of code
+computes :math:`\sum_{i=0}^{1000}i^2` using brute force addition (but with only
+:math:`1000/16\approx 63` loop iterations).
+
+.. code-block:: cpp
+    :emphasize-lines: 4
+
+    using Index = Array<uint32_t, 16>;
+
+    Index result(0);
+
+    for (auto pair : range<Index>(0, 1000)) {
+        Index index = pair.first;
+        mask_t<Index> mask = pair.second;
+
+        result += select(
+            mask,
+            index * index,
+            Index(0)
+        );
+    }
+
+    assert(hsum(result) == 332833500);
+
+The mask is necessary to communicate the fact that the last loop iteration has
+several disabled entries.
+
 
 .. _integer-division:
 

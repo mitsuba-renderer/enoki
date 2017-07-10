@@ -153,8 +153,7 @@ concat(const StaticArrayBase<Type, Size1, Approx1, Mode1, Derived1> &a1,
 
 template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
           typename Derived, typename Result = Array<Type, Derived::Size + 1, Approx, Mode>>
-Result concat(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a,
-              value_t<Type> value) {
+Result concat(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a, value_t<Type> value) {
     Result result;
     for (size_t i = 0; i < Derived::Size; ++i)
         result.coeff(i) = a.derived().coeff(i);
@@ -174,8 +173,9 @@ Result concat(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a,
     return result;
 }
 
-template <typename Type, bool Approx, RoundingMode Mode, typename Derived, std::enable_if_t<Derived::Size == 3, int> = 0>
-Array<Type, 4> concat(const StaticArrayBase<Type, 4, Approx, Mode, Derived> &a, Type value) {
+template <typename Type, bool Approx, RoundingMode Mode, typename Derived,
+          std::enable_if_t<Derived::Size == 3, int> = 0>
+Array<Type, 4> concat(const StaticArrayBase<Type, 4, Approx, Mode, Derived> &a, value_t<Type> value) {
     Array<Type, 4, Approx, Mode> result = a.derived();
     result.w() = value;
     return result;

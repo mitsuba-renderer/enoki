@@ -738,3 +738,22 @@ Miscellaneous operations
 .. cpp:function:: template <typename Array> mask_t<Array> isfinite(Array x)
 
     Checks for finite values and returns a mask, analogous to ``std::isfinite``.
+
+.. cpp:function:: template <typename Index> std::pair<Index, mask_t<Index>> range(scalar_t<Index> begin, scalar_t<Index> end)
+
+    Returns an iterable, which generates linearly increasing index vectors from
+    ``begin`` to ``end-1``. This function is meant to be used with the C++11
+    range-based for loop:
+
+    .. code-block:: cpp
+
+        for (auto pair : range<Index>(0, 1000)) {
+            Index index = pair.first;
+            mask_t<Index> mask = pair.second;
+
+            // ...
+        }
+
+    The mask specifies which index vector entries are active: unless the number
+    of interations is exactly divisible by the packet size, the last loop
+    iteration will generally have several disabled entries.

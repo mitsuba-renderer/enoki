@@ -138,6 +138,7 @@ set(ENOKI_HEADERS
   ${PROJECT_SOURCE_DIR}/include/enoki/array_generic.h
   ${PROJECT_SOURCE_DIR}/include/enoki/array_idiv.h
   ${PROJECT_SOURCE_DIR}/include/enoki/array_misc.h
+  ${PROJECT_SOURCE_DIR}/include/enoki/array_macro.h
   ${PROJECT_SOURCE_DIR}/include/enoki/array_recursive.h
   ${PROJECT_SOURCE_DIR}/include/enoki/array_round.h
   ${PROJECT_SOURCE_DIR}/include/enoki/array_router.h

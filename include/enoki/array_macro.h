@@ -162,10 +162,12 @@
         using dynamic_t = Struct<enoki::make_dynamic_t<Args>...>;              \
         using Value = Struct<Args...>;                                         \
         static ENOKI_INLINE size_t packets(const Value &value) {               \
-            return enoki::packets(value.ENOKI_EXTRACT_0(__VA_ARGS__));         \
+            return enoki::packets(value.ENOKI_EVAL_0(                          \
+                ENOKI_EXTRACT_0(__VA_ARGS__)));                                \
         }                                                                      \
         static ENOKI_INLINE size_t slices(const Value &value) {                \
-            return enoki::slices(value.ENOKI_EXTRACT_0(__VA_ARGS__));          \
+            return enoki::slices(value.ENOKI_EVAL_0(                           \
+                ENOKI_EXTRACT_0(__VA_ARGS__)));                                \
         }                                                                      \
         static ENOKI_INLINE void set_slices(Value &value, size_t size) {       \
             ENOKI_MAP_EXPR_F2(enoki::set_slices, value, size, __VA_ARGS__);    \
