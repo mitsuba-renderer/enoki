@@ -153,7 +153,7 @@ template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 2> invert(M
                         -m(1, 0) * inv_det,  m(0, 0) * inv_det);
 }
 
-template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 3> ENOKI_NOINLINE invert(Matrix<T, 3> m) {
+template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 3> invert(Matrix<T, 3> m) {
     using Vector = Array<E, 3>;
 
     Vector col0 = m.coeff(0), col1 = m.coeff(1),
@@ -265,6 +265,11 @@ template <typename T, size_t Size> struct dynamic_support<Matrix<T, Size>, enabl
     }
 
     template <typename T2>
+    static ENOKI_INLINE auto slice_ptr(T2&& value, size_t i) {
+        return slice_ptr(value, i, std::make_index_sequence<Size>());
+    }
+
+    template <typename T2>
     static ENOKI_INLINE auto ref_wrap(T2&& value) {
         return ref_wrap(value, std::make_index_sequence<Size>());
     }
@@ -280,6 +285,12 @@ private:
     static ENOKI_INLINE auto slice(T2&& value, size_t i, std::index_sequence<Index...>) {
         return Matrix<decltype(enoki::slice(value.coeff(0, 0), i)), Size>(
             enoki::slice(value.coeff(Index), i)...);
+    }
+
+    template <typename T2, size_t... Index>
+    static ENOKI_INLINE auto slice_ptr(T2&& value, size_t i, std::index_sequence<Index...>) {
+        return Matrix<decltype(enoki::slice_ptr(value.coeff(0, 0), i)), Size>(
+            enoki::slice_ptr(value.coeff(Index), i)...);
     }
 
     template <typename T2, size_t... Index>

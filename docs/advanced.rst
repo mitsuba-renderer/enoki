@@ -6,20 +6,78 @@ This section is still under construction.
 TODO: Python integration, for loops,
 bool_array_t, like_t, etc. ENOKI_UNLIKELY, meshgrid,
 set_flush_denormals, memory allocator, low(), high(), head<>(), copysign,
-mulsign, concat, function calls
+mulsign, concat, function calls,
+stl.h
+compress in operations
 
 dynamic array class & set_slices, slices, packet, slice
 
 - broadcasting
 - arithmetic involving arrays of references
 
-Undocumented: reinterpret_array, shuffle, store_compress
+Undocumented: reinterpret_array, shuffle
 
-.. _custom-arrays:
+Compressing arrays
+------------------
 
-Defining custom array types
----------------------------
-TBD
+A common design pattern in vectorized code involves *compressing* arrays, i.e.
+selectively writing only masked parts of an array so that the selected entries
+become densely packed in memory (e.g. to improve resource usage when only parts
+of an array participate in a computation).
+
+The function :cpp:func:`compress` efficiently maps this operation onto the
+targeted hardware (SSE4.2, AVX2, and AVX512 implementations are provided). The
+function also automatically advances the pointer by the amount of written
+entries.
+
+.. code-block:: cpp
+
+    Array<float, 16> input = ...;
+    auto mask = input < 0;
+
+    float output[16];
+    size_t count = compress(output, input, mask);
+    std::cout << count << " entries were written." << std::endl;
+    ...
+
+Custom data structures such as the GPS record class discussed in previous
+chapters are transparently supported by :cpp:func:`compress`---in this case,
+the mask applies to each vertical slice through the data structure as
+illustrated in the following figure:
+
+.. image:: advanced-01.svg
+    :width: 800px
+    :align: center
+
+The :cpp:func:`slice_ptr` function is used to acquire a pointer to the
+beginning of the output array. It returns a value of type ``GPSRecord2<float
+*>``, which is composed of multiple pointers (one for each component). The
+following snippet illustrates how an arbitrarily long list of records can be
+filtered:
+
+.. code-block:: cpp
+
+    GPSCoord2fX input = /* .. input data to be compressed .. */;
+
+    /* Make sure there is enough space to store all data */
+    GPSCoord2fX output;
+    set_slices(output, slices(input));
+
+    /* Structure composed of pointers to the output arrays */
+    GPSRecord2<float *> ptr = slice_ptr(output, 0);
+
+    /* Counter used to keep track of the number of collected elements */
+    size_t final_size = 0;
+
+    /* Go through all packets, compress, and append */
+    for (size_t i = 0; i < packets(input); ++i) {
+        /* Let/s filter out the records with input.reliable == true */
+        auto input_p = packet(input, i);
+        final_size += compress(ptr, input_p, input_p.reliable);
+    }
+
+    /* Now that the final number of slices is known, adjust the output array size */
+    set_slices(output, final_size);
 
 .. _integer-division:
 
@@ -70,23 +128,6 @@ abstractions of Enoki.
   operations. The AVX512 back-end can translate this into particularly
   efficient instruction sequences with embedded rounding flags.
 
-
-Compressing arrays
-------------------
-
-It is sometimes helpful to be able to selectively write only the masked parts
-of an array so that they become densely packed in memory. The
-``store_compress`` function efficiently maps this operation onto the targeted
-hardware. The function also automatically advances the pointer by the amount
-of written entries.
-
-.. code-block:: cpp
-
-    float *mem;
-    auto mask = f1 < 0;
-    store_compress(mem, f1, mask);
-    ...
-
 The histogram problem and conflict detection
 --------------------------------------------
 
@@ -127,6 +168,46 @@ the AVX512CDI instruction set. When conflicts are present, the function
 provided as an argument may be applied multiple times in a row. When AVX512CDI
 is not available, a (slower) scalar fallback implementation is used.
 
+.. _custom-arrays:
+
+Defining custom array types
+---------------------------
+
+Enoki provides a mechanism for declaring custom array types using the
+`Curiously recurring template pattern
+<https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern>`_. The
+following snippet shows a declaration of a hypothetical type named ``Spectrum``
+representing a discretized color spectrum. ``Spectrum`` behaves the same way as
+:cpp:class:`Array` and supports all regular Enoki operations.
+
+.. code-block:: cpp
+
+    template <typename Type, size_t Size>
+    struct Spectrum : enoki::StaticArrayImpl<Type, Size, false,
+                                            RoundingMode::Default,
+                                            Spectrum<Type, Size>> {
+
+        /// Base class
+        using Base = enoki::StaticArrayImpl<Type, Size, false,
+                                            RoundingMode::Default,
+                                            Spectrum<Type, Size>>;
+
+        /// Import constructors, assignment operators, etc.
+        ENOKI_DECLARE_CUSTOM_ARRAY(Base, Spectrum)
+
+        /// Helper alias used to transition between vector types (used by enoki::vectorize)
+        template <typename T> using ReplaceType = Spectrum<T, Size>;
+    };
+
+The main reason for declaring custom arrays is to tag (and preserve)
+the type of arrays within expressions. For instance, the type of ``value2``
+in the following snippet is ``Spectrum<float, 8>``.
+
+.. code-block:: cpp
+
+    Spectrum<float, 8> value = { ... };
+    auto value2 = exp(-value);
+
 Adding backends for new instruction sets
 ----------------------------------------
 
@@ -137,72 +218,73 @@ core methods shown below. The underscores in the function names indicate that
 this is considered non-public API that should only be accessed indirectly via
 the routing templates in ``enoki/enoki_router.h``.
 
-- Required operations:
+* The following core operations must be provided by every implementation.
 
-    - Loads and stores: ``store_``, ``store_unaligned_``, ``load_``,
-      ``load_unaligned_``.
+  * Loads and stores: ``store_``, ``store_unaligned_``, ``load_``,
+    ``load_unaligned_``.
 
-    - Arithmetic and bit-level operations: ``add_``, ``sub_``, ``mul_``, ``mulhi_``
-      (signed/unsigned high integer multiplication), ``div_``, ``and_``, ``or_``,
-      ``xor_``.
+  * Arithmetic and bit-level operations: ``add_``, ``sub_``, ``mul_``, ``mulhi_``
+    (signed/unsigned high integer multiplication), ``div_``, ``and_``, ``or_``,
+    ``xor_``.
 
-    - Unary operators: ``neg_``, ``not_``.
+  * Unary operators: ``neg_``, ``not_``.
 
-    - Comparison operators that produce masks: ``ge_``, ``gt_``, ``lt_``, ``le_``,
-      ``eq_``, ``neq_``.
+  * Comparison operators that produce masks: ``ge_``, ``gt_``, ``lt_``, ``le_``,
+    ``eq_``, ``neq_``.
 
-    - Other elementary operations: ``abs_``, ``ceil_``, ``floor_``, ``max_``,
-      ``min_``, ``round_``, ``sqrt_``.
+  * Other elementary operations: ``abs_``, ``ceil_``, ``floor_``, ``max_``,
+    ``min_``, ``round_``, ``sqrt_``.
 
-    - Shift operations for integers: ``sl_``, ``sli_``, ``slv_``, ``sr_``, ``sri_``,
-      ``srv_``.
+  * Shift operations for integers: ``sl_``, ``sli_``, ``slv_``, ``sr_``, ``sri_``,
+    ``srv_``.
 
-    - Horizontal operations: ``none_``, ``all_``, ``any_``, ``hprod_``, ``hsum_``,
-      ``hmax_``, ``hmin_``, ``count_``.
+  * Horizontal operations: ``none_``, ``all_``, ``any_``, ``hprod_``, ``hsum_``,
+    ``hmax_``, ``hmin_``, ``count_``.
 
-    - Masked blending operation: ``select_``.
+  * Masked blending operation: ``select_``.
 
-    - Access to low and high part (if applicable): ``high_``, ``low_``.
+  * Access to low and high part (if applicable): ``high_``, ``low_``.
 
-    - Zero-valued array creation: ``zero_``.
+  * Zero-valued array creation: ``zero_``.
 
-- The following operations all have default implementations in Enoki's
-  mathematical support library, hence overriding them is optional. However,
-  doing so may be worthwile if efficient hardware-level support exists on
-  the target platform.
+* The following operations all have default implementations in Enoki's
+  mathematical support library, hence overriding them is optional.
 
-    - Shuffle operation (emulated using scalar operations by default):
-      ``shuffle_``.
+  However, doing so may be worthwile if efficient hardware-level support exists
+  on the target platform.
 
-    - Compressed stores (emulated using scalar operations by default):
-      ``store_compress_``.
+  * Shuffle operation (emulated using scalar operations by default):
+    ``shuffle_``.
 
-    - Extracting an element based on a mask (emulated using scalar operations by default):
-      ``extract_``.
+  * Compressed stores (emulated using scalar operations by default):
+    ``store_compress_``.
 
-    - Scatter/gather operations (emulated using scalar operations by default):
-      ``scatter_``, ``gather_``.
+  * Extracting an element based on a mask (emulated using scalar operations by default):
+    ``extract_``.
 
-    - Prefetch operations (no-op by default): ``prefetch_``.
+  * Scatter/gather operations (emulated using scalar operations by default):
+    ``scatter_``, ``gather_``.
 
-    - Trigonometric and hyperbolic functions: ``sin_``, ``sinh_``, ``sincos_``,
-      ``sincosh_``, ``cos_``, ``cosh_``, ``tan_``, ``tanh_``, ``csc_``,
-      ``csch_``, ``sec_``, ``sech_``, ``cot_``, ``coth_``, ``asin_``,
-      ``asinh_``, ``acos_``, ``acosh_``, ``atan_``, ``atanh_``.
+  * Prefetch operations (no-op by default): ``prefetch_``.
 
-    - Fused multiply-add routines (reduced to ``add_``/``sub_`` and ``mul_`` by
-      default): ``fmadd_``, ``fmsub_``, ``fnmadd_``, ``fnmsub_``,
-      ``fmaddsub_``, ``fmsubadd_``.
+  * Trigonometric and hyperbolic functions: ``sin_``, ``sinh_``, ``sincos_``,
+    ``sincosh_``, ``cos_``, ``cosh_``, ``tan_``, ``tanh_``, ``csc_``,
+    ``csch_``, ``sec_``, ``sech_``, ``cot_``, ``coth_``, ``asin_``,
+    ``asinh_``, ``acos_``, ``acosh_``, ``atan_``, ``atanh_``.
 
-    - Reciprocal and reciprocal square root (reduced to ``div_`` and ``sqrt_``
-      by default): ``rcp_``, ``rsqrt_``.
+  * Fused multiply-add routines (reduced to ``add_``/``sub_`` and ``mul_`` by
+    default): ``fmadd_``, ``fmsub_``, ``fnmadd_``, ``fnmsub_``,
+    ``fmaddsub_``, ``fmsubadd_``.
 
-    - Dot product (reduced to ``mul_`` and ``hsum_`` by default): ``dot_``.
+  * Reciprocal and reciprocal square root (reduced to ``div_`` and ``sqrt_``
+    by default): ``rcp_``, ``rsqrt_``.
 
-    - Exponentials, logarithms, powers, floating point exponent manipulation
-      functions: ``log_``, ``exp_``, ``pow_`` ``frexp_``, ``ldexp_``.
+  * Dot product (reduced to ``mul_`` and ``hsum_`` by default): ``dot_``.
 
-    - Error function and its inverse: ``erf_``, ``erfinv_``.
+  * Exponentials, logarithms, powers, floating point exponent manipulation
+    functions: ``log_``, ``exp_``, ``pow_`` ``frexp_``, ``ldexp_``.
 
-    - Optional bit-level rotation operations (reduced to shifts by default):
-      ``rol_``, ``roli_``, ``rolv_``, ``ror_``, ``rori_``, ``rorv_``.
+  * Error function and its inverse: ``erf_``, ``erfinv_``.
+
+  * Optional bit-level rotation operations (reduced to shifts by default):
+    ``rol_``, ``roli_``, ``rolv_``, ``ror_``, ``rori_``, ``rorv_``.

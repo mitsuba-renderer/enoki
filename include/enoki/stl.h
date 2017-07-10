@@ -51,6 +51,13 @@ template <typename Arg0, typename Arg1> struct dynamic_support<std::pair<Arg0, A
     }
 
     template <typename T2>
+    static ENOKI_INLINE auto slice_ptr(T2 &&value, size_t i) {
+        return std::pair<decltype(enoki::slice_ptr(value.first, i)),
+                         decltype(enoki::slice_ptr(value.second, i))>(
+            enoki::slice_ptr(value.first, i), enoki::slice_ptr(value.second, i));
+    }
+
+    template <typename T2>
     static ENOKI_INLINE auto ref_wrap(T2 &&value) {
         return std::pair<decltype(enoki::ref_wrap(value.first)),
                          decltype(enoki::ref_wrap(value.second))>(
@@ -86,6 +93,11 @@ template <typename... Args> struct dynamic_support<std::tuple<Args...>> {
     }
 
     template <typename T2>
+    static ENOKI_INLINE auto slice_ptr(T2 &&value, size_t i) {
+        return slice_ptr(std::forward<T2>(value), i, std::make_index_sequence<sizeof...(Args)>());
+    }
+
+    template <typename T2>
     static ENOKI_INLINE auto ref_wrap(T2 &&value) {
         return ref_wrap(std::forward<T2>(value), std::make_index_sequence<sizeof...(Args)>());
     }
@@ -107,6 +119,12 @@ private:
     static ENOKI_INLINE auto slice(T2 &&value, size_t i, std::index_sequence<Index...>) {
         return std::tuple<decltype(enoki::slice(std::get<Index>(value), i))...>(
             enoki::slice(std::get<Index>(value), i)...);
+    }
+
+    template <typename T2, size_t... Index>
+    static ENOKI_INLINE auto slice_ptr(T2 &&value, size_t i, std::index_sequence<Index...>) {
+        return std::tuple<decltype(enoki::slice_ptr(std::get<Index>(value), i))...>(
+            enoki::slice_ptr(std::get<Index>(value), i)...);
     }
 
     template <typename T2, size_t... Index>
@@ -145,6 +163,11 @@ template <typename T, size_t Size> struct dynamic_support<std::array<T, Size>> {
     }
 
     template <typename T2>
+    static ENOKI_INLINE auto slice_ptr(T2 &&value, size_t i) {
+        return slice_ptr(std::forward<T2>(value), i, std::make_index_sequence<Size>());
+    }
+
+    template <typename T2>
     static ENOKI_INLINE auto ref_wrap(T2 &&value) {
         return ref_wrap(std::forward<T2>(value), std::make_index_sequence<Size>());
     }
@@ -160,6 +183,12 @@ private:
     static ENOKI_INLINE auto slice(T2 &&value, size_t i, std::index_sequence<Index...>) {
         return std::array<decltype(enoki::slice(value[0], i)), Size>{{
             enoki::slice(value[Index], i)...}};
+    }
+
+    template <typename T2, size_t... Index>
+    static ENOKI_INLINE auto slice_ptr(T2 &&value, size_t i, std::index_sequence<Index...>) {
+        return std::array<decltype(enoki::slice_ptr(value[0], i)), Size>{{
+            enoki::slice_ptr(value[Index], i)...}};
     }
 
     template <typename T2, size_t... Index>

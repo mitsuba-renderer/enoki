@@ -494,10 +494,30 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     }
 
     /// Compressing store fallback implementation
-    template <typename Mask>
-    ENOKI_INLINE void store_compress_(void *&mem, const Mask &mask) const {
+    template <
+        typename Mask, typename T = Derived,
+        std::enable_if_t<(has_avx2 && T::Size >= 8 && std::is_same<value_t<T>, bool>::value), int> = 0>
+    ENOKI_INLINE size_t compress_(Value *&mem, const Mask &mask) const {
+        using Mask2 = mask_t<Array<uint32_t, Derived::Size>>;
+        Mask2 arr_out;
+        auto *arr_out_ptr = (value_t<Mask2>*) &arr_out;
+        Mask2 input = reinterpret_array<Mask2>(*this);
+        Mask2 input_mask = reinterpret_array<Mask2>(mask);
+        size_t size = compress(arr_out_ptr, input, input_mask);
+        Derived output_mask = reinterpret_array<Derived>(arr_out);
+        store_unaligned(mem, output_mask);
+        mem += size;
+        return size;
+    }
+
+    template <
+        typename Mask, typename T = Derived,
+        std::enable_if_t<!(has_avx2 && T::Size >= 8 && std::is_same<value_t<T>, bool>::value), int> = 0>
+    ENOKI_INLINE size_t compress_(Value *&mem, const Mask &mask) const {
+        size_t result = 0;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
-            store_compress(mem, derived().coeff(i), mask.coeff(i));
+            result += compress(mem, derived().coeff(i), mask.coeff(i));
+        return result;
     }
 
     void resize_(size_t size) {

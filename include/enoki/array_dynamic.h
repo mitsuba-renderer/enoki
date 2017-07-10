@@ -46,8 +46,26 @@ template <typename T> struct dynamic_support<T, enable_if_static_array_t<T>> {
     }
 
     template <typename T2>
+    static ENOKI_INLINE auto slice_ptr(T2&& value, size_t i) {
+        return slice_ptr(value, i, std::make_index_sequence<Size>());
+    }
+
+    template <typename T2>
     static ENOKI_INLINE auto ref_wrap(T2&& value) {
         return ref_wrap(value, std::make_index_sequence<Size>());
+    }
+
+    template <typename Mem, typename T2, typename Mask, enable_if_array_t<Mem> = 0>
+    static ENOKI_INLINE size_t compress(Mem &mem, const T2& value, const Mask &mask) {
+        size_t result = 0;
+        for (size_t i = 0; i < Size; ++i)
+            result = enoki::compress(mem.coeff(i), value.coeff(i), mask);
+        return result;
+    }
+
+    template <typename Mem, typename T2, typename Mask, enable_if_not_array_t<Mem> = 0>
+    static ENOKI_INLINE size_t compress(Mem &mem, const T2& value, const Mask &mask) {
+        return value.compress_(mem, mask);
     }
 
 private:
@@ -63,6 +81,13 @@ private:
         using Entry = decltype(enoki::slice(value.coeff(0), i));
         using Return = typename T::template ReplaceType<Entry>;
         return Return(enoki::slice(value.coeff(Index), i)...);
+    }
+
+    template <typename T2, size_t... Index>
+    static ENOKI_INLINE auto slice_ptr(T2&& value, size_t i, std::index_sequence<Index...>) {
+        using Entry = decltype(enoki::slice_ptr(value.coeff(0), i));
+        using Return = typename T::template ReplaceType<Entry>;
+        return Return(enoki::slice_ptr(value.coeff(Index), i)...);
     }
 
     template <typename T2, size_t... Index>
@@ -90,6 +115,10 @@ template <typename T> struct dynamic_support<T, enable_if_dynamic_array_t<T>> {
 
     template <typename T2> static ENOKI_INLINE decltype(auto) slice(T2 &&value, size_t i) {
         return value.slice_(i);
+    }
+
+    template <typename T2> static ENOKI_INLINE decltype(auto) slice_ptr(T2 &&value, size_t i) {
+        return value.slice_ptr_(i);
     }
 
     template <typename T2> static ENOKI_INLINE decltype(auto) ref_wrap(T2 &&value) {
@@ -217,6 +246,14 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
 
     ENOKI_INLINE const Value &slice_(size_t i) const {
         return m_packets[i / PacketSize][i % PacketSize];
+    }
+
+    ENOKI_INLINE Value *slice_ptr_(size_t i) {
+        return &m_packets[i / PacketSize][i % PacketSize];
+    }
+
+    ENOKI_INLINE const Value *slice_ptr_(size_t i) const {
+        return &m_packets[i / PacketSize][i % PacketSize];
     }
 
     ENOKI_INLINE DynamicArrayReference<Packet> ref_wrap_() {

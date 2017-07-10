@@ -174,6 +174,14 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
             return KMask((m & t) | (~m & f));
     }
 
+    template <typename T>
+    ENOKI_INLINE size_t compress_(T *&ptr, const KMask &mask) const {
+        store_unaligned(ptr, KMask((Type) _pext_u32((unsigned int) k, (unsigned int) mask.k)));
+        return count(mask);
+    }
+
+    ENOKI_INLINE void store_unaligned_(void *mem) const { memcpy(mem, &k, sizeof(Type)); }
+
     KMask<HalfType> low_()  const { return KMask<HalfType>(HalfType(k)); }
     KMask<HalfType> high_() const { return KMask<HalfType>(HalfType(k >> (Size/2))); }
 };
@@ -614,10 +622,12 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
         return _mm_cvtss_f32(_mm512_castps512_ps128(_mm512_maskz_compress_ps(mask.k, m)));
     }
 
-    ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
+    ENOKI_INLINE size_t compress_(float *&ptr, const Mask &mask) const {
         __mmask16 k = mask.k;
-        _mm512_storeu_ps((float *) ptr, _mm512_maskz_compress_ps(k, m));
-        (Value *&) ptr += _mm_popcnt_u32(k);
+        _mm512_storeu_ps(ptr, _mm512_maskz_compress_ps(k, m));
+        size_t kn = (size_t) _mm_popcnt_u32(k);
+        ptr += kn;
+        return kn;
     }
 
 #if defined(__AVX512CD__)
@@ -1079,10 +1089,12 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
         return _mm_cvtsd_f64(_mm512_castpd512_pd128(_mm512_maskz_compress_pd(mask.k, m)));
     }
 
-    ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
+    ENOKI_INLINE size_t compress_(double *&ptr, const Mask &mask) const {
         __mmask8 k = mask.k;
-        _mm512_storeu_pd((double *) ptr, _mm512_maskz_compress_pd(k, m));
-        (Value *&) ptr += _mm_popcnt_u32(k);
+        _mm512_storeu_pd(ptr, _mm512_maskz_compress_pd(k, m));
+        size_t kn = (size_t) _mm_popcnt_u32(k);
+        ptr += kn;
+        return kn;
     }
 
 #if defined(__AVX512CD__)
@@ -1517,10 +1529,13 @@ template <typename Value_, typename Derived> struct alignas(64)
         return (Value) _mm_cvtsi128_si32(_mm512_castsi512_si128(_mm512_maskz_compress_epi32(mask.k, m)));
     }
 
-    ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
+    template <typename T>
+    ENOKI_INLINE size_t compress_(T *&ptr, const Mask &mask) const {
         __mmask16 k = mask.k;
         _mm512_storeu_si512((__m512i *) ptr, _mm512_maskz_compress_epi32(k, m));
-        (Value *&) ptr += _mm_popcnt_u32(k);
+        size_t kn = (size_t) _mm_popcnt_u32(k);
+        ptr += kn;
+        return kn;
     }
 
 #if defined(__AVX512CD__)
@@ -1940,10 +1955,13 @@ template <typename Value_, typename Derived> struct alignas(64)
         return (Value) _mm_cvtsi128_si64(_mm512_castsi512_si128(_mm512_maskz_compress_epi64(mask.k, m)));
     }
 
-    ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
+    template <typename T>
+    ENOKI_INLINE size_t compress_(T *&ptr, const Mask &mask) const {
         __mmask8 k = mask.k;
         _mm512_storeu_si512((__m512i *) ptr, _mm512_maskz_compress_epi64(k, m));
-        (Value *&) ptr += _mm_popcnt_u32(k);
+        size_t kn = (size_t) _mm_popcnt_u32(k);
+        ptr += kn;
+        return kn;
     }
 
 #if defined(__AVX512CD__)

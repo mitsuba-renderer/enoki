@@ -465,8 +465,7 @@ template <bool Approx, typename Derived> struct alignas(16)
         return coeff((size_t)(tzcnt(k) & 3));
     }
 
-    template <typename Mask_>
-    ENOKI_INLINE void store_compress_(void *&ptr, const Mask_ &mask) const {
+    ENOKI_INLINE size_t compress_(float *&ptr, const Mask &mask) const {
         #if !defined(__AVX512VL__)
             unsigned int k = (unsigned int) _mm_movemask_ps(mask.m);
 
@@ -480,11 +479,12 @@ template <bool Approx, typename Derived> struct alignas(16)
         #else
             __mmask8 k = _mm_test_epi32_mask(_mm_castps_si128(mask.m),
                                              _mm_castps_si128(mask.m));
-            _mm_storeu_ps((float *) ptr,
-                          _mm_mask_compress_ps(_mm_setzero_ps(), k, m));
+            _mm_storeu_ps(ptr, _mm_mask_compress_ps(_mm_setzero_ps(), k, m));
         #endif
 
-        (float *&) ptr += _mm_popcnt_u32(k);
+        size_t kn = (size_t) _mm_popcnt_u32(k);
+        ptr += kn;
+        return kn;
     }
 
     //! @}
@@ -863,13 +863,14 @@ template <bool Approx, typename Derived> struct alignas(16)
 #endif
 
 #if defined(__AVX512VL__)
-    ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
+    ENOKI_INLINE size_t compress_(double *&ptr, const Mask &mask) const {
         __mmask8 k = _mm_test_epi64_mask(_mm_castpd_si128(mask.m),
                                          _mm_castpd_si128(mask.m));
-        _mm_storeu_pd((double *) ptr,
-                      _mm_mask_compress_pd(_mm_setzero_pd(), k, m));
+        _mm_storeu_pd(ptr, _mm_mask_compress_pd(_mm_setzero_pd(), k, m));
 
-        (float *&) ptr += _mm_popcnt_u32(k);
+        size_t kn = (size_t) _mm_popcnt_u32(k);
+        ptr += kn;
+        return kn;
     }
 #endif
 
@@ -1295,8 +1296,8 @@ struct alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
         return coeff((size_t)(tzcnt(k) & 3));
     }
 
-    template <typename Mask_>
-    ENOKI_INLINE void store_compress_(void *&ptr, const Mask_ &mask) const {
+    template <typename T>
+    ENOKI_INLINE size_t compress_(T *&ptr, const Mask &mask) const {
         #if !defined(__AVX512VL__)
             unsigned int k = (unsigned int) _mm_movemask_ps(_mm_castsi128_ps(mask.m));
 
@@ -1309,11 +1310,12 @@ struct alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
             _mm_storeu_si128((__m128i *) ptr, perm);
         #else
             __mmask8 k = _mm_test_epi32_mask(mask.m, mask.m);
-            _mm_storeu_si128((__m128i *) ptr,
-                             _mm_mask_compress_epi32(_mm_setzero_si128(), k, m));
+            _mm_storeu_si128((__m128i *) ptr, _mm_mask_compress_epi32(_mm_setzero_si128(), k, m));
         #endif
 
-        (uint32_t *&) ptr += _mm_popcnt_u32(k);
+        size_t kn = (size_t) _mm_popcnt_u32(k);
+        ptr += kn;
+        return kn;
     }
 
     //! @}
@@ -1872,8 +1874,8 @@ template <bool Approx, typename Derived> struct alignas(16)
         Base::template scatter_<Stride>(ptr, index, mask & mask_());
     }
 
-    ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
-        return Base::store_compress_(ptr, mask & mask_());
+    ENOKI_INLINE size_t compress_(float *&ptr, const Mask &mask) const {
+        return Base::compress_(ptr, mask & mask_());
     }
 
     //! @}
@@ -2034,8 +2036,9 @@ template <typename Value_, typename Derived> struct alignas(16)
         Base::template scatter_<Stride>(ptr, index, mask & mask_());
     }
 
-    ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
-        return Base::store_compress_(ptr, mask & mask_());
+    template <typename T>
+    ENOKI_INLINE size_t compress_(T *&ptr, const Mask &mask) const {
+        return Base::compress_(ptr, mask & mask_());
     }
 
     //! @}

@@ -32,7 +32,7 @@ struct StaticArrayImpl<
     Type_, Size_, Approx_, RoundingMode::Default, Derived_,
     std::enable_if_t<!detail::is_native<Type_, Size_>::value &&
                      !std::is_enum<Type_>::value &&
-                     !std::is_pointer<Type_>::value &&
+                     !(std::is_pointer<Type_>::value && !std::is_arithmetic<std::remove_pointer_t<Type_>>::value) &&
                      !detail::is_recursive<Type_, Size_, RoundingMode::Default>::value>>
     : StaticArrayBase<Type_, Size_, Approx_, RoundingMode::Default, Derived_> {
 
@@ -862,8 +862,12 @@ public:
               std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
     static ENOKI_INLINE Derived load_(const void *ptr) {
         Derived result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = load<Value>(static_cast<const Value *>(ptr) + i);
+        if (std::is_arithmetic<Value>::value) {
+            memcpy(result.data(), ptr, sizeof(Value) * Size);
+        } else {
+            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+                result.coeff(i) = load<Value>(static_cast<const Value *>(ptr) + i);
+        }
         return result;
     }
 
@@ -880,8 +884,12 @@ public:
               std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
     static ENOKI_INLINE Derived load_unaligned_(const void *ptr) {
         Derived result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = load_unaligned<Value>(static_cast<const Value *>(ptr) + i);
+        if (std::is_arithmetic<Value>::value) {
+            memcpy(result.data(), ptr, sizeof(Value) * Size);
+        } else {
+            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+                result.coeff(i) = load_unaligned<Value>(static_cast<const Value *>(ptr) + i);
+        }
         return result;
     }
 
@@ -895,8 +903,12 @@ public:
     }
 
     void store_(void *ptr) const {
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            store<Value>((void *) (static_cast<Value *>(ptr) + i), coeff(i));
+        if (std::is_arithmetic<Value>::value) {
+            memcpy(ptr, m_data.data(), sizeof(Value) * Size);
+        } else {
+            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+                store<Value>((void *) (static_cast<Value *>(ptr) + i), coeff(i));
+        }
     }
 
     void store_(void *ptr, const Mask &mask) const {
@@ -905,8 +917,12 @@ public:
     }
 
     void store_unaligned_(void *ptr) const {
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            store_unaligned<Value>((void *) (static_cast<Value *>(ptr) + i), coeff(i));
+        if (std::is_arithmetic<Value>::value) {
+            memcpy(ptr, m_data.data(), sizeof(Value) * Size);
+        } else {
+            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+                store_unaligned<Value>((void *) (static_cast<Value *>(ptr) + i), coeff(i));
+        }
     }
 
     void store_unaligned_(void *ptr, const Mask &mask) const {
@@ -1130,7 +1146,7 @@ template <typename T> struct call_support_base {
 /// Pointer support
 template <typename Type_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived_>
 struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
-    std::enable_if_t<std::is_pointer<Type_>::value>>
+    std::enable_if_t<std::is_pointer<Type_>::value && !std::is_arithmetic<std::remove_pointer_t<Type_>>::value>>
     : StaticArrayImpl<std::uintptr_t, Size_, Approx_, Mode_, Derived_> {
 
     using UnderlyingType = std::uintptr_t;

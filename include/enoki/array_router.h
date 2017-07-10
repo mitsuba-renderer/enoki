@@ -1339,20 +1339,6 @@ ENOKI_INLINE void transform(void *mem, const Index &index,
     func(ptr, args...);
 }
 
-/// Compressing store operation
-template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<Mask::Size == Array::Size, int> = 0>
-ENOKI_INLINE void store_compress(void *&mem, const Array &value, const Mask &mask) {
-    value.store_compress_(mem, reinterpret_array<mask_t<Array>>(mask));
-}
-
-/// Compressing store operation (scalar fallback)
-template <typename Arg, enable_if_not_array_t<Arg> = 0, typename Mask>
-ENOKI_INLINE void store_compress(void *&mem, const Arg &value, const Mask &mask) {
-    if (detail::mask_active(mask))
-        *((Arg *&) mem)++ = value;
-}
-
 /// Mask extraction operation
 template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
           std::enable_if_t<Mask::Size == Array::Size, int> = 0>
@@ -1541,6 +1527,13 @@ struct dynamic_support {
     template <typename T2> static ENOKI_INLINE decltype(auto) ref_wrap(T2&& value) { return value; }
     template <typename T2> static ENOKI_INLINE decltype(auto) packet(T2&& value, size_t) { return value; }
     template <typename T2> static ENOKI_INLINE decltype(auto) slice(T2&& value, size_t) { return value; }
+    template <typename T2> static ENOKI_INLINE decltype(auto) slice_ptr(T2&& value, size_t) { return value; }
+    template <typename Mem, typename T2, typename Mask> static ENOKI_INLINE size_t compress(Mem& mem, const T2& value, const Mask &mask) {
+        size_t count = detail::mask_active(mask) ? 1 : 0;
+        *mem = value;
+        mem += count;
+        return count;
+    }
 };
 
 template <typename T> ENOKI_INLINE size_t packets(const T &value) {
@@ -1566,8 +1559,18 @@ ENOKI_INLINE decltype(auto) slice(T &&value, size_t i) {
 }
 
 template <typename T>
+ENOKI_INLINE decltype(auto) slice_ptr(T &&value, size_t i) {
+    return dynamic_support<std::decay_t<T>>::slice_ptr(value, i);
+}
+
+template <typename T>
 ENOKI_INLINE decltype(auto) ref_wrap(T &&value) {
     return dynamic_support<std::decay_t<T>>::ref_wrap(value);
+}
+
+template <typename Mem, typename Value, typename Mask>
+ENOKI_INLINE size_t compress(Mem &mem, const Value &value, const Mask& mask) {
+    return dynamic_support<std::decay_t<Value>>::compress(mem, value, mask);
 }
 
 template <typename T>

@@ -213,7 +213,54 @@ template <size_t PacketSize> void test06_haversine() {
     assert(std::abs(slice(result, 0) - 5918.18f) < 1e-2f);
 }
 
-ENOKI_TEST(array_float_04_haversine) { test06_haversine<4>();  }
-ENOKI_TEST(array_float_08_haversine) { test06_haversine<8>();  }
-ENOKI_TEST(array_float_16_haversine) { test06_haversine<16>(); }
-ENOKI_TEST(array_float_32_haversine) { test06_haversine<32>(); }
+ENOKI_TEST(array_float_04_test06_haversine) { test06_haversine<4>();  }
+ENOKI_TEST(array_float_08_test06_haversine) { test06_haversine<8>();  }
+ENOKI_TEST(array_float_16_test06_haversine) { test06_haversine<16>(); }
+ENOKI_TEST(array_float_32_test06_haversine) { test06_haversine<32>(); }
+
+template <size_t PacketSize> void test07_compress() {
+    using FloatP       = Array<float, PacketSize>;
+    using FloatX       = DynamicArray<FloatP>;
+    using GPSCoord2fX  = GPSCoord2<FloatX>;
+    using GPSCoord2f   = GPSCoord2<float>;
+    using Vector2f     = Array<float, 2>;
+
+    GPSCoord2fX coord1, coord2;
+
+    set_slices(coord1, 2*PacketSize);
+    set_slices(coord2, 3*PacketSize);
+
+    for (size_t i = 0; i < 2 * PacketSize; ++i)
+        slice(coord1, i) =
+            GPSCoord2f(uint64_t(i), Vector2f((float) i, (float) (i * 100)), ((i) % 3) == 0);
+
+    auto ptr = slice_ptr(coord2, 0);
+    for (size_t i = 0; i < 2; ++i) {
+        auto idx = index_sequence<uint_array_t<FloatP>>();
+        auto even_mask = mask_t<FloatP>(eq(sli<1>(sri<1>(idx)), idx));
+        compress(ptr, packet(coord1, i), even_mask);
+    }
+
+    for (size_t i = 0; i < 2; ++i) {
+        auto idx = index_sequence<uint_array_t<FloatP>>();
+        auto odd_mask = mask_t<FloatP>(neq(sli<1>(sri<1>(idx)), idx));
+        compress(ptr, packet(coord1, i), odd_mask);
+    }
+    set_slices(coord2, 2*PacketSize);
+
+    for (size_t i = 0; i < PacketSize; ++i) {
+        size_t even = 2*i;
+        size_t odd = 2*i+1;
+        slice(coord2, i) =
+            GPSCoord2f(uint64_t(even), Vector2f((float) even, (float) (even * 100)),
+                       ((even) % 3) == 0);
+        slice(coord2, i + PacketSize) =
+            GPSCoord2f(uint64_t(odd), Vector2f((float) odd, (float) (odd * 100)),
+                       ((odd) % 3) == 0);
+    }
+}
+
+ENOKI_TEST(array_float_04_test07_compress) { test07_compress<4>();  }
+ENOKI_TEST(array_float_08_test07_compress) { test07_compress<8>();  }
+ENOKI_TEST(array_float_16_test07_compress) { test07_compress<16>(); }
+ENOKI_TEST(array_float_32_test07_compress) { test07_compress<32>(); }

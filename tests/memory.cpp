@@ -187,11 +187,11 @@ ENOKI_TEST_ALL(test09_prefetch) {
     prefetch<T>(mem, id64, even_mask);
 }
 
-ENOKI_TEST_ALL(test09_store_compress) {
+ENOKI_TEST_ALL(test09_compress) {
     alignas(alignof(T)) Value tmp[T::ActualSize];
     auto value = index_sequence<T>();
     Value *tmp2 = tmp;
-    store_compress((void *&) tmp2, value, value >= Value(2));
+    compress(tmp2, value, value >= Value(2));
     for (int i = 0; i < int(Size) - 2; ++i)
         assert(tmp[i] == Value(2 + i));
     assert(int(tmp2 - tmp) == std::max(0, int(Size) - 2));

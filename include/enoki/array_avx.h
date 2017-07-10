@@ -436,13 +436,14 @@ template <bool Approx, typename Derived> struct alignas(32)
         return coeff((size_t) (tzcnt(k) & 7));
     }
 
-    ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
+    ENOKI_INLINE size_t compress_(float *&ptr, const Mask &mask) const {
         #if defined(__AVX512VL__)
             __mmask8 k = _mm256_test_epi32_mask(_mm256_castps_si256(mask.m),
                                                 _mm256_castps_si256(mask.m));
-            _mm256_storeu_ps((float *) ptr,
-                             _mm256_maskz_compress_ps(k, m));
-            (Value *&) ptr += _mm_popcnt_u32(k);
+            _mm256_storeu_ps(ptr, _mm256_maskz_compress_ps(k, m));
+            size_t kn = (size_t) _mm_popcnt_u32(k);
+            ptr += kn;
+            return kn;
         #elif defined(__AVX2__)
             /** Clever BMI2-based partitioning algorithm by Christoph Diegelmann
                 see https://goo.gl/o3ysMN for context */
@@ -451,17 +452,19 @@ template <bool Approx, typename Derived> struct alignas(32)
             uint32_t wanted_indices = _pext_u32(0x76543210, k);
             uint64_t expanded_indices = _pdep_u64((uint64_t) wanted_indices,
                                                   0x0F0F0F0F0F0F0F0Full);
-            int kn = _mm_popcnt_u32(k) >> 2;
+            size_t kn = (size_t) (_mm_popcnt_u32(k) >> 2);
 
             __m128i bytevec = _mm_cvtsi64_si128((long long) expanded_indices);
             __m256i shufmask = _mm256_cvtepu8_epi32(bytevec);
             __m256 perm = _mm256_permutevar8x32_ps(m, shufmask);
 
-            _mm256_storeu_ps((float *) ptr, perm);
-            (Value *&) ptr += kn;
+            _mm256_storeu_ps(ptr, perm);
+            ptr += kn;
+            return kn;
         #else
-            store_compress(ptr, low(derived()), low(mask));
-            store_compress(ptr, high(derived()), high(mask));
+            size_t r0 = compress(ptr, low(derived()), low(mask));
+            size_t r1 = compress(ptr, high(derived()), high(mask));
+            return r0 + r1;
         #endif
     }
 
@@ -840,14 +843,15 @@ template <bool Approx, typename Derived> struct alignas(32)
     }
 
 #if defined(__AVX2__)
-    template <typename Mask_>
-    ENOKI_INLINE void store_compress_(void *&ptr, const Mask_ &mask) const {
+    ENOKI_INLINE size_t compress_(double *&ptr, const Mask &mask) const {
         #if defined(__AVX512VL__)
             __mmask8 k = _mm256_test_epi64_mask(_mm256_castpd_si256(mask.m),
                                                 _mm256_castpd_si256(mask.m));
-            _mm256_storeu_pd((double *) ptr, _mm256_maskz_compress_pd(k, m));
+            _mm256_storeu_pd(ptr, _mm256_maskz_compress_pd(k, m));
 
-            (double *&) ptr += _mm_popcnt_u32(k);
+            size_t kn = (size_t) _mm_popcnt_u32(k);
+            ptr += kn;
+            return kn;
         #else
             /** Clever BMI2-based partitioning algorithm by Christoph Diegelmann
                 see https://goo.gl/o3ysMN for context */
@@ -856,14 +860,15 @@ template <bool Approx, typename Derived> struct alignas(32)
             uint32_t wanted_indices = _pext_u32(0x76543210, k);
             uint64_t expanded_indices = _pdep_u64((uint64_t) wanted_indices,
                                                   0x0F0F0F0F0F0F0F0Full);
-            int kn = _mm_popcnt_u32(k) >> 3;
+            size_t kn = (size_t) (_mm_popcnt_u32(k) >> 3);
 
             __m128i bytevec = _mm_cvtsi64_si128((long long) expanded_indices);
             __m256i shufmask = _mm256_cvtepu8_epi32(bytevec);
             __m256 perm = _mm256_permutevar8x32_ps(_mm256_castpd_ps(m), shufmask);
 
             _mm256_storeu_ps((float *) ptr, perm);
-            (Value *&) ptr += kn;
+            ptr += kn;
+            return kn;
         #endif
     }
 #endif
@@ -1042,8 +1047,8 @@ template <bool Approx, typename Derived> struct alignas(32)
         Base::template scatter_<Stride>(ptr, index, mask & mask_());
     }
 
-    ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
-        return Base::store_compress_(ptr, mask & mask_());
+    ENOKI_INLINE size_t compress_(double *&ptr, const Mask &mask) const {
+        return Base::compress_(ptr, mask & mask_());
     }
 
     //! @}

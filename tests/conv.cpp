@@ -27,7 +27,7 @@ template <typename T, typename Value2> void masktest() {
     using T2 = like_t<T, Value2>;
     for (size_t i = 0; i < T::Size; ++i) {
         mask_t<T> mask = eq(index_sequence<T>() - T(Value(i)), T(0));
-        mask_t<T2> mask2 = mask_t<T2>(mask);
+        mask_t<T2> mask2(mask);
         T2 result = select(mask2, T2(Value2(1)), T2(Value2(0)));
         Value2 out[T::Size];
         store_unaligned(out, result);
@@ -53,3 +53,15 @@ ENOKI_TEST_ALL(test13_mask_double)   { masktest<T, double>();   }
 #if !defined(__AVX512F__) || !defined(__clang__) // Auto-vectorizer bug :(
 ENOKI_TEST_ALL(test14_mask_half)     { masktest<T, half>();     }
 #endif
+
+ENOKI_TEST_ALL(test15_bool_conv) {
+    for (size_t i = 0; i < T::Size; ++i) {
+        mask_t<T> mask = eq(index_sequence<T>() - T(Value(i)), T(0));
+        bool_array_t<T> mask3(mask);
+        mask_t<T> mask4(mask3);
+        T result  = select(mask, T(Value(1)), T(Value(0)));
+        T result2 = select(mask4, T(Value(1)), T(Value(0)));
+
+        assert(result == result2);
+    }
+}

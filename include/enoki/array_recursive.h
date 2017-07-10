@@ -114,6 +114,19 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
             else
                 return m2.coeff(i - Size1);
         }
+
+        /* This is just here for the mask compression in array_generic.h */
+        ENOKI_INLINE void store_unaligned_(void *mem) const {
+            store_unaligned((uint8_t *) mem, m1);
+            store_unaligned((uint8_t *) mem + sizeof(Mask1), m2);
+        }
+
+        template <typename T>
+        ENOKI_INLINE size_t compress_(T *&ptr, const Mask &mask) const {
+            size_t r0 = compress(ptr, m1, low(mask));
+            size_t r1 = compress(ptr, m2, high(mask));
+            return r0 + r1;
+        }
     };
 
     using Mask = RMask;
@@ -542,9 +555,11 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
             return extract(a2, high(mask));
     }
 
-    ENOKI_INLINE void store_compress_(void *&ptr, const Mask &mask) const {
-        store_compress(ptr, a1, low(mask));
-        store_compress(ptr, a2, high(mask));
+    template <typename T>
+    ENOKI_INLINE size_t compress_(T *&ptr, const Mask &mask) const {
+        size_t r0 = compress(ptr, a1, low(mask));
+        size_t r1 = compress(ptr, a2, high(mask));
+        return r0 + r1;
     }
 
     template <size_t Stride, typename Index, typename Func, typename... Args>
