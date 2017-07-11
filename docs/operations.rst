@@ -828,3 +828,32 @@ Miscellaneous operations
 .. cpp:function:: bool flush_denormals()
 
     Returns the denormals are flushed to zero (see :cpp:func:`set_flush_denormals`).
+
+
+Rearranging contents of arrays
+------------------------------
+
+.. cpp:function:: template <size_t... Index, typename Array> shuffle(Array a)
+
+    Shuffles the contents of an array. The pseudocode for this operation is
+
+    .. code-block:: cpp
+
+        Array out;
+        for (size_t i = 0; i<Array::Size; ++i)
+            out[i] = a[Index[i]];
+        return out;
+
+.. cpp:function:: template <typename Array1, typename Array2> auto concat(Array1 a1, Array2 a2)
+
+    Concatenates the contents of two arrays ``a1`` and ``a2``.
+    The pseudocode for this operation is
+
+    .. code-block:: cpp
+
+        Array<value_t<Array1>, Array1::Size + Array2::Size> out;
+        for (size_t i = 0; i<Array1::Size; ++i)
+            out[i] = a1[i];
+        for (size_t i = 0; i<Array2::Size; ++i)
+            out[i + Array1::Size] = a2[i];
+        return out;

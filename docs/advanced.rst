@@ -1,19 +1,15 @@
 Advanced topics
 ===============
 
-This section is still under construction.
-
-TODO: Python integration. ENOKI_UNLIKELY, meshgrid,
-memory allocator, low(), high(), head<>(), copysign,
-mulsign, concat, function calls,
-stl.h
+TODO: Python integration. ENOKI_UNLIKELY, meshgrid, memory allocator, low(),
+high(), head<>(), copysign, mulsign,
 
 dynamic array class & set_slices, slices, packet, slice
 
 - broadcasting
 - arithmetic involving arrays of references
 
-Undocumented: reinterpret_array, shuffle
+Undocumented: reinterpret_array
 
 .. _compression:
 

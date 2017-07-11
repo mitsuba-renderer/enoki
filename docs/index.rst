@@ -30,6 +30,7 @@ Enoki — fast vectorized arithmetic on modern processors
    matrix
    sh
    half
+   stl
    python
 
 .. toctree::
