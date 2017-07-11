@@ -1460,35 +1460,6 @@ ENOKI_INLINE auto broadcast(const Array &value) {
     return like_t<Other, Array>(value);
 }
 
-NAMESPACE_BEGIN(detail)
-
-template <typename Return, size_t Offset, typename T, size_t... Index>
-static ENOKI_INLINE Return extract(const T &value, std::index_sequence<Index...>) {
-    return Return(value.coeff(Index + Offset)...);
-}
-
-NAMESPACE_END(detail)
-
-template <size_t Size, typename T,
-          typename Return = Array<value_t<T>, Size, T::Approx, T::Mode>,
-          std::enable_if_t<T::ActualSize == Return::ActualSize, int> = 0>
-static ENOKI_INLINE Return head(const T &value) { return value; }
-
-template <size_t Size, typename T,
-          typename Return = Array<value_t<T>, Size, T::Approx, T::Mode>,
-          std::enable_if_t<T::ActualSize != Return::ActualSize, int> = 0>
-static ENOKI_INLINE Return head(const T &value) {
-    static_assert(Size <= array_size<T>::value, "Array size mismatch");
-    return detail::extract<Return, 0>(value, std::make_index_sequence<Size>());
-}
-
-template <size_t Size, typename T,
-          typename Return = Array<value_t<T>, Size, T::Approx, T::Mode>>
-static ENOKI_INLINE Return tail(const T &value) {
-    static_assert(Size <= array_size<T>::value, "Array size mismatch");
-    return detail::extract<Return, T::Size - Size>(value, std::make_index_sequence<Size>());
-}
-
 //! @}
 // -----------------------------------------------------------------------
 

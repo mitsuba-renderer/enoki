@@ -18,6 +18,8 @@ Enoki — fast vectorized arithmetic on modern processors
    dynamic
    benchmark
    advanced
+   changelog
+   reference
 
 .. toctree::
    :maxdepth: 1
@@ -33,11 +35,3 @@ Enoki — fast vectorized arithmetic on modern processors
    stl
    python
 
-.. toctree::
-   :caption: Reference
-   :maxdepth: 1
-
-   changelog
-   array
-   operations
-   type_traits

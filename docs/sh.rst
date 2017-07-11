@@ -61,59 +61,59 @@ and including order 2 producing a total of 9 function evaluations.
 Reference
 ---------
 
-.. cpp:function:: template <typeename Array> void sh_eval(const Array &d, size_t order, expr_t<value_t<Array>> *out)
+.. cpp:function:: template <typename Array> void sh_eval(const Array &d, size_t order, expr_t<value_t<Array>> *out)
 
     Evaluates the real spherical harmonics basis functions up to and including order ``order``.
     The output array must have room for ``(order + 1)*(order + 1)`` entries.
     This function dispatches to one of the ``sh_eval_*`` implementations and
     throws an exception if ``order > 9``.
 
-.. cpp:function:: template <typeename Array> void sh_eval_0(const Array &d, expr_t<value_t<Array>> *out)
+.. cpp:function:: template <typename Array> void sh_eval_0(const Array &d, expr_t<value_t<Array>> *out)
 
     Evaluates the real spherical harmonics basis functions up to and including
     order 0. The output array must have room for ``1`` entries.
 
-.. cpp:function:: template <typeename Array> void sh_eval_1(const Array &d, expr_t<value_t<Array>> *out)
+.. cpp:function:: template <typename Array> void sh_eval_1(const Array &d, expr_t<value_t<Array>> *out)
 
     Evaluates the real spherical harmonics basis functions up to and including
     order 1. The output array must have room for ``4`` entries.
 
-.. cpp:function:: template <typeename Array> void sh_eval_2(const Array &d, expr_t<value_t<Array>> *out)
+.. cpp:function:: template <typename Array> void sh_eval_2(const Array &d, expr_t<value_t<Array>> *out)
 
     Evaluates the real spherical harmonics basis functions up to and including
     order 2. The output array must have room for ``9`` entries.
 
-.. cpp:function:: template <typeename Array> void sh_eval_3(const Array &d, expr_t<value_t<Array>> *out)
+.. cpp:function:: template <typename Array> void sh_eval_3(const Array &d, expr_t<value_t<Array>> *out)
 
     Evaluates the real spherical harmonics basis functions up to and including
     order 3. The output array must have room for ``16`` entries.
 
-.. cpp:function:: template <typeename Array> void sh_eval_4(const Array &d, expr_t<value_t<Array>> *out)
+.. cpp:function:: template <typename Array> void sh_eval_4(const Array &d, expr_t<value_t<Array>> *out)
 
     Evaluates the real spherical harmonics basis functions up to and including
     order 4. The output array must have room for ``25`` entries.
 
-.. cpp:function:: template <typeename Array> void sh_eval_5(const Array &d, expr_t<value_t<Array>> *out)
+.. cpp:function:: template <typename Array> void sh_eval_5(const Array &d, expr_t<value_t<Array>> *out)
 
     Evaluates the real spherical harmonics basis functions up to and including
     order 5. The output array must have room for ``36`` entries.
 
-.. cpp:function:: template <typeename Array> void sh_eval_6(const Array &d, expr_t<value_t<Array>> *out)
+.. cpp:function:: template <typename Array> void sh_eval_6(const Array &d, expr_t<value_t<Array>> *out)
 
     Evaluates the real spherical harmonics basis functions up to and including
     order 6. The output array must have room for ``49`` entries.
 
-.. cpp:function:: template <typeename Array> void sh_eval_7(const Array &d, expr_t<value_t<Array>> *out)
+.. cpp:function:: template <typename Array> void sh_eval_7(const Array &d, expr_t<value_t<Array>> *out)
 
     Evaluates the real spherical harmonics basis functions up to and including
     order 7. The output array must have room for ``64`` entries.
 
-.. cpp:function:: template <typeename Array> void sh_eval_8(const Array &d, expr_t<value_t<Array>> *out)
+.. cpp:function:: template <typename Array> void sh_eval_8(const Array &d, expr_t<value_t<Array>> *out)
 
     Evaluates the real spherical harmonics basis functions up to and including
     order 8. The output array must have room for ``81`` entries.
 
-.. cpp:function:: template <typeename Array> void sh_eval_9(const Array &d, expr_t<value_t<Array>> *out)
+.. cpp:function:: template <typename Array> void sh_eval_9(const Array &d, expr_t<value_t<Array>> *out)
 
     Evaluates the real spherical harmonics basis functions up to and including
     order 9. The output array must have room for ``100`` entries.

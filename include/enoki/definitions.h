@@ -69,6 +69,17 @@
 #  define NAMESPACE_END(name) }
 #endif
 
+#define ENOKI_VERSION_MAJOR 0
+#define ENOKI_VERSION_MINOR 1
+#define ENOKI_VERSION_PATCH 0
+
+#define ENOKI_STRINGIFY(x) #x
+#define ENOKI_TOSTRING(x)  ENOKI_STRINGIFY(x)
+#define ENOKI_VERSION                                                          \
+    (ENOKI_TOSTRING(ENOKI_VERSION_MAJOR) "."                                   \
+     ENOKI_TOSTRING(ENOKI_VERSION_MINOR) "."                                   \
+     ENOKI_TOSTRING(ENOKI_VERSION_PATCH))
+
 /* The following macro is used by the test suite to detect
    unimplemented methods in vectorized backends */
 #if !defined(ENOKI_TRACK_SCALAR)

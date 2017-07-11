@@ -507,7 +507,7 @@ NAMESPACE_END(test)
     void name()
 
 int main(int argc, char** argv) {
-    std::cout << "=== Enoki test suite ===" << std::endl;
+    std::cout << "=== Enoki test suite (version " << ENOKI_VERSION << ") ===" << std::endl;
     std::cout << "Enabled compiler features: ";
 
     if (has_avx512dq) std::cout << "avx512dq ";

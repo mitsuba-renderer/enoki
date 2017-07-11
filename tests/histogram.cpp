@@ -20,7 +20,7 @@
 
 int main(int /* argc */, char * /* argv */[]) {
     using UInt32      = Array<uint32_t>;
-    using UInt32Mask  = typename UInt32::Mask;
+    using UInt32Mask  = mask_t<UInt32>;
     using RNG         = PCG32<UInt32>;
     using Float32     = RNG::Float32;
     using UInt64      = RNG::UInt64;

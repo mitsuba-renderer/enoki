@@ -1534,8 +1534,8 @@ struct alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMode::Default,
                 return _mm_srav_epi64(m, k.m);
             #elif defined(__AVX2__)
                 const __m128i offset = _mm_set1_epi64x((long long) 0x8000000000000000ull);
-                __m128i s1 = _mm_srlv_epi64(_mm_add_epi64(m, offset), k);
-                __m128i s2 = _mm_srlv_epi64(offset, k);
+                __m128i s1 = _mm_srlv_epi64(_mm_add_epi64(m, offset), k.m);
+                __m128i s2 = _mm_srlv_epi64(offset, k.m);
                 return _mm_sub_epi64(s1, s2);
             #endif
         } else {

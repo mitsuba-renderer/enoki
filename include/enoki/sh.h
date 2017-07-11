@@ -39,18 +39,17 @@ void sh_eval(const Array &d, size_t order, expr_t<value_t<Array>> *out) {
 }
 
 template <typename Array>
-void sh_eval_0(const Array &, expr_t<value_t<Array>> *out_) {
+void sh_eval_0(const Array &, expr_t<value_t<Array>> *out) {
     static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
 
     using Float = expr_t<value_t<Array>>;
     using Scalar = scalar_t<Float>;
 
-    Float *out = (Float *) ENOKI_ASSUME_ALIGNED_S(out_, sizeof(Float));
     store(out + 0, Float(Scalar(0.28209479177387814)));
 }
 
 template <typename Array>
-void sh_eval_1(const Array &d, expr_t<value_t<Array>> *out_) {
+void sh_eval_1(const Array &d, expr_t<value_t<Array>> *out) {
     static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
 
     using Float = expr_t<value_t<Array>>;
@@ -58,7 +57,6 @@ void sh_eval_1(const Array &d, expr_t<value_t<Array>> *out_) {
 
     Float x = d.x(), y = d.y(), z = d.z();
     Float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
-    Float *out = (Float *) ENOKI_ASSUME_ALIGNED_S(out_, sizeof(Float));
 
     store(out + 0, Float(Scalar(0.28209479177387814)));
     store(out + 2, z * Float(Scalar(0.488602511902919923)));
@@ -71,7 +69,7 @@ void sh_eval_1(const Array &d, expr_t<value_t<Array>> *out_) {
 }
 
 template <typename Array>
-void sh_eval_2(const Array &d, expr_t<value_t<Array>> *out_) {
+void sh_eval_2(const Array &d, expr_t<value_t<Array>> *out) {
     static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
 
     using Float = expr_t<value_t<Array>>;
@@ -79,7 +77,6 @@ void sh_eval_2(const Array &d, expr_t<value_t<Array>> *out_) {
 
     Float x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
     Float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
-    Float *out = (Float *) ENOKI_ASSUME_ALIGNED_S(out_, sizeof(Float));
 
     store(out + 0, Float(Scalar(0.28209479177387814)));
     store(out + 2, z * Float(Scalar(0.488602511902919923)));
@@ -102,7 +99,7 @@ void sh_eval_2(const Array &d, expr_t<value_t<Array>> *out_) {
 }
 
 template <typename Array>
-void sh_eval_3(const Array &d, expr_t<value_t<Array>> *out_) {
+void sh_eval_3(const Array &d, expr_t<value_t<Array>> *out) {
     static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
 
     using Float = expr_t<value_t<Array>>;
@@ -110,7 +107,6 @@ void sh_eval_3(const Array &d, expr_t<value_t<Array>> *out_) {
 
     Float x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
     Float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
-    Float *out = (Float *) ENOKI_ASSUME_ALIGNED_S(out_, sizeof(Float));
 
     store(out + 0, Float(Scalar(0.28209479177387814)));
     store(out + 2, z * Float(Scalar(0.488602511902919923)));
@@ -146,7 +142,7 @@ void sh_eval_3(const Array &d, expr_t<value_t<Array>> *out_) {
 }
 
 template <typename Array>
-void sh_eval_4(const Array &d, expr_t<value_t<Array>> *out_) {
+void sh_eval_4(const Array &d, expr_t<value_t<Array>> *out) {
     static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
 
     using Float = expr_t<value_t<Array>>;
@@ -154,7 +150,6 @@ void sh_eval_4(const Array &d, expr_t<value_t<Array>> *out_) {
 
     Float x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
     Float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
-    Float *out = (Float *) ENOKI_ASSUME_ALIGNED_S(out_, sizeof(Float));
 
     store(out + 0, Float(Scalar(0.28209479177387814)));
     store(out + 2, z * Float(Scalar(0.488602511902919923)));
@@ -206,7 +201,7 @@ void sh_eval_4(const Array &d, expr_t<value_t<Array>> *out_) {
 }
 
 template <typename Array>
-void sh_eval_5(const Array &d, expr_t<value_t<Array>> *out_) {
+void sh_eval_5(const Array &d, expr_t<value_t<Array>> *out) {
     static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
 
     using Float = expr_t<value_t<Array>>;
@@ -214,7 +209,6 @@ void sh_eval_5(const Array &d, expr_t<value_t<Array>> *out_) {
 
     Float x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
     Float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
-    Float *out = (Float *) ENOKI_ASSUME_ALIGNED_S(out_, sizeof(Float));
 
     store(out + 0, Float(Scalar(0.28209479177387814)));
     store(out + 2, z * Float(Scalar(0.488602511902919923)));
@@ -285,7 +279,7 @@ void sh_eval_5(const Array &d, expr_t<value_t<Array>> *out_) {
 }
 
 template <typename Array>
-void sh_eval_6(const Array &d, expr_t<value_t<Array>> *out_) {
+void sh_eval_6(const Array &d, expr_t<value_t<Array>> *out) {
     static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
 
     using Float = expr_t<value_t<Array>>;
@@ -293,7 +287,6 @@ void sh_eval_6(const Array &d, expr_t<value_t<Array>> *out_) {
 
     Float x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
     Float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
-    Float *out = (Float *) ENOKI_ASSUME_ALIGNED_S(out_, sizeof(Float));
 
     store(out + 0, Float(Scalar(0.28209479177387814)));
     store(out + 2, z * Float(Scalar(0.488602511902919923)));
@@ -386,7 +379,7 @@ void sh_eval_6(const Array &d, expr_t<value_t<Array>> *out_) {
 }
 
 template <typename Array>
-void sh_eval_7(const Array &d, expr_t<value_t<Array>> *out_) {
+void sh_eval_7(const Array &d, expr_t<value_t<Array>> *out) {
     static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
 
     using Float = expr_t<value_t<Array>>;
@@ -394,7 +387,6 @@ void sh_eval_7(const Array &d, expr_t<value_t<Array>> *out_) {
 
     Float x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
     Float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
-    Float *out = (Float *) ENOKI_ASSUME_ALIGNED_S(out_, sizeof(Float));
 
     store(out + 0, Float(Scalar(0.28209479177387814)));
     store(out + 2, z * Float(Scalar(0.488602511902919923)));
@@ -512,7 +504,7 @@ void sh_eval_7(const Array &d, expr_t<value_t<Array>> *out_) {
 }
 
 template <typename Array>
-void sh_eval_8(const Array &d, expr_t<value_t<Array>> *out_) {
+void sh_eval_8(const Array &d, expr_t<value_t<Array>> *out) {
     static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
 
     using Float = expr_t<value_t<Array>>;
@@ -520,7 +512,6 @@ void sh_eval_8(const Array &d, expr_t<value_t<Array>> *out_) {
 
     Float x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
     Float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
-    Float *out = (Float *) ENOKI_ASSUME_ALIGNED_S(out_, sizeof(Float));
 
     store(out + 0, Float(Scalar(0.28209479177387814)));
     store(out + 2, z * Float(Scalar(0.488602511902919923)));
@@ -666,7 +657,7 @@ void sh_eval_8(const Array &d, expr_t<value_t<Array>> *out_) {
 }
 
 template <typename Array>
-void sh_eval_9(const Array &d, expr_t<value_t<Array>> *out_) {
+void sh_eval_9(const Array &d, expr_t<value_t<Array>> *out) {
     static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
 
     using Float = expr_t<value_t<Array>>;
@@ -674,7 +665,6 @@ void sh_eval_9(const Array &d, expr_t<value_t<Array>> *out_) {
 
     Float x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
     Float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
-    Float *out = (Float *) ENOKI_ASSUME_ALIGNED_S(out_, sizeof(Float));
 
     store(out + 0, Float(Scalar(0.28209479177387814)));
     store(out + 2, z * Float(Scalar(0.488602511902919923)));

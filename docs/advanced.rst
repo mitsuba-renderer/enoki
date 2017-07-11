@@ -1,16 +1,6 @@
 Advanced topics
 ===============
 
-TODO: Python integration. ENOKI_UNLIKELY, meshgrid, memory allocator, low(),
-high(), head<>(), copysign, mulsign,
-
-dynamic array class & set_slices, slices, packet, slice
-
-- broadcasting
-- arithmetic involving arrays of references
-
-Undocumented: reinterpret_array
-
 .. _compression:
 
 Compressing arrays
@@ -156,8 +146,8 @@ is forwarded to the callee indicating which SIMD lanes are currently active.
 
 To support a vector method calls, the interface of the vectorized ``decode()``
 method must be changed to take a mask its as last input. The
-``ENOKI_CALL_SUPPORT`` macro below is also required---this generates the Enoki
-support layer that intercepts and carries out the function call.
+:c:macro:`ENOKI_CALL_SUPPORT` macro below is also required---this generates the
+Enoki support layer that intercepts and carries out the function call.
 
 .. code-block:: cpp
     :emphasize-lines: 7, 13, 14, 15, 16
@@ -209,8 +199,8 @@ Supporting scalar *getter* functions
 
 It often makes little sense to add a separate vectorized and masked version of
 simple *getter* functions like as ``serial_number()`` in the above example.
-Enoki provides a ``ENOKI_CALL_SUPPORT_SCALAR()`` macro for such cases, which
-would be used as follows:
+Enoki provides a :c:macro:`ENOKI_CALL_SUPPORT_SCALAR()` macro for such cases,
+which would be used as follows:
 
 .. code-block:: cpp
     :emphasize-lines: 3
@@ -358,70 +348,47 @@ Enoki's implementation of division by constants is based on the excellent
     divisions. The reason for this is that a *64 bit high multiplication*
     instruction required by the algorithm does not exist and must be emulated.
 
+.. _reinterpret:
 
 Reinterpreting the contents of arrays
 -------------------------------------
 
-In additions to casts between different types, it is possible to reinterpret
-the bit-level representation as a different type when both source and target
-types have matching sizes and layouts:
+The function :cpp:func:`reinterpret_array` can be used to reinterpret the
+bit-level representation as a different type when both source and target types
+have matching sizes and layouts.
 
 .. code-block:: cpp
 
-    using Source = Array<int64_t, 32>;
-    using Target = Array<double, 32>;
+    using UInt32P = Array<uint32_t, 4>;
+    using FloatP = Array<float, 4>;
 
-    Source source = /* ... integer vector which makes sense when interpreted as a double value ... */;
-    Target target = reinterpret_array<Target>(source);
+    UInt32P source = 0x3f800000;
+    FloatP target = reinterpret_array<FloatP>(source);
 
-This feature can also be used to convert between mask types.
+    // Prints: [1, 1, 1, 1]
+    std::cout << target << std::endl;
 
-.. _platform-differences:
-
-Architectural differences handled by Enoki
-------------------------------------------
-
-Note that the AVX512 back-end is special and instead uses eight dedicated mask
-registers to store masks compactly (allocating only a single bit per mask
-entry). Such tedious differences between platforms are invisible in user code
-that uses the abstractions of Enoki.
-
-for instance, machines with AVX (but no AVX2)
-don't have an 8-wide integer vector unit. This means that an ``Array<float,
-8>`` can be represented using a single AVX ``ymm`` register, but casting it to
-an ``Array<int32_t, 8>`` entails switching to a pair of half width SSE4.2
-``xmm`` integer registers, etc.
-
----for instance, AVX512 uses special mask
-registers, while older Intel machines use normal vector registers that have all
-bits set to ``1`` for entries where the comparison was true and ``0``
-elsewhere. Such tedious platform differences are hidden when using the
-abstractions of Enoki.
-
-- Enoki provides control over the rounding mode of elementary arithmetic
-  operations. The AVX512 back-end can translate this into particularly
-  efficient instruction sequences with embedded rounding flags.
+.. _transform:
 
 The histogram problem and conflict detection
 --------------------------------------------
 
-Consider vectorizing a function that increments the entries of a histogram
-given a SIMD vector with histogram bin indices. It is impossible to do this
-kind of indirect update using a normal pair of gather and scatter operations,
-since incorrect updates occur whenever the ``indices`` array contains an index
-multiple times:
+Consider vectorizing a function that increments the bins of a histogram given
+an array of bin indices. It is impossible to do this kind of indirect update
+using a normal pair of gather and scatter operations, since incorrect updates
+occur whenever the ``indices`` array contains an index multiple times:
 
 .. code-block:: cpp
 
-    using Float = Array<float, 16>;
-    using Index = Array<int32_t, 16>;
+    using FloatP = Array<float, 16>;
+    using IndexP = Array<int32_t, 16>;
 
     float hist[1000] = { 0.f }; /* Histogram entries */
 
-    Index indices = /* .. bin indices whose value should be increased .. */;
+    IndexP indices = /* .. bin indices whose value should be increased .. */;
 
-    /* Ooops, don't do this. Some entries may have to be incremented multiple time.. */
-    scatter(hist, gather<Float>(hist, indices) + 1, indices);
+    /* Ooops, don't do this. Some entries may have to be incremented multiple times.. */
+    scatter(hist, gather<FloatP>(hist, indices) + 1, indices);
 
 Enoki provides a function named :cpp:func:`enoki::transform`, which modifies an
 indirect memory location in a way that is not susceptible to conflicts. The
@@ -432,15 +399,43 @@ situations other than just building histograms.
 .. code-block:: cpp
 
     /* Unmasked version */
-    transform<Float>(hist, indices, [](auto x) { return x + 1; });
+    transform<FloatP>(hist, indices, [](auto& x) { x += 1; });
 
     /* Masked version */
-    transform<Float>(hist, indices, [](auto x) { return x + 1; }, mask);
+    transform<FloatP>(hist, indices, mask, [](auto& x) { x += 1; });
 
 Internally, :cpp:func:`enoki::transform` detects and processes conflicts using
 the AVX512CDI instruction set. When conflicts are present, the function
-provided as an argument may be applied multiple times in a row. When AVX512CDI
-is not available, a (slower) scalar fallback implementation is used.
+provided as an argument may be invoked multiple times in a row. When AVX512CDI
+is not available, a slower scalar fallback implementation is used.
+
+Memory allocation and alignment
+-------------------------------
+
+The C++ ``new`` operator is unfortunately not guaranteed to return sufficiently
+aligned memory, which can lead to segmentation faults when allocating classes
+that contain Enoki arrays (which usually expect to be located at an aligned
+address in memory). Enoki provides a macro named
+:c:macro:`ENOKI_ALIGNED_OPERATOR_NEW` for such cases. It overrides ``operator
+new``  with an implementation that guarantees sufficient alignment.
+
+.. code-block:: cpp
+
+    class MyClass {
+    public:
+
+        // ...
+
+        ENOKI_ALIGNED_OPERATOR_NEW()
+
+    private:
+        enoki::Array<float> m_data;
+    };
+
+Note that issue was finally resolved in `C++17
+<http://en.cppreference.com/w/cpp/memory/new/operator_new>`_. The macro should
+still be used if compatibility with older versions of the C++ standard is
+desired.
 
 .. _custom-arrays:
 
@@ -481,6 +476,41 @@ in the following snippet is ``Spectrum<float, 8>``.
 
     Spectrum<float, 8> value = { ... };
     auto value2 = exp(-value);
+
+.. _platform-differences:
+
+Architectural differences handled by Enoki
+------------------------------------------
+
+In addition to mapping vector operations on the available instruction sets,
+Enoki's abstractions hide a number of tedious platform-related details. This is
+a partial list:
+
+1. The representation of masks is highly platform-dependent. For instance, the
+   AVX512 back-end uses eight dedicated mask registers to store masks compactly
+   (allocating only a single bit per mask entry).
+
+   Older machines use a redundant representation based on normal vector
+   registers that have all bits set to ``1`` for entries where the comparison
+   was true and ``0`` elsewhere.
+
+2. Machines with AVX (but no AVX2) don't have an 8-wide integer vector unit.
+   This means that an ``Array<float, 8>`` can be represented using a single AVX
+   ``ymm`` register, but casting it to an ``Array<int32_t, 8>`` entails
+   switching to a pair of half width SSE4.2 ``xmm`` integer registers, etc.
+
+3. Vector instruction sets are generally fairly incomplete in the sense that
+   they are missing many entries in the full *data type* / *operation* matrix.
+   Enoki emulates such operations using other vector instructions whenever
+   possible.
+
+4. Enoki provides control over the rounding mode of elementary arithmetic
+   operations. The AVX512 back-end can translate this into particularly
+   efficient instruction sequences with embedded rounding flags.
+
+   On other platforms, this entails changing the rounding flags in the floating
+   point control register, performing the operation, and reverting to the
+   previous set of flags.
 
 Adding backends for new instruction sets
 ----------------------------------------

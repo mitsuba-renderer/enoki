@@ -440,13 +440,13 @@ template <size_t Size, RoundingMode Mode>
 struct rounding_fallback<
     float, Size, Mode,
     std::enable_if_t<Size / 16 * 16 == Size && Mode != RoundingMode::Default>>
-    : std::false_type {};
+    : std::false_type { };
 
 template <size_t Size, RoundingMode Mode>
 struct rounding_fallback<
     double, Size, Mode,
     std::enable_if_t<Size / 8 * 8 == Size && Mode != RoundingMode::Default>>
-    : std::false_type {};
+    : std::false_type { };
 
 #endif
 
@@ -533,14 +533,6 @@ using int_array_t = like_t<T, typename detail::type_chooser<sizeof(scalar_t<T>)>
 /// Unsigned integer-based version of a given array class
 template <typename T>
 using uint_array_t = like_t<T, typename detail::type_chooser<sizeof(scalar_t<T>)>::UInt>;
-
-/// Signed version of a given array class
-template <typename T>
-using signed_array_t = like_t<T, std::make_signed_t<scalar_t<T>>>;
-
-/// Unsigned version of a given array class
-template <typename T>
-using unsigned_array_t = like_t<T, std::make_unsigned_t<scalar_t<T>>>;
 
 /// Floating point-based version of a given array class
 template <typename T>

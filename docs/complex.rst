@@ -4,7 +4,7 @@ Complex numbers
 ===============
 
 Enoki provides a vectorizable type for complex number arithmetic analogous to
-``std::complex<T>``. To use it, include the following header:
+``std::complex<T>``. To use it, include the following header file:
 
 .. code-block:: cpp
 
