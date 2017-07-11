@@ -614,10 +614,10 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
             #if defined(__AVX512VL__)
                 return _mm256_srai_epi64(m, (int) k);
             #else
-                Derived result;
-                ENOKI_TRACK_SCALAR for (size_t i = 0; i < Size; ++i)
-                    result.coeff(i) = coeff(i) >> k;
-                return result;
+                const __m256i offset = _mm256_set1_epi64x((long long) 0x8000000000000000ull);
+                __m256i s1 = _mm256_srli_epi64(_mm256_add_epi64(m, offset), (int) k);
+                __m256i s2 = _mm256_srli_epi64(offset, (int) k);
+                return _mm256_sub_epi64(s1, s2);
             #endif
         } else {
             return _mm256_srli_epi64(m, (int) k);
@@ -645,10 +645,19 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
                     return _mm256_srai_epi64(m, (int) k);
                 #endif
             #else
-                Derived result;
-                ENOKI_TRACK_SCALAR for (size_t i = 0; i < Size; ++i)
-                    result.coeff(i) = coeff(i) >> k;
-                return result;
+                const __m256i offset = _mm256_set1_epi64x((long long) 0x8000000000000000ull);
+                #if 0
+                    __m256i s0 = _mm_set1_epi64x((long long) k);
+                    __m256i s1 = _mm256_srl_epi64(_mm256_add_epi64(m, offset), s0);
+                    __m256i s2 = _mm256_srl_epi64(offset, s0);
+                    return _mm256_sub_epi64(s1, s2);
+                #else
+                    /* This is not strictly correct (k may not be a compile-time constant),
+                       but all targeted compilers figure it out and generate better code */
+                    __m256i s1 = _mm256_srli_epi64(_mm256_add_epi64(m, offset), (int) k);
+                    __m256i s2 = _mm256_srli_epi64(offset, (int) k);
+                    return _mm256_sub_epi64(s1, s2);
+                #endif
             #endif
         } else {
             #if 0
@@ -670,10 +679,10 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
             #if defined(__AVX512VL__)
                 return _mm256_srav_epi64(m, k.m);
             #else
-                Derived out;
-                ENOKI_TRACK_SCALAR for (size_t i = 0; i < Size; ++i)
-                    out.coeff(i) = coeff(i) >> (size_t) k.coeff(i);
-                return out;
+                const __m256i offset = _mm256_set1_epi64x((long long) 0x8000000000000000ull);
+                __m256i s1 = _mm256_srlv_epi64(_mm256_add_epi64(m, offset), k.m);
+                __m256i s2 = _mm256_srlv_epi64(offset, k.m);
+                return _mm256_sub_epi64(s1, s2);
             #endif
         } else {
             return _mm256_srlv_epi64(m, k.m);

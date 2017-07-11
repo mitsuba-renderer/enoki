@@ -1461,10 +1461,10 @@ struct alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMode::Default,
             #if defined(__AVX512VL__)
                 return _mm_srai_epi64(m, (int) k);
             #else
-                Derived result;
-                ENOKI_TRACK_SCALAR for (size_t i = 0; i < Size; ++i)
-                    result.coeff(i) = coeff(i) >> k;
-                return result;
+                const __m128i offset = _mm_set1_epi64x((long long) 0x8000000000000000ull);
+                __m128i s1 = _mm_srli_epi64(_mm_add_epi64(m, offset), (int) k);
+                __m128i s2 = _mm_srli_epi64(offset, (int) k);
+                return _mm_sub_epi64(s1, s2);
             #endif
         } else {
             return _mm_srli_epi64(m, (int) k);
@@ -1492,10 +1492,19 @@ struct alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMode::Default,
                     return _mm_srai_epi64(m, (int) k);
                 #endif
             #else
-                Derived result;
-                ENOKI_TRACK_SCALAR for (size_t i = 0; i < Size; ++i)
-                    result.coeff(i) = coeff(i) >> k;
-                return result;
+                const __m128i offset = _mm_set1_epi64x((long long) 0x8000000000000000ull);
+                #if 0
+                    __m128i s0 = _mm_set1_epi64x((long long) k);
+                    __m128i s1 = _mm_srl_epi64(_mm_add_epi64(m, offset), s0);
+                    __m128i s2 = _mm_srl_epi64(offset, s0);
+                    return _mm_sub_epi64(s1, s2);
+                #else
+                    /* This is not strictly correct (k may not be a compile-time constant),
+                       but all targeted compilers figure it out and generate better code */
+                    __m128i s1 = _mm_srli_epi64(_mm_add_epi64(m, offset), (int) k);
+                    __m128i s2 = _mm_srli_epi64(offset, (int) k);
+                    return _mm_sub_epi64(s1, s2);
+                #endif
             #endif
         } else {
             #if 0
@@ -1523,6 +1532,11 @@ struct alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMode::Default,
         if (std::is_signed<Value>::value) {
             #if defined(__AVX512VL__)
                 return _mm_srav_epi64(m, k.m);
+            #elif defined(__AVX2__)
+                const __m128i offset = _mm_set1_epi64x((long long) 0x8000000000000000ull);
+                __m128i s1 = _mm_srlv_epi64(_mm_add_epi64(m, offset), k);
+                __m128i s2 = _mm_srlv_epi64(offset, k);
+                return _mm_sub_epi64(s1, s2);
             #endif
         } else {
             #if defined(__AVX2__)
