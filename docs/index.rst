@@ -17,6 +17,7 @@ Enoki — fast vectorized arithmetic on modern processors
    custom
    dynamic
    benchmark
+   advanced
 
 .. toctree::
    :maxdepth: 1
@@ -27,9 +28,9 @@ Enoki — fast vectorized arithmetic on modern processors
    complex
    quaternions
    matrix
+   sh
    half
    python
-   advanced
 
 .. toctree::
    :caption: Reference

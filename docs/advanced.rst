@@ -339,9 +339,10 @@ using :cpp:func:`enoki::divisor::operator()`, as shown in the following example:
     }
 
 The following plots show the speedup compared to scalar division when dividing
-16-packets by a compile-time constant. As can be seen, the difference is fairly
-significant on consumer processors (up to **13.2x** on Skylake) and *huge* on
-the simple cores found on a Xeon Phi (up to **61.2x** on Knight's Landing).
+100 million integer packets of size 16 by a compile-time constant. As can be
+seen, the difference is fairly significant on consumer processors (up to
+**13.2x** on Skylake) and *huge* on the simple cores found on a Xeon Phi (up to
+**61.2x** on Knight's Landing).
 
 .. image:: advanced-03.svg
     :width: 600px

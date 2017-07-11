@@ -22,37 +22,39 @@
 #include <cstddef>
 
 #if defined(_MSC_VER)
-#  define ENOKI_INLINE            __forceinline
-#  define ENOKI_NOINLINE          __declspec(noinline)
-#  define ENOKI_MALLOC            __declspec(restrict)
-#  define ENOKI_ASSUME_ALIGNED(x) x
+#  define ENOKI_INLINE                 __forceinline
+#  define ENOKI_NOINLINE               __declspec(noinline)
+#  define ENOKI_MALLOC                 __declspec(restrict)
+#  define ENOKI_ASSUME_ALIGNED(x)      x
+#  define ENOKI_ASSUME_ALIGNED_S(x, s) x
 #  define ENOKI_UNROLL
 #  define ENOKI_NOUNROLL
-#  define ENOKI_IVDEP             __pragma(loop(ivdep))
+#  define ENOKI_IVDEP                  __pragma(loop(ivdep))
 #  define ENOKI_PACK
-#  define ENOKI_LIKELY(x)         x
-#  define ENOKI_UNLIKELY(x)       x
+#  define ENOKI_LIKELY(x)              x
+#  define ENOKI_UNLIKELY(x)            x
 #else
-#  define ENOKI_NOINLINE          __attribute__ ((noinline))
-#  define ENOKI_INLINE            __attribute__ ((always_inline)) inline
-#  define ENOKI_MALLOC            __attribute__ ((malloc))
-#  define ENOKI_ASSUME_ALIGNED(x) __builtin_assume_aligned(x, ::enoki::max_packet_size)
-#  define ENOKI_LIKELY(x)         __builtin_expect(!!(x), 1)
-#  define ENOKI_UNLIKELY(x)       __builtin_expect(!!(x), 0)
-#  define ENOKI_PACK              __attribute__ ((packed))
+#  define ENOKI_NOINLINE               __attribute__ ((noinline))
+#  define ENOKI_INLINE                 __attribute__ ((always_inline)) inline
+#  define ENOKI_MALLOC                 __attribute__ ((malloc))
+#  define ENOKI_ASSUME_ALIGNED(x)      __builtin_assume_aligned(x, ::enoki::max_packet_size)
+#  define ENOKI_ASSUME_ALIGNED_S(x, s) __builtin_assume_aligned(x, s)
+#  define ENOKI_LIKELY(x)              __builtin_expect(!!(x), 1)
+#  define ENOKI_UNLIKELY(x)            __builtin_expect(!!(x), 0)
+#  define ENOKI_PACK                   __attribute__ ((packed))
 #  if defined(__clang__)
-#    define ENOKI_UNROLL          _Pragma("unroll")
-#    define ENOKI_NOUNROLL        _Pragma("nounroll")
+#    define ENOKI_UNROLL               _Pragma("unroll")
+#    define ENOKI_NOUNROLL             _Pragma("nounroll")
 #    define ENOKI_IVDEP
 #  elif defined(__INTEL_COMPILER)
-#    define ENOKI_UNROLL          _Pragma("unroll")
-#    define ENOKI_NOUNROLL        _Pragma("nounroll")
-#    define ENOKI_IVDEP           _Pragma("ivdep")
+#    define ENOKI_UNROLL               _Pragma("unroll")
+#    define ENOKI_NOUNROLL             _Pragma("nounroll")
+#    define ENOKI_IVDEP                _Pragma("ivdep")
 #  else
 #    define ENOKI_UNROLL
 #    define ENOKI_NOUNROLL
 #    if defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 9))
-#      define ENOKI_IVDEP     _Pragma("GCC ivdep")
+#      define ENOKI_IVDEP              _Pragma("GCC ivdep")
 #    else
 #      define ENOKI_IVDEP
 #    endif
