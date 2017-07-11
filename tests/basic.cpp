@@ -400,3 +400,13 @@ ENOKI_TEST_ALL(test26_mask_op) {
     );
 }
 
+#if defined(__SSE4_2__)
+ENOKI_TEST(test27_flush_denormals) {
+    bool prev = flush_denormals();
+    set_flush_denormals(false);
+    assert(!flush_denormals());
+    set_flush_denormals(true);
+    assert(flush_denormals());
+    set_flush_denormals(prev);
+}
+#endif

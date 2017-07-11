@@ -36,6 +36,6 @@ Enoki — fast vectorized arithmetic on modern processors
    :maxdepth: 1
 
    changelog
-   static_array
+   array
    operations
    type_traits

@@ -1,4 +1,4 @@
-A Benchmark
+A benchmark
 ===========
 
 We now turn to the results of a microbenchmark which runs the previously

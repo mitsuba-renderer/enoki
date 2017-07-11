@@ -24,6 +24,10 @@ inline void set_flush_denormals(bool value) {
     _MM_SET_DENORMALS_ZERO_MODE(value ? _MM_DENORMALS_ZERO_ON : _MM_DENORMALS_ZERO_OFF);
 }
 
+inline bool flush_denormals() {
+    return _MM_GET_FLUSH_ZERO_MODE() == _MM_FLUSH_ZERO_ON;
+}
+
 // Optimized 4x4 transpose
 template <typename Type, bool Approx, RoundingMode Mode, typename Derived,
           std::enable_if_t<Type::Size == 4 &&

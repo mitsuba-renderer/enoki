@@ -1161,6 +1161,17 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
 
     StaticArrayImpl(Type value) : Base(UnderlyingType(value)) { }
 
+    /// Initialize the individual components
+    template <typename Arg, typename... Args,
+              /* Ugly, works around a compiler ICE in MSVC */
+              std::enable_if_t<
+                  detail::all_of<std::is_constructible<Type, Arg>::value,
+                                 std::is_constructible<Type, Args>::value...,
+                                 sizeof...(Args) + 1 == Size_ && (sizeof...(Args) > 0)>::value, int> = 0>
+    ENOKI_INLINE StaticArrayImpl(Arg&& arg, Args&&... args)
+        : Base{ UnderlyingType(std::forward<Arg>(arg)),
+                UnderlyingType(std::forward<Args>(args))... } { ENOKI_CHKSCALAR }
+
     ENOKI_INLINE const Type& coeff(size_t i) const { return (Type &) Base::coeff(i); }
     ENOKI_INLINE Type& coeff(size_t i) { return (Type &) Base::coeff(i); }
     ENOKI_INLINE const Type& operator[](size_t i) const { return (Type &) Base::operator[](i); }

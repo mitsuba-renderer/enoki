@@ -16,14 +16,27 @@ Memory operations
     entries are initialized with zero.
 
     .. warning::
+
         Performing an aligned load from an unaligned memory address will cause a
         general protection fault that immediately terminates the application.
+
+    .. note::
+
+        When the ``mask`` parameter is specified, the function implements a
+        *masked load*, which is fairly slow on machines without the AVX512
+        instruction set.
 
 .. cpp:function:: template <typename Array> Array load_unaligned(const void *mem, mask_t<Array> mask = true)
 
     Loads an array of type ``Array`` from the memory address ``mem`` (which is
     not required to be aligned). No loads are performed for entries whose mask
     bit is ``false``---instead, these entries are initialized with zero.
+
+    .. note::
+
+        When the ``mask`` parameter is specified, the function implements a
+        *masked load*, which is fairly slow on machines without the AVX512
+        instruction set.
 
 .. cpp:function:: template <typename Array> void store(const void *mem, Array array, mask_t<Array> mask = true)
 
@@ -32,14 +45,27 @@ Memory operations
     are performed for entries whose mask bit is ``false``.
 
     .. warning::
+
         Performing an aligned storefrom an unaligned memory address will cause a
         general protection fault that immediately terminates the application.
+
+    .. note::
+
+        When the ``mask`` parameter is specified, the function implements a
+        *masked store*, which is fairly slow on machines without the AVX512
+        instruction set.
 
 .. cpp:function:: template <typename Array> void store_unaligned(const void *mem, Array array, mask_t<Array> mask = true)
 
     Stores an array of type ``Array`` at the memory address ``mem`` (which is
     not required to be aligned). No stores are performed for entries whose mask
     bit is ``false``.
+
+    .. note::
+
+        When the ``mask`` parameter is specified, the function implements a
+        *masked store*, which is fairly slow on machines without the AVX512
+        instruction set.
 
 .. cpp:function:: template <typename Array, size_t Stride = sizeof(scalar_t<Array>), \
                             typename Index> \
@@ -107,6 +133,16 @@ Memory operations
     The default value of the ``Stride`` parameter indicates that the data at
     ``mem`` uses a packed memory layout (i.e. a stride value of
     ``sizeof(Type)``); other values override this behavior.
+
+.. cpp:function:: template <typename Output, typename Input, typename Mask> \
+                  size_t compress(Output output, Input input, Mask mask)
+
+    Tightly packs the input values selected by a provided mask and writes them
+    to ``output``, which must be a pointer or a structure of pointers. See the
+    :ref:`advanced topics section <compression>` with regards to usage. The
+    function returns ``count(mask)`` and also advances the pointer by this
+    amount.
+
 
 Miscellaneous initialization
 ----------------------------
@@ -724,6 +760,29 @@ Exponential, logarithm, and others
     Approximation of the exponentially scaled modified Bessel function of order
     zero.
 
+"Safe" versions of mathematical functions
+-----------------------------------------
+
+.. cpp:function:: template <typename Array> Array safe_sqrt(Array x)
+
+    Computes ``sqrt(max(Array(0), x))`` to avoid issues with negative inputs
+    (e.g. due to roundoff error in a prior calculation).
+
+.. cpp:function:: template <typename Array> Array safe_rsqrt(Array x)
+
+    Computes ``rsqrt(max(Array(0), x))`` to avoid issues with negative inputs
+    (e.g. due to roundoff error in a prior calculation).
+
+.. cpp:function:: template <typename Array> Array safe_asin(Array x)
+
+    Computes ``asin(min(Array(1), max(Array(-1), x)))`` to avoid issues with
+    negative inputs (e.g. due to roundoff error in a prior calculation).
+
+.. cpp:function:: template <typename Array> Array safe_acos(Array x)
+
+    Computes ``acos(min(Array(1), max(Array(-1), x)))`` to avoid issues with
+    negative inputs (e.g. due to roundoff error in a prior calculation).
+
 Miscellaneous operations
 ------------------------
 
@@ -757,3 +816,15 @@ Miscellaneous operations
     The mask specifies which index vector entries are active: unless the number
     of interations is exactly divisible by the packet size, the last loop
     iteration will generally have several disabled entries.
+
+.. cpp:function:: bool flush_denormals()
+
+    Arithmetic involving denormalized floating point numbers triggers a `slow
+    microcode handler <https://en.wikipedia.org/wiki/Denormal_number#Performance_issues>`_
+    on most current architectures, which leads to severe performance penalties.
+    This function can be used to specify whether denormalized floating point
+    values are simply flushed to zero, which sidesteps the performance issues.
+
+.. cpp:function:: bool flush_denormals()
+
+    Returns the denormals are flushed to zero (see :cpp:func:`set_flush_denormals`).

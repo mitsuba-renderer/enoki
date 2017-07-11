@@ -3,11 +3,10 @@ Advanced topics
 
 This section is still under construction.
 
-TODO: Python integration, bool_array_t, like_t, etc. ENOKI_UNLIKELY, meshgrid,
-set_flush_denormals, memory allocator, low(), high(), head<>(), copysign,
+TODO: Python integration. ENOKI_UNLIKELY, meshgrid,
+memory allocator, low(), high(), head<>(), copysign,
 mulsign, concat, function calls,
 stl.h
-compress in operations
 
 dynamic array class & set_slices, slices, packet, slice
 
@@ -15,6 +14,8 @@ dynamic array class & set_slices, slices, packet, slice
 - arithmetic involving arrays of references
 
 Undocumented: reinterpret_array, shuffle
+
+.. _compression:
 
 Compressing arrays
 ------------------
@@ -24,9 +25,9 @@ selectively writing only masked parts of an array so that the selected entries
 become densely packed in memory (e.g. to improve resource usage when only parts
 of an array participate in a computation).
 
-The function :cpp:func:`compress` efficiently maps this operation onto the
-targeted hardware (SSE4.2, AVX2, and AVX512 implementations are provided). The
-function also automatically advances the pointer by the amount of written
+The function :cpp:func:`enoki::compress` efficiently maps this operation onto
+the targeted hardware (SSE4.2, AVX2, and AVX512 implementations are provided).
+The function also automatically advances the pointer by the amount of written
 entries.
 
 .. code-block:: cpp
@@ -40,8 +41,8 @@ entries.
     ...
 
 Custom data structures such as the GPS record class discussed in previous
-chapters are transparently supported by :cpp:func:`compress`---in this case,
-the mask applies to each vertical slice through the data structure as
+chapters are transparently supported by :cpp:func:`enoki::compress`---in this
+case, the mask applies to each vertical slice through the data structure as
 illustrated in the following figure:
 
 .. image:: advanced-01.svg
@@ -52,7 +53,7 @@ The :cpp:func:`slice_ptr` function is used to acquire a pointer to the
 beginning of the output array. It returns a value of type ``GPSRecord2<float
 *>``, which is composed of multiple pointers (one for each component). The
 following snippet illustrates how an arbitrarily long list of records can be
-filtered:
+decodeed:
 
 .. code-block:: cpp
 
@@ -70,7 +71,7 @@ filtered:
 
     /* Go through all packets, compress, and append */
     for (size_t i = 0; i < packets(input); ++i) {
-        /* Let/s filter out the records with input.reliable == true */
+        /* Let's decode out the records with input.reliable == true */
         auto input_p = packet(input, i);
         final_size += compress(ptr, input_p, input_p.reliable);
     }
@@ -90,6 +91,148 @@ filtered:
 
     Note that :cpp:func:`enoki::compress` will never require more memory than
     the input array, hence this provides a safe upper bound.
+
+Vectorized method calls
+-----------------------
+
+Method calls and virtual method calls are an important building block of modern
+object-oriented C++ applications. When vectorization enters the picture, it is
+not immediately clear how they should be dealt with. This section introduces
+Enoki's method call vectorization support, focusing on a hypothetical
+``Sensor`` class that decodes a measurement performed by a sensor.
+
+Suppose that the interface of the ``Sensor`` class originally looks as follows:
+
+.. code-block:: cpp
+
+    class Sensor {
+    public:
+        /// Decode a measurement based on the sensor's response curve
+        virtual float decode(float input) = 0;
+
+        /// Return sensor's serial number
+        virtual uint32_t serial_number() = 0;
+    };
+
+It is trivial to add a second method that takes vector inputs, like so:
+
+.. code-block:: cpp
+    :emphasize-lines: 9
+
+    using FloatP = Array<float, 8>;
+
+    class Sensor {
+    public:
+        /// Scalar version
+        virtual float decode(float input) = 0;
+
+        /// Vector version
+        virtual FloatP decode(FloatP input) = 0;
+
+        /// Return sensor's serial number
+        virtual uint32_t serial_number() = 0;
+    };
+
+This will work fine if there is just a single ``Sensor`` instance. But what if
+there are many of them, e.g. when each ``FloatP`` array of measurements also
+comes with a ``SensorP`` structure whose entries reference the sensor that
+produced the measurement?
+
+.. code-block:: cpp
+
+    class Sensor;
+    using SensorP = Array<Sensor *, 8>;
+
+Ideally, we'd still be able to write the following code, but this sort of thing
+is clearly not supported by standard C++.
+
+.. code-block:: cpp
+
+    SensorP sensor = ...;
+    FloatP data = ...;
+
+    data = sensor->decode(data);
+
+Enoki provides a support layer that can handle such vectorized method calls. It
+performs as many method calls as there are unique instances in the ``sensor``
+array while using modern vector instruction sets to do so efficiently. A mask
+is forwarded to the callee indicating which SIMD lanes are currently active.
+
+To support a vector method calls, the interface of the vectorized ``decode()``
+method must be changed to take a mask its as last input. The
+``ENOKI_CALL_SUPPORT`` macro below is also required---this generates the Enoki
+support layer that intercepts and carries out the function call.
+
+.. code-block:: cpp
+    :emphasize-lines: 7, 13, 14, 15, 16
+
+    class Sensor {
+    public:
+        // Scalar version
+        virtual float decode(float input) = 0;
+
+        // Vector version
+        virtual FloatP decode(FloatP input, mask_t<SensorP> mask) = 0;
+
+        /// Return sensor's serial number
+        virtual uint32_t serial_number() = 0;
+    };
+
+    ENOKI_CALL_SUPPORT_BEGIN(SensorP)
+    ENOKI_CALL_SUPPORT(decode)
+    /// .. potentially other methods ..
+    ENOKI_CALL_SUPPORT_END(SensorP)
+
+Here is a hypothetical implementation of the ``Sensor`` interface:
+
+.. code-block:: cpp
+
+    class Sensor1 : Sensor {
+    public:
+        /// Vector version
+        virtual FloatP decode(FloatP input, mask_t<SensorP> active) override {
+            /// Keep track of invalid samples
+            n_invalid += count(isnan(input) & mask_t<FloatP>(active));
+
+            /// Transform e.g. from log domain
+            return log(input);
+        }
+
+        /// Return sensor's serial number
+        uint32_t serial_number() {
+            return 363436u;
+        }
+
+        // ...
+
+        size_t n_invalid = 0;
+    };
+
+Supporting scalar *getter* functions
+************************************
+
+It often makes little sense to add a separate vectorized and masked version of
+simple *getter* functions like as ``serial_number()`` in the above example.
+Enoki provides a ``ENOKI_CALL_SUPPORT_SCALAR()`` macro for such cases, which
+would be used as follows:
+
+.. code-block:: cpp
+    :emphasize-lines: 3
+
+    ENOKI_CALL_SUPPORT_BEGIN(SensorP)
+    ENOKI_CALL_SUPPORT(decode)
+    ENOKI_CALL_SUPPORT_SCALAR(serial_number)
+    ENOKI_CALL_SUPPORT_END(SensorP)
+
+Afterwards, it is possible to efficiently acquire all serial numbers in a
+packet at once.
+
+.. code-block:: cpp
+
+    using UInt32P = Array<uint32_t, 8>;
+
+    SensorP sensor = ...;
+    UInt32P serial = sensor->serial_number();
 
 Vectorized for loops
 --------------------
@@ -121,7 +264,6 @@ computes :math:`\sum_{i=0}^{1000}i^2` using brute force addition (but with only
 
 The mask is necessary to communicate the fact that the last loop iteration has
 several disabled entries.
-
 
 .. _integer-division:
 

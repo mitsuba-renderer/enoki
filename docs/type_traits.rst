@@ -6,114 +6,79 @@ Type traits
 The following type traits are available to query the properties of arrays at
 compile time.
 
-SFINAE helper types
--------------------
+Replacing the scalar type of an array
+-------------------------------------
 
-The following section discusses helper types that can be used to selectively
-enable or disable template functions for Enoki arrays, e.g. like so:
+The :cpp:class:`enoki::like_t` type trait and various aliases construct arrays
+matching a certain layout, but with different-flavored data. This is often
+helpful when defining custom data structures or function inputs. See the
+section on :ref:`custom data structures <custom-structures>` for an example
+usage.
 
-.. code-block:: cpp
+.. cpp:type:: template <typename Array, typename Scalar> like_t
 
-    template <typename Value, enable_if_array_t<Value> = 0>
-    void f(Value value) {
-        /* Invoked if 'Value' is an Enoki array */
-    }
+    Replaces the scalar type underlying an array. For instance,
+    ``like_t<Array<Array<float, 16>, 32>, int>`` is equal to ``Array<Array<int,
+    16>, 32>``.
 
-    template <typename Value, enable_if_not_array_t<Value> = 0>
-    void f(Value value) {
-        /* Invoked if 'Value' is *not* an Enoki array */
-    }
+    Also works for scalar arguments; pointers and reference arguments are
+    copied---for instance, ``like_t<const float *, int>`` is equal to ``const
+    int *``.
 
+.. cpp:type:: template <typename Array> uint32_array_t = like_t<Array, uint32_t>
 
-1. Detecting Enoki arrays
-*************************
+    Create a 32-bit unsigned integer array matching the layout of ``Array``.
 
-.. cpp:class:: template <typename T> is_array
+.. cpp:type:: template <typename Array> int32_array_t = like_t<Array, int32_t>
 
-    .. cpp:member:: static constexpr bool value
+    Create a 32-bit signed integer array matching the layout of ``Array``.
 
-        Equal to ``true`` iff *T* is a static or dynamic Enoki array type.
+.. cpp:type:: template <typename Array> uint64_array_t = like_t<Array, uint64_t>
 
-.. cpp:type:: template <typename T> enable_if_array_t = std::enable_if_t<is_array<T>::value, int>
+    Create a 64-bit unsigned integer array matching the layout of ``Array``.
 
-    SFINAE alias to selectively enable a class or function definition for Enoki
-    array types.
+.. cpp:type:: template <typename Array> int64_array_t = like_t<Array, int64_t>
 
-.. cpp:type:: template <typename T> enable_if_not_array_t = std::enable_if_t<!is_array<T>::value, int>
+    Create a 64-bit signed integer array matching the layout of ``Array``.
 
-    SFINAE alias to selectively enable a class or function definition for types
-    that are not Enoki arrays.
+.. cpp:type:: template <typename Array> int_array_t
 
+    Create a signed integer array (with the same number of bits per entry as
+    the input) matching the layout of ``Array``.
 
-2. Detecting Enoki masks
-************************
+.. cpp:type:: template <typename Array> uint_array_t
 
-.. cpp:class:: template <typename T> is_mask
+    Create an unsigned integer array (with the same number of bits per entry as
+    the input) matching the layout of ``Array``.
 
-    .. cpp:member:: static constexpr bool value
+.. cpp:type:: template <typename Array> float16_array_t = like_t<Array, half>
 
-        Equal to ``true`` iff *T* is a static or dynamic Enoki mask type.
+    Create a half precision array matching the layout of ``Array``.
 
-.. cpp:type:: template <typename T> enable_if_mask_t = std::enable_if_t<is_mask<T>::value, int>
+.. cpp:type:: template <typename Array> float32_array_t = like_t<Array, float>
 
-    SFINAE alias to selectively enable a class or function definition for Enoki
-    mask types.
+    Create a single precision array matching the layout of ``Array``.
 
-.. cpp:type:: template <typename T> enable_if_not_mask_t = std::enable_if_t<!is_mask<T>::value, int>
+.. cpp:type:: template <typename Array> float64_array_t = like_t<Array, double>
 
-    SFINAE alias to selectively enable a class or function definition for types
-    that are not Enoki masks.
+    Create a double precision array matching the layout of ``Array``.
 
-3. Detecting static Enoki arrays
-********************************
+.. cpp:type:: template <typename Array> float_array_t
 
-.. cpp:class:: template <typename T> is_static_array
+    Create a floating point array (with the same number of bits per entry as
+    the input) matching the layout of ``Array``.
 
-    .. cpp:member:: static constexpr bool value
+.. cpp:type:: template <typename Array> bool_array_t = like_t<Array, bool>
 
-        Equal to ``true`` iff *T* is a static Enoki array type.
+    Create a boolean array matching the layout of ``Array``.
 
-.. cpp:type:: template <typename T> enable_if_static_array_t = std::enable_if_t<is_static_array<T>::value, int>
+.. cpp:type:: template <typename Array> size_array_t = like_t<Array, size_t>
 
-    SFINAE alias to selectively enable a class or function definition for
-    static Enoki array types.
+    Create a ``size_t``-valued array matching the layout of ``Array``.
 
-.. cpp:type:: template <typename T> enable_if_not_static_array_t = std::enable_if_t<!is_static_array<T>::value, int>
+.. cpp:type:: template <typename Array> ssize_array_t = like_t<Array, ssize_t>
 
-    SFINAE alias to selectively enable a class or function definition for
-    static Enoki array types.
-
-4. Detecting dynamic Enoki arrays
-*********************************
-
-.. cpp:class:: template <typename T> is_dynamic_array
-
-    .. cpp:member:: static constexpr bool value
-
-        Equal to ``true`` iff *T* is a dynamic Enoki array type.
-
-.. cpp:type:: template <typename T> enable_if_dynamic_array_t = std::enable_if_t<is_dynamic_array<T>::value, int>
-
-    SFINAE alias to selectively enable a class or function definition for
-    dynamic Enoki array types.
-
-.. cpp:type:: template <typename T> enable_if_not_dynamic_array_t = std::enable_if_t<!is_dynamic_array<T>::value, int>
-
-    SFINAE alias to selectively enable a class or function definition for
-    dynamic Enoki array types.
-
-.. cpp:class:: template <typename T> is_dynamic_nested
-
-    .. cpp:member:: static constexpr bool value
-
-        Equal to ``true`` iff *T* (which could be a nested Enoki array) contains
-        a dynamic array at *any* level.
-
-        This is different from :cpp:class:`is_dynamic_array`, which only cares
-        about the outermost level -- for instance, given static array *T*
-        containing a nested dynamic array, ``is_dynamic_array<T>::value ==
-        false``, while ``is_dynamic_nested<T>::value == true``.
-
+    Create a ``ssize_t``-valued array matching the layout of ``Array``.
 
 Accessing types related to Enoki arrays
 ---------------------------------------
@@ -167,4 +132,114 @@ Accessing types related to Enoki arrays
         :cpp:var:`value` member. Non-array types (e.g. ``int32_t``) have a
         nesting level of 0, a type such as ``Array<float>`` has nesting level
         1, and so on.
+
+
+SFINAE helper types
+-------------------
+
+The following section discusses helper types that can be used to selectively
+enable or disable template functions for Enoki arrays, e.g. like so:
+
+.. code-block:: cpp
+
+    template <typename Value, enable_if_array_t<Value> = 0>
+    void f(Value value) {
+        /* Invoked if 'Value' is an Enoki array */
+    }
+
+    template <typename Value, enable_if_not_array_t<Value> = 0>
+    void f(Value value) {
+        /* Invoked if 'Value' is *not* an Enoki array */
+    }
+
+
+Detecting Enoki arrays
+**********************
+
+.. cpp:class:: template <typename T> is_array
+
+    .. cpp:member:: static constexpr bool value
+
+        Equal to ``true`` iff *T* is a static or dynamic Enoki array type.
+
+.. cpp:type:: template <typename T> enable_if_array_t = std::enable_if_t<is_array<T>::value, int>
+
+    SFINAE alias to selectively enable a class or function definition for Enoki
+    array types.
+
+.. cpp:type:: template <typename T> enable_if_not_array_t = std::enable_if_t<!is_array<T>::value, int>
+
+    SFINAE alias to selectively enable a class or function definition for types
+    that are not Enoki arrays.
+
+
+Detecting Enoki masks
+*********************
+
+.. cpp:class:: template <typename T> is_mask
+
+    .. cpp:member:: static constexpr bool value
+
+        Equal to ``true`` iff *T* is a static or dynamic Enoki mask type.
+
+.. cpp:type:: template <typename T> enable_if_mask_t = std::enable_if_t<is_mask<T>::value, int>
+
+    SFINAE alias to selectively enable a class or function definition for Enoki
+    mask types.
+
+.. cpp:type:: template <typename T> enable_if_not_mask_t = std::enable_if_t<!is_mask<T>::value, int>
+
+    SFINAE alias to selectively enable a class or function definition for types
+    that are not Enoki masks.
+
+Detecting static Enoki arrays
+*****************************
+
+.. cpp:class:: template <typename T> is_static_array
+
+    .. cpp:member:: static constexpr bool value
+
+        Equal to ``true`` iff *T* is a static Enoki array type.
+
+.. cpp:type:: template <typename T> enable_if_static_array_t = std::enable_if_t<is_static_array<T>::value, int>
+
+    SFINAE alias to selectively enable a class or function definition for
+    static Enoki array types.
+
+.. cpp:type:: template <typename T> enable_if_not_static_array_t = std::enable_if_t<!is_static_array<T>::value, int>
+
+    SFINAE alias to selectively enable a class or function definition for
+    static Enoki array types.
+
+Detecting dynamic Enoki arrays
+******************************
+
+.. cpp:class:: template <typename T> is_dynamic_array
+
+    .. cpp:member:: static constexpr bool value
+
+        Equal to ``true`` iff *T* is a dynamic Enoki array type.
+
+.. cpp:type:: template <typename T> enable_if_dynamic_array_t = std::enable_if_t<is_dynamic_array<T>::value, int>
+
+    SFINAE alias to selectively enable a class or function definition for
+    dynamic Enoki array types.
+
+.. cpp:type:: template <typename T> enable_if_not_dynamic_array_t = std::enable_if_t<!is_dynamic_array<T>::value, int>
+
+    SFINAE alias to selectively enable a class or function definition for
+    dynamic Enoki array types.
+
+.. cpp:class:: template <typename T> is_dynamic_nested
+
+    .. cpp:member:: static constexpr bool value
+
+        Equal to ``true`` iff *T* (which could be a nested Enoki array) contains
+        a dynamic array at *any* level.
+
+        This is different from :cpp:class:`is_dynamic_array`, which only cares
+        about the outermost level -- for instance, given static array *T*
+        containing a nested dynamic array, ``is_dynamic_array<T>::value ==
+        false``, while ``is_dynamic_nested<T>::value == true``.
+
 
