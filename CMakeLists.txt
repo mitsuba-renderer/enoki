@@ -8,7 +8,7 @@ endif()
 
 option(ENOKI_TEST "Build Enoki test suite?" ${ENOKI_MASTER_PROJECT})
 
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "Setting build type to 'Debug' as none was specified.")
   set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build." FORCE)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release"
@@ -31,7 +31,7 @@ try_run(
   ${CMAKE_CURRENT_SOURCE_DIR}/resources/${ENOKI_ARCHFLAGS_FILE}
   RUN_OUTPUT_VARIABLE ENOKI_ARCHFLAGS
 )
-if(NOT ${ENOKI_ARCHFLAGS_COMPILE_RESULT})
+if (NOT ${ENOKI_ARCHFLAGS_COMPILE_RESULT})
    message(FATAL_ERROR "Failed to compile 'archflags' binary")
 endif()
 
@@ -42,9 +42,9 @@ set(ENOKI_NATIVE_FLAGS "")
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR
     CMAKE_CXX_COMPILER_ID MATCHES "GNU")
   set(ENOKI_NATIVE_FLAGS "-march=native")
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
+elseif (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
   set(ENOKI_NATIVE_FLAGS "-xHost")
-elseif(MSVC)
+elseif (MSVC)
   # MSVC doesn't have a flag equivalent to -march=native
   # The 'archflags' executable provides this functionality
   set(ENOKI_NATIVE_FLAGS ${ENOKI_ARCHFLAGS})
@@ -155,7 +155,7 @@ set(ENOKI_HEADERS
 )
 
 if (MSVC)
-  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(SSE42_FLAGS "/D__SSE4_2__")
   else()
     set(SSE42_FLAGS "/arch:SSE2 /D__SSE4_2__")
@@ -278,7 +278,7 @@ if (ENOKI_TEST)
       set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
       set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -stdlib=libc++")
       CHECK_CXX_COMPILER_AND_LINKER_FLAGS(HAS_LIBCPPABI "-stdlib=libc++" "-stdlib=libc++ -lc++abi")
-      if(HAS_LIBCPPABI)
+      if (HAS_LIBCPPABI)
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++abi")
         set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lc++abi")
         message(STATUS "Enoki: using libc++ and libc++abi.")
@@ -304,15 +304,17 @@ if (ENOKI_TEST)
 endif()
 
 # Build the documentation
-set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources")
-find_package(Sphinx)
+if (ENOKI_MASTER_PROJECT)
+  set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources")
+  find_package(Sphinx)
 
-if (Sphinx_FOUND)
-  set(SPHINX_INPUT_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/docs")
-  set(SPHINX_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/html")
+  if (Sphinx_FOUND)
+    set(SPHINX_INPUT_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/docs")
+    set(SPHINX_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/html")
 
-  add_custom_target(mkdoc
-      ${SPHINX_EXECUTABLE} -b html "${SPHINX_INPUT_DIR}" "${SPHINX_OUTPUT_DIR}"
-      COMMENT "Building HTML documentation with Sphinx"
-      USES_TERMINAL)
+    add_custom_target(mkdoc
+        ${SPHINX_EXECUTABLE} -b html "${SPHINX_INPUT_DIR}" "${SPHINX_OUTPUT_DIR}"
+        COMMENT "Building HTML documentation with Sphinx"
+        USES_TERMINAL)
+  endif()
 endif()

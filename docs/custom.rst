@@ -76,8 +76,8 @@ position component (e.g. latitude) named ``Value``.
 The ``using`` declarations at the beginning require an explanation: they
 involve the type traits :cpp:type:`enoki::uint64_array_t` and
 :cpp:type:`enoki::bool_array_t`, which "compute" the type of an Enoki array
-that has the same configuration as their ``Value`` parameter, but with
-``uint64_t``- and boolean-valued entries, respectively. Both are
+that has the same configuration as their input parameter, but with
+``uint64_t``- and ``bool``-valued entries, respectively. Both are
 specializations of the more general :cpp:type:`enoki::like_t` trait that works
 for any type.
 
@@ -133,8 +133,8 @@ Note how the overall structure is preserved. There are two noteworthy changes:
 
 1. Control flow such as ``if`` statements must be replaced by branchless code
    involving masks (see the :cpp:func:`enoki::select` statement on line 15).
-   Separate entries may have a different control flow, which is not possible
-   with standard C++ language constructs, hence the need for masks.
+   Separate array entries may undergo a different control flow, which is not
+   possible with standard C++ language constructs, hence the need for masks.
 
    If desired, the early-out optimization from the previous snippet can be
    preserved for the special case that *all* records are unreliable:
@@ -144,9 +144,8 @@ Note how the overall structure is preserved. There are two noteworthy changes:
        if (ENOKI_UNLIKELY(none(r1.reliable & r2.reliable)))
            return Value(std::numeric_limits<Scalar>::quiet_NaN())
 
-   The :cpp:func:`ENOKI_UNLIKELY` macro signals that the branch is rarely
-   taken, which can be used for improved code layout if supported by the
-   compiler.
+   The :c:macro:`ENOKI_UNLIKELY` macro signals that the branch is rarely taken,
+   which can be used for improved code layout if supported by the compiler.
 
 2. The :cpp:type:`enoki::scalar_t` type alias on line 4 is used to extract the
    elementary arithmetic type underlying an Enoki array---this results in the
@@ -154,7 +153,7 @@ Note how the overall structure is preserved. There are two noteworthy changes:
    the right precision.
 
    It is sometimes useful to be able to work with a higher precision. Our
-   templated ``distance`` function can nicely accommodate this need by simply
+   templated ``distance`` function can nicely accommodate this need simply by simply
    switching to the following types:
 
    .. code-block:: cpp

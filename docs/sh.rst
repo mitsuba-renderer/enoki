@@ -63,15 +63,15 @@ Reference
 
 .. cpp:function:: template <typename Array> void sh_eval(const Array &d, size_t order, expr_t<value_t<Array>> *out)
 
-    Evaluates the real spherical harmonics basis functions up to and including order ``order``.
-    The output array must have room for ``(order + 1)*(order + 1)`` entries.
-    This function dispatches to one of the ``sh_eval_*`` implementations and
-    throws an exception if ``order > 9``.
+    Evaluates the real spherical harmonics basis functions up to and including
+    order ``order``. The output array must have room for ``(order + 1)*(order +
+    1)`` entries. This function dispatches to one of the ``sh_eval_*``
+    implementations and throws an exception if ``order > 9``.
 
 .. cpp:function:: template <typename Array> void sh_eval_0(const Array &d, expr_t<value_t<Array>> *out)
 
     Evaluates the real spherical harmonics basis functions up to and including
-    order 0. The output array must have room for ``1`` entries.
+    order 0. The output array must have room for ``1`` entry.
 
 .. cpp:function:: template <typename Array> void sh_eval_1(const Array &d, expr_t<value_t<Array>> *out)
 

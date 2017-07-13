@@ -128,12 +128,13 @@ referred to as a *packet*.
     :align: center
 
 Since Enoki arrays support arbitrary nesting, it's straightforward to wrap an
-existing ``Array`` representing a packet of data into another array with the
-semantics of an ``N``-dimensional vector. As before, all mathematical
-operations discussed so far are trivially supported due to the semantics of an
-Enoki array: all operations are simply forwarded to the contained entries
-(which are themselves arrays now, so the procedure continues recursively). The
-following snippet demonstrates the basic usage of such an approach.
+existing ``Array`` representing a packet of data into another array while
+preserving the semantics of an 3-dimensional vector at the top level. As
+before, all mathematical operations discussed so far are trivially supported
+due to the fundamental behavior of an Enoki array: all operations are simply
+forwarded to the contained entries (which are themselves arrays now, so the
+procedure continues recursively). The following snippet demonstrates the basic
+usage of such an approach.
 
 .. code-block:: cpp
 
@@ -172,10 +173,10 @@ product
 
 now creates a size-4 packet of dot products: one for each pair of input 3D
 vectors. This is simply a consequence of applying the definition of the dot
-product to the components of the array (which are now arrays). Another
-consequence is that an inefficient horizontal operation was converted into a
-series of vertical operations that make better use of the processor's vector
-units.
+product to the components of the array (which are now arrays). This is a major
+performance improvement since it allows converting inefficient horizontal
+operations into a series of vertical operations that make better use of the
+processor's vector units.
 
 .. image:: nested-02.svg
     :width: 600px
@@ -254,8 +255,8 @@ machine which supports the AVX512ER instruction set:
         vmulps       zmm0, zmm1, zmm0
 
 Note that it can be advantageous to use an integer multiple of the system's
-SIMD width (e.g. 2x) to further increase the amount of arithmetic that
-occurs between memory accesses. In the above example, Enoki would then
+SIMD width (e.g. :math:`2\times`) to further increase the amount of arithmetic
+that occurs between memory accesses. In the above example, Enoki would then
 unroll every 32x-wide operation into a pair of 16x-wide AVX512 instructions.
 
 Nested horizontal operations
@@ -269,7 +270,7 @@ Sometimes this is not desirable, and Enoki thus also provides nested versions
 all of horizontal operations that can be accessed via the ``_nested`` suffix.
 These functions recursively apply horizontal reductions until the result ceases
 to be an array. For instance, the following function ensures that no element of
-a packet of 3-vectors contains a Not-a-Number floating point value.
+a packet of 3-vectors contains a *Not-a-Number* floating point value.
 
 .. code-block:: cpp
 

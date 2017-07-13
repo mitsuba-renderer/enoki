@@ -57,7 +57,7 @@ decodeed:
 
     /* Go through all packets, compress, and append */
     for (size_t i = 0; i < packets(input); ++i) {
-        /* Let's decode out the records with input.reliable == true */
+        /* Let's filter out the records with input.reliable == false */
         auto input_p = packet(input, i);
         final_size += compress(ptr, input_p, input_p.reliable);
     }

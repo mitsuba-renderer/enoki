@@ -123,7 +123,7 @@ original type declaration:
         Bool reliable;
 
         ENOKI_STRUCT(GPSCoord2,           /* <- name of this class */
-                     time, pos, reliable  /* <- list of all attributes in correct order */)
+                     time, pos, reliable  /* <- list of all attributes in layout order */)
     };
 
     ENOKI_STRUCT_DYNAMIC(GPSCoord2, time, pos, reliable)
