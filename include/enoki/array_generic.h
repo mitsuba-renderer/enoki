@@ -844,9 +844,6 @@ public:
     ENOKI_FORWARD_FUNCTION(atan)
     ENOKI_FORWARD_FUNCTION(atanh)
 
-    ENOKI_FORWARD_FUNCTION(erf)
-    ENOKI_FORWARD_FUNCTION(erfinv)
-
     #undef ENOKI_FORWARD_FUNCTION
 
     //! @}

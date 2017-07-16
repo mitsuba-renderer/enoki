@@ -266,14 +266,14 @@ that they are independently applied to all array elements.
     f2 = exp(f1);   f2 = log(f1);   f2 = pow(f1, f2);
 
     /* Error function and its inverse */
-    f2 = erf(f1);   f2 = erfinv(f1);
 
     /* Exponent/mantissa manipulation */
     f1 = ldexp(f1, f2);
     std::tie(f1, f2) = frexp(f1);
 
     /* Special functions */
-    f2 = i0e(f1);
+    f2 = erf(f1); f2 = erfinv(f1); f2 = erfi(f1);
+    f2 = i0e(f1); f2 = dawson(f1);
 
     /* Bit shifts and rotations (only for integer arrays) */
     i1 = sli<3>(i1);   i1 = sri<3>(i1);   /* Shift by a compile-time constant ("immediate") */

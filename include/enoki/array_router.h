@@ -281,7 +281,6 @@ ENOKI_ROUTE_UNARY_WITH_FALLBACK(asinh, std::asinh(a))
 ENOKI_ROUTE_UNARY_WITH_FALLBACK(acosh, std::acosh(a))
 ENOKI_ROUTE_UNARY_WITH_FALLBACK(atanh, std::atanh(a))
 
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(erf,   std::erf(a))
 ENOKI_ROUTE_UNARY_WITH_FALLBACK(isnan, std::isnan(a))
 ENOKI_ROUTE_UNARY_WITH_FALLBACK(isinf, std::isinf(a))
 ENOKI_ROUTE_UNARY_WITH_FALLBACK(isfinite, std::isfinite(a))
@@ -837,40 +836,6 @@ template <size_t Index, typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg shuffle(const Arg &arg) {
     static_assert(Index == 0, "Invalid argument to shuffle");
     return arg;
-}
-
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE auto erfinv(const Array &a) {
-    return a.erfinv_();
-}
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg erfinv(const Arg &x) {
-    // Based on "Approximating the erfinv function" by Mark Giles
-    Arg w = -log((Arg(1) - x) * (Arg(1) + x));
-    Arg w1 = w - Arg(2.5);
-    Arg w2 = sqrt(w) - Arg(3);
-
-    Arg p1 = Arg(2.81022636e-08);
-    Arg p2 = Arg(-0.000200214257);
-    p1 = fmadd(p1, w1, Arg(3.43273939e-07));
-    p2 = fmadd(p2, w2, Arg(0.000100950558));
-    p1 = fmadd(p1, w1, Arg(-3.5233877e-06));
-    p2 = fmadd(p2, w2, Arg(0.00134934322));
-    p1 = fmadd(p1, w1, Arg(-4.39150654e-06));
-    p2 = fmadd(p2, w2, Arg(-0.00367342844));
-    p1 = fmadd(p1, w1, Arg(0.00021858087));
-    p2 = fmadd(p2, w2, Arg(0.00573950773));
-    p1 = fmadd(p1, w1, Arg(-0.00125372503));
-    p2 = fmadd(p2, w2, Arg(-0.0076224613));
-    p1 = fmadd(p1, w1, Arg(-0.00417768164));
-    p2 = fmadd(p2, w2, Arg(0.00943887047));
-    p1 = fmadd(p1, w1, Arg(0.246640727));
-    p2 = fmadd(p2, w2, Arg(1.00167406));
-    p1 = fmadd(p1, w1, Arg(1.50140941));
-    p2 = fmadd(p2, w2, Arg(2.83297682));
-
-    return select(w < 5, p1, p2) * x;
 }
 
 NAMESPACE_BEGIN(detail)

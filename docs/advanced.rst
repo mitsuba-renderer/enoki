@@ -375,8 +375,8 @@ The histogram problem and conflict detection
 
 Consider vectorizing a function that increments the bins of a histogram given
 an array of bin indices. It is impossible to do this kind of indirect update
-using a normal pair of gather and scatter operations, since incorrect updates
-occur whenever the ``indices`` array contains an index multiple times:
+using a normal pair of *gather* and *scatter* operations, since incorrect
+updates occur whenever the ``indices`` array contains an index multiple times:
 
 .. code-block:: cpp
 
@@ -587,8 +587,6 @@ the routing templates in ``enoki/enoki_router.h``.
 
   * Exponentials, logarithms, powers, floating point exponent manipulation
     functions: ``log_``, ``exp_``, ``pow_`` ``frexp_``, ``ldexp_``.
-
-  * Error function and its inverse: ``erf_``, ``erfinv_``.
 
   * Optional bit-level rotation operations (reduced to shifts by default):
     ``rol_``, ``roli_``, ``rolv_``, ``ror_``, ``rori_``, ``rorv_``.

@@ -94,7 +94,7 @@ module boundaries. It has the following design goals:
    transcendental functions, including *cos*, *sin*, *sincos*, *tan*, *csc*,
    *sec*, *cot*, *acos*, *asin*, *atan*, *atan2*, *exp*, *log*, *pow*, *sinh*,
    *cosh*, *sincosh*, *tanh*, *csch*, *sech*, *coth*, *asinh*, *acosh*,
-   *atanh*, *i0e*, *frexp*, *ldexp*, *erf*, and *erfinv*.
+   *atanh*, *i0e*, *frexp*, *ldexp*, *erf*, *erfi*, and *erfinv*.
 
    .. image:: intro-03.png
        :width: 720px

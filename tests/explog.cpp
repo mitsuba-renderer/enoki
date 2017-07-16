@@ -93,24 +93,3 @@ ENOKI_TEST_FLOAT(test05_pow) {
     assert(T(abs(pow(T(Value(M_PI)), T(Value(-2))) -
                T(Value(0.101321183642338))))[0] < 1e-6f);
 }
-
-ENOKI_TEST_FLOAT(test06_erf) {
-    test::probe_accuracy<T>(
-        [](const T &a) -> T { return erf(a); },
-        [](double a) { return std::erf(a); },
-        Value(-1), Value(1), 75
-    );
-
-    Array<T, 4> x((Value) 0.5);
-    Array<T&, 4> y(x);
-    assert(erf(x) == erf(y));
-}
-
-ENOKI_TEST_FLOAT(test07_erfinv) {
-    for (int i = 0; i < 1000; ++i) {
-        auto f = T((float) i / 1000.0f * 2 - 1 + 1e-6f);
-        auto inv = erfinv(f);
-        auto f2 = erf(inv);
-        assert(std::abs(T(f-f2)[0]) < 1e-6f);
-    }
-}
