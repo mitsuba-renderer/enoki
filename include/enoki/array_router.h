@@ -838,6 +838,16 @@ ENOKI_INLINE Arg shuffle(const Arg &arg) {
     return arg;
 }
 
+//// Convert radians to degrees
+template <typename Arg, typename E = expr_t<Arg>> ENOKI_INLINE E rad_to_deg(Arg value) {
+    return E(scalar_t<E>(180 / M_PI)) * value;
+}
+
+/// Convert degrees to radians
+template <typename Arg, typename E = expr_t<Arg>> ENOKI_INLINE E deg_to_rad(Arg value) {
+    return E(scalar_t<E>(M_PI / 180)) * value;
+}
+
 NAMESPACE_BEGIN(detail)
 template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE expr_t<Array> sign_mask(const Array &a) {

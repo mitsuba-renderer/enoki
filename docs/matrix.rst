@@ -100,6 +100,14 @@ Reference
     column-major storage order to enable a particularly efficient
     implementation of vectorized matrix multiplication.
 
+    .. cpp:type:: Type
+
+        Denotes the type of matrix elements.
+
+    .. cpp:type:: Column
+
+        Denotes the Enoki array type of a matrix column.
+
     .. cpp:function:: template <typename... Columns> Matrix(Columns... columns)
 
         Creates a new :cpp:class:`enoki::Matrix` instance with the
@@ -147,9 +155,13 @@ Supported operations
 
     Computes the trace (i.e. sum of the diagonal elements) of the given matrix.
 
-.. cpp:function:: template <typename T, size_t Size> Matrix<T, Size> identity()
+.. cpp:function:: template <typename Matrix> Matrix identity()
 
     Returns the identity matrix.
+
+.. cpp:function:: template <typename Matrix> Matrix diag(typename Matrix::Column v)
+
+    Returns a diagonal matrix whoose entries are copied from ``v``.
 
 .. cpp:function:: template <typename T, size_t Size> Matrix<T, Size> transpose(Matrix<T, Size> m)
 

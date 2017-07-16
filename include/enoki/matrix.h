@@ -17,6 +17,12 @@
 
 NAMESPACE_BEGIN(enoki)
 
+/// Type trait to access the entry type of a matrix
+template <typename T> using entry_t = typename std::decay_t<T>::Entry;
+
+/// Type trait to access the column type of a matrix
+template <typename T> using column_t = typename std::decay_t<T>::Column;
+
 /**
  * \brief Dense square matrix data structure of static size
  * \remark Uses column-major storage order to permit efficient vectorization
@@ -141,6 +147,13 @@ template <typename Matrix> ENOKI_INLINE Matrix identity() {
     return result;
 }
 
+template <typename Matrix> ENOKI_INLINE Matrix diag(typename Matrix::Column value) {
+    Matrix result = zero<Matrix>();
+    for (size_t i = 0; i < Matrix::Size; ++i)
+        result(i, i) = value.coeff(i);
+    return result;
+}
+
 template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 1> invert(Matrix<T, 1> m) {
     using Vector = Array<E, 1>;
     return rcp<Vector::Approx>(m(0, 0));
@@ -232,6 +245,111 @@ template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 4> invert(M
     ));
 }
 
+#if defined(__SSE4_2__)
+// Optimized 3x3 transpose (single precision)
+template <typename Type, bool Approx, RoundingMode Mode, typename Derived,
+          std::enable_if_t<Type::Size == 3 &&
+                           std::is_same<typename Type::Type, float>::value, int> = 0>
+ENOKI_INLINE auto
+transpose(const StaticArrayBase<Type, 3, Approx, Mode, Derived> &a) {
+    __m128 c0 = a.derived().coeff(0).m,
+           c1 = a.derived().coeff(1).m,
+           c2 = a.derived().coeff(2).m;
+
+    __m128 t0 = _mm_unpacklo_ps(c0, c1);
+    __m128 t1 = _mm_unpacklo_ps(c2, c2);
+    __m128 t2 = _mm_unpackhi_ps(c0, c1);
+    __m128 t3 = _mm_unpackhi_ps(c2, c2);
+
+    return Derived(
+        _mm_movelh_ps(t0, t1),
+        _mm_movehl_ps(t1, t0),
+        _mm_movelh_ps(t2, t3)
+    );
+}
+
+// Optimized 4x4 transpose (single precision)
+template <typename Type, bool Approx, RoundingMode Mode, typename Derived,
+          std::enable_if_t<Type::Size == 4 &&
+                           std::is_same<typename Type::Type, float>::value, int> = 0>
+ENOKI_INLINE auto
+transpose(const StaticArrayBase<Type, 4, Approx, Mode, Derived> &a) {
+    __m128 c0 = a.derived().coeff(0).m, c1 = a.derived().coeff(1).m,
+           c2 = a.derived().coeff(2).m, c3 = a.derived().coeff(3).m;
+
+    __m128 t0 = _mm_unpacklo_ps(c0, c1);
+    __m128 t1 = _mm_unpacklo_ps(c2, c3);
+    __m128 t2 = _mm_unpackhi_ps(c0, c1);
+    __m128 t3 = _mm_unpackhi_ps(c2, c3);
+
+    return Derived(
+        _mm_movelh_ps(t0, t1),
+        _mm_movehl_ps(t1, t0),
+        _mm_movelh_ps(t2, t3),
+        _mm_movehl_ps(t3, t2)
+    );
+}
+#endif
+
+#if defined(__AVX__)
+// Optimized 3x3 transpose (double precision)
+template <typename Type, bool Approx, RoundingMode Mode, typename Derived,
+          std::enable_if_t<Type::Size == 3 &&
+                           std::is_same<typename Type::Type, double>::value, int> = 0>
+ENOKI_INLINE auto
+transpose(const StaticArrayBase<Type, 3, Approx, Mode, Derived> &a) {
+    __m256d c0 = a.derived().coeff(0).m,
+            c1 = a.derived().coeff(1).m,
+            c2 = a.derived().coeff(2).m;
+
+    __m256d t3 = _mm256_shuffle_pd(c2, c2, 0b0000),
+            t2 = _mm256_shuffle_pd(c2, c2, 0b1111),
+            t1 = _mm256_shuffle_pd(c0, c1, 0b0000),
+            t0 = _mm256_shuffle_pd(c0, c1, 0b1111);
+
+    return Derived(
+        _mm256_permute2f128_pd(t1, t3, 0b0010'0000),
+        _mm256_permute2f128_pd(t0, t2, 0b0010'0000),
+        _mm256_permute2f128_pd(t1, t3, 0b0011'0001)
+    );
+}
+
+// Optimized 4x4 transpose (double precision)
+template <typename Type, bool Approx, RoundingMode Mode, typename Derived,
+          std::enable_if_t<Type::Size == 4 &&
+                           std::is_same<typename Type::Type, double>::value, int> = 0>
+ENOKI_INLINE auto
+transpose(const StaticArrayBase<Type, 4, Approx, Mode, Derived> &a) {
+    __m256d c0 = a.derived().coeff(0).m, c1 = a.derived().coeff(1).m,
+            c2 = a.derived().coeff(2).m, c3 = a.derived().coeff(3).m;
+
+    __m256d t3 = _mm256_shuffle_pd(c2, c3, 0b0000),
+            t2 = _mm256_shuffle_pd(c2, c3, 0b1111),
+            t1 = _mm256_shuffle_pd(c0, c1, 0b0000),
+            t0 = _mm256_shuffle_pd(c0, c1, 0b1111);
+
+    return Derived(
+        _mm256_permute2f128_pd(t1, t3, 0b0010'0000),
+        _mm256_permute2f128_pd(t0, t2, 0b0010'0000),
+        _mm256_permute2f128_pd(t1, t3, 0b0011'0001),
+        _mm256_permute2f128_pd(t0, t2, 0b0011'0001)
+    );
+}
+#endif
+
+template <typename Type, size_t Size, bool Approx, RoundingMode Mode, typename Derived>
+ENOKI_INLINE auto
+transpose(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
+    static_assert(Type::Size == Size && array_depth<Derived>::value >= 2,
+                  "Array must be a square matrix!");
+    Derived result;
+    using Value = typename Type::Value;
+    ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+        for (size_t j = 0; j < Size; ++j)
+            result.coeff(i).coeff(j) = a.derived().coeff(j).coeff(i);
+    return result;
+}
+
 // =======================================================================
 //! @{ \name Enoki accessors for static & dynamic vectorization
 // =======================================================================
@@ -302,106 +420,5 @@ private:
 
 //! @}
 // =======================================================================
-
-#if defined(__SSE4_2__)
-// Optimized 4x4 transpose
-template <typename Type, bool Approx, RoundingMode Mode, typename Derived,
-          std::enable_if_t<Type::Size == 4 &&
-                           std::is_same<typename Type::Type, float>::value, int> = 0>
-ENOKI_INLINE auto
-transpose(const StaticArrayBase<Type, 4, Approx, Mode, Derived> &a) {
-    __m128 c0 = a.derived().coeff(0).m, c1 = a.derived().coeff(1).m,
-           c2 = a.derived().coeff(2).m, c3 = a.derived().coeff(3).m;
-
-    __m128 t0 = _mm_unpacklo_ps(c0, c1);
-    __m128 t1 = _mm_unpacklo_ps(c2, c3);
-    __m128 t2 = _mm_unpackhi_ps(c0, c1);
-    __m128 t3 = _mm_unpackhi_ps(c2, c3);
-
-    return Derived(
-        _mm_movelh_ps(t0, t1),
-        _mm_movehl_ps(t1, t0),
-        _mm_movelh_ps(t2, t3),
-        _mm_movehl_ps(t3, t2)
-    );
-}
-
-// Optimized 3x3 transpose
-template <typename Type, bool Approx, RoundingMode Mode, typename Derived,
-          std::enable_if_t<Type::Size == 3 &&
-                           std::is_same<typename Type::Type, float>::value, int> = 0>
-ENOKI_INLINE auto
-transpose(const StaticArrayBase<Type, 3, Approx, Mode, Derived> &a) {
-    __m128 c0 = a.derived().coeff(0).m, c1 = a.derived().coeff(1).m,
-           c2 = a.derived().coeff(2).m;
-
-    __m128 t0 = _mm_unpacklo_ps(c0, c1);
-    __m128 t1 = _mm_unpacklo_ps(c2, c2);
-    __m128 t2 = _mm_unpackhi_ps(c0, c1);
-    __m128 t3 = _mm_unpackhi_ps(c2, c2);
-
-    return Derived(
-        _mm_movelh_ps(t0, t1),
-        _mm_movehl_ps(t1, t0),
-        _mm_movelh_ps(t2, t3)
-    );
-}
-#endif
-
-#if defined(__AVX__)
-template <typename Type, bool Approx, RoundingMode Mode, typename Derived,
-          std::enable_if_t<Type::Size == 4 &&
-                           std::is_same<typename Type::Type, double>::value, int> = 0>
-ENOKI_INLINE auto
-transpose(const StaticArrayBase<Type, 4, Approx, Mode, Derived> &a) {
-    __m256d c0 = a.derived().coeff(0).m, c1 = a.derived().coeff(1).m,
-            c2 = a.derived().coeff(2).m, c3 = a.derived().coeff(3).m;
-
-    __m256d t3 = _mm256_shuffle_pd(c2, c3, 0b0000),
-            t2 = _mm256_shuffle_pd(c2, c3, 0b1111),
-            t1 = _mm256_shuffle_pd(c0, c1, 0b0000),
-            t0 = _mm256_shuffle_pd(c0, c1, 0b1111);
-
-    return Derived(
-        _mm256_permute2f128_pd(t1, t3, 0b0010'0000),
-        _mm256_permute2f128_pd(t0, t2, 0b0010'0000),
-        _mm256_permute2f128_pd(t1, t3, 0b0011'0001),
-        _mm256_permute2f128_pd(t0, t2, 0b0011'0001)
-    );
-}
-
-template <typename Type, bool Approx, RoundingMode Mode, typename Derived,
-          std::enable_if_t<Type::Size == 3 &&
-                           std::is_same<typename Type::Type, double>::value, int> = 0>
-ENOKI_INLINE auto
-transpose(const StaticArrayBase<Type, 3, Approx, Mode, Derived> &a) {
-    __m256d c0 = a.derived().coeff(0).m, c1 = a.derived().coeff(1).m,
-            c2 = a.derived().coeff(2).m;
-
-    __m256d t3 = _mm256_shuffle_pd(c2, c2, 0b0000),
-            t2 = _mm256_shuffle_pd(c2, c2, 0b1111),
-            t1 = _mm256_shuffle_pd(c0, c1, 0b0000),
-            t0 = _mm256_shuffle_pd(c0, c1, 0b1111);
-
-    return Derived(
-        _mm256_permute2f128_pd(t1, t3, 0b0010'0000),
-        _mm256_permute2f128_pd(t0, t2, 0b0010'0000),
-        _mm256_permute2f128_pd(t1, t3, 0b0011'0001)
-    );
-}
-#endif
-
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode, typename Derived>
-ENOKI_INLINE auto
-transpose(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
-    static_assert(Type::Size == Size && array_depth<Derived>::value >= 2,
-                  "Array must be a square matrix!");
-    Derived result;
-    using Value = typename Type::Value;
-    ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-        for (size_t j = 0; j < Size; ++j)
-            result.coeff(i).coeff(j) = a.derived().coeff(j).coeff(i);
-    return result;
-}
 
 NAMESPACE_END(enoki)

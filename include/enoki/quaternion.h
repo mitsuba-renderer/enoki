@@ -161,7 +161,7 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os, Quaternion<T> q) {
 }
 
 template <typename T, typename Expr = expr_t<T>>
-Matrix<Expr, 4> to_matrix(Quaternion<T> q) {
+Matrix<Expr, 4> quat_to_matrix(Quaternion<T> q) {
     const Expr c0(0), c1(1), c2(2);
 
     Expr xx = q.x() * q.x(), yy = q.y() * q.y(), zz = q.z() * q.z();
@@ -179,7 +179,7 @@ Matrix<Expr, 4> to_matrix(Quaternion<T> q) {
 template <typename T,
           typename Expr = expr_t<T>,
           typename Quat = Quaternion<Expr>>
-Quat from_matrix(const Matrix<T, 4> &mat) {
+Quat quat_from_matrix(const Matrix<T, 4> &mat) {
     const Expr c0(0), c1(1), ch(0.5f);
 
     // Converting a Rotation Matrix to a Quaternion

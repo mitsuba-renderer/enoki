@@ -310,6 +310,9 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
 
     template <size_t Imm, typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
     ENOKI_INLINE auto ror_array_() const {
+        static_assert(Imm <= Size1 && Imm <= Size2,
+                      "Refusing to rotate a recursively defined array by an "
+                      "amount that is larger than the recursive array sizes.");
         const Mask1 mask = index_sequence<Array1>() >= Scalar(Imm);
 
         Array1 a1_r = ror_array<Imm>(a1);
@@ -328,6 +331,9 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
 
     template <size_t Imm, typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
     ENOKI_INLINE auto rol_array_() const {
+        static_assert(Imm <= Size1 && Imm <= Size2,
+                      "Refusing to rotate a recursively defined array by an "
+                      "amount that is larger than the recursive array sizes.");
         const Mask1 mask = index_sequence<Array1>() < Scalar(Size1 - Imm);
 
         Array1 a1_r = rol_array<Imm>(a1);

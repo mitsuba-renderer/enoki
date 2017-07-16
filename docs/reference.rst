@@ -1320,6 +1320,14 @@ Miscellaneous operations
 
     Checks for finite values and returns a mask, analogous to ``std::isfinite``.
 
+.. cpp:function:: template <typename Array> Array deg_to_rad(Array array)
+
+    Convenience function which multiplies the input array by :math:`\frac{\pi}{180}`.
+
+.. cpp:function:: template <typename Array> Array rad_to_deg(Array array)
+
+    Convenience function which multiplies the input array by :math:`\frac{180}{\pi}`.
+
 .. cpp:function:: template <typename Index> std::pair<Index, mask_t<Index>> range(scalar_t<Index> begin, scalar_t<Index> end)
 
     Returns an iterable, which generates linearly increasing index vectors from

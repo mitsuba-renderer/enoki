@@ -121,11 +121,11 @@ using Quat4X = Quaternion<FloatX>;
 using Mat4X = Matrix<FloatX, 4>;
 
 Mat4X slerp_matrix(const Quat4X &x, const Quat4X &y, float t) {
-    return vectorize([t](auto &&x, auto &&y) { return to_matrix(slerp(x, y, t)); }, x, y);
+    return vectorize([t](auto &&x, auto &&y) { return quat_to_matrix(slerp(x, y, t)); }, x, y);
 };
 
 Quat4X to_quat(const Mat4X &m) {
-    return vectorize([](auto &&m) { return from_matrix(m); }, m);
+    return vectorize([](auto &&m) { return quat_from_matrix(m); }, m);
 };
 
 ENOKI_TEST(test18_complex_vectorize_scalar) {

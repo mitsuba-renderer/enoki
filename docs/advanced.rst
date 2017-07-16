@@ -590,3 +590,6 @@ the routing templates in ``enoki/enoki_router.h``.
 
   * Optional bit-level rotation operations (reduced to shifts by default):
     ``rol_``, ``roli_``, ``rolv_``, ``ror_``, ``rori_``, ``rorv_``.
+
+  * Optional array rotation operations (reduced to shuffles by default):
+    ``rol_array_``, ``ror_array_``.
