@@ -227,3 +227,21 @@ ENOKI_TEST_FLOAT(test14_round) {
         assert(a[0] > b[0]);
     }
 }
+
+ENOKI_TEST_FLOAT(test15_hypot) {
+    auto sample = test::sample_values<Value>();
+
+    test::validate_binary<T>(sample,
+                             [](const T &a, const T &b) -> T {
+                                 return enoki::hypot(a, b);
+                             },
+                             [](Value a, Value b) -> Value {
+                                 if (std::isnan(a) || std::isnan(b))
+                                     return std::numeric_limits<Value>::quiet_NaN();
+                                 else if (!std::isfinite(a) || !std::isfinite(b))
+                                     return std::numeric_limits<Value>::infinity();
+                                 else
+                                    return std::hypot(a, b);
+                             },
+                             1e-6f);
+}

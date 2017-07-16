@@ -1387,6 +1387,25 @@ Value clamp(Value value, Value min_, Value max_) {
     return max(min(value, max_), min_);
 }
 
+template <typename Arg, typename Expr = expr_t<Arg>>
+ENOKI_INLINE Expr hypot(Arg a, Arg b) {
+    using Scalar = scalar_t<Expr>;
+
+    Expr abs_a = abs(a),
+         abs_b = abs(b),
+         max   = enoki::max(abs_a, abs_b),
+         min   = enoki::min(abs_a, abs_b),
+         ratio = min / max;
+
+    const Scalar inf = std::numeric_limits<Scalar>::infinity();
+
+    return select(
+        abs_a < inf & abs_b < inf & ratio < inf,
+        max * sqrt(Scalar(1) + ratio*ratio),
+        abs_a + abs_b
+    );
+}
+
 /// Access an array element by index
 template <typename Array, enable_if_array_t<Array> = 0>
 ENOKI_INLINE auto& array_coeff(Array &array, size_t index) {
