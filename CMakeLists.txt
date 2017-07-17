@@ -144,6 +144,7 @@ set(ENOKI_HEADERS
   ${PROJECT_SOURCE_DIR}/include/enoki/array_router.h
   ${PROJECT_SOURCE_DIR}/include/enoki/array_sse42.h
   ${PROJECT_SOURCE_DIR}/include/enoki/quaternion.h
+  ${PROJECT_SOURCE_DIR}/include/enoki/homogeneous.h
   ${PROJECT_SOURCE_DIR}/include/enoki/stl.h
   ${PROJECT_SOURCE_DIR}/include/enoki/special.h
   ${PROJECT_SOURCE_DIR}/include/enoki/matrix.h
@@ -299,7 +300,7 @@ if (ENOKI_TEST)
           COMMAND ${CMAKE_COMMAND} -E env CTEST_OUTPUT_ON_FAILURE=1
               ${CMAKE_CTEST_COMMAND} -C $<CONFIG>
       WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-      DEPENDS ALL_BUILD
+      DEPENDS ALL_BUILD USES_TERMINAL
   )
 endif()
 

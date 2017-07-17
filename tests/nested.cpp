@@ -107,7 +107,7 @@ ENOKI_TEST(test04_array_of_arrays) {
 ENOKI_TEST(test05_mask_types) {
     assert((std::is_same<mask_t<bool>, bool>::value));
     assert((std::is_same<value_t<float>, float>::value));
-    assert((std::is_same<mask_t<Array<float, 1>>, Array<bool, 1>>::value));
+    assert((std::is_same<mask_t<Array<float, 1>>, detail::MaskWrapper<bool, 1, false, RoundingMode::Default>>::value));
     assert((std::is_same<value_t<Array<float, 1>>, float>::value));
 }
 

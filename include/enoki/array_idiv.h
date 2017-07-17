@@ -227,18 +227,19 @@ template <typename T> struct divisor<T, std::enable_if_t<std::is_signed<T>::valu
 #  pragma pack(pop)
 #endif
 
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode, typename Derived,
-          std::enable_if_t<!std::is_floating_point<scalar_t<Type>>::value, int> = 0>
-ENOKI_INLINE auto
-operator/(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a, divisor<scalar_t<Type>> div) {
+template <typename Array,
+          std::enable_if_t<is_static_array<Array>::value &&
+                           std::is_integral<scalar_t<Array>>::value, int> = 0>
+ENOKI_INLINE auto operator/(const Array &a, divisor<scalar_t<Array>> div) {
     return div(a.derived());
 }
 
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode, typename Derived,
-          std::enable_if_t<!std::is_floating_point<scalar_t<Type>>::value, int> = 0>
-ENOKI_INLINE auto
-operator%(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a, scalar_t<Type> v) {
-    return a - divisor<scalar_t<Type>>(v)(a) * Derived(v);
+template <typename Array,
+          std::enable_if_t<is_static_array<Array>::value &&
+                           std::is_integral<scalar_t<Array>>::value, int> = 0>
+ENOKI_INLINE auto operator%(const Array &a, scalar_t<Array> v) {
+    const auto div = divisor<scalar_t<Array>>(v);
+    return a - div(a.derived()) * v;
 }
 
 //! @}

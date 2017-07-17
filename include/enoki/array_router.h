@@ -17,162 +17,198 @@
 
 NAMESPACE_BEGIN(enoki)
 
+NAMESPACE_BEGIN(detail)
+
+NAMESPACE_END(detail)
+
+#define ENOKI_ROUTE_UNARY(name, func)                                          \
+    /* Case 1: use array-specific implementation of operation */               \
+    template <typename T,                                                      \
+              std::enable_if_t<is_static_array<T>::value &&                    \
+                               std::is_same<expr_t<T>, T>::value, int> = 0>    \
+    ENOKI_INLINE auto name(const T &a) {                                       \
+        return a.derived().func##_();                                          \
+    }                                                                          \
+    /* Case 2: broadcast/evaluate input arrays and try again */                \
+    template <typename T,                                                      \
+              std::enable_if_t<is_static_array<T>::value &&                    \
+                               !std::is_same<expr_t<T>, T>::value, int> = 0>   \
+    ENOKI_INLINE auto name(const T &a) {                                       \
+        return name((expr_t<T>) a);                                            \
+    }
+
+#define ENOKI_ROUTE_UNARY_SCALAR(name, func, expr)                             \
+    /* Case 3: scalar input */                                                 \
+    template <typename T, enable_if_not_array_t<T> = 0>                        \
+    ENOKI_INLINE auto name(const T &a) {                                       \
+        return expr;                                                           \
+    }                                                                          \
+    ENOKI_ROUTE_UNARY(name, func)
+
+
+#define ENOKI_ROUTE_UNARY_IMM(name, func)                                      \
+    /* Case 1: use array-specific implementation of operation */               \
+    template <size_t Imm, typename T,                                          \
+              std::enable_if_t<is_static_array<T>::value &&                    \
+                               std::is_same<expr_t<T>, T>::value, int> = 0>    \
+    ENOKI_INLINE auto name(const T &a) {                                       \
+        return a.template func##_<Imm>();                                      \
+    }                                                                          \
+    /* Case 2: broadcast/evaluate input arrays and try again */                \
+    template <size_t Imm, typename T,                                          \
+              std::enable_if_t<is_static_array<T>::value &&                    \
+                               !std::is_same<expr_t<T>, T>::value, int> = 0>   \
+    ENOKI_INLINE auto name(const T &a) {                                       \
+        return name<Imm>((expr_t<T>) a);                                       \
+    }
+
+#define ENOKI_ROUTE_UNARY_SCALAR_IMM(name, func, expr)                         \
+    /* Case 3: scalar input */                                                 \
+    template <size_t Imm, typename T, enable_if_not_array_t<T> = 0>            \
+    ENOKI_INLINE auto name(const T &a) {                                       \
+        return expr;                                                           \
+    }                                                                          \
+    ENOKI_ROUTE_UNARY_IMM(name, func)
+
+#define ENOKI_ROUTE_BINARY(name, func)                                         \
+    /* Case 1: use array-specific implementation of operation */               \
+    template <typename T,                                                      \
+              std::enable_if_t<is_static_array<T>::value &&                    \
+                               std::is_same<expr_t<T>, T>::value, int> = 0>    \
+    ENOKI_INLINE auto name(const T &a1, const T &a2) {                         \
+        return a1.derived().func##_(a2.derived());                             \
+    }                                                                          \
+    /* Case 2: broadcast/evaluate input arrays and try again */                \
+    template <typename T1, typename T2,                                        \
+              typename Array = detail::extract_array_t<T1, T2>,                \
+              std::enable_if_t<!std::is_void<Array>::value, int> = 0>          \
+    ENOKI_INLINE auto name(const T1 &a1, const T2 &a2) {                       \
+        using Output = expr_t<T1, T2>;                                         \
+        return name((detail::ref_cast_t<T1, Output>) a1,                       \
+                    (detail::ref_cast_t<T2, Output>) a2);                      \
+    }
+
+#define ENOKI_ROUTE_BINARY_SCALAR(name, func, expr)                            \
+    /* Case 3: scalar input */                                                 \
+    template <typename T1, typename T2,                                        \
+              typename Void = detail::extract_array_t<T1, T2>,                 \
+              std::enable_if_t<std::is_void<Void>::value, int> = 0>            \
+    ENOKI_INLINE auto name(const T1 &a1, const T2 &a2) -> decltype(expr) {     \
+        return expr;                                                           \
+    }                                                                          \
+    ENOKI_ROUTE_BINARY(name, func)
+
+#define ENOKI_ROUTE_BINARY_BIT(name, func)                                     \
+    /* Case 1: use array-specific implementation of operation */               \
+    template <typename T,                                                      \
+              std::enable_if_t<is_static_array<T>::value &&                    \
+                               std::is_same<expr_t<T>, T>::value, int> = 0>    \
+    ENOKI_INLINE auto name(const T &a1, const T &a2) {                         \
+        return a1.derived().func##_(a2.derived());                             \
+    }                                                                          \
+    /* Case 2: broadcast/evaluate input arrays and try again */                \
+    template <typename T1, typename T2,                                        \
+              typename Array = detail::extract_array_t<T1, T2>,                \
+              std::enable_if_t<!std::is_void<Array>::value &&                  \
+                               !is_mask<T2>::value, int> = 0>                  \
+    ENOKI_INLINE auto name(const T1 &a1, const T2 &a2) {                       \
+        using Output = expr_t<T1, T2>;                                         \
+        return name((detail::ref_cast_t<T1, Output>) a1,                       \
+                    (detail::ref_cast_t<T2, Output>) a2);                      \
+    }                                                                          \
+    /* Case 2: broadcast/evaluate input arrays and try again */                \
+    template <typename T1, typename T2,                                        \
+              std::enable_if_t<is_static_array<T1>::value &&                   \
+                               is_mask<T2>::value, int> = 0>                   \
+    ENOKI_INLINE auto name(const T1 &a1, const T2 &a2) {                       \
+        return a1.derived().func##_(mask_t<expr_t<T1>>(a2));                   \
+    }
+
+#define ENOKI_ROUTE_SHIFT(name, func)                                          \
+    /* Case 1: use array-specific implementation of operation */               \
+    template <typename T,                                                      \
+              std::enable_if_t<is_static_array<T>::value &&                    \
+                               std::is_same<expr_t<T>, T>::value, int> = 0>    \
+    ENOKI_INLINE auto name(const T &a1, const T &a2) {                         \
+        return a1.derived().func##_(a2.derived());                             \
+    }                                                                          \
+    /* Case 2: broadcast/evaluate input arrays and try again */                \
+    template <typename T1, typename T2,                                        \
+              std::enable_if_t<is_static_array<T1>::value, int> = 0>           \
+    ENOKI_INLINE auto name(const T1 &a1, const T2 &a2) {                       \
+        using Output = expr_t<T1, T2>;                                         \
+        return name((detail::ref_cast_t<T1, Output>) a1,                       \
+                    (detail::ref_cast_t<T2, Output>) a2);                      \
+    }
+
+#define ENOKI_ROUTE_TERNARY(name, func)                                        \
+    /* Case 1: use array-specific implementation of operation */               \
+    template <typename T,                                                      \
+              std::enable_if_t<is_static_array<T>::value &&                    \
+                               std::is_same<expr_t<T>, T>::value, int> = 0>    \
+    ENOKI_INLINE auto name(const T &a1, const T &a2, const T &a3) {            \
+        return a1.derived().func##_(a2.derived(), a3.derived());               \
+    }                                                                          \
+    /* Case 2: broadcast/evaluate input arrays and try again */                \
+    template <typename T1, typename T2, typename T3,                           \
+              typename Array = detail::extract_array_t<T1, T2, T3>,            \
+              std::enable_if_t<!std::is_void<Array>::value, int> = 0>          \
+    ENOKI_INLINE auto name(const T1 &a1, const T2 &a2, const T3 &a3) {         \
+        using Output = expr_t<T1, T2, T3>;                                     \
+        return name((detail::ref_cast_t<T1, Output>) a1,                       \
+                    (detail::ref_cast_t<T2, Output>) a2,                       \
+                    (detail::ref_cast_t<T3, Output>) a3);                      \
+    }
+
+#define ENOKI_ROUTE_TERNARY_SCALAR(name, func, expr)                           \
+    /* Case 3: scalar input */                                                 \
+    template <typename T1, typename T2, typename T3,                           \
+              typename Void = detail::extract_array_t<T1, T2, T3>,             \
+              std::enable_if_t<std::is_void<Void>::value, int> = 0>            \
+    ENOKI_INLINE auto name(const T1 &a1, const T2 &a2, const T3 &a3)           \
+            -> decltype(expr) {                                                \
+        return expr;                                                           \
+    }                                                                          \
+    ENOKI_ROUTE_TERNARY(name, func)
+
+
+/// Macro for compound assignment operators (operator+=, etc.)
+#define ENOKI_ROUTE_COMPOUND_OPERATOR(op)                                      \
+    template <typename T1, enable_if_static_array_t<T1> = 0, typename T2>      \
+    ENOKI_INLINE T1 &operator op##=(T1 &a1, const T2 &a2) {                    \
+        a1 = a1 op a2;                                                         \
+        return a1;                                                             \
+    }
+
 // -----------------------------------------------------------------------
 //! @{ \name Vertical and horizontal operations
 // -----------------------------------------------------------------------
 
-/**
- * Binary operator macro: forward an operation (e.g. "abs()") to the specialized
- * implementation provided by the array partial specialization (e.g. "abs_()")
- */
-#define ENOKI_ROUTE_UNARY(name, func)                                          \
-    template <typename Type, size_t Size, bool Approx, RoundingMode Mode,      \
-              typename Derived>                                                \
-    ENOKI_INLINE auto name(                                                    \
-        const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {         \
-        return a.derived().func##_();                                          \
-    }
-
-#define ENOKI_ROUTE_UNARY_WITH_FALLBACK(name, expr)                            \
-    ENOKI_ROUTE_UNARY(name, name)                                              \
-    template <typename Arg, enable_if_not_array_t<Arg> = 0>                    \
-    ENOKI_INLINE auto name(const Arg &a) {                                     \
-        return expr;                                                           \
-    }
-
-/**
- * Binary operator macro: dispatch operator+ to add_(), etc. if both arguments
- * have the same type. Otherwise perform an explicit loop over the array
- * elements and dispatch to the entry's operator+() implementation.
- */
-#define ENOKI_ROUTE_BINARY(name, func, expr)                                   \
-    template <typename Type, size_t Size, bool Approx, RoundingMode Mode,      \
-              typename Derived1, typename Derived2,                            \
-              std::enable_if_t<Derived1::Size == Derived2::Size, int> = 0>     \
-    ENOKI_INLINE auto name(                                                    \
-        const StaticArrayBase<Type, Size, Approx, Mode, Derived1> &a1,         \
-        const StaticArrayBase<Type, Size, Approx, Mode, Derived2> &a2) {       \
-        return a1.derived().func##_(a2.derived());                             \
-    }                                                                          \
-    template <typename Type1, typename Type2, size_t Size1, size_t Size2,      \
-              bool Approx1, bool Approx2, RoundingMode Mode1,                  \
-              RoundingMode Mode2, typename Derived1, typename Derived2,        \
-              std::enable_if_t<Derived1::Size == Derived2::Size &&             \
-                              !Derived1::IsMask && !Derived2::IsMask, int> = 0>\
-    ENOKI_INLINE auto name(                                                    \
-        const StaticArrayBase<Type1, Size1, Approx1, Mode1, Derived1> &a1,     \
-        const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a2) {   \
-        size_t i = 0;                                                          \
-        using Result = typename Derived1::template ReplaceType<decltype(expr)>;\
-        using Value = value_t<Result>;                                         \
-        Result r;                                                              \
-        ENOKI_CHKSCALAR for (; i < Derived1::Size; ++i)                        \
-            r.coeff(i) = expr;                                                 \
-        return r;                                                              \
-    }
-
-#define ENOKI_ROUTE_TERNARY(name, func, expr)                                  \
-    template <typename Type, size_t Size, bool Approx, RoundingMode Mode,      \
-              typename Derived1, typename Derived2, typename Derived3,         \
-              std::enable_if_t<Derived1::Size == Derived2::Size &&             \
-                               Derived2::Size == Derived3::Size, int> = 0>     \
-    ENOKI_INLINE auto name(                                                    \
-        const StaticArrayBase<Type, Size, Approx, Mode, Derived1> &a1,         \
-        const StaticArrayBase<Type, Size, Approx, Mode, Derived2> &a2,         \
-        const StaticArrayBase<Type, Size, Approx, Mode, Derived3> &a3) {       \
-        return a1.derived().func##_(a2.derived(), a3.derived());               \
-    }                                                                          \
-    template <typename Type1, typename Type2, typename Type3, size_t Size1,    \
-              size_t Size2, size_t Size3, bool Approx1, bool Approx2,          \
-              bool Approx3, RoundingMode Mode1, RoundingMode Mode2,            \
-              RoundingMode Mode3, typename Derived1, typename Derived2,        \
-              typename Derived3,                                               \
-              std::enable_if_t<Derived1::Size == Derived2::Size &&             \
-                               Derived2::Size == Derived3::Size &&             \
-                               !Derived1::IsMask && !Derived2::IsMask &&       \
-                               !Derived3::IsMask, int> = 0>                    \
-    ENOKI_INLINE auto name(                                                    \
-        const StaticArrayBase<Type1, Size1, Approx1, Mode1, Derived1> &a1,     \
-        const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a2,     \
-        const StaticArrayBase<Type3, Size3, Approx3, Mode3, Derived3> &a3) {   \
-        size_t i = 0;                                                          \
-        using Result = typename Derived1::template ReplaceType<decltype(expr)>;\
-        using Value = value_t<Result>;                                         \
-        Result r;                                                              \
-        ENOKI_CHKSCALAR for (; i < Derived1::Size; ++i)                        \
-            r.coeff(i) = expr;                                                 \
-        return r;                                                              \
-    }
-
-#define ENOKI_ROUTE_BCAST(name)                                                \
-    template <typename Type, size_t Size, bool Approx, RoundingMode Mode,      \
-              typename Derived, typename Arg,                                  \
-              std::enable_if_t<detail::bcast<Derived, Arg>::value, int> = 0,   \
-              typename = decltype(expr_t<Derived>(std::declval<Arg>()))>\
-    ENOKI_INLINE auto name(                                                    \
-        const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,          \
-        const Arg &a2) {                                                       \
-        return name(a1.derived(), expr_t<Derived>(a2));                        \
-    }                                                                          \
-    template <typename Type, size_t Size, bool Approx, RoundingMode Mode,      \
-              typename Derived, typename Arg,                                  \
-              std::enable_if_t<detail::bcast<Derived, Arg>::value, int> = 0,   \
-              typename = decltype(expr_t<Derived>(std::declval<Arg>()))>\
-    ENOKI_INLINE auto name(                                                    \
-        const Arg &a1,                                                         \
-        const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a2) {        \
-        return name(expr_t<Derived>(a1), a2.derived());                        \
-    }
-
-#define ENOKI_ROUTE_BINARY_OPERATOR(name, func)                                \
-    ENOKI_ROUTE_BINARY(operator name, func,                                    \
-                       a1.derived().coeff(i) name a2.derived().coeff(i))
-
-#define ENOKI_ROUTE_BINARY_FUNCTION(name, func)                                \
-    ENOKI_ROUTE_BINARY(name, func,                                             \
-                       name(a1.derived().coeff(i), a2.derived().coeff(i)))
-
-#define ENOKI_ROUTE_BINARY_OPERATOR_BCAST(name, func)                          \
-    ENOKI_ROUTE_BINARY_OPERATOR(name, func)                                    \
-    ENOKI_ROUTE_BCAST(operator name)
-
-#define ENOKI_ROUTE_BINARY_FUNCTION_BCAST(name, func)                          \
-    ENOKI_ROUTE_BINARY_FUNCTION(name, func)                                    \
-    ENOKI_ROUTE_BCAST(name)
-
-/// Macro for compound assignment operators (operator+=, etc.)
-#define ENOKI_ROUTE_COMPOUND_OPERATOR(op)                                      \
-    template <typename Type, size_t Size, bool Approx, RoundingMode Mode,      \
-              typename Derived, typename Arg>                                  \
-    ENOKI_INLINE Derived &operator op##=(                                      \
-        StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,                \
-        const Arg &a2) {                                                       \
-        a1.derived() = a1.derived() op a2;                                     \
-        return a1.derived();                                                   \
-    }
 
 ENOKI_ROUTE_UNARY(operator-, neg)
 ENOKI_ROUTE_UNARY(operator~, not)
+ENOKI_ROUTE_UNARY(operator!, not)
 
-ENOKI_ROUTE_BINARY_OPERATOR_BCAST(+,  add)
-ENOKI_ROUTE_BINARY_OPERATOR_BCAST(-,  sub)
-ENOKI_ROUTE_BINARY_OPERATOR_BCAST(*,  mul)
-ENOKI_ROUTE_BINARY_OPERATOR      (/,  div)
+ENOKI_ROUTE_BINARY(operator+, add)
+ENOKI_ROUTE_BINARY(operator-, sub)
+ENOKI_ROUTE_BINARY(operator*, mul)
 
-ENOKI_ROUTE_BINARY(operator&, and, detail::and_(a1.derived().coeff(i), a2.derived().coeff(i)))
-ENOKI_ROUTE_BINARY(operator^, xor, detail::xor_(a1.derived().coeff(i), a2.derived().coeff(i)))
-ENOKI_ROUTE_BINARY(operator|, or,  detail::or_(a1.derived().coeff(i), a2.derived().coeff(i)))
+ENOKI_ROUTE_BINARY_BIT(operator&,  and)
+ENOKI_ROUTE_BINARY_BIT(operator&&, and)
+ENOKI_ROUTE_BINARY_BIT(operator|,  or)
+ENOKI_ROUTE_BINARY_BIT(operator||, or)
+ENOKI_ROUTE_BINARY_BIT(operator^,  xor)
 
-ENOKI_ROUTE_BCAST(operator&)
-ENOKI_ROUTE_BCAST(operator^)
-ENOKI_ROUTE_BCAST(operator|)
+ENOKI_ROUTE_SHIFT(operator<<, slv)
+ENOKI_ROUTE_SHIFT(operator>>, srv)
 
-ENOKI_ROUTE_BINARY_OPERATOR      (<<, slv)
-ENOKI_ROUTE_BINARY_OPERATOR      (>>, srv)
-ENOKI_ROUTE_BINARY_OPERATOR_BCAST(<,  lt)
-ENOKI_ROUTE_BINARY_OPERATOR_BCAST(<=, le)
-ENOKI_ROUTE_BINARY_OPERATOR_BCAST(>,  gt)
-ENOKI_ROUTE_BINARY_OPERATOR_BCAST(>=, ge)
+ENOKI_ROUTE_BINARY(operator<,  lt)
+ENOKI_ROUTE_BINARY(operator<=, le)
+ENOKI_ROUTE_BINARY(operator>,  gt)
+ENOKI_ROUTE_BINARY(operator>=, ge)
+
+ENOKI_ROUTE_BINARY_SCALAR(eq,  eq,  a1 == a2)
+ENOKI_ROUTE_BINARY_SCALAR(neq, neq, a1 != a2)
 
 ENOKI_ROUTE_COMPOUND_OPERATOR(+)
 ENOKI_ROUTE_COMPOUND_OPERATOR(-)
@@ -184,129 +220,128 @@ ENOKI_ROUTE_COMPOUND_OPERATOR(&)
 ENOKI_ROUTE_COMPOUND_OPERATOR(<<)
 ENOKI_ROUTE_COMPOUND_OPERATOR(>>)
 
-ENOKI_ROUTE_BINARY_FUNCTION_BCAST(max,   max)
-ENOKI_ROUTE_BINARY_FUNCTION_BCAST(min,   min)
-ENOKI_ROUTE_BINARY_FUNCTION_BCAST(ldexp, ldexp)
-ENOKI_ROUTE_BINARY_FUNCTION_BCAST(mulhi, mulhi)
-ENOKI_ROUTE_BINARY_FUNCTION_BCAST(pow,   pow)
-ENOKI_ROUTE_BINARY_FUNCTION_BCAST(atan2, atan2)
-ENOKI_ROUTE_BINARY_FUNCTION_BCAST(eq,    eq)
-ENOKI_ROUTE_BINARY_FUNCTION_BCAST(neq,   neq)
-ENOKI_ROUTE_BINARY_FUNCTION      (ror,   rorv)
-ENOKI_ROUTE_BINARY_FUNCTION      (rol,   rolv)
+ENOKI_ROUTE_BINARY_SCALAR(max,   max,  (std::decay_t<decltype(a1+a2)>) std::max((decltype(a1+a2)) a1, (decltype(a1+a2)) a2))
+ENOKI_ROUTE_BINARY_SCALAR(min,   min,  (std::decay_t<decltype(a1+a2)>) std::min((decltype(a1+a2)) a1, (decltype(a1+a2)) a2))
+ENOKI_ROUTE_BINARY_SCALAR(pow,   pow,   std::pow  ((decltype(a1+a2)) a1, (decltype(a1+a2)) a2))
+ENOKI_ROUTE_BINARY_SCALAR(atan2, atan2, std::atan2((decltype(a1+a2)) a1, (decltype(a1+a2)) a2))
+ENOKI_ROUTE_BINARY_SCALAR(ldexp, ldexp, std::ldexp((decltype(a1+a2)) a1, int(a2)))
+ENOKI_ROUTE_BINARY_SCALAR(dot,   dot,   a1*a2)
+
+ENOKI_ROUTE_BINARY(mulhi, mulhi)
 
 ENOKI_ROUTE_UNARY(abs, abs)
 
-ENOKI_ROUTE_TERNARY(fmadd, fmadd,
-                    fmadd(a1.derived().coeff(i),
-                          a2.derived().coeff(i),
-                          a3.derived().coeff(i))
-)
+ENOKI_ROUTE_TERNARY_SCALAR(fmadd,    fmadd,     a1 * a2 + a3)
+ENOKI_ROUTE_TERNARY_SCALAR(fmsub,    fmsub,     a1 * a2 - a3)
+ENOKI_ROUTE_TERNARY_SCALAR(fnmadd,   fnmadd,   -a1 * a2 + a3)
+ENOKI_ROUTE_TERNARY_SCALAR(fnmsub,   fnmsub,   -a1 * a2 - a3)
+ENOKI_ROUTE_TERNARY_SCALAR(fmsubadd, fmsubadd,  a1 * a2 + a3)
+ENOKI_ROUTE_TERNARY_SCALAR(fmaddsub, fmaddsub,  a1 * a2 - a3)
 
-ENOKI_ROUTE_TERNARY(fmsub, fmsub,
-                    fmsub(a1.derived().coeff(i),
-                          a2.derived().coeff(i),
-                          a3.derived().coeff(i))
-)
+ENOKI_ROUTE_UNARY_SCALAR(sincos,  sincos,  std::make_pair(std::sin(a),  std::cos(a)))
+ENOKI_ROUTE_UNARY_SCALAR(sincosh, sincosh, std::make_pair(std::sinh(a), std::cosh(a)))
 
-ENOKI_ROUTE_TERNARY(fnmadd, fnmadd,
-                    fnmadd(a1.derived().coeff(i),
-                           a2.derived().coeff(i),
-                           a3.derived().coeff(i))
-)
+ENOKI_ROUTE_UNARY_SCALAR(round, round, std::rint(a))
 
-ENOKI_ROUTE_TERNARY(fnmsub, fnmsub,
-                    fnmsub(a1.derived().coeff(i),
-                           a2.derived().coeff(i),
-                           a3.derived().coeff(i))
-)
+ENOKI_ROUTE_UNARY_SCALAR(all,          all,           (bool) a)
+ENOKI_ROUTE_UNARY_SCALAR(all_nested,   all_nested,    (bool) a)
+ENOKI_ROUTE_UNARY_SCALAR(any,          any,           (bool) a)
+ENOKI_ROUTE_UNARY_SCALAR(any_nested,   any_nested,    (bool) a)
+ENOKI_ROUTE_UNARY_SCALAR(none,         none,         !(bool) a)
+ENOKI_ROUTE_UNARY_SCALAR(none_nested,  none_nested,  !(bool) a)
+ENOKI_ROUTE_UNARY_SCALAR(count,        count,         (size_t) ((bool) a ? 1 : 0))
+ENOKI_ROUTE_UNARY_SCALAR(count_nested, count_nested,  (size_t) ((bool) a ? 1 : 0))
 
-ENOKI_ROUTE_TERNARY(fmaddsub, fmaddsub,
-                    fmaddsub(a1.derived().coeff(i),
-                             a2.derived().coeff(i),
-                             a3.derived().coeff(i))
-)
+ENOKI_ROUTE_UNARY_SCALAR(hmin,          hmin,          a)
+ENOKI_ROUTE_UNARY_SCALAR(hmin_nested,   hmin_nested,   a)
+ENOKI_ROUTE_UNARY_SCALAR(hmax,          hmax,          a)
+ENOKI_ROUTE_UNARY_SCALAR(hmax_nested,   hmax_nested,   a)
+ENOKI_ROUTE_UNARY_SCALAR(hsum,          hsum,          a)
+ENOKI_ROUTE_UNARY_SCALAR(hsum_nested,   hsum_nested,   a)
+ENOKI_ROUTE_UNARY_SCALAR(hprod,         hprod,         a)
+ENOKI_ROUTE_UNARY_SCALAR(hprod_nested,  hprod_nested,  a)
 
-ENOKI_ROUTE_TERNARY(fmsubadd, fmsubadd,
-                    fmsubadd(a1.derived().coeff(i),
-                             a2.derived().coeff(i),
-                             a3.derived().coeff(i))
-)
+ENOKI_ROUTE_UNARY_SCALAR(sqrt,  sqrt,  std::sqrt(a))
+ENOKI_ROUTE_UNARY_SCALAR(floor, floor, std::floor(a))
+ENOKI_ROUTE_UNARY_SCALAR(ceil,  ceil,  std::ceil(a))
+ENOKI_ROUTE_UNARY_SCALAR(rint,  rint,  std::rint(a))
+ENOKI_ROUTE_UNARY_SCALAR(exp,   exp,   std::exp(a))
+ENOKI_ROUTE_UNARY_SCALAR(log,   log,   std::log(a))
+
+ENOKI_ROUTE_UNARY_SCALAR(sin,   sin,   std::sin(a))
+ENOKI_ROUTE_UNARY_SCALAR(cos,   cos,   std::cos(a))
+ENOKI_ROUTE_UNARY_SCALAR(tan,   tan,   std::tan(a))
+
+ENOKI_ROUTE_UNARY_SCALAR(csc,   csc,   T(1) / std::sin(a))
+ENOKI_ROUTE_UNARY_SCALAR(sec,   sec,   T(1) / std::cos(a))
+ENOKI_ROUTE_UNARY_SCALAR(cot,   cot,   T(1) / std::tan(a))
+
+ENOKI_ROUTE_UNARY_SCALAR(asin,  asin,  std::asin(a))
+ENOKI_ROUTE_UNARY_SCALAR(acos,  acos,  std::acos(a))
+ENOKI_ROUTE_UNARY_SCALAR(atan,  atan,  std::atan(a))
+
+ENOKI_ROUTE_UNARY_SCALAR(sinh,  sinh,  std::sinh(a))
+ENOKI_ROUTE_UNARY_SCALAR(cosh,  cosh,  std::cosh(a))
+ENOKI_ROUTE_UNARY_SCALAR(tanh,  tanh,  std::tanh(a))
+
+ENOKI_ROUTE_UNARY_SCALAR(csch,  csch,  T(1) / std::sinh(a))
+ENOKI_ROUTE_UNARY_SCALAR(sech,  sech,  T(1) / std::cosh(a))
+ENOKI_ROUTE_UNARY_SCALAR(coth,  coth,  T(1) / std::tanh(a))
+
+ENOKI_ROUTE_UNARY_SCALAR(asinh, asinh, std::asinh(a))
+ENOKI_ROUTE_UNARY_SCALAR(acosh, acosh, std::acosh(a))
+ENOKI_ROUTE_UNARY_SCALAR(atanh, atanh, std::atanh(a))
+
+ENOKI_ROUTE_UNARY_SCALAR(isnan, isnan, std::isnan(a))
+ENOKI_ROUTE_UNARY_SCALAR(isinf, isinf, std::isinf(a))
+ENOKI_ROUTE_UNARY_SCALAR(isfinite, isfinite, std::isfinite(a))
+
+/// Break floating-point number into normalized fraction and power of 2 (scalar fallback)
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
+ENOKI_INLINE std::pair<Arg, Arg> frexp(const Arg &a) {
+    int tmp;
+    Arg result = std::frexp(a, &tmp);
+    return std::make_pair(result, Arg(tmp));
+}
 
 ENOKI_ROUTE_UNARY(frexp, frexp)
-ENOKI_ROUTE_UNARY(sincos, sincos)
-ENOKI_ROUTE_UNARY(sincosh, sincosh)
-ENOKI_ROUTE_UNARY(all, all)
-ENOKI_ROUTE_UNARY(any, any)
-ENOKI_ROUTE_UNARY(none, none)
-ENOKI_ROUTE_UNARY(count, count)
-ENOKI_ROUTE_UNARY(all_nested, all_nested)
-ENOKI_ROUTE_UNARY(any_nested, any_nested)
-ENOKI_ROUTE_UNARY(none_nested, none_nested)
-ENOKI_ROUTE_UNARY(count_nested, count_nested)
 
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(hmin, a)
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(hmax, a)
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(hprod, a)
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(hsum, a)
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(hmin_nested, a)
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(hmax_nested, a)
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(hprod_nested, a)
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(hsum_nested, a)
-
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(sqrt,  std::sqrt(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(floor, std::floor(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(ceil,  std::ceil(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(round, std::rint(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(exp,   std::exp(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(log,   std::log(a))
-
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(sin,   std::sin(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(cos,   std::cos(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(tan,   std::tan(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(csc,   Arg(1) / std::sin(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(sec,   Arg(1) / std::cos(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(cot,   Arg(1) / std::tan(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(asin,  std::asin(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(acos,  std::acos(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(atan,  std::atan(a))
-
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(sinh,  std::sinh(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(cosh,  std::cosh(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(tanh,  std::tanh(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(csch,  Arg(1) / std::sinh(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(sech,  Arg(1) / std::cosh(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(coth,  Arg(1) / std::tanh(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(asinh, std::asinh(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(acosh, std::acosh(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(atanh, std::atanh(a))
-
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(isnan, std::isnan(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(isinf, std::isinf(a))
-ENOKI_ROUTE_UNARY_WITH_FALLBACK(isfinite, std::isfinite(a))
-
-template <typename Type1, size_t Size1, bool Approx1, RoundingMode Mode1,
-          typename Derived1, typename Type2, size_t Size2, bool Approx2,
-          RoundingMode Mode2, typename Derived2>
-ENOKI_INLINE auto operator&&(
-    const StaticArrayBase<Type1, Size1, Approx1, Mode1, Derived1> &a1,
-    const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a2) {
-    return a1.derived() & a2.derived();
+template <typename T, std::enable_if_t<!is_static_array<T>::value && std::is_signed<T>::value, int> = 0>
+ENOKI_INLINE T abs(const T &a) {
+    return std::abs(a);
 }
 
-template <typename Type1, size_t Size1, bool Approx1, RoundingMode Mode1,
-          typename Derived1, typename Type2, size_t Size2, bool Approx2,
-          RoundingMode Mode2, typename Derived2>
-ENOKI_INLINE auto
-operator||(const StaticArrayBase<Type1, Size1, Approx1, Mode1, Derived1> &a1,
-           const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a2) {
-    return a1.derived() | a2.derived();
+template <typename T, std::enable_if_t<!is_static_array<T>::value && std::is_unsigned<T>::value, int> = 0>
+ENOKI_INLINE T abs(const T &a) {
+    return a;
 }
 
-template <typename Type, bool Approx, RoundingMode Mode, typename Derived, size_t Size>
-ENOKI_INLINE auto operator!(
-    const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
-    return ~a.derived();
+/* select(): case 1: use array-specific implementation of operation */
+template <typename T,
+          std::enable_if_t<is_static_array<T>::value &&
+                           std::is_same<expr_t<T>, T>::value, int> = 0>
+ENOKI_INLINE auto select(mask_t<T> m, const T &t, const T &f) {
+    return T::Derived::select_(m.derived(), t.derived(), f.derived());
+}
+
+/* select(): case 2: scalar input */
+template <typename T1, typename T2, typename T3,
+          typename Void = detail::extract_array_t<T1, T2, T3>,
+          std::enable_if_t<std::is_void<Void>::value, int> = 0>
+ENOKI_INLINE auto select(const T1 &m, const T2 &t, const T3 &f) {
+    using T = decltype(t + f);
+    return (bool) m ? (T) t : (T) f;
+}
+
+/* select(): case 3: broadcast/evaluate input arrays and try again */
+template <typename T1, typename T2, typename T3,
+          typename Array = detail::extract_array_t<T2, T3>,
+          std::enable_if_t<!std::is_void<Array>::value, int> = 0>
+ENOKI_INLINE auto select(const T1 &m, const T2 &t, const T3 &f) {
+    using Output = expr_t<T2, T3>;
+    return select((detail::ref_cast_t<T1, mask_t<Output>>) m,
+                  (detail::ref_cast_t<T2, Output>) t,
+                  (detail::ref_cast_t<T3, Output>) f);
 }
 
 template <typename Target, typename Type, size_t Size, bool Approx,
@@ -329,87 +364,19 @@ ENOKI_INLINE Target reinterpret_array(const Arg &a) {
     return memcpy_cast<Int>(a) != 0;
 }
 
-/// Arithmetic AND operator involving an array and a mask
-template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<!std::is_same<Array, typename Array::Mask>::value &&
-                            std::is_same<Mask, typename Array::Mask>::value, int> = 0>
-ENOKI_INLINE expr_t<Array> operator&(const Array &a1, const Mask &a2) {
-    return a1.derived().and_(reinterpret_array<mask_t<Array>>(a2));
+template <typename T1, typename T2,
+          typename Array = detail::extract_array_t<T1, T2>,
+          std::enable_if_t<!std::is_void<Array>::value, int> = 0>
+ENOKI_INLINE bool operator==(const T1 &a1, const T2 &a2) {
+    return all_nested(eq(a1, a2));
 }
 
-/// Arithmetic OR operator involving an array and a mask
-template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<!std::is_same<Array, typename Array::Mask>::value &&
-                            std::is_same<Mask, typename Array::Mask>::value, int> = 0>
-ENOKI_INLINE expr_t<Array> operator|(const Array &a1, const Mask &a2) {
-    return a1.derived().or_(reinterpret_array<mask_t<Array>>(a2));
+template <typename T1, typename T2,
+          typename Array = detail::extract_array_t<T1, T2>,
+          std::enable_if_t<!std::is_void<Array>::value, int> = 0>
+ENOKI_INLINE bool operator!=(const T1 &a1, const T2 &a2) {
+    return any_nested(neq(a1, a2));
 }
-
-template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<!std::is_same<Array, typename Array::Mask>::value &&
-                            std::is_same<Mask, typename Array::Mask>::value, int> = 0>
-ENOKI_INLINE expr_t<Array> operator^(const Array &a1, const Mask &a2) {
-    return a1.derived().xor_(reinterpret_array<mask_t<Array>>(a2));
-}
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0,
-          std::enable_if_t<std::is_signed<Arg>::value, int> = 0>
-ENOKI_INLINE Arg abs(const Arg &a) { return std::abs(a); }
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0,
-          std::enable_if_t<!std::is_signed<Arg>::value, int> = 0>
-ENOKI_INLINE Arg abs(const Arg &a) { return a; }
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE bool eq(const Arg &a1, const Arg &a2) { return a1 == a2; }
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE bool neq(const Arg &a1, const Arg &a2) { return a1 != a2; }
-
-/// Equality operator
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
-          typename Derived, typename Arg,
-          std::enable_if_t<Arg::Derived::Size == Derived::Size, int> = 0>
-ENOKI_INLINE bool operator==(
-    const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,
-    const Arg &a2) {
-    return all_nested(eq(a1.derived(), a2.derived()));
-}
-
-/// Inequality operator
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
-          typename Derived, typename Arg,
-          std::enable_if_t<Arg::Derived::Size == Derived::Size, int> = 0>
-ENOKI_INLINE bool operator!=(
-    const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,
-    const Arg &a2) {
-    return any_nested(neq(a1.derived(), a2.derived()));
-}
-
-ENOKI_ROUTE_BCAST(operator==)
-ENOKI_ROUTE_BCAST(operator!=)
-
-template <typename Value, size_t Size, bool Approx, RoundingMode Mode,
-          typename Derived1, typename Derived2,
-          std::enable_if_t<Derived1::Size == Derived2::Size, int> = 0>
-ENOKI_INLINE auto
-dot(const StaticArrayBase<Value, Size, Approx, Mode, Derived1> &a1,
-    const StaticArrayBase<Value, Size, Approx, Mode, Derived2> &a2) {
-    return a1.derived().dot_(a2.derived());
-}
-
-template <typename Value1, typename Value2, size_t Size1, size_t Size2,
-          bool Approx1, bool Approx2, RoundingMode Mode1, RoundingMode Mode2,
-          typename Derived1, typename Derived2,
-          std::enable_if_t<Derived1::Size == Derived2::Size, int> = 0>
-ENOKI_INLINE auto
-dot(const StaticArrayBase<Value1, Size1, Approx1, Mode1, Derived1> &a1,
-    const StaticArrayBase<Value2, Size2, Approx2, Mode2, Derived2> &a2) {
-    return hsum(a1.derived() * a2.derived());
-}
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg dot(const Arg &a, const Arg &b) { return a*b; }
 
 template <typename Array1, typename Array2>
 ENOKI_INLINE auto abs_dot(const Array1 &a1, const Array2 &a2) {
@@ -421,117 +388,6 @@ ENOKI_INLINE auto mean(const Array &a) {
     return hsum(a) * (1.f / array_size<Array>::value);
 }
 
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg fmadd(const Arg &a1, const Arg &a2, const Arg &a3) {
-    return a1 * a2 + a3;
-}
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg fnmadd(const Arg &a1, const Arg &a2, const Arg &a3) {
-    return -a1 * a2 + a3;
-}
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg fmsub(const Arg &a1, const Arg &a2, const Arg &a3) {
-    return a1 * a2 - a3;
-}
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg fnmsub(const Arg &a1, const Arg &a2, const Arg &a3) {
-    return -a1 * a2 - a3;
-}
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg fmsubadd(const Arg &a1, const Arg &a2, const Arg &a3) {
-    return a1 * a2 + a3;
-}
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg fmaddsub(const Arg &a1, const Arg &a2, const Arg &a3) {
-    return a1 * a2 - a3;
-}
-
-template <typename Mask, typename Type, size_t Size, bool Approx,
-          RoundingMode Mode, typename Derived1, typename Derived2,
-          std::enable_if_t<Derived1::Size == Derived2::Size &&
-                           Mask::Size == Derived1::Size, int> = 0>
-ENOKI_INLINE auto
-select(const Mask &a1,
-       const StaticArrayBase<Type, Size, Approx, Mode, Derived1> &a2,
-       const StaticArrayBase<Type, Size, Approx, Mode, Derived2> &a3) {
-    return Derived1::select_(
-        reinterpret_array<mask_t<Derived1>>(a1), a2.derived(), a3.derived());
-}
-
-template <typename Mask, typename Type, size_t Size, bool Approx,
-          RoundingMode Mode, typename Derived1, typename Derived2,
-          std::enable_if_t<Derived1::Size == Derived2::Size &&
-                           Mask::Size != Derived1::Size, int> = 0>
-ENOKI_INLINE auto
-select(const Mask &a1,
-       const StaticArrayBase<Type, Size, Approx, Mode, Derived1> &a2,
-       const StaticArrayBase<Type, Size, Approx, Mode, Derived2> &a3) {
-    return Derived1::select_(mask_t<Derived1>(a1.derived()),
-                             a2.derived(), a3.derived());
-}
-
-template <typename Type1, typename Type2, typename Type3, size_t Size1,
-          size_t Size2, size_t Size3, bool Approx1, bool Approx2,
-          bool Approx3, RoundingMode Mode1, RoundingMode Mode2,
-          RoundingMode Mode3, typename Derived1, typename Derived2,
-          typename Derived3,
-          std::enable_if_t<Derived1::Size == Derived2::Size &&
-                           Derived2::Size == Derived3::Size, int> = 0>
-ENOKI_INLINE auto select(
-    const StaticArrayBase<Type1, Size1, Approx1, Mode1, Derived1> &a1,
-    const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a2,
-    const StaticArrayBase<Type3, Size3, Approx3, Mode3, Derived3> &a3) {
-    using Type = decltype(a2 + a3);
-    using Value = value_t<Type>;
-    Type r;
-    ENOKI_CHKSCALAR for (size_t i = 0; i < Derived1::Size; ++i)
-        r.coeff(i) = select(a1.derived().coeff(i),
-                            a2.derived().coeff(i),
-                            a3.derived().coeff(i));
-    return r;
-}
-
-template <typename Arg>
-ENOKI_INLINE Arg select(bool a1, const Arg &a2, const Arg &a3) {
-    return a1 ? a2 : a3;
-}
-
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
-          typename Derived>
-ENOKI_INLINE auto
-operator<<(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a,
-           size_t value) {
-    return a.derived().sl_(value);
-}
-
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
-          typename Derived>
-ENOKI_INLINE auto
-operator>>(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a,
-           size_t value) {
-    return a.derived().sr_(value);
-}
-
-template <size_t Imm, typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE auto sli(const Array &a) { return a.template sli_<Imm>(); }
-
-template <size_t Imm, typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg sli(const Arg &a) { return a << Imm; }
-
-template <size_t Imm, typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE auto sri(const Array &a) { return a.template sri_<Imm>(); }
-
-template <size_t Imm, typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg sri(const Arg &a) { return a >> Imm; }
-
-template <size_t Imm, typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE auto roli(const Array &a) { return a.template roli_<Imm>(); }
-
 template <size_t Imm, typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg roli(const Arg &a) {
     size_t mask = 8 * sizeof(Arg) - 1;
@@ -539,13 +395,10 @@ ENOKI_INLINE Arg roli(const Arg &a) {
 }
 
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg rol(const Arg &a, const Arg &amt) {
+ENOKI_INLINE Arg rol(const Arg &a, size_t amt) {
     size_t mask = 8 * sizeof(Arg) - 1;
     return (a << (amt & mask)) | (a >> ((~amt + 1) & mask));
 }
-
-template <size_t Imm, typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE auto rori(const Array &a) { return a.template rori_<Imm>(); }
 
 template <size_t Imm, typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg rori(const Arg &a) {
@@ -554,70 +407,70 @@ ENOKI_INLINE Arg rori(const Arg &a) {
 }
 
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg ror(const Arg &a, const Arg &amt) {
+ENOKI_INLINE Arg ror(const Arg &a, size_t amt) {
     size_t mask = 8 * sizeof(Arg) - 1;
     return (a >> (amt & mask)) | (a << ((~amt + 1) & mask));
 }
 
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
-          typename Derived>
-ENOKI_INLINE auto
-rol(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1, size_t a2) {
-    return a1.derived().rol_(a2);
+template <typename Array, enable_if_static_array_t<Array> = 0>
+ENOKI_INLINE auto ror(const Array &a, size_t value) {
+    return a.derived().ror_(value);
 }
 
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
-          typename Derived,
-          std::enable_if_t<Derived::Value::Size != Size, int> = 0>
-ENOKI_INLINE auto
-rol(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,
-    const typename Derived::Value &a2) {
-    return rol(a1.derived(), expr_t<Derived>(a2));
+template <typename Array, enable_if_static_array_t<Array> = 0>
+ENOKI_INLINE auto rol(const Array &a, size_t value) {
+    return a.derived().rol_(value);
 }
 
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
-          typename Derived>
-ENOKI_INLINE auto
-ror(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1, size_t a2) {
-    return a1.derived().ror_(a2);
+template <typename T,
+          std::enable_if_t<is_static_array<T>::value &&
+                           std::is_same<expr_t<T>, T>::value, int> = 0>
+ENOKI_INLINE auto operator<<(const T &a, size_t value) {
+    return a.derived().sl_(value);
+}
+template <typename T,
+          std::enable_if_t<is_static_array<T>::value &&
+                           !std::is_same<expr_t<T>, T>::value, int> = 0>
+ENOKI_INLINE auto operator<<(const T &a, size_t value) {
+    return operator<<((expr_t<T>) a, value);
 }
 
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
-          typename Derived,
-          std::enable_if_t<Derived::Value::Size != Size, int> = 0>
-ENOKI_INLINE auto
-ror(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,
-    const typename Derived::Value &a2) {
-    return ror(a1.derived(), expr_t<Derived>(a2));
+template <typename T,
+          std::enable_if_t<is_static_array<T>::value &&
+                           std::is_same<expr_t<T>, T>::value, int> = 0>
+ENOKI_INLINE auto operator>>(const T &a, size_t value) {
+    return a.derived().sr_(value);
+}
+template <typename T,
+          std::enable_if_t<is_static_array<T>::value &&
+                           !std::is_same<expr_t<T>, T>::value, int> = 0>
+ENOKI_INLINE auto operator>>(const T &a, size_t value) {
+    return operator>>((expr_t<T>) a, value);
 }
 
-template <size_t Imm, typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE auto ror_array(const Array &array) {
-    return array.template ror_array_<Imm>();
-}
+ENOKI_ROUTE_UNARY_SCALAR_IMM(sli, sli, a << Imm)
+ENOKI_ROUTE_UNARY_SCALAR_IMM(sri, sri, a >> Imm)
 
-template <size_t Imm, typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE auto rol_array(const Array &array) {
-    return array.template rol_array_<Imm>();
-}
+ENOKI_ROUTE_UNARY_IMM(roli, roli)
+ENOKI_ROUTE_UNARY_IMM(rori, rori)
 
-/// Return the element-wise maximum of two arrays (scalar fallback)
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg max(const Arg &a1, const Arg &a2) {
-    return std::max(a1, a2);
-}
+ENOKI_ROUTE_UNARY_IMM(rol_array, rol_array)
+ENOKI_ROUTE_UNARY_IMM(ror_array, ror_array)
 
-/// Return the element-wise minimum of two arrays (scalar fallback)
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg min(const Arg &a1, const Arg &a2) {
-    return std::min(a1, a2);
-}
+ENOKI_ROUTE_BINARY(ror, rorv)
+ENOKI_ROUTE_BINARY(rol, rolv)
 
-template <bool = false, typename Type, size_t Size, bool Approx, RoundingMode Mode,
-          typename Derived>
-ENOKI_INLINE auto
-rcp(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
+template <bool = false, typename T,
+          std::enable_if_t<is_static_array<T>::value &&
+                           std::is_same<expr_t<T>, T>::value, int> = 0>
+ENOKI_INLINE auto rcp(const T &a) {
     return a.derived().rcp_();
+}
+template <bool = false, typename T,
+          std::enable_if_t<is_static_array<T>::value &&
+                           !std::is_same<expr_t<T>, T>::value, int> = 0>
+ENOKI_INLINE auto rcp(const T &a) {
+    return rcp((expr_t<T>) a);
 }
 
 /// Reciprocal (scalar fallback)
@@ -697,11 +550,17 @@ ENOKI_INLINE Arg rcp(const Arg &a) {
     return Arg(1) / a;
 }
 
-template <bool = false, typename Type, size_t Size, bool Approx, RoundingMode Mode,
-          typename Derived>
-ENOKI_INLINE auto
-rsqrt(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
+template <bool = false, typename T,
+          std::enable_if_t<is_static_array<T>::value &&
+                           std::is_same<expr_t<T>, T>::value, int> = 0>
+ENOKI_INLINE auto rsqrt(const T &a) {
     return a.derived().rsqrt_();
+}
+template <bool = false, typename T,
+          std::enable_if_t<is_static_array<T>::value &&
+                           !std::is_same<expr_t<T>, T>::value, int> = 0>
+ENOKI_INLINE auto rsqrt(const T &a) {
+    return rsqrt((expr_t<T>) a);
 }
 
 /// Reciprocal square root (scalar fallback)
@@ -785,46 +644,49 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
     return Arg(1) / std::sqrt(a);
 }
 
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
-          typename Derived, typename Arg,
-          std::enable_if_t<detail::bcast<Derived, Arg>::value &&
-          std::is_floating_point<scalar_t<Derived>>::value, int> = 0>
-ENOKI_INLINE expr_t<Derived> operator/(
-    const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a1,
-    const Arg &a2) {
-    auto float_value = like_t<Arg, scalar_t<Derived>>(a2);
-    if (Derived::Approx) /* Fast approximate division using reciprocals */
-        return a1.derived() * rcp<true>(float_value);
+/* operator/, operator%: case 1: use array-specific implementation of operation */
+template <typename T,
+          std::enable_if_t<is_static_array<T>::value &&
+                           std::is_same<expr_t<T>, T>::value, int> = 0>
+ENOKI_INLINE auto operator/(const T &a1, const T &a2) {
+    return a1.derived().div_(a2.derived());
+}
+
+template <typename T,
+          std::enable_if_t<is_static_array<T>::value &&
+                           std::is_same<expr_t<T>, T>::value, int> = 0>
+ENOKI_INLINE auto operator$(const T &a1, const T &a2) {
+    return a1.derived().mod_(a2.derived());
+}
+
+
+/* operator/, operator%: case 2: broadcast/evaluate input arrays and try again */
+template <typename T1, typename T2,
+          typename Array = detail::extract_array_t<T1, T2>,
+          std::enable_if_t<!std::is_void<Array>::value
+                           &&!(std::is_integral<scalar_t<T1>>::value && std::is_integral<T2>::value), int> = 0>
+ENOKI_INLINE auto operator/(const T1 &a1, const T2 &a2) {
+    using Cast   = expr_t<scalar_t<T1>, T2>;
+    using Output = expr_t<T1, T2>;
+
+    Output result;
+    if (array_depth<T1>::value > array_depth<T2>::value && Output::Approx)
+        result = (detail::ref_cast_t<T1, Output>) a1 *
+                 rcp<Output::Approx>((Cast) a2);
     else
-        return a1.derived() / expr_t<Derived>(float_value);
+        result = (detail::ref_cast_t<T1, Output>) a1 /
+                 (detail::ref_cast_t<T2, Output>) a2;
+    return result;
 }
 
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
-          typename Derived, typename Arg,
-          std::enable_if_t<detail::bcast<Derived, Arg>::value &&
-          std::is_floating_point<typename Derived::Scalar>::value, int> = 0>
-ENOKI_INLINE auto operator/(
-    const Arg &a1,
-    const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a2) {
-    return operator/(expr_t<Derived>(a1), a2.derived());
-}
-
-/// Multiply by integer power of 2 (scalar fallback)
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg ldexp(const Arg &a1, const Arg &a2) {
-    return std::ldexp(a1, (int) a2);
-}
-
-/// Power function (scalar fallback)
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg pow(const Arg &a1, const Arg &a2) {
-    return std::pow(a1, a2);
-}
-
-/// Arc tangent function (scalar fallback)
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg atan2(const Arg &a1, const Arg &a2) {
-    return std::atan2(a1, a2);
+template <typename T1, typename T2,
+          typename Array = detail::extract_array_t<T1, T2>,
+          std::enable_if_t<!std::is_void<Array>::value
+                           &&!(std::is_integral<scalar_t<T1>>::value && std::is_integral<T2>::value), int> = 0>
+ENOKI_INLINE auto operator%(const T1 &a1, const T2 &a2) {
+    using Output = expr_t<T1, T2>;
+    return (detail::ref_cast_t<T1, Output>) a1 %
+           (detail::ref_cast_t<T2, Output>) a2;
 }
 
 /// Shuffle the entries of an array
@@ -839,40 +701,39 @@ ENOKI_INLINE Arg shuffle(const Arg &arg) {
 }
 
 //// Convert radians to degrees
-template <typename Arg, typename E = expr_t<Arg>> ENOKI_INLINE E rad_to_deg(Arg value) {
-    return E(scalar_t<E>(180 / M_PI)) * value;
+template <typename Arg, typename E = expr_t<Arg>> ENOKI_INLINE E rad_to_deg(const Arg &value) {
+    return scalar_t<E>(180 / M_PI) * value;
 }
 
 /// Convert degrees to radians
-template <typename Arg, typename E = expr_t<Arg>> ENOKI_INLINE E deg_to_rad(Arg value) {
-    return E(scalar_t<E>(M_PI / 180)) * value;
+template <typename Arg, typename E = expr_t<Arg>> ENOKI_INLINE E deg_to_rad(const Arg &value) {
+    return scalar_t<E>(M_PI / 180) * value;
 }
 
 NAMESPACE_BEGIN(detail)
 template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE expr_t<Array> sign_mask(const Array &a) {
-    using UInt = typename uint_array_t<Array>::Scalar;
+    using UInt = scalar_t<uint_array_t<Array>>;
     using Float = scalar_t<Array>;
     const Float mask = memcpy_cast<Float>(UInt(1) << (sizeof(UInt) * 8 - 1));
-    return a.derived() & expr_t<Array>(mask);
+    return a & mask;
 }
 NAMESPACE_END(detail)
 
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE expr_t<Array> sign(const Array &a) {
-    using Expr = expr_t<Array>;
+template <typename Array, enable_if_static_array_t<Array> = 0, typename Expr = expr_t<Array>>
+ENOKI_INLINE Expr sign(const Array &a) {
     using Scalar = scalar_t<Expr>;
 
     if (!std::is_signed<Scalar>::value)
-        return Expr(1);
+        return Expr(Scalar(1));
     else if (std::is_floating_point<Scalar>::value)
         return detail::sign_mask(a) | Expr(Scalar(1));
     else
         return select(a < Scalar(0), Expr(Scalar(-1)), Expr(Scalar(1)));
 }
 
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE expr_t<Array> copysign(const Array &a, const Array &b) {
+template <typename Array, enable_if_static_array_t<Array> = 0, typename Expr = expr_t<Array>>
+ENOKI_INLINE Expr copysign(const Array &a, const Array &b) {
     using Scalar = scalar_t<Array>;
 
     if (!std::is_signed<Scalar>::value) {
@@ -885,8 +746,8 @@ ENOKI_INLINE expr_t<Array> copysign(const Array &a, const Array &b) {
     }
 }
 
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE expr_t<Array> mulsign(const Array &a, const Array &b) {
+template <typename Array, enable_if_static_array_t<Array> = 0, typename Expr = expr_t<Array>>
+ENOKI_INLINE Expr mulsign(const Array &a, const Array &b) {
     using Scalar = scalar_t<Array>;
 
     if (!std::is_signed<Scalar>::value) {
@@ -912,33 +773,6 @@ template <typename Arg, enable_if_not_array_t<Arg> = 0>
 inline Arg mulsign(const Arg &a, const Arg &b) {
     return a * std::copysign(Arg(1), b);
 }
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-inline std::pair<Arg, Arg> sincos(const Arg &a) {
-    return std::make_pair(std::sin(a), std::cos(a));
-}
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-inline std::pair<Arg, Arg> sincosh(const Arg &a) {
-    return std::make_pair(std::sinh(a), std::cosh(a));
-}
-
-/// Break floating-point number into normalized fraction and power of 2 (scalar fallback)
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE std::pair<Arg, Arg> frexp(const Arg &a) {
-    int tmp;
-    Arg result = std::frexp(a, &tmp);
-    return std::make_pair(result, Arg(tmp));
-}
-
-ENOKI_INLINE bool all(bool value) { return value; }
-ENOKI_INLINE bool all_nested(bool value) { return value; }
-ENOKI_INLINE bool any(bool value) { return value; }
-ENOKI_INLINE bool any_nested(bool value) { return value; }
-ENOKI_INLINE bool none(bool value) { return !value; }
-ENOKI_INLINE bool none_nested(bool value) { return !value; }
-ENOKI_INLINE size_t count(bool value) { return value ? 1 : 0; }
-ENOKI_INLINE size_t count_nested(bool value) { return value ? 1 : 0; }
 
 //! @}
 // -----------------------------------------------------------------------
@@ -998,17 +832,15 @@ ENOKI_INLINE Arg index_sequence() {
 
 /// Construct an index sequence, i.e. 0, 1, 2, ..
 template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE Array linspace(value_t<Array> min,
-                            value_t<Array> max) {
+ENOKI_INLINE Array linspace(scalar_t<Array> min, scalar_t<Array> max) {
     return detail::linspace_<Array>(
         std::make_index_sequence<Array::Size>(), min,
-        (max - min) / (value_t<Array>)(Array::Size - 1));
+        (max - min) / (scalar_t<Array>) (Array::Size - 1));
 }
 
 /// Construct an index sequence, i.e. 0, 1, 2, ..
-template <typename Array, enable_if_dynamic_array_t<Array> = 0,
-          typename Value = value_t<Array>>
-ENOKI_INLINE Array linspace(size_t size, Value min, Value max) {
+template <typename Array, enable_if_dynamic_array_t<Array> = 0>
+ENOKI_INLINE Array linspace(size_t size, scalar_t<Array> min, scalar_t<Array> max) {
     return Array::linspace_(size, min, max);
 }
 
@@ -1220,7 +1052,7 @@ template <size_t Stride_ = 0, typename Array,
           std::enable_if_t<std::is_integral<scalar_t<Index>>::value &&
                            Index::Size == Array::Size, int> = 0>
 ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index) {
-    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(value_t<Array>);
+    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(std::decay_t<value_t<Array>>);
     value.template scatter_<Stride>(mem, index);
 }
 
@@ -1242,7 +1074,7 @@ template <size_t Stride_ = 0, typename Array, typename Index, typename Mask,
                            Mask::Size == Array::Size, int> = 0>
 ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index,
                           const Mask &mask) {
-    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(value_t<Array>);
+    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(std::decay_t<value_t<Array>>);
     value.template scatter_<Stride>(mem, index,
                                     reinterpret_array<mask_t<Array>>(mask));
 }
@@ -1318,7 +1150,7 @@ ENOKI_INLINE void transform(void *mem, const Index &index,
 template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
           std::enable_if_t<Mask::Size == Array::Size, int> = 0>
 ENOKI_INLINE value_t<Array> extract(const Array &value, const Mask &mask) {
-    return value_t<Array>(value.extract_(reinterpret_array<mask_t<Array>>(mask)));
+    return (value_t<Array>) value.extract_(reinterpret_array<mask_t<Array>>(mask));
 }
 
 /// Mask extraction operation (scalar fallback)
@@ -1334,19 +1166,19 @@ ENOKI_INLINE Arg extract(const Arg &value, const Mask &) {
 //! @{ \name "Safe" functions that avoid domain errors due to rounding
 // -----------------------------------------------------------------------
 
-template <typename T> ENOKI_INLINE auto safe_sqrt(T a) {
+template <typename T> ENOKI_INLINE auto safe_sqrt(const T &a) {
     return sqrt(max(a, zero<T>()));
 }
 
-template <typename T> ENOKI_INLINE auto safe_rsqrt(T a) {
+template <typename T> ENOKI_INLINE auto safe_rsqrt(const T &a) {
     return rsqrt(max(a, zero<T>()));
 }
 
-template <typename T> ENOKI_INLINE auto safe_asin(T a) {
+template <typename T> ENOKI_INLINE auto safe_asin(const T &a) {
     return asin(min(T(1), max(T(-1), a)));
 }
 
-template <typename T> ENOKI_INLINE auto safe_acos(T a) {
+template <typename T> ENOKI_INLINE auto safe_acos(const T &a) {
     return acos(min(T(1), max(T(-1), a)));
 }
 
@@ -1392,21 +1224,20 @@ ENOKI_INLINE auto cross(const Array1 &v1, const Array2 &v2) {
 }
 
 /// Generic range clamping function
-template <typename Value>
-Value clamp(Value value, Value min_, Value max_) {
+template <typename Value1, typename Value2, typename Value3>
+auto clamp(const Value1 &value, const Value2 &min_, const Value3 &max_) {
     return max(min(value, max_), min_);
 }
 
-template <typename Arg, typename Expr = expr_t<Arg>>
-ENOKI_INLINE Expr hypot(Arg a, Arg b) {
-    using Scalar = scalar_t<Expr>;
+template <typename Array1, typename Array2>
+ENOKI_INLINE auto hypot(const Array1 &a, const Array2 &b) {
+    auto abs_a = abs(a);
+    auto abs_b = abs(b);
+    auto max   = enoki::max(abs_a, abs_b);
+    auto min   = enoki::min(abs_a, abs_b);
+    auto ratio = min / max;
 
-    Expr abs_a = abs(a),
-         abs_b = abs(b),
-         max   = enoki::max(abs_a, abs_b),
-         min   = enoki::min(abs_a, abs_b),
-         ratio = min / max;
-
+    using Scalar = scalar_t<decltype(ratio)>;
     const Scalar inf = std::numeric_limits<Scalar>::infinity();
 
     return select(
@@ -1414,30 +1245,6 @@ ENOKI_INLINE Expr hypot(Arg a, Arg b) {
         max * sqrt(Scalar(1) + ratio*ratio),
         abs_a + abs_b
     );
-}
-
-/// Access an array element by index
-template <typename Array, enable_if_array_t<Array> = 0>
-ENOKI_INLINE auto& array_coeff(Array &array, size_t index) {
-    return array.coeff(index);
-}
-
-/// Access an array element by index (const)
-template <typename Array, enable_if_array_t<Array> = 0>
-ENOKI_INLINE const auto& array_coeff(const Array &array, size_t index) {
-    return array.coeff(index);
-}
-
-/// Access an array element by index (scalar fallback)
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE auto& array_coeff(Arg &array, size_t) {
-    return array;
-}
-
-/// Access an array element by index (const, scalar fallback)
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE const auto& array_coeff(const Arg &array, size_t) {
-    return array;
 }
 
 /**
@@ -1458,15 +1265,15 @@ ENOKI_INLINE auto broadcast(const Array &value) {
 // -----------------------------------------------------------------------
 
 #define ENOKI_MASKED_OPERATOR(name, expr)                                      \
-    template <typename Arg, enable_if_not_array_t<Arg> = 0>                     \
+    template <typename Arg, enable_if_not_array_t<Arg> = 0>                    \
     ENOKI_INLINE void name(Arg &a, const Arg &b, bool m) {                     \
         if (m)                                                                 \
             a = expr;                                                          \
     }                                                                          \
-    template <typename Array, enable_if_static_array_t<Array> = 0>                   \
+    template <typename Array, enable_if_static_array_t<Array> = 0>             \
     ENOKI_INLINE void name(Array &a, const Array &b,                           \
-                           const typename Array::Mask &m) {                    \
-        a.name##_(b, m);                                                       \
+                           const mask_t<Array> &m) {                           \
+        a.derived().name##_(b, m);                                             \
     }
 
 ENOKI_MASKED_OPERATOR(madd, a + b)
@@ -1628,64 +1435,61 @@ template <typename T> bool ragged(const T &a) {
 template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
 ENOKI_INLINE T poly2(T1 x, T2 c0, T2 c1, T2 c2) {
     T x2 = x * x;
-    return fmadd(x2, T(S(c2)), fmadd(x, T(S(c1)), T(S(c0))));
+    return fmadd(x2, S(c2), fmadd(x, S(c1), S(c0)));
 }
 
 template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
 ENOKI_INLINE T poly3(T1 x, T2 c0, T2 c1, T2 c2, T2 c3) {
     T x2 = x * x;
-    return fmadd(fmadd(T(S(c3)), x, T(S(c2))), x2, fmadd(T(S(c1)), x, T(S(c0))));
+    return fmadd(x2, fmadd(x, S(c3), S(c2)), fmadd(x, S(c1), S(c0)));
 }
 
 template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
 ENOKI_INLINE T poly4(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4) {
     T x2 = x * x, x4 = x2 * x2;
-    return fmadd(fmadd(T(S(c3)), x, T(S(c2))), x2,
-                 fmadd(T(S(c1)), x, T(S(c0))) + T(S(c4)) * x4);
+    return fmadd(x2, fmadd(x, S(c3), S(c2)), fmadd(x, S(c1), S(c0)) + S(c4) * x4);
 }
 
 template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
 ENOKI_INLINE T poly5(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5) {
     T x2 = x * x, x4 = x2 * x2;
-    return fmadd(fmadd(T(S(c3)), x, T(S(c2))), x2,
-                 fmadd(fmadd(T(S(c5)), x, T(S(c4))), x4, fmadd(T(S(c1)), x, T(S(c0)))));
+    return fmadd(x2, fmadd(x, S(c3), S(c2)),
+                     fmadd(x4, fmadd(x, S(c5), S(c4)), fmadd(x, S(c1), S(c0))));
 }
 
 template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
 ENOKI_INLINE T poly6(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5, T2 c6) {
     T x2 = x * x, x4 = x2 * x2;
-    return fmadd(fmadd(T(S(c6)), x2, fmadd(T(S(c5)), x, T(S(c4)))), x4,
-                 fmadd(fmadd(T(S(c3)), x, T(S(c2))), x2, fmadd(T(S(c1)),
-                       x, T(S(c0)))));
+    return fmadd(x4, fmadd(x2, S(c6), fmadd(x, S(c5), S(c4))),
+                     fmadd(x2, fmadd(x, S(c3), S(c2)), fmadd(x, S(c1), S(c0))));
 }
 
 template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
 ENOKI_INLINE T poly7(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5, T2 c6, T2 c7) {
     T x2 = x * x, x4 = x2 * x2;
-    return fmadd(
-        fmadd(fmadd(T(S(c7)), x, T(S(c6))), x2, fmadd(T(S(c5)), x, T(S(c4)))), x4,
-        fmadd(fmadd(T(S(c3)), x, T(S(c2))), x2, fmadd(T(S(c1)), x, T(S(c0)))));
+    return fmadd(x4, fmadd(x2, fmadd(x, S(c7), S(c6)), fmadd(x, S(c5), S(c4))),
+                     fmadd(x2, fmadd(x, S(c3), S(c2)), fmadd(x, S(c1), S(c0))));
 }
 
 template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
 ENOKI_INLINE T poly8(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5, T2 c6, T2 c7, T2 c8) {
     T x2 = x * x, x4 = x2 * x2, x8 = x4 * x4;
-    return fmadd(
-        fmadd(fmadd(T(S(c7)), x, T(S(c6))), x2, fmadd(T(S(c5)), x, T(S(c4)))), x4,
-        fmadd(fmadd(T(S(c3)), x, T(S(c2))), x2,
-              fmadd(T(S(c1)), x, T(S(c0))) + T(S(c8)) * x8));
+    return fmadd(x4, fmadd(x2, fmadd(x, S(c7), S(c6)), fmadd(x, S(c5), S(c4))),
+                     fmadd(x2, fmadd(x, S(c3), S(c2)), fmadd(x, S(c1), S(c0)) + S(c8) * x8));
 }
 
 //! @}
 // -----------------------------------------------------------------------
 
+#undef ENOKI_ROUTE_UNARY
+#undef ENOKI_ROUTE_UNARY_SCALAR
+#undef ENOKI_ROUTE_UNARY_IMM
+#undef ENOKI_ROUTE_UNARY_SCALAR_IMM
 #undef ENOKI_ROUTE_BINARY
-#undef ENOKI_ROUTE_BCAST
-#undef ENOKI_ROUTE_BINARY_OPERATOR
-#undef ENOKI_ROUTE_BINARY_FUNCTION
-#undef ENOKI_ROUTE_BINARY_OPERATOR_BCAST
-#undef ENOKI_ROUTE_BINARY_FUNCTION_BCAST
+#undef ENOKI_ROUTE_BINARY_SCALAR
+#undef ENOKI_ROUTE_SHIFT
+#undef ENOKI_ROUTE_TERNARY
+#undef ENOKI_ROUTE_TERNARY_SCALAR
 #undef ENOKI_ROUTE_COMPOUND_OPERATOR
-#undef ENOKI_ROUTE_UNARY_WITH_FALLBACK
 
 NAMESPACE_END(enoki)

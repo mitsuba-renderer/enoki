@@ -23,12 +23,12 @@ hides the fact that
    .. code-block:: cpp
 
        Array<float, 4> x = ...;
-       Array<Array<float, 8>, 4> y = ...;
+       Array<Array<double, 8>, 4> y = ...;
 
        auto z = x + y;
 
-   The entries of ``x`` are broadcast in the above example, and the type of
-   ``z`` is thus ``Array<Array<float, 8>, 4>``.
+   The entries of ``x`` are broadcast and promoted in the above example, and
+   the type of ``z`` is thus ``Array<Array<double, 8>, 4>``.
 
 2. The operator uses SFINAE (``std::enable_if``) so that it only becomes active
    when ``x`` or ``y`` are Enoki arrays.
@@ -1275,7 +1275,7 @@ The following special functions require including the header
     .. math::
 
         \mathrm{erfi}(x)=-i\,\mathrm{erf}(ix).
-        
+
     Requires a real-valued input array ``x``.
 
 .. cpp:function:: template <typename Array> Array erfinv(Array x)
@@ -1290,7 +1290,7 @@ The following special functions require including the header
     .. math::
 
         I_0^{(e)}(x) = e^{-|x|} I_0(x),
-    
+
     where
 
     .. math::
@@ -1441,6 +1441,123 @@ Type traits
 The following type traits are available to query the properties of arrays at
 compile time.
 
+Accessing types related to Enoki arrays
+***************************************
+
+.. cpp:type:: template <typename T> value_t
+
+    Given an Enoki array ``T``, :cpp:type:`value_t\<T>` provides access to the
+    type of the individual array entries. For non-array types ``T``,
+    :cpp:type:`value_t\<T>` equals to the input template parameter ``T``.
+
+    A few examples are shown below:
+
+    .. code-block:: cpp
+
+        using FloatP     = Array<float>;
+        using Vector4f   = Array<float, 4>;
+        using Vector4fr  = Array<float&, 4>;
+        using Vector4fP  = Array<FloatP, 4>;
+        using Vector4fPr = Array<FloatP&, 4>;
+
+        /* Non-array input */
+        static_assert(std::is_same<value_t<float>, float>::value);
+
+        /* Array input */
+        static_assert(std::is_same<value_t<Vector4f>,   float>::value);
+        static_assert(std::is_same<value_t<Vector4fr>,  float&>::value);
+        static_assert(std::is_same<value_t<Vector4fP>,  FloatP>::value);
+        static_assert(std::is_same<value_t<Vector4fPr>, FloatP&>::value);
+
+
+.. cpp:type:: template <typename... Args> expr_t
+
+    Given arrays ``a1``, ..., ``an`` of type ``T1``, ..., ``Tn``, ``expr_t<T1,
+    .., Tn>`` returns the type of an arithmetic expression such as ``a1 + ... +
+    an``. The type trait applies all of the standard C++ type promotion rules
+    and strips away references occurring anywhere within the definition of the
+    input types. In addition to array input, ``expr_t`` also works for
+    recursively defined arrays and non-array inputs or mixed array & non-array
+    input.
+
+    A few examples are shown below:
+
+    .. code-block:: cpp
+
+        using FloatP     = Array<float>;
+        using DoubleP    = Array<double, FloatP::Size>;
+
+        using Vector4f   = Array<float, 4>;
+        using Vector4fr  = Array<float&, 4>;
+
+        using Vector4fP  = Array<FloatP, 4>;
+        using Vector4fPr = Array<FloatP&, 4>;
+
+        using Vector4d   = Array<double, 4>;
+        using Vector4dP  = Array<DoubleP, 4>;
+
+        /* Non-array input */
+        static_assert(std::is_same<expr_t<float>,               float>::value);
+        static_assert(std::is_same<expr_t<float&>,              float>::value);
+        static_assert(std::is_same<expr_t<float, double>,       double>::value);
+        static_assert(std::is_same<expr_t<float&, double&>,     double>::value);
+
+        /* Array input */
+        static_assert(std::is_same<expr_t<Vector4f>,            Vector4f>::value);
+        static_assert(std::is_same<expr_t<Vector4fr>,           Vector4f>::value);
+        static_assert(std::is_same<expr_t<Vector4fP>,           Vector4fP>::value);
+        static_assert(std::is_same<expr_t<Vector4fPr>,          Vector4fP>::value);
+
+        static_assert(std::is_same<expr_t<Vector4f, double>,    Vector4d>::value);
+        static_assert(std::is_same<expr_t<Vector4fPr, double&>, Vector4dP>::value);
+
+.. cpp:type:: template <typename T> scalar_t
+
+    Given a (potentially nested) Enoki array ``T``, this trait class provides
+    access to the scalar type underlying the array.
+    For non-array
+    types ``T``, :cpp:type:`scalar_t\<T>` is simply set to the template parameter ``T``.
+
+    A few examples are shown below:
+
+    .. code-block:: cpp
+
+        using FloatP     = Array<float>;
+
+        using Vector4f   = Array<float, 4>;
+        using Vector4fr  = Array<float&, 4>;
+
+        using Vector4fP  = Array<FloatP, 4>;
+        using Vector4fPr = Array<FloatP&, 4>;
+
+        /* Non-array input */
+        static_assert(std::is_same<scalar_t<float>,               float>::value);
+        static_assert(std::is_same<scalar_t<float&>,              float>::value);
+
+        /* Array input */
+        static_assert(std::is_same<scalar_t<Vector4f>,            float>::value);
+        static_assert(std::is_same<scalar_t<Vector4fr>,           float>::value);
+        static_assert(std::is_same<scalar_t<Vector4fP>,           float>::value);
+        static_assert(std::is_same<scalar_t<Vector4fPr>,          float>::value);
+
+.. cpp:type:: template <typename T> mask_t
+
+    Given an Enoki array ``T``, :cpp:type:`mask_t\<T>` provides access to the
+    underlying mask type (i.e. the type that would result from a comparison
+    operation such as ``array < 0``). For non-array types ``T``,
+    :cpp:type:`mask_t\<T>` is set to ``bool``.
+
+
+.. cpp:class:: template <typename T> array_depth
+
+    .. cpp:member:: static constexpr size_t value
+
+        Given a type :cpp:any:`T` (which could be a nested Enoki array),
+        :cpp:member:`value` specifies the nesting level and stores it in the
+        :cpp:var:`value` member. Non-array types (e.g. ``int32_t``) have a
+        nesting level of 0, a type such as ``Array<float>`` has nesting level
+        1, and so on.
+
 Replacing the scalar type of an array
 *************************************
 
@@ -1514,56 +1631,6 @@ usage.
 .. cpp:type:: template <typename Array> ssize_array_t = like_t<Array, ssize_t>
 
     Create a ``ssize_t``-valued array matching the layout of ``Array``.
-
-Accessing types related to Enoki arrays
-***************************************
-
-.. cpp:type:: template <typename T> mask_t
-
-    Given an Enoki array ``T``, :cpp:type:`mask_t\<T>` provides access to the
-    underlying mask type (i.e. the type that would result from a comparison
-    operation such as ``array < 0``). For non-array types ``T``,
-    :cpp:type:`mask_t\<T>` is set to ``bool``.
-
-.. cpp:type:: template <typename T> type_t
-
-    Given an Enoki array ``T``, :cpp:type:`type_t\<T>` provides access to the
-    type of the individual array entries. For non-array types ``T``,
-    :cpp:type:`type_t\<T>` equals to the input template parameter ``T``. In
-    contrast to :cpp:type:`value_t\<T>`, it does not remove references.
-
-.. cpp:type:: template <typename T> value_t
-
-    Given an Enoki array ``T``, :cpp:type:`value_t\<T>` provides access to the
-    type of the individual array entries, and it returns the input type when
-    ``T`` is not an array type.  :cpp:type:`value_t\<T>` always removes
-    references, hence ``value_t<Array<float&>, 4>`` is equal to ``float``
-    instead of ``float&``.
-
-.. cpp:type:: template <typename T> expr_t
-
-    Given an array ``a`` of type ``T``, ``expr_t<T>`` returns the type of an
-    expression involving ``a``, such as ``-a`` (i.e. after applying the unary
-    minus operator). This effectively strips away references occurring anywhere
-    within the definition of ``T`` (which could be a nested array).
-
-.. cpp:type:: template <typename T> scalar_t
-
-    Given a (potentially nested) Enoki array ``T``, this trait class provides
-    access to the scalar type underlying the array. For a nested array such as
-    ``Array<Array<float, 4>, 4>``, the scalar type is ``float``, while the value
-    type returned by :cpp:type:`value_t` is ``Array<float, 4>``. For non-array
-    types ``T``, :cpp:type:`scalar_t\<T>` is simply set to the template parameter ``T``.
-
-.. cpp:class:: template <typename T> array_depth
-
-    .. cpp:member:: static constexpr size_t value
-
-        Given a type :cpp:any:`T` (which could be a nested Enoki array),
-        :cpp:member:`value` specifies the nesting level and stores it in the
-        :cpp:var:`value` member. Non-array types (e.g. ``int32_t``) have a
-        nesting level of 0, a type such as ``Array<float>`` has nesting level
-        1, and so on.
 
 SFINAE helper types
 -------------------

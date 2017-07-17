@@ -343,7 +343,7 @@ template <bool Approx, typename Derived> struct alignas(32)
     // -----------------------------------------------------------------------
 
     ENOKI_INLINE void store_(void *ptr) const {
-        _mm256_store_ps((Value *) ptr, m);
+        _mm256_store_ps((Value *) ENOKI_ASSUME_ALIGNED_S(ptr, 32), m);
     }
     ENOKI_INLINE void store_(void *ptr, const Mask &mask) const {
         _mm256_maskstore_ps((Value *) ptr, _mm256_castps_si256(mask.m), m);
@@ -355,7 +355,7 @@ template <bool Approx, typename Derived> struct alignas(32)
         _mm256_maskstore_ps((Value *) ptr, _mm256_castps_si256(mask.m), m);
     }
     static ENOKI_INLINE Derived load_(const void *ptr) {
-        return _mm256_load_ps((const Value *) ptr);
+        return _mm256_load_ps((const Value *) ENOKI_ASSUME_ALIGNED_S(ptr, 32));
     }
     static ENOKI_INLINE Derived load_(const void *ptr, const Mask &mask) {
         return _mm256_maskload_ps((const Value *) ptr, _mm256_castps_si256(mask.m));
@@ -758,7 +758,7 @@ template <bool Approx, typename Derived> struct alignas(32)
     // -----------------------------------------------------------------------
 
     ENOKI_INLINE void store_(void *ptr) const {
-        _mm256_store_pd((Value *) ptr, m);
+        _mm256_store_pd((Value *) ENOKI_ASSUME_ALIGNED_S(ptr, 32), m);
     }
     template <typename Mask_>
     ENOKI_INLINE void store_(void *ptr, const Mask_ &mask) const {
@@ -772,7 +772,7 @@ template <bool Approx, typename Derived> struct alignas(32)
         _mm256_maskstore_pd((Value *) ptr, _mm256_castpd_si256(mask.m), m);
     }
     static ENOKI_INLINE Derived load_(const void *ptr) {
-        return _mm256_load_pd((const Value *) ptr);
+        return _mm256_load_pd((const Value *) ENOKI_ASSUME_ALIGNED_S(ptr, 32));
     }
     template <typename Mask_>
     static ENOKI_INLINE Derived load_(const void *ptr, const Mask_ &mask) {

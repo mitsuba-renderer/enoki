@@ -329,7 +329,7 @@ struct alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMode::Default,
     // -----------------------------------------------------------------------
 
     ENOKI_INLINE void store_(void *ptr) const {
-        _mm256_store_si256((__m256i *) ptr, m);
+        _mm256_store_si256((__m256i *) ENOKI_ASSUME_ALIGNED_S(ptr, 32), m);
     }
     ENOKI_INLINE void store_(void *ptr, const Mask &mask) const {
         _mm256_maskstore_epi32((int *) ptr, mask.m, m);
@@ -342,7 +342,7 @@ struct alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMode::Default,
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
-        return _mm256_load_si256((const __m256i *) ptr);
+        return _mm256_load_si256((const __m256i *) ENOKI_ASSUME_ALIGNED_S(ptr, 32));
     }
     static ENOKI_INLINE Derived load_(const void *ptr, const Mask &mask) {
         return _mm256_maskload_epi32((const int *) ptr, mask.m);
@@ -792,7 +792,7 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     // -----------------------------------------------------------------------
 
     ENOKI_INLINE void store_(void *ptr) const {
-        _mm256_store_si256((__m256i *) ptr, m);
+        _mm256_store_si256((__m256i *) ENOKI_ASSUME_ALIGNED_S(ptr, 32), m);
     }
     template <typename Mask_>
     ENOKI_INLINE void store_(void *ptr, const Mask_ &mask) const {
@@ -807,7 +807,7 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
-        return _mm256_load_si256((const __m256i *) ptr);
+        return _mm256_load_si256((const __m256i *) ENOKI_ASSUME_ALIGNED_S(ptr, 32));
     }
     template <typename Mask_>
     static ENOKI_INLINE Derived load_(const void *ptr, const Mask_ &mask) {

@@ -348,6 +348,15 @@ Enoki's implementation of division by constants is based on the excellent
     divisions. The reason for this is that a *64 bit high multiplication*
     instruction required by the algorithm does not exist and must be emulated.
 
+.. warning::
+
+    Enoki's integer precomputed division operator does not support dividends
+    equal to :math:`\pm 1` (all other values are permissible). This is an
+    inherent limitation of the magic number & shift-based algorithm used
+    internally, which simply cannot represent this dividend. Enoki will throw
+    an exception when a dividend equal to :math:`\pm 1` is detected in an
+    application compiled in debug mode.
+
 .. _reinterpret:
 
 Reinterpreting the contents of arrays
@@ -527,9 +536,9 @@ the routing templates in ``enoki/enoki_router.h``.
   * Loads and stores: ``store_``, ``store_unaligned_``, ``load_``,
     ``load_unaligned_``.
 
-  * Arithmetic and bit-level operations: ``add_``, ``sub_``, ``mul_``, ``mulhi_``
-    (signed/unsigned high integer multiplication), ``div_``, ``and_``, ``or_``,
-    ``xor_``.
+  * Arithmetic and bit-level operations: ``add_``, ``sub_``, ``mul_``,
+    ``mulhi_`` (signed/unsigned high integer multiplication), ``div_``,
+    ``mod_``, ``and_``, ``or_``, ``xor_``.
 
   * Unary operators: ``neg_``, ``not_``.
 

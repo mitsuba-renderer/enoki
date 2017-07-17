@@ -5,7 +5,7 @@
     of numerical kernels using SIMD instruction sets available on current
     processor architectures.
 
-    Copyright (c) 2017 Wenzel Jakob <wenzel.jakob@epfl.ch>
+    Copyrighe (c) 2017 Wenzel Jakob <wenzel.jakob@epfl.ch>
 
     All rights reserved. Use of this source code is governed by a BSD-style
     license that can be found in the LICENSE file.
@@ -372,7 +372,7 @@ template <bool Approx, typename Derived> struct alignas(16)
     // -----------------------------------------------------------------------
 
     ENOKI_INLINE void store_(void *ptr) const {
-        _mm_store_ps((Value *) ptr, m);
+        _mm_store_ps((Value *) ENOKI_ASSUME_ALIGNED_S(ptr, 16), m);
     }
     template <typename Mask_>
     ENOKI_INLINE void store_(void *ptr, const Mask_ &mask) const {
@@ -391,7 +391,7 @@ template <bool Approx, typename Derived> struct alignas(16)
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
-        return _mm_load_ps((const Value *) ptr);
+        return _mm_load_ps((const Value *) ENOKI_ASSUME_ALIGNED_S(ptr, 16));
     }
     template <typename Mask_>
     static ENOKI_INLINE Derived load_(const void *ptr, const Mask_ &mask) {
@@ -781,7 +781,7 @@ template <bool Approx, typename Derived> struct alignas(16)
     // -----------------------------------------------------------------------
 
     ENOKI_INLINE void store_(void *ptr) const {
-        _mm_store_pd((Value *) ptr, m);
+        _mm_store_pd((Value *) ENOKI_ASSUME_ALIGNED_S(ptr, 16), m);
     }
     ENOKI_INLINE void store_(void *ptr, const Mask &mask) const {
         #if defined(__AVX__)
@@ -798,7 +798,7 @@ template <bool Approx, typename Derived> struct alignas(16)
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
-        return _mm_load_pd((const Value *) ptr);
+        return _mm_load_pd((const Value *) ENOKI_ASSUME_ALIGNED_S(ptr, 16));
     }
     static ENOKI_INLINE Derived load_(const void *ptr, const Mask &mask) {
         #if defined(__AVX__)
@@ -1218,7 +1218,7 @@ struct alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     // -----------------------------------------------------------------------
 
     ENOKI_INLINE void store_(void *ptr) const {
-        _mm_store_si128((__m128i *) ptr, m);
+        _mm_store_si128((__m128i *) ENOKI_ASSUME_ALIGNED_S(ptr, 16), m);
     }
     template <typename Mask_>
     ENOKI_INLINE void store_(void *ptr, const Mask_ &mask) const {
@@ -1237,7 +1237,7 @@ struct alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
-        return _mm_load_si128((const __m128i *) ptr);
+        return _mm_load_si128((const __m128i *) ENOKI_ASSUME_ALIGNED_S(ptr, 16));
     }
     template <typename Mask_>
     static ENOKI_INLINE Derived load_(const void *ptr, const Mask_ &mask) {
@@ -1683,7 +1683,7 @@ struct alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMode::Default,
     // -----------------------------------------------------------------------
 
     ENOKI_INLINE void store_(void *ptr) const {
-        _mm_store_si128((__m128i *) ptr, m);
+        _mm_store_si128((__m128i *) ENOKI_ASSUME_ALIGNED_S(ptr, 16), m);
     }
     ENOKI_INLINE void store_(void *ptr, const Mask &mask) const {
         #if defined(__AVX2__)
@@ -1700,7 +1700,7 @@ struct alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMode::Default,
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
-        return _mm_load_si128((const __m128i *) ptr);
+        return _mm_load_si128((const __m128i *) ENOKI_ASSUME_ALIGNED_S(ptr, 16));
     }
     static ENOKI_INLINE Derived load_(const void *ptr, const Mask &mask) {
         #if defined(__AVX2__)

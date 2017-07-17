@@ -166,6 +166,17 @@ template <typename Type, typename Derived> struct DynamicArrayBase;
 template <typename Type> struct DynamicArray;
 struct half;
 
+NAMESPACE_BEGIN(detail)
+
+template <typename... Args> struct extract_array;
+template <typename... Args> struct expr;
+template <typename     Arg, typename SFINAE = int> struct mask;
+template <typename     Arg, typename SFINAE = int> struct type_;
+template <typename     Arg, typename SFINAE = int> struct scalar;
+struct KMaskBit;
+
+NAMESPACE_END(detail)
+
 //! @}
 // -----------------------------------------------------------------------
 
@@ -239,38 +250,6 @@ using enable_if_static_array_t = std::enable_if_t<is_static_array<T>::value, int
 template <typename T>
 using enable_if_dynamic_array_t = std::enable_if_t<is_dynamic_array<T>::value, int>;
 
-/// Type trait to access the mask type underlying an array
-template <typename T, typename = int> struct mask { using type = bool; };
-template <typename T> using mask_t = typename mask<T>::type;
-
-template <typename T> struct mask<T, enable_if_array_t<T>> {
-    using type = typename std::decay_t<T>::Mask;
-};
-
-/// Type trait to access the scalar type underlying an array
-template <typename T, typename = int> struct value { using type = T; };
-template <typename T> using value_t = typename value<T>::type;
-
-template <typename T> struct value<T, enable_if_array_t<T>> {
-    using type = typename std::decay_t<T>::Value;
-};
-
-/// Type trait to access the scalar type underlying an array
-template <typename T, typename = int> struct type_ { using type = T; };
-template <typename T> using type_t = typename type_<T>::type;
-
-template <typename T> struct type_<T, enable_if_array_t<T>> {
-    using type = typename std::decay_t<T>::Type;
-};
-
-/// Type trait to access the base scalar type underlying a potentially nested array
-template <typename T, typename = int> struct scalar { using type = std::decay_t<T>; };
-template <typename T> using scalar_t = typename scalar<T>::type;
-
-template <typename T> struct scalar<T, enable_if_array_t<T>> {
-    using type = scalar_t<typename std::decay_t<T>::Value>;
-};
-
 /// Determine the nesting level of an array
 template <typename T, typename = int> struct array_depth {
     static constexpr size_t value = 0;
@@ -289,25 +268,116 @@ template <typename T> struct array_size<T, enable_if_array_t<T>> {
     static constexpr size_t value = std::decay_t<T>::Derived::Size;
 };
 
+template <typename... Args> using expr_t   = typename detail::expr<Args...>::type;
+template <typename     Arg> using mask_t   = typename detail::mask<Arg>::type;
+template <typename     Arg> using value_t   = typename detail::type_<Arg>::type;
+template <typename     Arg> using scalar_t = typename detail::scalar<Arg>::type;
+
 NAMESPACE_BEGIN(detail)
 
-template <typename T, typename U> struct copy_flags {
+/// Type trait to extract the first Enoki array from a list of arguments
+template <typename... Args>
+using extract_array_t = typename extract_array<Args...>::type;
+
+template <typename Arg, typename... Args>
+struct extract_array<Arg, Args...> {
 private:
-    using R = std::remove_reference_t<T>;
-    using U1 = std::conditional_t<std::is_const<R>::value, std::add_const_t<U>, U>;
-    using U2 = std::conditional_t<std::is_pointer<T>::value,
-                                  std::add_pointer_t<U1>, U1>;
-    using U3 = std::conditional_t<std::is_lvalue_reference<T>::value,
-                                  std::add_lvalue_reference_t<U2>, U2>;
-    using U4 = std::conditional_t<std::is_rvalue_reference<T>::value,
-                                  std::add_rvalue_reference_t<U3>, U3>;
+    using T0 = Arg;
+    using T1 = extract_array_t<Args...>;
+
+    static constexpr size_t D0 = array_depth<T0>::value;
+    static constexpr size_t D1 = array_depth<T1>::value;
 
 public:
-    using type = U4;
+    using type = std::conditional_t<(D0 > D1), T0, T1>;
 };
 
-template <typename T, typename U>
-using copy_flags_t = typename copy_flags<T, U>::type;
+template <> struct extract_array<> { using type = void; };
+
+/// Type trait to compute the result of a unary expression involving a type T
+template <typename Array, typename T> struct expr_1;
+
+template <typename T>
+struct expr_1<T, T> {
+private:
+    using Td = std::decay_t<T>;
+    using Entry = value_t<T>;
+    using EntryExpr = expr_t<Entry>;
+public:
+    using type = std::conditional_t<
+        std::is_same<Entry, EntryExpr>::value,
+        Td, typename Td::template ReplaceType<EntryExpr>
+    >;
+};
+
+template <typename T>
+struct expr_1<void, T> { using type = std::decay_t<T>; };
+
+/// Type trait to compute the result of a n-ary expression involving types (Arg, Args...)
+template <typename Array, typename Arg, typename... Args>
+struct expr_n {
+private:
+    using Value = expr_t<value_t<Arg>, value_t<Args>...>;
+public:
+    using type  = typename std::decay_t<Array>::template ReplaceType<Value>;
+};
+
+template <typename Arg, typename... Args>
+struct expr_n<void, Arg, Args...> {
+    using type = decltype(std::declval<Arg>() + std::declval<expr_t<Args...>>());
+};
+
+template <typename T> struct expr_n<void, T*, T*> { using type = const T*; };
+template <typename T> struct expr_n<void, T*, const T*> { using type = const T*; };
+template <typename T> struct expr_n<void, const T*, T*> { using type = const T*; };
+template <typename T> struct expr_n<void, const T*, const T*> { using type = const T*; };
+
+/// Type trait to compute the result of arbitrary expressions
+template <typename... Args> struct expr      : detail::expr_n<detail::extract_array_t<Args...>, Args...> { };
+template <typename Arg>     struct expr<Arg> : detail::expr_1<detail::extract_array_t<Arg>,     Arg>     { };
+
+/// Type trait to access the mask type underlying an array
+template <typename T, typename> struct mask { using type = bool; };
+
+template <typename T> struct mask<T, enable_if_array_t<T>> {
+    using type = typename std::decay_t<T>::Mask;
+};
+
+/// Type trait to access the component type of an array
+template <typename T, typename> struct type_ { using type = T; };
+
+template <typename T> struct type_<T, enable_if_array_t<T>> {
+    using type = typename std::decay_t<T>::Type;
+};
+
+/// Type trait to access the base scalar type underlying a potentially nested array
+template <typename T, typename> struct scalar { using type = std::decay_t<T>; };
+
+template <typename T> struct scalar<T, enable_if_array_t<T>> {
+    using type = scalar_t<value_t<std::decay_t<T>>>;
+};
+
+template <typename S, typename T> struct copy_flags {
+private:
+    using R = std::remove_reference_t<S>;
+    using T1 = std::conditional_t<std::is_const<R>::value, std::add_const_t<T>, T>;
+    using T2 = std::conditional_t<std::is_pointer<S>::value,
+                                  std::add_pointer_t<T1>, T1>;
+    using T3 = std::conditional_t<std::is_lvalue_reference<S>::value,
+                                  std::add_lvalue_reference_t<T2>, T2>;
+    using T4 = std::conditional_t<std::is_rvalue_reference<S>::value,
+                                  std::add_rvalue_reference_t<T3>, T3>;
+
+public:
+    using type = T4;
+};
+
+template <typename S, typename T> using copy_flags_t = typename detail::copy_flags<S, T>::type;
+
+template <typename Input, typename Output>
+using ref_cast_t = std::conditional_t<std::is_same<Input, Output>::value,
+                                      const Input &, Output>;
+
 
 /// Type trait to determine if a type should be handled using approximate mode by default
 template <typename T, typename = int> struct approx_default {
@@ -316,20 +386,6 @@ template <typename T, typename = int> struct approx_default {
 
 template <typename T> struct approx_default<T, enable_if_array_t<T>> {
     static constexpr bool value = std::decay_t<T>::Approx;
-};
-
-/// Determines when an operand of a binary operation requires a prior broadcast step
-template <typename Target, typename Source, typename = void>
-struct bcast {
-    static constexpr bool value = is_array<Target>::value;
-};
-
-template <typename Target, typename Source>
-struct bcast<Target, Source,
-                 std::enable_if_t<is_array<Target>::value &&
-                                  is_array<Source>::value>> {
-    static constexpr bool value = Target::Derived::Size != Source::Derived::Size &&
-                                  array_depth<Target>::value > array_depth<Source>::value;
 };
 
 /// Type equivalence between arithmetic type to work around subtle issues between 'long' vs 'long long' on OSX
@@ -341,8 +397,6 @@ struct is_same {
         std::is_signed<T0>::value == std::is_signed<T1>::value &&
         std::is_arithmetic<T0>::value == std::is_arithmetic<T1>::value;
 };
-
-struct KMaskBit;
 
 NAMESPACE_END(detail)
 
@@ -372,7 +426,7 @@ template <typename T, typename Value>
 struct like<T, Value, std::enable_if_t<is_static_array<T>::value>> {
 private:
     using Array = typename std::decay_t<T>::Derived;
-    using Entry = like_t<type_t<Array>, Value>;
+    using Entry = like_t<value_t<Array>, Value>;
 public:
     using type = detail::copy_flags_t<T, typename Array::template ReplaceType<Entry>>;
 };
@@ -384,21 +438,6 @@ private:
     using Entry = like_t<typename Array::Packet, Value>;
 public:
     using type = typename Array::template ReplaceType<Entry>;
-};
-
-/// Type trait to access the type that would result from an unary expression involving another type
-template <typename T, typename = void> struct expr { using type = std::decay_t<T>; };
-template <typename T> using expr_t = typename expr<T>::type;
-
-template <typename T>
-struct expr<T, std::enable_if_t<is_static_array<T>::value>> {
-private:
-    using Td = std::decay_t<T>;
-    using Entry = typename Td::Type;
-    using EntryExpr = expr_t<Entry>;
-    static constexpr bool IsExpr = std::is_same<Entry, EntryExpr>::value;
-public:
-    using type = std::conditional_t<IsExpr, Td, typename Td::template ReplaceType<EntryExpr>>;
 };
 
 /// Reinterpret the binary represesentation of a data type

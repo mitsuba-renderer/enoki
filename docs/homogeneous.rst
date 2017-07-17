@@ -46,7 +46,7 @@ Reference
     where
 
     .. math::
-        
+
         c = \mathrm{cot}\left(0.5\, \textrm{fov}\right),
 
     which maps :math:`(0, 0, \mathrm{near})^T` to :math:`(0, 0, 0)^T` and
@@ -73,7 +73,7 @@ Reference
     where
 
     .. math::
-        
+
         c = \mathrm{cot}\left(0.5\, \textrm{fov}\right),
 
     which maps :math:`(0, 0, -\mathrm{near})^T` to :math:`(0, 0, -1)^T` and

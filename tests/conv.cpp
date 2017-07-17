@@ -13,7 +13,6 @@
 
 #include "test.h"
 
-
 template <typename T, typename Value2> void convtest() {
     using T2 = like_t<T, Value2>;
     auto value1 = index_sequence<T>();

@@ -132,10 +132,16 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     using Mask = RMask;
 
     /// Default constructor
-    ENOKI_INLINE StaticArrayImpl() : a1(), a2() { }
+    StaticArrayImpl() = default;
+
+    /// Copy constructor
+    StaticArrayImpl(const StaticArrayImpl &) = default;
 
     /// Initialize all entries with a constant
     ENOKI_INLINE StaticArrayImpl(Value value) : a1(value), a2(value) { }
+
+    /// Copy assignment operator
+    StaticArrayImpl& operator=(const StaticArrayImpl &) = default;
 
     /// Initialize from a list of component values
     template <typename... Args,
@@ -163,7 +169,8 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     ENOKI_INLINE StaticArrayImpl(
         const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a,
         detail::reinterpret_flag)
-        : a1(reinterpret_array<Array1>(low(a))), a2(reinterpret_array<Array2>(high(a))) { }
+        : a1(reinterpret_array<Array1>(low (a))),
+          a2(reinterpret_array<Array2>(high(a))) { }
 
     // -----------------------------------------------------------------------
     //! @{ \name Vertical operations
@@ -173,6 +180,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     ENOKI_INLINE Derived sub_(Arg a) const { return Derived(a1 - a.a1, a2 - a.a2); }
     ENOKI_INLINE Derived mul_(Arg a) const { return Derived(a1 * a.a1, a2 * a.a2); }
     ENOKI_INLINE Derived div_(Arg a) const { return Derived(a1 / a.a1, a2 / a.a2); }
+    ENOKI_INLINE Derived mod_(Arg a) const { return Derived(a1 % a.a1, a2 % a.a2); }
 
     ENOKI_INLINE Derived mulhi_(Arg a) const {
         return Derived(mulhi(a1, a.a1), mulhi(a2, a.a2));
@@ -265,12 +273,12 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
 
     template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived slv_(Arg arg) const {
-        return Derived(a1 << arg, a2 << arg);
+        return Derived(a1 << low(arg), a2 << high(arg));
     }
 
     template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
     ENOKI_INLINE Derived srv_(Arg arg) const {
-        return Derived(a1 >> arg, a2 >> arg);
+        return Derived(a1 >> low(arg), a2 >> high(arg));
     }
 
     template <size_t Imm, typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>

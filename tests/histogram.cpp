@@ -50,9 +50,7 @@ int main(int /* argc */, char * /* argv */[]) {
 
             /* Increment the bin indices */
             transform<UInt32>(
-                bins, idx, mask, [](auto &x) {
-                    x += 1u;
-                }
+                bins, idx, mask, [](auto &x) { x += 1u; }
             );
         }
     }
@@ -66,9 +64,9 @@ int main(int /* argc */, char * /* argv */[]) {
         sum += bins[i];
     }
 
-    assert((16 * 1024 * 1024 - sum) == 743);
-    assert(bins[0] == 1342);
+    assert(std::abs(int(16 * 1024 * 1024 - sum)- 743) <= 3);
     assert(bins[1] == 2558);
+    assert(bins[2] == 6380);
 
     return 0;
 }

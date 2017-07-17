@@ -17,11 +17,11 @@
 
 NAMESPACE_BEGIN(enoki)
 
-/// Type trait to access the entry type of a matrix
-template <typename T> using entry_t = typename std::decay_t<T>::Entry;
-
 /// Type trait to access the column type of a matrix
 template <typename T> using column_t = typename std::decay_t<T>::Column;
+
+/// Type trait to access the entry type of a matrix
+template <typename T> using entry_t = typename std::decay_t<T>::Entry;
 
 /**
  * \brief Dense square matrix data structure of static size
@@ -35,7 +35,6 @@ struct Matrix
 
     static constexpr bool IsMatrix = true;
 
-    using Type = Type_;
     using Column = Array<Type_, Size_>;
     using Entry = value_t<Column>;
 
@@ -61,14 +60,14 @@ struct Matrix
                 coeff(j).coeff(i) = values[i * Size + j];
     }
 
-    Matrix(Type f) : Base(zero<Type>()) {
+    Matrix(Type_ f) : Base(zero<Type_>()) {
         for (size_t i = 0; i < Matrix::Size; ++i)
             operator()(i, i) = f;
     }
 
-    template <typename T = Type,
+    template <typename T = Type_,
               std::enable_if_t<!std::is_same<T, scalar_t<T>>::value, int> = 0>
-    Matrix(scalar_t<T> f) : Base(zero<Type>()) {
+    Matrix(scalar_t<T> f) : Base(zero<Type_>()) {
         for (size_t i = 0; i < Matrix::Size; ++i)
             operator()(i, i) = f;
     }
@@ -92,11 +91,13 @@ struct Matrix
     ENOKI_ALIGNED_OPERATOR_NEW()
 };
 
+
+NAMESPACE_BEGIN(detail)
+
 template <typename T0, typename T1, size_t Size,
-          typename Scalar = decltype(std::declval<T0>() + std::declval<T1>()),
-          typename Return = Matrix<expr_t<Scalar>, Size>,
-          typename Column = typename Return::Column>
-ENOKI_INLINE Return operator*(Matrix<T0, Size> m0, Matrix<T1, Size> m1) {
+          typename Return = Matrix<expr_t<T0, T1>, Size>,
+          typename Column = column_t<Return>>
+ENOKI_INLINE Return matrix_mul(const Matrix<T0, Size> &m0, const Matrix<T1, Size> &m1) {
     Return result;
     /* 4x4 case reduced to 4 multiplications, 12 fused multiply-adds,
        and 16 broadcasts (also fused on AVX512VL) */
@@ -110,32 +111,41 @@ ENOKI_INLINE Return operator*(Matrix<T0, Size> m0, Matrix<T1, Size> m1) {
     return result;
 }
 
-template <typename T0, typename T1, size_t Size, size_t Size2,
-          bool Approx, RoundingMode Mode, typename Derived,
-          std::enable_if_t<Size == Derived::Size, int> = 0,
-          typename Type = decltype(std::declval<T0>() + std::declval<T1>()),
-          typename Return = Array<Type, Size>>
-ENOKI_INLINE Return
-operator*(Matrix<T0, Size> m,
-          const StaticArrayBase<T1, Size2, Approx, Mode, Derived> &v) {
+NAMESPACE_END(detail)
+
+template <typename T0, typename T1, size_t Size>
+ENOKI_INLINE auto operator*(const Matrix<T0, Size> &m0, const Matrix<T1, Size> &m1) {
+    return detail::matrix_mul(m0, m1);
+}
+
+template <typename T0, size_t Size>
+ENOKI_INLINE auto operator*(const Matrix<T0, Size> &m0, const Matrix<T0, Size> &m1) {
+    return detail::matrix_mul(m0, m1);
+}
+
+template <typename T0, typename T1, size_t Size, std::enable_if_t<array_size<T1>::value == Size, int> = 0,
+          typename Return = column_t<Matrix<expr_t<T0, value_t<T1>>, Size>>>
+ENOKI_INLINE Return operator*(const Matrix<T0, Size> &m, const T1 &v) {
     Return sum = m.coeff(0) * v.derived().coeff(0);
     for (size_t i = 1; i < Size; ++i)
-        sum = fmadd(m.coeff(i), Return(v.derived().coeff(i)), sum);
+        sum = fmadd(m.coeff(i), v.derived().coeff(i), sum);
     return sum;
 }
 
-template <typename T, size_t Size>
-ENOKI_INLINE Matrix<expr_t<T>, Size> operator*(Matrix<T, Size> m, expr_t<T> s) {
-    return Array<Array<expr_t<T>, Size>, Size>(m) * s;
+template <typename T0, typename T1, size_t Size,
+          std::enable_if_t<array_size<T1>::value != Size, int> = 0,
+          typename Return = Matrix<expr_t<T0, T1>, Size>>
+ENOKI_INLINE Return operator*(const Matrix<T0, Size> &m, const T1 &s) {
+    return Array<column_t<Return>, Size>(m) * s;
 }
 
-template <typename T, size_t Size, std::enable_if_t<!std::is_same<expr_t<T>, scalar_t<T>>::value, int> = 0>
-ENOKI_INLINE Matrix<expr_t<T>, Size> operator*(Matrix<T, Size> m, scalar_t<T> s) {
-    return Array<Array<expr_t<T>, Size>, Size>(m) * s;
+template <typename T0, typename T1, size_t Size, typename Return = Matrix<expr_t<T0, T1>, Size>>
+ENOKI_INLINE Return operator*(const T0 &s, const Matrix<T1, Size> &m) {
+    return s * Array<column_t<Return>, Size>(m);
 }
 
 template <typename Type, size_t Size>
-ENOKI_INLINE expr_t<Type> trace(Matrix<Type, Size> m) {
+ENOKI_INLINE expr_t<Type> trace(const Matrix<Type, Size> &m) {
     expr_t<Type> result = m.coeff(0, 0);
     for (size_t i = 1; i < Size; ++i)
         result += m(i, i);
@@ -149,26 +159,26 @@ template <typename Matrix, std::enable_if_t<Matrix::IsMatrix, int> = 0> ENOKI_IN
     return result;
 }
 
-template <typename Matrix> ENOKI_INLINE Matrix diag(typename Matrix::Column value) {
+template <typename Matrix> ENOKI_INLINE Matrix diag(const column_t<Matrix> &value) {
     Matrix result = zero<Matrix>();
     for (size_t i = 0; i < Matrix::Size; ++i)
         result(i, i) = value.coeff(i);
     return result;
 }
 
-template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 1> invert(Matrix<T, 1> m) {
+template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 1> invert(const Matrix<T, 1> &m) {
     using Vector = Array<E, 1>;
     return rcp<Vector::Approx>(m(0, 0));
 }
 
-template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 2> invert(Matrix<T, 2> m) {
+template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 2> invert(const Matrix<T, 2> &m) {
     using Vector = Array<E, 2>;
     E inv_det = rcp<Vector::Approx>(fmsub(m(0, 0), m(1, 1), m(0, 1) * m(1, 0)));
     return Matrix<E, 2>( m(1, 1) * inv_det, -m(0, 1) * inv_det,
                         -m(1, 0) * inv_det,  m(0, 0) * inv_det);
 }
 
-template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 3> invert(Matrix<T, 3> m) {
+template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 3> invert(const Matrix<T, 3> &m) {
     using Vector = Array<E, 3>;
 
     Vector col0 = m.coeff(0), col1 = m.coeff(1),
@@ -185,7 +195,7 @@ template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 3> invert(M
                                   row2 * inv_det));
 }
 
-template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 4> invert(Matrix<T, 4> m) {
+template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 4> invert(const Matrix<T, 4> &m) {
     using Vector = Array<E, 4>;
 
     Vector col0 = m.coeff(0), col1 = m.coeff(1),

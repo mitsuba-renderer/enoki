@@ -450,8 +450,7 @@ void validate_horizontal(const std::vector<typename T::Value> &args,
 
 NAMESPACE_END(test)
 
-#if defined(_MSC_VER)
-
+#if !defined(_MSC_VER)
 #define ENOKI_TEST_HELPER(name, type)                                           \
     ENOKI_TEST(array_##type##_01##_##name) { name<type, 1>();  }                \
     ENOKI_TEST(array_##type##_02##_##name) { name<type, 2>();  }                \
@@ -463,8 +462,7 @@ NAMESPACE_END(test)
     ENOKI_TEST(array_##type##_32##_##name) { name<type, 32>(); }
 
 #else
-    /* Don't due the large 31x/32x tests to reduce compilation time on AppVeyor */
-
+    /* Don't build the large 31x/32x tests to reduce compilation time on AppVeyor */
 #define ENOKI_TEST_HELPER(name, type)                                           \
     ENOKI_TEST(array_##type##_01##_##name) { name<type, 1>();  }                \
     ENOKI_TEST(array_##type##_02##_##name) { name<type, 2>();  }                \
@@ -475,40 +473,40 @@ NAMESPACE_END(test)
 #endif
 
 #define ENOKI_TEST_TYPE(name, type)                                             \
-    template <typename Value, size_t Size,                                     \
-              bool Approx = std::is_same<Value, float>::value,                 \
-              typename T = enoki::Array<Value, Size, Approx>>                  \
+    template <typename Value, size_t Size,                                      \
+              bool Approx = std::is_same<Value, float>::value,                  \
+              typename T = enoki::Array<Value, Size, Approx>>                   \
     void name##_##type();                                                       \
     ENOKI_TEST_HELPER(name##_##type, type)                                      \
-    template <typename Value, size_t Size, bool Approx, typename T>            \
+    template <typename Value, size_t Size, bool Approx, typename T>             \
     void name##_##type()
 
 #define ENOKI_TEST_FLOAT(name)                                                  \
-    template <typename Value, size_t Size,                                     \
-              bool Approx = std::is_same<Value, float>::value,                 \
-              typename T = enoki::Array<Value, Size, Approx>>                  \
+    template <typename Value, size_t Size,                                      \
+              bool Approx = std::is_same<Value, float>::value,                  \
+              typename T = enoki::Array<Value, Size, Approx>>                   \
     void name();                                                                \
     ENOKI_TEST(array_float_01acc_##name) { name<float, 1, false>();  }          \
     ENOKI_TEST_HELPER(name, float)                                              \
     ENOKI_TEST_HELPER(name, double)                                             \
-    template <typename Value, size_t Size, bool Approx, typename T>            \
+    template <typename Value, size_t Size, bool Approx, typename T>             \
     void name()
 
 #define ENOKI_TEST_INT(name)                                                    \
-    template <typename Value, size_t Size,                                     \
-              typename T = enoki::Array<Value, Size>>                          \
+    template <typename Value, size_t Size,                                      \
+              typename T = enoki::Array<Value, Size>>                           \
     void name();                                                                \
     ENOKI_TEST_HELPER(name, int32_t)                                            \
     ENOKI_TEST_HELPER(name, uint32_t)                                           \
     ENOKI_TEST_HELPER(name, int64_t)                                            \
     ENOKI_TEST_HELPER(name, uint64_t)                                           \
-    template <typename Value, size_t Size, typename T>                         \
+    template <typename Value, size_t Size, typename T>                          \
     void name()
 
 #define ENOKI_TEST_ALL(name)                                                    \
-    template <typename Value, size_t Size,                                     \
-              bool Approx = std::is_same<Value, float>::value,                 \
-              typename T = enoki::Array<Value, Size, Approx>>                  \
+    template <typename Value, size_t Size,                                      \
+              bool Approx = std::is_same<Value, float>::value,                  \
+              typename T = enoki::Array<Value, Size, Approx>>                   \
     void name();                                                                \
     ENOKI_TEST(array_float_01acc_##name) { name<float, 1, false>();  }          \
     ENOKI_TEST_HELPER(name, float)                                              \
@@ -517,7 +515,7 @@ NAMESPACE_END(test)
     ENOKI_TEST_HELPER(name, uint32_t)                                           \
     ENOKI_TEST_HELPER(name, int64_t)                                            \
     ENOKI_TEST_HELPER(name, uint64_t)                                           \
-    template <typename Value, size_t Size, bool Approx, typename T>            \
+    template <typename Value, size_t Size, bool Approx, typename T>             \
     void name()
 
 int main(int argc, char** argv) {

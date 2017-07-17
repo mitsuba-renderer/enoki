@@ -15,6 +15,50 @@
 
 NAMESPACE_BEGIN(enoki)
 
+NAMESPACE_BEGIN(detail)
+
+#define ENOKI_DECLARE_CUSTOM_ARRAY(Base, Array)                                \
+    using Base::Base;                                                          \
+    using Base::operator=;                                                     \
+    Array() = default;                                                         \
+    Array(const Array &) = default;                                            \
+    Array(Array &&) = default;                                                 \
+    Array &operator=(const Array &) = default;                                 \
+    Array &operator=(Array &&) = default;
+
+template <typename Type_, size_t Size_, bool Approx_, RoundingMode Mode_>
+struct MaskWrapper : StaticArrayImpl<Type_, Size_, Approx_, Mode_,
+                                     MaskWrapper<Type_, Size_, Approx_, Mode_>> {
+    using Base = StaticArrayImpl<Type_, Size_, Approx_, Mode_,
+                                 MaskWrapper<Type_, Size_, Approx_, Mode_>>;
+    static constexpr bool IsMask = true;
+    using typename Base::Value;
+    using typename Base::Scalar;
+
+    /// Convert a compatible mask
+    template <typename T,
+        std::enable_if_t<T::IsMask && !std::is_same<scalar_t<T>, scalar_t<Value>>::value, int> = 0>
+    ENOKI_INLINE MaskWrapper(T value) : Base(value, detail::reinterpret_flag()) { }
+
+    template <typename T,
+              std::enable_if_t<std::is_same<T, bool>::value, int> = 0,
+              typename Int = typename detail::type_chooser<sizeof(Scalar)>::Int>
+    ENOKI_INLINE MaskWrapper(T b)
+        : MaskWrapper(b ? memcpy_cast<Scalar>(Int(-1))
+                        : memcpy_cast<Scalar>(Int(0))) { }
+
+    template <typename T, std::enable_if_t<std::is_same<T, bool>::value, int> = 0,
+              typename Int = typename detail::type_chooser<sizeof(Scalar)>::Int>
+    ENOKI_INLINE MaskWrapper& operator=(T b)
+        { operator=(b ? memcpy_cast<Scalar>(Int(-1))
+                      : memcpy_cast<Scalar>(Int(0))); return *this; }
+
+    ENOKI_DECLARE_CUSTOM_ARRAY(Base, MaskWrapper)
+    ENOKI_ALIGNED_OPERATOR_NEW()
+};
+
+NAMESPACE_END(detail)
+
 /**
  * \brief Generic SIMD packed number data type
  *
@@ -49,7 +93,7 @@ struct StaticArrayImpl<
     using Base::Size1;
     using Base::Size2;
     using Base::data;
-    using Mask = Array<mask_t<Value>, Size>;
+    using Mask = detail::MaskWrapper<mask_t<Value>, Size, false, RoundingMode::Default>;
 
     using StorageType =
         std::conditional_t<std::is_reference<Type_>::value,
@@ -199,7 +243,7 @@ public:
     #define ENOKI_CONVERT_GENERIC(InputT, OutputT, Count)                     \
         template <bool Approx2, RoundingMode Mode2, typename Derived2,        \
                   typename T = Derived,                                       \
-                  std::enable_if_t<std::is_same<value_t<T>, OutputT>::value &&\
+                  std::enable_if_t<std::is_same<value_t<T>, OutputT>::value && \
                                    Derived2::Size == T::Size, int> = 0>       \
         ENOKI_INLINE StaticArrayImpl(                                         \
             const StaticArrayBase<InputT, Count, Approx2, Mode2, Derived2> &a)
@@ -386,6 +430,14 @@ public:
         expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = coeff(i) / d.coeff(i);
+        return result;
+    }
+
+    /// Modulo
+    ENOKI_INLINE auto mod_(const Derived &d) const {
+        expr_t<Derived> result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            result.coeff(i) = coeff(i) % d.coeff(i);
         return result;
     }
 
@@ -998,8 +1050,8 @@ template <typename T> struct call_support {
 template <typename T> struct call_support_base {
     using Value = value_t<T>;
     using Mask = mask_t<T>;
-    call_support_base(T &self) : self(self) {}
-    T &self;
+    call_support_base(const T &self) : self(self) { }
+    const T &self;
 
     template <typename Func, typename InputMask, typename... Args,
               typename Result = decltype((std::declval<Value>()->*std::declval<Func>())(
@@ -1174,8 +1226,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
     ENOKI_INLINE const Type& operator[](size_t i) const { return (Type &) Base::operator[](i); }
     ENOKI_INLINE Type& operator[](size_t i) { return (Type &) Base::operator[](i); }
 
-    call_support<Derived_> operator->() { return call_support<Derived_>(derived()); }
-    call_support<const Derived_> operator->() const { return call_support<const Derived_>(derived()); }
+    call_support<Derived_> operator->() const { return call_support<Derived_>(derived()); }
 };
 
 #define ENOKI_CALL_SUPPORT_BEGIN(T)                                            \
@@ -1186,7 +1237,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
         using Base::dispatch_;                                                 \
         using Base::dispatch_scalar_;                                          \
         using Type = std::remove_pointer_t<Base::Value>;                       \
-        auto operator-> () { return this; }
+        auto operator->() { return this; }
 
 #define ENOKI_CALL_SUPPORT(name)                                               \
     template <typename... Args>                                                \
@@ -1211,15 +1262,6 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
 //! @}
 // -----------------------------------------------------------------------
 
-#define ENOKI_DECLARE_CUSTOM_ARRAY(Base, Array)                                \
-    using Base::Base;                                                          \
-    using Base::operator=;                                                     \
-    Array() = default;                                                         \
-    Array(const Array &) = default;                                            \
-    Array(Array &&) = default;                                                 \
-    Array &operator=(const Array &) = default;                                 \
-    Array &operator=(Array &&) = default;
-
 template <typename Type_, size_t Size_, bool Approx_, RoundingMode Mode_>
 struct Array : StaticArrayImpl<Type_, Size_, Approx_, Mode_,
                                Array<Type_, Size_, Approx_, Mode_>> {
@@ -1229,39 +1271,5 @@ struct Array : StaticArrayImpl<Type_, Size_, Approx_, Mode_,
     ENOKI_DECLARE_CUSTOM_ARRAY(Base, Array)
     ENOKI_ALIGNED_OPERATOR_NEW()
 };
-
-NAMESPACE_BEGIN(detail)
-
-template <typename Type_, size_t Size_, bool Approx_, RoundingMode Mode_>
-struct MaskWrapper : StaticArrayImpl<Type_, Size_, Approx_, Mode_,
-                                     MaskWrapper<Type_, Size_, Approx_, Mode_>> {
-    using Base = StaticArrayImpl<Type_, Size_, Approx_, Mode_,
-                                 MaskWrapper<Type_, Size_, Approx_, Mode_>>;
-    static constexpr bool IsMask = true;
-    using typename Base::Value;
-
-    /// Convert a compatible mask
-    template <typename T,
-        std::enable_if_t<T::IsMask && !std::is_same<scalar_t<T>, scalar_t<Value>>::value, int> = 0>
-    ENOKI_INLINE MaskWrapper(T value) : Base(value, detail::reinterpret_flag()) { }
-
-    template <typename T,
-              std::enable_if_t<std::is_same<T, bool>::value, int> = 0,
-              typename Int = typename detail::type_chooser<sizeof(Value)>::Int>
-    ENOKI_INLINE MaskWrapper(T b)
-        : MaskWrapper(b ? memcpy_cast<Value>(Int(-1))
-                        : memcpy_cast<Value>(Int(0))) { }
-
-    template <typename T, std::enable_if_t<std::is_same<T, bool>::value, int> = 0,
-              typename Int = typename detail::type_chooser<sizeof(Value)>::Int>
-    ENOKI_INLINE MaskWrapper& operator=(T b)
-        { operator=(b ? memcpy_cast<Value>(Int(-1))
-                      : memcpy_cast<Value>(Int(0))); return *this; }
-
-    ENOKI_DECLARE_CUSTOM_ARRAY(Base, MaskWrapper)
-    ENOKI_ALIGNED_OPERATOR_NEW()
-};
-
-NAMESPACE_END(detail)
 
 NAMESPACE_END(enoki)

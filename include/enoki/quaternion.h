@@ -51,10 +51,32 @@ template <typename Quat, std::enable_if_t<Quat::IsQuaternion, int> = 0> ENOKI_IN
     return Quat(0.f, 0.f, 0.f, 1.f);
 }
 
-template <typename T0, typename T1,
-          typename Type = decltype(std::declval<T0>() + std::declval<T1>())>
-ENOKI_INLINE Quaternion<Type> operator*(Quaternion<T0> q0, Quaternion<T1> q1) {
-    using Base = Array<Type, 4>;
+template <typename T0, typename T1, typename T = expr_t<T0, T1>>
+ENOKI_INLINE T dot(const Quaternion<T0> &q0, const Quaternion<T1> &q1) {
+    using Base = Array<T, 4>;
+    return dot(Base(q0), Base(q1));
+}
+
+template <typename T0, typename T = expr_t<T0>>
+ENOKI_INLINE T dot(const Quaternion<T0> &q0, const Quaternion<T0> &q1) {
+    using Base = Array<T, 4>;
+    return dot(Base(q0), Base(q1));
+}
+
+template <typename T> ENOKI_INLINE Quaternion<expr_t<T>> conj(const Quaternion<T> &q) {
+    const Quaternion<expr_t<T>> mask(-0.f, -0.f, -0.f, 0.f);
+    return q ^ mask;
+}
+
+template <typename T> ENOKI_INLINE Quaternion<expr_t<T>> rcp(const Quaternion<T> &q) {
+    return conj(q) * (1 / squared_norm(q));
+}
+
+NAMESPACE_BEGIN(detail)
+
+template <typename T0, typename T1, typename T = expr_t<T0, T1>>
+ENOKI_INLINE Quaternion<T> quat_mul(const Quaternion<T0> &q0, const Quaternion<T1> &q1) {
+    using Base = Array<T, 4>;
     const Base sign_mask(0.f, 0.f, 0.f, -0.f);
     Base q0_xyzx = shuffle<0, 1, 2, 0>(q0);
     Base q0_yzxy = shuffle<1, 2, 0, 1>(q0);
@@ -69,48 +91,53 @@ ENOKI_INLINE Quaternion<Type> operator*(Quaternion<T0> q0, Quaternion<T1> q1) {
     return t1 + t2;
 }
 
-template <typename T>
-ENOKI_INLINE Quaternion<expr_t<T>> operator*(Quaternion<T> z, expr_t<T> s) {
-    return Array<expr_t<T>, 4>(z) * s;
-}
-
-template <typename T, std::enable_if_t<!std::is_same<expr_t<T>, scalar_t<T>>::value, int> = 0>
-ENOKI_INLINE Quaternion<expr_t<T>> operator*(Quaternion<T> z, scalar_t<T> s) {
-    return Array<expr_t<T>, 4>(z) * s;
-}
-
-template <typename T0, typename T1,
-          typename Type = decltype(std::declval<T0>() + std::declval<T1>())>
-ENOKI_INLINE Type dot(Quaternion<T0> q0, Quaternion<T1> q1) {
-    using Base = Array<Type, 4>;
-    return dot(Base(q0), Base(q1));
-}
-
-template <typename T> ENOKI_INLINE Quaternion<expr_t<T>> conj(Quaternion<T> q) {
-    const Quaternion<expr_t<T>> mask(-0.f, -0.f, -0.f, 0.f);
-    return q ^ mask;
-}
-
-template <typename T> ENOKI_INLINE Quaternion<expr_t<T>> rcp(Quaternion<T> q) {
-    return conj(q) * (1 / squared_norm(q));
-}
-
-template <typename T0, typename T1,
-          typename Type = decltype(std::declval<T0>() + std::declval<T1>())>
-ENOKI_INLINE Quaternion<Type> operator/(Quaternion<T0> q0, Quaternion<T1> q1) {
+template <typename T0, typename T1, typename T = expr_t<T0, T1>>
+ENOKI_INLINE Quaternion<T> quat_div(const Quaternion<T0> &q0, const Quaternion<T1> &q1) {
     return q0 * rcp(q1);
 }
 
-template <typename T, typename T2>
-ENOKI_INLINE Quaternion<expr_t<T>> operator/(Quaternion<T> q0, T2 other) {
-    return Array<expr_t<T>, 4>(q0) / Array<expr_t<T>, 4>(other);
+NAMESPACE_END(detail)
+
+template <typename T0, typename T1>
+ENOKI_INLINE auto operator*(const Quaternion<T0> &q0, const Quaternion<T1> &q1) {
+    return detail::quat_mul(q0, q1);
 }
 
-template <typename T> ENOKI_INLINE expr_t<T> real(Quaternion<T> q) { return q.w(); }
-template <typename T> ENOKI_INLINE auto imag(Quaternion<T> q) { return head<3>(q); }
-template <typename T> ENOKI_INLINE expr_t<T> abs(Quaternion<T> q) { return norm(q); }
+template <typename T0>
+ENOKI_INLINE auto operator*(const Quaternion<T0> &q0, const Quaternion<T0> &q1) {
+    return detail::quat_mul(q0, q1);
+}
 
-template <typename T> Quaternion<expr_t<T>> exp(Quaternion<T> q) {
+template <typename T0, typename T1>
+ENOKI_INLINE Quaternion<expr_t<T0, T1>> operator*(const Quaternion<T0> &q, const T1 &s) {
+    return Array<expr_t<T0>, 4>(q) * s;
+}
+
+template <typename T0, typename T1>
+ENOKI_INLINE Quaternion<expr_t<T0, T1>> operator*(const T0 &s, const Quaternion<T1> &q) {
+    return s * Array<expr_t<T1>, 4>(q);
+}
+
+template <typename T0, typename T1>
+ENOKI_INLINE auto operator/(const Quaternion<T0> &q0, const Quaternion<T1> &q1) {
+    return detail::quat_div(q0, q1);
+}
+
+template <typename T0>
+ENOKI_INLINE auto operator/(const Quaternion<T0> &q0, const Quaternion<T0> &q1) {
+    return detail::quat_div(q0, q1);
+}
+
+template <typename T0, typename T1>
+ENOKI_INLINE Quaternion<expr_t<T0, T1>> operator/(const Quaternion<T0> &q, const T1 &s) {
+    return Array<expr_t<T0>, 4>(q) / s;
+}
+
+template <typename T> ENOKI_INLINE expr_t<T> real(const Quaternion<T> &q) { return q.w(); }
+template <typename T> ENOKI_INLINE auto imag(const Quaternion<T> &q) { return head<3>(q); }
+template <typename T> ENOKI_INLINE expr_t<T> abs(const Quaternion<T> &q) { return norm(q); }
+
+template <typename T> Quaternion<expr_t<T>> exp(const Quaternion<T> &q) {
     auto qi    = imag(q);
     auto ri    = norm(qi);
     auto exp_w = exp(real(q));
@@ -120,7 +147,7 @@ template <typename T> Quaternion<expr_t<T>> exp(Quaternion<T> q) {
                                  sc.second * exp_w);
 }
 
-template <typename T> Quaternion<expr_t<T>> log(Quaternion<T> q) {
+template <typename T> Quaternion<expr_t<T>> log(const Quaternion<T> &q) {
     auto qi_n    = normalize(imag(q));
     auto rq      = norm(q);
     auto acos_rq = acos(real(q) / rq);
@@ -135,14 +162,14 @@ auto pow(const Quaternion<T1> &q0, const Quaternion<T2> &q1) {
 }
 
 template <typename T>
-Quaternion<expr_t<T>> sqrt(Quaternion<T> q) {
+Quaternion<expr_t<T>> sqrt(const Quaternion<T> &q) {
     auto ri = norm(imag(q));
     auto cs = sqrt(Complex<expr_t<T>>(real(q), ri));
     return Quaternion<expr_t<T>>(imag(q) * (rcp(ri) * imag(cs)), real(cs));
 }
 
 template <typename T, std::enable_if_t<!is_array<std::decay_t<T>>::value, int> = 0>
-ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os, Quaternion<T> q) {
+ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os, const Quaternion<T> &q) {
     os << q.w();
     os << (q.x() < 0 ? " - " : " + ") << abs(q.x()) << "i";
     os << (q.y() < 0 ? " - " : " + ") << abs(q.y()) << "j";
@@ -151,7 +178,7 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os, Quaternion<T> q) {
 }
 
 template <typename T, std::enable_if_t<is_array<std::decay_t<T>>::value, int> = 0>
-ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os, Quaternion<T> q) {
+ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os, const Quaternion<T> &q) {
     os << "[";
     size_t size = q.x().size();
     for (size_t i = 0; i < size; ++i) {
@@ -218,14 +245,12 @@ Quat matrix_to_quat(const Matrix<T, 4> &mat) {
     Expr t0123 = select(mask2, t01, t23);
     Quat q0123 = select(mask_t<Quat>(mask2), q01, q23);
 
-    using Base = Array<Expr, 4>;
-
-    return q0123 * Base(rsqrt(t0123) * ch);
+    return q0123 * (rsqrt(t0123) * ch);
 }
 
-template <typename T, typename Float, typename Expr = expr_t<T>, typename Return = Quaternion<Expr>>
-Return slerp(Quaternion<T> q0, Quaternion<T> q1_, Float t) {
-    using Base = Array<Expr, 4>;
+template <typename T0, typename T1, typename Float, typename T = expr_t<T0, T1>, typename Return = Quaternion<T>>
+Return slerp(const Quaternion<T0> &q0, const Quaternion<T1> &q1_, Float t) {
+    using Base = Array<T, 4>;
     using Scalar = scalar_t<T>;
 
     auto cos_theta = dot(q0, q1_);
@@ -234,17 +259,17 @@ Return slerp(Quaternion<T> q0, Quaternion<T> q1_, Float t) {
 
     auto theta = safe_acos(cos_theta);
     auto sc = sincos(theta * t);
-    Return qperp = normalize(q1 - q0 * Base(cos_theta));
+    Return qperp = normalize(q1 - q0 * cos_theta);
 
     return select(
-        mask_t<Return>(cos_theta > Scalar(0.9995)),
-        normalize(q0 * Base(Scalar(1.0) - t) + q1 * Base(t)),
-        q0 * Base(sc.second) + qperp * Base(sc.first)
+        cos_theta > Scalar(0.9995),
+        normalize(q0 * (Scalar(1.0) - t) + q1 * t),
+        q0 * sc.second + qperp * sc.first
     );
 }
 
 template <typename Quat, typename Vector3, std::enable_if_t<Quat::IsQuaternion, int> = 0>
-ENOKI_INLINE Quat rotate(Vector3 axis, value_t<Quat> angle) {
+ENOKI_INLINE Quat rotate(const Vector3 &axis, const value_t<Quat> &angle) {
     using Scalar = scalar_t<Quat>;
     auto sc = sincos(angle * Scalar(.5f));
     return Quat(concat(axis * sc.first, sc.second));

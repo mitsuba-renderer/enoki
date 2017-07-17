@@ -14,7 +14,9 @@
 #include "test.h"
 #include <enoki/sh.h>
 
-ENOKI_TEST_FLOAT(test00_sh) {
+ENOKI_TEST(test00_sh) {
+    using T = Array<float>;
+
     /* From mathematica */
     const float ref[100] = {
         0.2820947918f,   -0.2611690283f,    0.3917535424f,  -0.1305845141f,

@@ -89,14 +89,14 @@ ENOKI_TEST_INT(test05_sign) {
 }
 
 ENOKI_TEST_TYPE(test06_shiftrot, uint32_t) {
-    assert((T(0xDEADBEEFu) >> 4) == T(0x0DEADBEEu));
-    assert((T(0xDEADBEEFu) << 4) == T(0xEADBEEF0u));
+    assert((T(0xDEADBEEFu) >> 4u) == T(0x0DEADBEEu));
+    assert((T(0xDEADBEEFu) << 4u) == T(0xEADBEEF0u));
     assert((sri<4>(T(0xDEADBEEFu)) == T(0x0DEADBEEu)));
     assert((sli<4>(T(0xDEADBEEFu)) == T(0xEADBEEF0u)));
-    assert(rol(T(0xDEADBEEFu), T(4)) == T(0xEADBEEFDu));
-    assert(ror(T(0xDEADBEEFu), T(4)) == T(0xFDEADBEEu));
-    assert(rol(T(0xDEADBEEFu), 4) == T(0xEADBEEFDu));
-    assert(ror(T(0xDEADBEEFu), 4) == T(0xFDEADBEEu));
+    assert(rol(T(0xDEADBEEFu), T(4u)) == T(0xEADBEEFDu));
+    assert(ror(T(0xDEADBEEFu), T(4u)) == T(0xFDEADBEEu));
+    assert(rol(T(0xDEADBEEFu), 4u) == T(0xEADBEEFDu));
+    assert(ror(T(0xDEADBEEFu), 4u) == T(0xFDEADBEEu));
     assert(roli<4>(T(0xDEADBEEFu)) == T(0xEADBEEFDu));
     assert(rori<4>(T(0xDEADBEEFu)) == T(0xFDEADBEEu));
 }
@@ -115,14 +115,14 @@ ENOKI_TEST_TYPE(test06_shiftrot, int32_t) {
 }
 
 ENOKI_TEST_TYPE(test06_shiftrot, uint64_t) {
-    assert((T(0xCAFEBABEDEADBEEFull) >> 4) == T(0x0CAFEBABEDEADBEEull));
-    assert((T(0xCAFEBABEDEADBEEFull) << 4) == T(0xAFEBABEDEADBEEF0ull));
+    assert((T(0xCAFEBABEDEADBEEFull) >> 4u) == T(0x0CAFEBABEDEADBEEull));
+    assert((T(0xCAFEBABEDEADBEEFull) << 4u) == T(0xAFEBABEDEADBEEF0ull));
     assert((sri<4>(T(0xCAFEBABEDEADBEEFull)) == T(0x0CAFEBABEDEADBEEull)));
     assert((sli<4>(T(0xCAFEBABEDEADBEEFull)) == T(0xAFEBABEDEADBEEF0ull)));
-    assert(rol(T(0xCAFEBABEDEADBEEFull), T(4)) == T(0xAFEBABEDEADBEEFCull));
-    assert(ror(T(0xCAFEBABEDEADBEEFull), T(4)) == T(0xFCAFEBABEDEADBEEull));
-    assert(rol(T(0xCAFEBABEDEADBEEFull), 4) == T(0xAFEBABEDEADBEEFCull));
-    assert(ror(T(0xCAFEBABEDEADBEEFull), 4) == T(0xFCAFEBABEDEADBEEull));
+    assert(rol(T(0xCAFEBABEDEADBEEFull), T(4u)) == T(0xAFEBABEDEADBEEFCull));
+    assert(ror(T(0xCAFEBABEDEADBEEFull), T(4u)) == T(0xFCAFEBABEDEADBEEull));
+    assert(rol(T(0xCAFEBABEDEADBEEFull), 4u) == T(0xAFEBABEDEADBEEFCull));
+    assert(ror(T(0xCAFEBABEDEADBEEFull), 4u) == T(0xFCAFEBABEDEADBEEull));
     assert(roli<4>(T(0xCAFEBABEDEADBEEFull)) == T(0xAFEBABEDEADBEEFCull));
     assert(rori<4>(T(0xCAFEBABEDEADBEEFull)) == T(0xFCAFEBABEDEADBEEull));
 }

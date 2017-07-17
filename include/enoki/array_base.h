@@ -175,7 +175,10 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     /// Type alias for a similar-shaped array over a different type
     template <typename T, typename T2 = Derived>
-    using ReplaceType = Array<T, T2::Size>;
+    using ReplaceType = Array<T, T2::Size,
+          std::is_same<scalar_t<T>, float>::value ? T2::Approx : detail::approx_default<T>::value,
+          std::is_floating_point<scalar_t<T>>::value ? T2::Mode : RoundingMode::Default
+    >;
 
     static_assert(std::is_same<Scalar, float>::value || !Approx,
                   "Approximate math library functions are only supported in "
@@ -238,6 +241,14 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
         expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = derived().coeff(i) / d.coeff(i);
+        return result;
+    }
+
+    /// Modulo fallback implementation
+    ENOKI_INLINE auto mod_(const Derived &d) const {
+        expr_t<Derived> result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            result.coeff(i) = derived().coeff(i) % d.coeff(i);
         return result;
     }
 
@@ -1164,21 +1175,22 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             using IntMask = mask_t<IntArray>;
 
             const IntArray
-                exponentMask(Int(0x7f800000u)),
-                mantissaSignMask(Int(~0x7f800000u)),
-                biasMinus1(Int(0x7e));
+                exponent_mask(Int(0x7f800000u)),
+                mantissa_sign_mask(Int(~0x7f800000u)),
+                bias_minus_1(Int(0x7e));
 
             IntArray x = reinterpret_array<IntArray>(derived());
-            IntArray exponent_bits = x & exponentMask;
+            IntArray exponent_bits = x & exponent_mask;
 
             /* Detect zero/inf/NaN */
             IntMask is_normal =
                 IntMask(neq(derived(), zero<Expr>())) &
-                neq(exponent_bits, exponentMask);
+                neq(exponent_bits, exponent_mask);
 
-            IntArray exponent_i = (sri<23>(exponent_bits)) - biasMinus1;
-            IntArray mantissa =
-                (x & mantissaSignMask) | IntArray(memcpy_cast<Int>(Scalar(.5f)));
+            IntArray exponent_i = (sri<23>(exponent_bits)) - bias_minus_1;
+
+            IntArray mantissa = (x & mantissa_sign_mask) |
+                                IntArray(memcpy_cast<Int>(Scalar(.5f)));
 
             result_e = Expr(exponent_i & is_normal);
             result_m = reinterpret_array<Expr>(select(is_normal, mantissa, x));
