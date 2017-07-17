@@ -27,21 +27,20 @@ template <typename Matrix4, typename Vector3> ENOKI_INLINE Matrix4 scale(Vector3
     return diag<Matrix4>(concat(v, 1.f));
 }
 
-template <typename Matrix4, typename Vector3>
+template <typename Matrix4, typename Vector3, std::enable_if_t<Matrix4::IsMatrix, int> = 0>
 ENOKI_INLINE Matrix4 rotate(Vector3 axis, entry_t<Matrix4> angle) {
     using Float = entry_t<Matrix4>;
     using Vector4 = column_t<Matrix4>;
 
     Float sin_theta, cos_theta;
-    std::tie(sin_theta, cos_theta) = sincos(deg_to_rad(angle));
+    std::tie(sin_theta, cos_theta) = sincos(angle);
     Float cos_theta_m = 1.f - cos_theta;
 
-    auto naxis = normalize(axis),
-         shuf1 = shuffle<1, 2, 0>(naxis),
-         shuf2 = shuffle<2, 0, 1>(naxis),
-         tmp0  = naxis * naxis * cos_theta_m + cos_theta,
-         tmp1  = naxis * shuf1 * cos_theta_m + shuf2 * sin_theta,
-         tmp2  = naxis * shuf2 * cos_theta_m - shuf1 * sin_theta;
+    auto shuf1 = shuffle<1, 2, 0>(axis),
+         shuf2 = shuffle<2, 0, 1>(axis),
+         tmp0  = axis * axis * cos_theta_m + cos_theta,
+         tmp1  = axis * shuf1 * cos_theta_m + shuf2 * sin_theta,
+         tmp2  = axis * shuf2 * cos_theta_m - shuf1 * sin_theta;
 
     return Matrix4(
         Vector4(tmp0.x(), tmp1.x(), tmp2.x(), 0.f),
@@ -56,7 +55,7 @@ ENOKI_INLINE Matrix4 perspective(entry_t<Matrix4> fov,
                                  entry_t<Matrix4> near,
                                  entry_t<Matrix4> far) {
     auto recip = rcp(far - near);
-    auto c = cot(deg_to_rad(.5f * fov));
+    auto c = cot(.5f * fov);
 
     Matrix4 trafo =
         diag<Matrix4>(column_t<Matrix4>(c, c, far * recip, 0.f));
@@ -71,7 +70,7 @@ ENOKI_INLINE Matrix4 perspective_gl(entry_t<Matrix4> fov,
                                     entry_t<Matrix4> near,
                                     entry_t<Matrix4> far) {
     auto recip = rcp(near - far);
-    auto c = cot(deg_to_rad(.5f * fov));
+    auto c = cot(.5f * fov);
 
     Matrix4 trafo = diag<Matrix4>(
         column_t<Matrix4>(c, c, (near + far) * recip, 0.f));

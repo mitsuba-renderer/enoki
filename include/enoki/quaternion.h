@@ -23,6 +23,8 @@ struct Quaternion
     : StaticArrayImpl<Type_, 4, detail::approx_default<Type_>::value,
                       RoundingMode::Default, Quaternion<Type_>> {
 
+    static constexpr bool IsQuaternion = true;
+
     using Type = Type_;
     using Base = StaticArrayImpl<Type, 4, detail::approx_default<Type>::value,
                                  RoundingMode::Default, Quaternion<Type>>;
@@ -44,6 +46,10 @@ struct Quaternion
 
     ENOKI_ALIGNED_OPERATOR_NEW()
 };
+
+template <typename Quat, std::enable_if_t<Quat::IsQuaternion, int> = 0> ENOKI_INLINE Quat identity() {
+    return Quat(0.f, 0.f, 0.f, 1.f);
+}
 
 template <typename T0, typename T1,
           typename Type = decltype(std::declval<T0>() + std::declval<T1>())>
@@ -169,9 +175,9 @@ Matrix<Expr, 4> quat_to_matrix(Quaternion<T> q) {
     Expr xw = q.x() * q.w(), yw = q.y() * q.w(), zw = q.z() * q.w();
 
     return Matrix<Expr, 4>(
-         c1 - c2 * (yy + zz), c2 * (xy + zw), c2 * (xz - yw), c0,
-         c2 * (xy - zw), c1 - c2 * (xx + zz), c2 * (yz + xw), c0,
-         c2 * (xz + yw), c2 * (yz - xw), c1 - c2 * (xx + yy), c0,
+         c1 - c2 * (yy + zz), c2 * (xy - zw), c2 * (xz + yw), c0,
+         c2 * (xy + zw), c1 - c2 * (xx + zz), c2 * (yz - xw), c0,
+         c2 * (xz - yw), c2 * (yz + xw), c1 - c2 * (xx + yy), c0,
          c0, c0, c0, c1
     );
 }
@@ -179,26 +185,26 @@ Matrix<Expr, 4> quat_to_matrix(Quaternion<T> q) {
 template <typename T,
           typename Expr = expr_t<T>,
           typename Quat = Quaternion<Expr>>
-Quat quat_from_matrix(const Matrix<T, 4> &mat) {
+Quat matrix_to_quat(const Matrix<T, 4> &mat) {
     const Expr c0(0), c1(1), ch(0.5f);
 
     // Converting a Rotation Matrix to a Quaternion
     // Mike Day, Insomniac Games
     Expr t0(c1 + mat(0, 0) - mat(1, 1) - mat(2, 2));
-    Quat q0(t0, mat(0, 1) + mat(1, 0), mat(2, 0) + mat(0, 2),
-            mat(1, 2) - mat(2, 1));
+    Quat q0(t0, mat(1, 0) + mat(0, 1), mat(0, 2) + mat(2, 0),
+            mat(2, 1) - mat(1, 2));
 
     Expr t1(c1 - mat(0, 0) + mat(1, 1) - mat(2, 2));
-    Quat q1(mat(0, 1) + mat(1, 0), t1, mat(1, 2) + mat(2, 1),
-            mat(2, 0) - mat(0, 2));
+    Quat q1(mat(1, 0) + mat(0, 1), t1, mat(2, 1) + mat(1, 2),
+            mat(0, 2) - mat(2, 0));
 
     Expr t2(c1 - mat(0, 0) - mat(1, 1) + mat(2, 2));
-    Quat q2(mat(2, 0) + mat(0, 2), mat(1, 2) + mat(2, 1), t2,
-            mat(0, 1) - mat(1, 0));
+    Quat q2(mat(0, 2) + mat(2, 0), mat(2, 1) + mat(1, 2), t2,
+            mat(1, 0) - mat(0, 1));
 
     Expr t3(c1 + mat(0, 0) + mat(1, 1) + mat(2, 2));
-    Quat q3(mat(1, 2) - mat(2, 1), mat(2, 0) - mat(0, 2),
-            mat(0, 1) - mat(1, 0), t3);
+    Quat q3(mat(2, 1) - mat(1, 2), mat(0, 2) - mat(2, 0),
+            mat(1, 0) - mat(0, 1), t3);
 
     auto mask0 = mat(0, 0) > mat(1, 1);
     Expr t01 = select(mask0, t0, t1);
@@ -220,6 +226,7 @@ Quat quat_from_matrix(const Matrix<T, 4> &mat) {
 template <typename T, typename Float, typename Expr = expr_t<T>, typename Return = Quaternion<Expr>>
 Return slerp(Quaternion<T> q0, Quaternion<T> q1_, Float t) {
     using Base = Array<Expr, 4>;
+    using Scalar = scalar_t<T>;
 
     auto cos_theta = dot(q0, q1_);
     Return q1 = mulsign(Base(q1_), Base(cos_theta));
@@ -230,10 +237,17 @@ Return slerp(Quaternion<T> q0, Quaternion<T> q1_, Float t) {
     Return qperp = normalize(q1 - q0 * Base(cos_theta));
 
     return select(
-        mask_t<Return>(cos_theta > 0.9995f),
-        normalize(q0 * Base(1 - t) + q1 * Base(t)),
+        mask_t<Return>(cos_theta > Scalar(0.9995)),
+        normalize(q0 * Base(Scalar(1.0) - t) + q1 * Base(t)),
         q0 * Base(sc.second) + qperp * Base(sc.first)
     );
+}
+
+template <typename Quat, typename Vector3, std::enable_if_t<Quat::IsQuaternion, int> = 0>
+ENOKI_INLINE Quat rotate(Vector3 axis, value_t<Quat> angle) {
+    using Scalar = scalar_t<Quat>;
+    auto sc = sincos(angle * Scalar(.5f));
+    return Quat(concat(axis * sc.first, sc.second));
 }
 
 NAMESPACE_END(enoki)

@@ -42,7 +42,7 @@ The following example shows how to define and perform basic arithmetic using
     std::cout << c_rot << std::endl << std::endl;
 
     /* Round trip: turn the rotation matrices back into rotation quaternions */
-    QuaternionP c2 = quat_from_matrix(c_rot);
+    QuaternionP c2 = matrix_to_quat(c_rot);
 
     if (hsum(abs(c-c2)) < 1e-6f)
         std::cout << "Test passed." << std::endl;
@@ -70,9 +70,9 @@ The following example shows how to define and perform basic arithmetic using
           [0.866025, 0.5, 0, 0],
           [0, 0, -1, 0],
           [0, 0, 0, 1]],
-         [[-1, -8.74228e-08, -0, 0],
+         [[-1, -8.74228e-08, 0, 0],
           [-8.74228e-08, 1, 0, 0],
-          [0, 0, -1, 0],
+          [-0, 0, -1, 0],
           [0, 0, 0, 1]]]
 
          Test passed.
@@ -129,6 +129,10 @@ Reference
 
 Elementary operations
 *********************
+
+.. cpp:function:: template <typename Quat> Quat identity()
+
+    Returns the identity quaternion.
 
 .. cpp:function:: template <typename T> T real(Quaternion<T> q)
 
@@ -205,7 +209,12 @@ Operations for rotation-related computations
     Converts a rotation quaternion into a :math:`4\times 4` homogeneous
     coordinate transformation matrix.
 
-.. cpp:function:: template <typename T> Quaternion<T> quat_from_matrix(MatrixP<T, 4> q)
+.. cpp:function:: template <typename T> Quaternion<T> matrix_to_quat(MatrixP<T, 4> q)
 
     Converts a :math:`4\times 4` homogeneous containing a pure rotation into a
     rotation quaternion.
+
+.. cpp:function:: template <typename Quat, typename Vector3, typename Float> Quat rotate(Vector3 v, Float angle)
+
+    Constructs a rotation quaternion, which rotates by ``angle`` radians
+    around the axis ``v``. The function requires ``v`` to be normalized.

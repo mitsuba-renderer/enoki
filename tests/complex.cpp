@@ -14,6 +14,7 @@
 #include "test.h"
 #include <enoki/complex.h>
 #include <enoki/quaternion.h>
+#include <enoki/homogeneous.h>
 
 using Cf = Complex<double>;
 using Qf = Quaternion<double>;
@@ -115,37 +116,55 @@ ENOKI_TEST(test17_complex_asinh_acosh_atanh) {
     assert(abs(atanh(Cf(1, 2)) - Cf(0.173287, 1.1781)) < 1e-5);
 }
 
-using Quat4f = Quaternion<float>;
 using FloatX = DynamicArray<Array<float>>;
-using Quat4X = Quaternion<FloatX>;
-using Mat4X = Matrix<FloatX, 4>;
+using Quaternion4f = Quaternion<float>;
+using Quaternion4X = Quaternion<FloatX>;
+using Matrix4X = Matrix<FloatX, 4>;
+using Matrix4f = Matrix<float, 4>;
+using Vector4f = Array<float, 4>;
 
-Mat4X slerp_matrix(const Quat4X &x, const Quat4X &y, float t) {
+Matrix4X slerp_matrix(const Quaternion4X &x, const Quaternion4X &y, float t) {
     return vectorize([t](auto &&x, auto &&y) { return quat_to_matrix(slerp(x, y, t)); }, x, y);
 };
 
-Quat4X to_quat(const Mat4X &m) {
-    return vectorize([](auto &&m) { return quat_from_matrix(m); }, m);
+Quaternion4X to_quat(const Matrix4X &m) {
+    return vectorize([](auto &&m) { return matrix_to_quat(m); }, m);
 };
 
 ENOKI_TEST(test18_complex_vectorize_scalar) {
-    Quat4f a = normalize(Quat4f(1, 2, 3, 4));
-    Quat4f b = normalize(Quat4f(0, 0, 0, 1));
+    Quaternion4f a = normalize(Quaternion4f(1, 2, 3, 4));
+    Quaternion4f b = normalize(Quaternion4f(0, 0, 0, 1));
 
-    Quat4X x, y;
+    Quaternion4X x, y;
     set_slices(x, 1);
     set_slices(y, 1);
     slice(x, 0) = a;
     slice(y, 0) = b;
-    std::cout << "a = "<< a << std::endl;
-    std::cout << "b = "<< b << std::endl;
     auto tmp0 = slerp_matrix(x, y, 0.5f);
     auto tmp1 = to_quat(tmp0);
-    std::cout << "tmp0 = "<< tmp0 << std::endl;
-    std::cout << "tmp1 = "<< tmp1 << std::endl;
-    Quat4f result = slice(tmp1, 0);
-    std::cout << "result = " << result << std::endl;
-    Quat4f ref = normalize(a+b);
-    std::cout << "ref = " << ref << std::endl;
+    Quaternion4f result = slice(tmp1, 0);
+    Quaternion4f ref = normalize(a+b);
     assert(abs(result - ref) < 1e-5f);
+}
+
+ENOKI_TEST(test19_rotation) {
+    auto axis = normalize(Array<float, 3>(1.f, 2.f, 3.f));
+    Vector4f input(0.8f, 0.3f, 0.2f, 0.0f);
+    float angle = 0.5f;
+
+    auto quat1 = rotate<Quaternion4f>(axis, angle);
+    auto r1 = Vector4f(quat1 * Quaternion4f(input) * conj(quat1));
+
+    auto mtx2 = rotate<Matrix4f>(axis, angle);
+    auto r2 = mtx2 * input;
+
+    auto mtx1 = quat_to_matrix(quat1);
+    auto r3 = mtx1 * input;
+
+    auto quat2 = matrix_to_quat(mtx2);
+    auto r4 = Vector4f(quat2 * Quaternion4f(input) * conj(quat2));
+
+    assert(norm(r1-r2) < 1e-6f);
+    assert(norm(r1-r3) < 1e-6f);
+    assert(norm(r1-r4) < 1e-6f);
 }

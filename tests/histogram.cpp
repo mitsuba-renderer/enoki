@@ -17,6 +17,7 @@
 #endif
 
 #include <enoki/random.h>
+#include <enoki/special.h>
 
 int main(int /* argc */, char * /* argv */[]) {
     using UInt32      = Array<uint32_t>;

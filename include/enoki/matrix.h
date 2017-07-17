@@ -33,6 +33,8 @@ struct Matrix
                       detail::approx_default<Type_>::value,
                       RoundingMode::Default, Matrix<Type_, Size_>> {
 
+    static constexpr bool IsMatrix = true;
+
     using Type = Type_;
     using Column = Array<Type_, Size_>;
     using Entry = value_t<Column>;
@@ -140,7 +142,7 @@ ENOKI_INLINE expr_t<Type> trace(Matrix<Type, Size> m) {
     return result;
 }
 
-template <typename Matrix> ENOKI_INLINE Matrix identity() {
+template <typename Matrix, std::enable_if_t<Matrix::IsMatrix, int> = 0> ENOKI_INLINE Matrix identity() {
     Matrix result = zero<Matrix>();
     for (size_t i = 0; i < Matrix::Size; ++i)
         result(i, i) = 1;
