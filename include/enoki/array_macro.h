@@ -136,13 +136,13 @@
 #define ENOKI_STRUCT(Struct, ...)                                              \
     Struct()  = default;                                                       \
     Struct(ENOKI_MAP_EXPR_DECL(__VA_ARGS__))                                   \
-        : ENOKI_MAP_EXPR_COPY(__VA_ARGS__) {}                                  \
+        : ENOKI_MAP_EXPR_COPY(__VA_ARGS__) { }                                 \
     template <typename... Args>                                                \
     Struct(const Struct<Args...> &value)                                       \
-        : ENOKI_MAP_EXPR_COPY_V(value, __VA_ARGS__) {}                         \
+        : ENOKI_MAP_EXPR_COPY_V(value, __VA_ARGS__) { }                        \
     template <typename... Args>                                                \
     Struct(Struct<Args...> &&value)                                            \
-        : ENOKI_MAP_EXPR_MOVE_V(value, __VA_ARGS__) {}                         \
+        : ENOKI_MAP_EXPR_MOVE_V(value, __VA_ARGS__) { }                        \
     template <typename... Args>                                                \
     Struct &operator=(const Struct<Args...> &value) {                          \
         ENOKI_MAP_STMT_ASSIGN(value, __VA_ARGS__)                              \
@@ -150,6 +150,30 @@
     }                                                                          \
     template <typename... Args>                                                \
     Struct &operator=(Struct<Args...> &&value) {                               \
+        ENOKI_MAP_STMT_MOVE(value, __VA_ARGS__)                                \
+        return *this;                                                          \
+    }
+
+#define ENOKI_DERIVED_STRUCT(Struct, Base, ...)                                \
+    Struct()  = default;                                                       \
+    Struct(ENOKI_MAP_EXPR_DECL(__VA_ARGS__))                                   \
+        : ENOKI_MAP_EXPR_COPY(__VA_ARGS__) { }                                 \
+    template <typename... Args>                                                \
+    Struct(const Struct<Args...> &value)                                       \
+        : Base(value), ENOKI_MAP_EXPR_COPY_V(value, __VA_ARGS__) { }           \
+    template <typename... Args>                                                \
+    Struct(Struct<Args...> &&value)                                            \
+        : Base(std::move(value)),                                              \
+          ENOKI_MAP_EXPR_MOVE_V(value, __VA_ARGS__) { }                        \
+    template <typename... Args>                                                \
+    Struct &operator=(const Struct<Args...> &value) {                          \
+        Base::operator=(value);                                                \
+        ENOKI_MAP_STMT_ASSIGN(value, __VA_ARGS__)                              \
+        return *this;                                                          \
+    }                                                                          \
+    template <typename... Args>                                                \
+    Struct &operator=(Struct<Args...> &&value) {                               \
+        Base::operator=(std::move(value));                                     \
         ENOKI_MAP_STMT_MOVE(value, __VA_ARGS__)                                \
         return *this;                                                          \
     }
