@@ -239,21 +239,18 @@ template <bool Approx, typename Derived> struct alignas(32)
                     r = _mm256_rcp_ps(m);   /* rel error < 1.5*2^-12 */
                 #endif
 
-                __m256 ro = r;
-
                 /* Refine using one Newton-Raphson iteration */
+                __m256 t0 = _mm256_add_ps(r, r),
+                       t1 = _mm256_mul_ps(r, m),
+                       ro = r;
+
                 #if defined(__FMA__)
-                    __m256 two = _mm256_set1_ps(2.f);
-                    __m256 t = _mm256_fnmadd_ps(r, m, two);
-                    __m256 mask = _mm256_cmp_ps(t, t, _CMP_EQ_OQ);
-                    r = _mm256_mul_ps(r, t);
+                    r = _mm256_fnmadd_ps(t1, r, t0);
                 #else
-                    __m256 t = _mm256_mul_ps(_mm256_mul_ps(r, r), m);
-                    __m256 mask = _mm256_cmp_ps(t, t, _CMP_EQ_OQ);
-                    r = _mm256_sub_ps(_mm256_add_ps(r, r), t);
+                    r = _mm256_sub_ps(t0, _mm256_mul_ps(r, t1));
                 #endif
 
-                return _mm256_blendv_ps(ro, r, mask);
+                return _mm256_blendv_ps(r, ro, t1); /* mask bit is '1' iff t1 == nan */
             } else {
                 return Base::rcp_();
             }
@@ -276,23 +273,21 @@ template <bool Approx, typename Derived> struct alignas(32)
                     r = _mm256_rsqrt_ps(m);   /* rel error < 1.5*2^-12 */
                 #endif
 
-                const __m256 c0 = _mm256_set1_ps(1.5f);
-                const __m256 c1 = _mm256_set1_ps(-0.5f);
-
-                __m256 ro = r;
-                __m256 t = _mm256_mul_ps(_mm256_mul_ps(m, c1), r);
-                __m256 mask = _mm256_cmp_ps(t, t, _CMP_EQ_OQ);
-
                 /* Refine using one Newton-Raphson iteration */
+                const __m256 c0 = _mm256_set1_ps(0.5f),
+                             c1 = _mm256_set1_ps(3.0f);
+
+                __m256 t0 = _mm256_mul_ps(r, c0),
+                       t1 = _mm256_mul_ps(r, m),
+                       ro = r;
+
                 #if defined(__FMA__)
-                    r = _mm256_fmadd_ps(r, c0,
-                                        _mm256_mul_ps(t, _mm256_mul_ps(r, r)));
+                    r = _mm256_mul_ps(_mm256_fnmadd_ps(t1, r, c1), t0);
                 #else
-                    r = _mm256_add_ps(_mm256_mul_ps(c0, r),
-                                      _mm256_mul_ps(t, _mm256_mul_ps(r, r)));
+                    r = _mm256_mul_ps(_mm256_sub_ps(c1, _mm256_mul_ps(t1, r)), t0);
                 #endif
 
-                return _mm256_blendv_ps(ro, r, mask);
+                return _mm256_blendv_ps(r, ro, t1); /* mask bit is '1' iff t1 == nan */
             } else {
                 return Base::rsqrt_();
             }
@@ -654,25 +649,16 @@ template <bool Approx, typename Derived> struct alignas(32)
                 r = _mm256_rcp14_pd(m);
             #endif
 
-            __m256d ro = r, mask;
+            __m256d ro = r, t0, t1;
 
             /* Refine using 1-2 Newton-Raphson iterations */
             ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
-                #if defined(__FMA__)
-                    const __m256d two = _mm256_set1_pd(2.);
-                    __m256d t = _mm256_fnmadd_pd(r, m, two);
-                    if (i == 0)
-                        mask = _mm256_cmp_pd(t, t, _CMP_EQ_OQ);
-                    r = _mm256_mul_pd(r, t);
-                #else
-                    __m256d t = _mm256_mul_pd(_mm256_mul_pd(r, r), m);
-                    if (i == 0)
-                        mask = _mm256_cmp_pd(t, t, _CMP_EQ_OQ);
-                    r = _mm256_sub_pd(_mm256_add_pd(r, r), t);
-                #endif
+                t0 = _mm256_add_pd(r, r);
+                t1 = _mm256_mul_pd(r, m);
+                r = _mm256_fnmadd_pd(t1, r, t0);
             }
 
-            return _mm256_blendv_pd(ro, r, mask);
+            return _mm256_blendv_pd(r, ro, t1); /* mask bit is '1' iff t1 == nan */
         } else {
             return Base::rcp_();
         }
@@ -692,25 +678,19 @@ template <bool Approx, typename Derived> struct alignas(32)
                 r = _mm256_rsqrt14_pd(m);
             #endif
 
-            const __m256d c0 = _mm256_set1_pd(1.5);
-            const __m256d c1 = _mm256_set1_pd(-0.5);
+            const __m256d c0 = _mm256_set1_pd(0.5),
+                          c1 = _mm256_set1_pd(3.0);
 
-            __m256d ro = r, mask;
+            __m256d ro = r, t0, t1;
 
             /* Refine using 1-2 Newton-Raphson iterations */
             ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
-                __m256d t = _mm256_mul_pd(_mm256_mul_pd(m, c1), r);
-                if (i == 0)
-                    mask = _mm256_cmp_pd(t, t, _CMP_EQ_OQ);
-                #if defined(__FMA__)
-                    r = _mm256_fmadd_pd(r, c0, _mm256_mul_pd(t, _mm256_mul_pd(r, r)));
-                #else
-                    r = _mm256_add_pd(_mm256_mul_pd(c0, r),
-                            _mm256_mul_pd(t, _mm256_mul_pd(r, r)));
-                #endif
+                t0 = _mm256_mul_pd(r, c0);
+                t1 = _mm256_mul_pd(r, m);
+                r = _mm256_mul_pd(_mm256_fnmadd_pd(t1, r, c1), t0);
             }
 
-            return _mm256_blendv_pd(ro, r, mask);
+            return _mm256_blendv_pd(r, ro, t1); /* mask bit is '1' iff t1 == nan */
         } else {
             return Base::rsqrt_();
         }

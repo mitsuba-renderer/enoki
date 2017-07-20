@@ -254,21 +254,18 @@ template <bool Approx, typename Derived> struct alignas(16)
                     r = _mm_rcp_ps(m);   /* rel error < 1.5*2^-12 */
                 #endif
 
-                __m128 ro = r;
-
                 /* Refine using one Newton-Raphson iteration */
+                __m128 t0 = _mm_add_ps(r, r),
+                       t1 = _mm_mul_ps(r, m),
+                       ro = r;
+
                 #if defined(__FMA__)
-                    const __m128 two = _mm_set1_ps(2.f);
-                    __m128 t = _mm_fnmadd_ps(r, m, two);
-                    __m128 mask = _mm_cmpeq_ps(t, t);
-                    r = _mm_mul_ps(r, t);
+                    r = _mm_fnmadd_ps(t1, r, t0);
                 #else
-                    __m128 t = _mm_mul_ps(_mm_mul_ps(r, r), m);
-                    __m128 mask = _mm_cmpeq_ps(t, t);
-                    r = _mm_sub_ps(_mm_add_ps(r, r), t);
+                    r = _mm_sub_ps(t0, _mm_mul_ps(r, t1));
                 #endif
 
-                return _mm_blendv_ps(ro, r, mask);
+                return _mm_blendv_ps(r, ro, t1); /* mask bit is '1' iff t1 == nan */
             } else {
                 return Base::rcp_();
             }
@@ -291,24 +288,21 @@ template <bool Approx, typename Derived> struct alignas(16)
                     r = _mm_rsqrt_ps(m);   /* rel error < 1.5*2^-12 */
                 #endif
 
-                __m128 ro = r;
-
-                const __m128 c0 = _mm_set1_ps(1.5f);
-                const __m128 c1 = _mm_set1_ps(-0.5f);
-
-                __m128 t = _mm_mul_ps(_mm_mul_ps(m, c1), r);
-                __m128 mask = _mm_cmpeq_ps(t, t);
-
                 /* Refine using one Newton-Raphson iteration */
+                const __m128 c0 = _mm_set1_ps(0.5f),
+                             c1 = _mm_set1_ps(3.0f);
+
+                __m128 t0 = _mm_mul_ps(r, c0),
+                       t1 = _mm_mul_ps(r, m),
+                       ro = r;
+
                 #if defined(__FMA__)
-                    r = _mm_fmadd_ps(r, c0,
-                                     _mm_mul_ps(t, _mm_mul_ps(r, r)));
+                    r = _mm_mul_ps(_mm_fnmadd_ps(t1, r, c1), t0);
                 #else
-                    r = _mm_add_ps(_mm_mul_ps(c0, r),
-                                   _mm_mul_ps(t, _mm_mul_ps(r, r)));
+                    r = _mm_mul_ps(_mm_sub_ps(c1, _mm_mul_ps(t1, r)), t0);
                 #endif
 
-                return _mm_blendv_ps(ro, r, mask);
+                return _mm_blendv_ps(r, ro, t1); /* mask bit is '1' iff t1 == nan */
             } else {
                 return Base::rsqrt_();
             }
@@ -660,23 +654,16 @@ template <bool Approx, typename Derived> struct alignas(16)
                 r = _mm_rcp14_pd(m); /* rel error < 2^-14 */
             #endif
 
-            __m128d ro = r, mask;
+            __m128d ro = r, t0, t1;
 
             /* Refine using 1-2 Newton-Raphson iterations */
             ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
-                #if defined(__FMA__)
-                    const __m128d two = _mm_set1_pd(2.);
-                    __m128d t = _mm_fnmadd_pd(r, m, two);
-                    if (i == 0)
-                        mask = _mm_cmpeq_pd(t, t);
-                    r = _mm_mul_pd(r, t);
-                #else
-                    __m128d t = _mm_mul_pd(_mm_mul_pd(r, r), m);
-                    r = _mm_sub_pd(_mm_add_pd(r, r), t);
-                #endif
+                t0 = _mm_add_pd(r, r);
+                t1 = _mm_mul_pd(r, m);
+                r = _mm_fnmadd_pd(t1, r, t0);
             }
 
-            return _mm_blendv_pd(ro, r, mask);
+            return _mm_blendv_pd(r, ro, t1); /* mask bit is '1' iff t1 == nan */
         } else {
             return Base::rcp_();
         }
@@ -695,26 +682,19 @@ template <bool Approx, typename Derived> struct alignas(16)
                 r = _mm_rsqrt14_pd(m); /* rel error < 2^-14 */
             #endif
 
-            const __m128d c0 = _mm_set1_pd(1.5);
-            const __m128d c1 = _mm_set1_pd(-0.5);
+            const __m128d c0 = _mm_set1_pd(0.5),
+                          c1 = _mm_set1_pd(3.0);
 
-            __m128d ro = r, mask;
+            __m128d ro = r, t0, t1;
 
             /* Refine using 1-2 Newton-Raphson iterations */
             ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
-                __m128d t = _mm_mul_pd(_mm_mul_pd(m, c1), r);
-                if (i == 0)
-                    mask = _mm_cmpeq_pd(t, t);
-                #if defined(__FMA__)
-                    r = _mm_fmadd_pd(r, c0,
-                                     _mm_mul_pd(t, _mm_mul_pd(r, r)));
-                #else
-                    r = _mm_add_pd(_mm_mul_pd(c0, r),
-                                   _mm_mul_pd(t, _mm_mul_pd(r, r)));
-                #endif
+                t0 = _mm_mul_pd(r, c0);
+                t1 = _mm_mul_pd(r, m);
+                r = _mm_mul_pd(_mm_fnmadd_pd(t1, r, c1), t0);
             }
 
-            return _mm_blendv_pd(ro, r, mask);
+            return _mm_blendv_pd(r, ro, t1); /* mask bit is '1' iff t1 == nan */
         } else {
             return Base::rsqrt_();
         }

@@ -496,18 +496,16 @@ ENOKI_INLINE Arg rcp(const Arg &a) {
         /* Refine using one Newton-Raphson iteration */
         __m128 ro = r;
 
+        __m128 t0 = _mm_add_ss(r, r);
+        __m128 t1 = _mm_mul_ss(r, v);
+
         #if defined(__FMA__)
-            __m128 two = _mm_set_ss(2.f);
-            __m128 t = _mm_fnmadd_ss(r, v, two);
-            __m128 mask = _mm_cmpeq_ss(t, t);
-            r = _mm_mul_ss(r, t);
+            r = _mm_fnmadd_ss(t1, r, t0);
         #else
-            __m128 t = _mm_mul_ss(_mm_mul_ss(r, r), v);
-            __m128 mask = _mm_cmpeq_ss(t, t);
-            r = _mm_sub_ss(_mm_add_ss(r, r), t);
+            r = _mm_sub_ss(t0, _mm_mul_ss(r, t1));
         #endif
 
-        r = _mm_blendv_ps(ro, r, mask);
+        r = _mm_blendv_ps(r, ro, t1); /* mask bit is '1' iff t1 == nan */
 
         return Arg(_mm_cvtss_f32(r));
     }
@@ -523,25 +521,21 @@ ENOKI_INLINE Arg rcp(const Arg &a) {
             r = _mm_rcp14_sd(v, v);  /* rel error < 2^-14 */
         #endif
 
-        __m128d ro = r, mask;
+        __m128d ro = r, t0, t1;
 
         /* Refine using 1-2 Newton-Raphson iterations */
         ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
+            t0 = _mm_add_sd(r, r);
+            t1 = _mm_mul_sd(r, v);
+
             #if defined(__FMA__)
-                const __m128d two = _mm_set_sd(2.);
-                __m128d t = _mm_fnmadd_sd(r, v, two);
-                if (i == 0)
-                    mask = _mm_cmpeq_sd(t, t);
-                r = _mm_mul_sd(r, t);
+                r = _mm_fnmadd_sd(t1, r, t0);
             #else
-                __m128d t = _mm_mul_sd(_mm_mul_sd(r, r), v);
-                if (i == 0)
-                    mask = _mm_cmpeq_sd(t, t);
-                r = _mm_sub_sd(_mm_add_sd(r, r), t);
+                r = _mm_sub_sd(t0, _mm_mul_sd(r, t1));
             #endif
         }
 
-        r = _mm_blendv_pd(ro, r, mask);
+        r = _mm_blendv_pd(r, ro, t1); /* mask bit is '1' iff t1 == nan */
 
         return Arg(_mm_cvtsd_f64(r));
     }
@@ -584,22 +578,20 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
         #endif
 
         /* Refine using one Newton-Raphson iteration */
-        __m128 c0 = _mm_set_ss(1.5f),
-               c1 = _mm_set_ss(-0.5f),
+        const __m128 c0 = _mm_set_ss(0.5f),
+                     c1 = _mm_set_ss(3.0f);
+
+        __m128 t0 = _mm_mul_ss(r, c0),
+               t1 = _mm_mul_ss(r, v),
                ro = r;
 
-        __m128 t = _mm_mul_ss(_mm_mul_ss(v, c1), r);
-        __m128 mask = _mm_cmpeq_ss(t, t);
-
         #if defined(__FMA__)
-            r = _mm_fmadd_ss(r, c0,
-                             _mm_mul_ss(t, _mm_mul_ss(r, r)));
+            r = _mm_mul_ss(_mm_fnmadd_ss(t1, r, c1), t0);
         #else
-            r = _mm_add_ss(_mm_mul_ss(c0, r),
-                           _mm_mul_ss(t, _mm_mul_ss(r, r)));
+            r = _mm_mul_ss(_mm_sub_ss(c1, _mm_mul_ss(t1, r)), t0);
         #endif
 
-        r = _mm_blendv_ps(ro, r, mask);
+        r = _mm_blendv_ps(r, ro, t1); /* mask bit is '1' iff t1 == nan */
 
         return Arg(_mm_cvtss_f32(r));
     }
@@ -615,27 +607,24 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
             r = _mm_rsqrt14_sd(v, v);  /* rel error < 2^-14 */
         #endif
 
-        __m128d c0 = _mm_set_sd(1.5),
-                c1 = _mm_set_sd(-0.5),
-                ro = r,
-                mask;
+        const __m128d c0 = _mm_set_sd(0.5),
+                      c1 = _mm_set_sd(3.0);
+
+        __m128d ro = r, t0, t1;
 
         /* Refine using 1-2 Newton-Raphson iterations */
         ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
-            __m128d t = _mm_mul_sd(_mm_mul_sd(v, c1), r);
-            if (i == 0)
-                mask = _mm_cmpeq_sd(t, t);
+            t0 = _mm_mul_sd(r, c0);
+            t1 = _mm_mul_sd(r, v);
 
             #if defined(__FMA__)
-                r = _mm_fmadd_sd(r, c0,
-                                 _mm_mul_sd(t, _mm_mul_sd(r, r)));
+                r = _mm_mul_sd(_mm_fnmadd_sd(t1, r, c1), t0);
             #else
-                r = _mm_add_sd(_mm_mul_sd(c0, r),
-                               _mm_mul_sd(t, _mm_mul_sd(r, r)));
+                r = _mm_mul_sd(_mm_sub_sd(c1, _mm_mul_sd(t1, r)), t0);
             #endif
         }
 
-        r = _mm_blendv_pd(ro, r, mask);
+        r = _mm_blendv_pd(r, ro, t1); /* mask bit is '1' iff t1 == nan */
 
         return Arg(_mm_cvtsd_f64(r));
     }
