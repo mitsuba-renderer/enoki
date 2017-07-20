@@ -17,18 +17,18 @@
 
 NAMESPACE_BEGIN(enoki)
 
-template <typename Matrix4, typename Vector3> ENOKI_INLINE Matrix4 translate(Vector3 v) {
+template <typename Matrix4, typename Vector3> ENOKI_INLINE Matrix4 translate(const Vector3 &v) {
     Matrix4 trafo = identity<Matrix4>();
     trafo.coeff(3) = concat(v, 1.f);
     return trafo;
 }
 
-template <typename Matrix4, typename Vector3> ENOKI_INLINE Matrix4 scale(Vector3 v) {
+template <typename Matrix4, typename Vector3> ENOKI_INLINE Matrix4 scale(const Vector3 &v) {
     return diag<Matrix4>(concat(v, 1.f));
 }
 
 template <typename Matrix4, typename Vector3, std::enable_if_t<Matrix4::IsMatrix, int> = 0>
-ENOKI_INLINE Matrix4 rotate(Vector3 axis, entry_t<Matrix4> angle) {
+ENOKI_INLINE Matrix4 rotate(const Vector3 &axis, const entry_t<Matrix4> &angle) {
     using Float = entry_t<Matrix4>;
     using Vector4 = column_t<Matrix4>;
 
@@ -51,33 +51,88 @@ ENOKI_INLINE Matrix4 rotate(Vector3 axis, entry_t<Matrix4> angle) {
 }
 
 template <typename Matrix4>
-ENOKI_INLINE Matrix4 perspective(entry_t<Matrix4> fov,
-                                 entry_t<Matrix4> near,
-                                 entry_t<Matrix4> far) {
-    auto recip = rcp(far - near);
-    auto c = cot(.5f * fov);
-
-    Matrix4 trafo =
-        diag<Matrix4>(column_t<Matrix4>(c, c, far * recip, 0.f));
-    trafo(2, 3) = -near * far * recip;
-    trafo(3, 2) = 1.f;
-
-    return trafo;
-}
-
-template <typename Matrix4>
-ENOKI_INLINE Matrix4 perspective_gl(entry_t<Matrix4> fov,
-                                    entry_t<Matrix4> near,
-                                    entry_t<Matrix4> far) {
+ENOKI_INLINE Matrix4 perspective(const entry_t<Matrix4> &fov,
+                                 const entry_t<Matrix4> &near,
+                                 const entry_t<Matrix4> &far) {
     auto recip = rcp(near - far);
     auto c = cot(.5f * fov);
 
     Matrix4 trafo = diag<Matrix4>(
         column_t<Matrix4>(c, c, (near + far) * recip, 0.f));
+
     trafo(2, 3) = 2.f * near * far * recip;
     trafo(3, 2) = -1.f;
 
     return trafo;
 }
+
+template <typename Matrix4>
+ENOKI_INLINE Matrix4 frustum(entry_t<Matrix4> left,
+                             entry_t<Matrix4> right,
+                             entry_t<Matrix4> bottom,
+                             entry_t<Matrix4> top,
+                             entry_t<Matrix4> near,
+                             entry_t<Matrix4> far) {
+
+    auto rl = rcp(right - left),
+         tb = rcp(top - bottom),
+         fn = rcp(far - near);
+
+    Matrix4 trafo = zero<Matrix4>();
+    trafo(0, 0) = (2.f * near) * rl;
+    trafo(1, 1) = (2.f * near) * tb;
+    trafo(0, 2) = (right + left) * rl;
+    trafo(1, 2) = (top + bottom) * tb;
+    trafo(2, 2) = -(far + near) * fn;
+    trafo(3, 2) = -1.f;
+    trafo(2, 3) = -2.f * far * near * fn;
+
+    return trafo;
+}
+
+template <typename Matrix4>
+ENOKI_INLINE Matrix4 ortho(const entry_t<Matrix4> &left,
+                           const entry_t<Matrix4> &right,
+                           const entry_t<Matrix4> &bottom,
+                           const entry_t<Matrix4> &top,
+                           const entry_t<Matrix4> &near,
+                           const entry_t<Matrix4> &far) {
+
+    auto rl = rcp(right - left),
+         tb = rcp(top - bottom),
+         fn = rcp(far - near);
+
+    Matrix4 trafo = zero<Matrix4>();
+
+    trafo(0, 0) = 2.f * rl;
+    trafo(1, 1) = 2.f * tb;
+    trafo(2, 2) = -2.f * fn;
+    trafo(3, 3) = 1.f;
+    trafo(0, 3) = -(right + left) * rl;
+    trafo(1, 3) = -(top + bottom) * tb;
+    trafo(2, 3) = -(far + near) * fn;
+
+    return trafo;
+}
+
+template <typename Matrix4, typename Point, typename Vector>
+Matrix4 look_at(const Point &origin, const Point &target, const Vector &up) {
+    auto dir = normalize(target - origin);
+    auto left = normalize(cross(dir, up));
+    auto new_up = cross(left, dir);
+
+    return Matrix4(
+        concat(left, 0.f),
+        concat(new_up, 0.f),
+        concat(-dir, 0.f),
+        column_t<Matrix4>(
+            -dot(left, origin),
+            -dot(up, origin),
+             dot(dir, origin),
+             1.f
+        )
+    );
+}
+
 
 NAMESPACE_END(enoki)

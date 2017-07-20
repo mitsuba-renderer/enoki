@@ -27,34 +27,17 @@ Reference
     Constructs a homogeneous transformation, which rotates by ``angle`` radians
     around the axis ``v``. The function requires ``v`` to be normalized.
 
+.. cpp:function:: template <typename Matrix, typename Point3, typename Vector3> Matrix look_at(Point3 origin, Point3, target, Vector3 up)
+
+    Constructs an homogeneous transformation, which translates to
+    :math:`\mathrm{origin}`, maps the negative :math:`z` axis to
+    :math:`\mathrm{target}-\mathrm{origin}` (normalized) and the positive
+    :math:`y` axis to :math:`\mathrm{up}` (if orthogonal to
+    :math:`\mathrm{target}-\mathrm{origin}`). The algorithm performs
+    Gram-Schmidt orthogonalization to ensure that the returned matrix is
+    orthonormal.
+
 .. cpp:function:: template <typename Matrix, typename Float> Matrix perspective(Float fov, Float near, Float far)
-
-    Constructs a perspective projection matrix with the specified field of view
-    (in radians) and near and far clip planes. The returned matrix performs the
-    transformation
-
-    .. math::
-
-        \begin{pmatrix}
-        x\\y\\z\end{pmatrix}
-        \mapsto
-        \begin{pmatrix}
-        c\,x/z\\ c\,x/z\\
-        \frac{\mathrm{far}\,(z-\mathrm{near})}{z\, (\mathrm{far}-\mathrm{near})}
-        \end{pmatrix},
-
-    where
-
-    .. math::
-
-        c = \mathrm{cot}\left(0.5\, \textrm{fov}\right),
-
-    which maps :math:`(0, 0, \mathrm{near})^T` to :math:`(0, 0, 0)^T` and
-    :math:`(0, 0, \mathrm{far})^T` to :math:`(0, 0, 1)^T`. See also
-    :cpp:func:`perspective_gl` for an OpenGL-style perspective matrix.
-
-
-.. cpp:function:: template <typename Matrix, typename Float> Matrix perspective_gl(Float fov, Float near, Float far)
 
     Constructs an OpenGL-compatible perspective projection matrix with the
     specified field of view (in radians) and near and far clip planes. The
@@ -67,17 +50,32 @@ Reference
         \mapsto
         \begin{pmatrix}
         -c\,x/z\\ -c\,x/z\\
-        \frac{2\,\mathrm{far}\,\mathrm{near}+z\,(\mathrm{far}+\mathrm{near})}{z\, (\mathrm{far}-\mathrm{near})}
+        \frac{2\,\mathrm{far}\,\mathrm{near}\,+\,z\,(\mathrm{far}+\mathrm{near})}{z\, (\mathrm{far}-\mathrm{near})}
         \end{pmatrix},
 
     where
 
     .. math::
 
-        c = \mathrm{cot}\left(0.5\, \textrm{fov}\right),
+        c = \mathrm{cot}\!\left(0.5\, \textrm{fov}\right),
 
     which maps :math:`(0, 0, -\mathrm{near})^T` to :math:`(0, 0, -1)^T` and
-    :math:`(0, 0, -\mathrm{far})^T` to :math:`(0, 0, 1)^T`. See also
-    :cpp:func:`perspective` for a different convention used in some
-    rendering systems.
+    :math:`(0, 0, -\mathrm{far})^T` to :math:`(0, 0, 1)^T`.
 
+.. cpp:function:: template <typename Matrix, typename Float> Matrix frustum(Float left, Float right, Float bottom, Float top, Float near, Float far)
+
+    Constructs an OpenGL-compatible perspective projection matrix. The provided
+    parameters specify the intersection of the camera frustum with the near
+    clipping plane. Specifically, the returned transformation maps
+    :math:`(\mathrm{left}, \mathrm{bottom}, -\mathrm{near})` to :math:`(-1, -1,
+    -1)` and :math:`(\mathrm{right}, \mathrm{top}, -\mathrm{near})` to
+    :math:`(1, 1, -1)`.
+
+.. cpp:function:: template <typename Matrix, typename Float> Matrix ortho(Float left, Float right, Float bottom, Float top, Float near, Float far)
+
+    Constructs an OpenGL-compatible orthographic projection matrix. The
+    provided parameters specify the intersection of the camera frustum with the
+    near clipping plane. Specifically, the returned transformation maps
+    :math:`(\mathrm{left}, \mathrm{bottom}, -\mathrm{near})` to :math:`(-1, -1,
+    -1)` and :math:`(\mathrm{right}, \mathrm{top}, -\mathrm{near})` to
+    :math:`(1, 1, -1)`.
