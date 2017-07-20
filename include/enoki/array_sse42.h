@@ -1008,29 +1008,14 @@ struct alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     }
 
     ENOKI_INLINE Derived sl_(size_t k) const {
-        #if 0
-            return _mm_sll_epi32(m, _mm_set1_epi64x((long long) k));
-        #else
-            /* This is not strictly correct (k may not be a compile-time constant),
-               but all targeted compilers figure it out and generate better code */
-            return _mm_slli_epi32(m, (int) k);
-        #endif
+        return _mm_sll_epi32(m, _mm_set1_epi64x((long long) k));
     }
 
     ENOKI_INLINE Derived sr_(size_t k) const {
-        #if 0
-            if (std::is_signed<Value>::value)
-                return _mm_sra_epi32(m, _mm_set1_epi64x((long long) k));
-            else
-                return _mm_srl_epi32(m, _mm_set1_epi64x((long long) k));
-        #else
-            /* This is not strictly correct (k may not be a compile-time constant),
-               but all targeted compilers figure it out and generate better code */
-            if (std::is_signed<Value>::value)
-                return _mm_srai_epi32(m, (int) k);
-            else
-                return _mm_srli_epi32(m, (int) k);
-        #endif
+        if (std::is_signed<Value>::value)
+            return _mm_sra_epi32(m, _mm_set1_epi64x((long long) k));
+        else
+            return _mm_srl_epi32(m, _mm_set1_epi64x((long long) k));
     }
 
     ENOKI_INLINE Derived slv_(Arg k) const {
@@ -1452,48 +1437,22 @@ struct alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMode::Default,
     }
 
     ENOKI_INLINE Derived sl_(size_t k) const {
-        #if 0
-            return _mm_sll_epi64(m, _mm_set1_epi64x((long long) k));
-        #else
-            /* This is not strictly correct (k may not be a compile-time constant),
-               but all targeted compilers figure it out and generate better code */
-            return _mm_slli_epi64(m, (int) k);
-        #endif
+        return _mm_sll_epi64(m, _mm_set1_epi64x((long long) k));
     }
 
     ENOKI_INLINE Derived sr_(size_t k) const {
         if (std::is_signed<Value>::value) {
             #if defined(__AVX512VL__)
-                #if 0
-                    return _mm_sra_epi64(m, _mm_set1_epi64x((long long) k));
-                #else
-                    /* This is not strictly correct (k may not be a compile-time constant),
-                       but all targeted compilers figure it out and generate better code */
-                    return _mm_srai_epi64(m, (int) k);
-                #endif
+                return _mm_sra_epi64(m, _mm_set1_epi64x((long long) k));
             #else
                 const __m128i offset = _mm_set1_epi64x((long long) 0x8000000000000000ull);
-                #if 0
-                    __m128i s0 = _mm_set1_epi64x((long long) k);
-                    __m128i s1 = _mm_srl_epi64(_mm_add_epi64(m, offset), s0);
-                    __m128i s2 = _mm_srl_epi64(offset, s0);
-                    return _mm_sub_epi64(s1, s2);
-                #else
-                    /* This is not strictly correct (k may not be a compile-time constant),
-                       but all targeted compilers figure it out and generate better code */
-                    __m128i s1 = _mm_srli_epi64(_mm_add_epi64(m, offset), (int) k);
-                    __m128i s2 = _mm_srli_epi64(offset, (int) k);
-                    return _mm_sub_epi64(s1, s2);
-                #endif
+                __m128i s0 = _mm_set1_epi64x((long long) k);
+                __m128i s1 = _mm_srl_epi64(_mm_add_epi64(m, offset), s0);
+                __m128i s2 = _mm_srl_epi64(offset, s0);
+                return _mm_sub_epi64(s1, s2);
             #endif
         } else {
-            #if 0
-                return _mm_srl_epi64(m, _mm_set1_epi64x((long long) k));
-            #else
-                /* This is not strictly correct (k may not be a compile-time constant),
-                   but all targeted compilers figure it out and generate better code */
-                return _mm_srli_epi64(m, (int) k);
-            #endif
+            return _mm_srl_epi64(m, _mm_set1_epi64x((long long) k));
         }
     }
 

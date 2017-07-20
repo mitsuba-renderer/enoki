@@ -1312,29 +1312,14 @@ template <typename Value_, typename Derived> struct alignas(64)
     }
 
     ENOKI_INLINE Derived sl_(size_t k) const {
-        #if 0
-            return _mm512_sll_epi32(m, _mm_set1_epi64x((long long) k));
-        #else
-            /* This is not strictly correct (k may not be a compile-time constant),
-               but all targeted compilers figure it out and generate better code */
-            return _mm512_slli_epi32(m, (int) k);
-        #endif
+        return _mm512_sll_epi32(m, _mm_set1_epi64x((long long) k));
     }
 
     ENOKI_INLINE Derived sr_(size_t k) const {
-        #if 0
-            if (std::is_signed<Value>::value)
-                return _mm512_sra_epi32(m, _mm_set1_epi64x((long long) k));
-            else
-                return _mm512_srl_epi32(m, _mm_set1_epi64x((long long) k));
-        #else
-            /* This is not strictly correct (k may not be a compile-time constant),
-               but all targeted compilers figure it out and generate better code */
-            if (std::is_signed<Value>::value)
-                return _mm512_srai_epi32(m, (int) k);
-            else
-                return _mm512_srli_epi32(m, (int) k);
-        #endif
+        if (std::is_signed<Value>::value)
+            return _mm512_sra_epi32(m, _mm_set1_epi64x((long long) k));
+        else
+            return _mm512_srl_epi32(m, _mm_set1_epi64x((long long) k));
     }
 
     ENOKI_INLINE Derived slv_(Arg k) const {
@@ -1785,29 +1770,14 @@ template <typename Value_, typename Derived> struct alignas(64)
     }
 
     ENOKI_INLINE Derived sl_(size_t k) const {
-        #if 0
-            return _mm512_sll_epi64(m, _mm_set1_epi64x((long long) k));
-        #else
-            /* This is not strictly correct (k may not be a compile-time constant),
-               but all targeted compilers figure it out and generate better code */
-            return _mm512_slli_epi64(m, (int) k);
-        #endif
+        return _mm512_sll_epi64(m, _mm_set1_epi64x((long long) k));
     }
 
     ENOKI_INLINE Derived sr_(size_t k) const {
-        #if 0
-            if (std::is_signed<Value>::value)
-                return _mm512_sra_epi64(m, _mm_set1_epi64x((long long) k));
-            else
-                return _mm512_srl_epi64(m, _mm_set1_epi64x((long long) k));
-        #else
-            /* This is not strictly correct (k may not be a compile-time constant),
-               but all targeted compilers figure it out and generate better code */
-            if (std::is_signed<Value>::value)
-                return _mm512_srai_epi64(m, (int) k);
-            else
-                return _mm512_srli_epi64(m, (int) k);
-        #endif
+        if (std::is_signed<Value>::value)
+            return _mm512_sra_epi64(m, _mm_set1_epi64x((long long) k));
+        else
+            return _mm512_srl_epi64(m, _mm_set1_epi64x((long long) k));
     }
 
     ENOKI_INLINE Derived slv_(Arg k) const {
