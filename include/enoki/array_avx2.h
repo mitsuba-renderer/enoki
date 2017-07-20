@@ -286,6 +286,11 @@ struct alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMode::Default,
         }
     }
 
+#if defined(__AVX512CD__) && defined(__AVX512VL__)
+    ENOKI_INLINE Derived lzcnt_() const { return _mm256_lzcnt_epi32(m); }
+    ENOKI_INLINE Derived tzcnt_() const { return Value(32) - lzcnt(~derived() & (derived() - Value(1))); }
+#endif
+
     //! @}
     // -----------------------------------------------------------------------
 
@@ -722,6 +727,11 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
     static ENOKI_INLINE Derived select_(const Mask_ &m, Arg t, Arg f) {
         return _mm256_blendv_epi8(f.m, t.m, m.m);
     }
+
+#if defined(__AVX512CD__) && defined(__AVX512VL__)
+    ENOKI_INLINE Derived lzcnt_() const { return _mm256_lzcnt_epi64(m); }
+    ENOKI_INLINE Derived tzcnt_() const { return Value(64) - lzcnt(~derived() & (derived() - Value(1))); }
+#endif
 
     //! @}
     // -----------------------------------------------------------------------

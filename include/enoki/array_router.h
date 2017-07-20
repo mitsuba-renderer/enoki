@@ -243,6 +243,10 @@ ENOKI_ROUTE_UNARY_SCALAR(sincosh, sincosh, std::make_pair(std::sinh(a), std::cos
 
 ENOKI_ROUTE_UNARY_SCALAR(round, round, std::rint(a))
 
+ENOKI_ROUTE_UNARY(popcnt, popcnt)
+ENOKI_ROUTE_UNARY(lzcnt, lzcnt)
+ENOKI_ROUTE_UNARY(tzcnt, tzcnt)
+
 ENOKI_ROUTE_UNARY_SCALAR(all,          all,           (bool) a)
 ENOKI_ROUTE_UNARY_SCALAR(all_nested,   all_nested,    (bool) a)
 ENOKI_ROUTE_UNARY_SCALAR(any,          any,           (bool) a)
@@ -500,7 +504,7 @@ ENOKI_INLINE Arg rcp(const Arg &a) {
         __m128 t1 = _mm_mul_ss(r, v);
 
         #if defined(__FMA__)
-            r = _mm_fnmadd_ss(t1, r, t0);
+            r = _mm_fnmadd_ss(r, t1, t0);
         #else
             r = _mm_sub_ss(t0, _mm_mul_ss(r, t1));
         #endif
@@ -761,6 +765,90 @@ inline Arg copysign(const Arg &a, const Arg &b) {
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
 inline Arg mulsign(const Arg &a, const Arg &b) {
     return a * std::copysign(Arg(1), b);
+}
+
+template <typename T, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+ENOKI_INLINE T popcnt(T v) {
+#if defined(__SSE4_2__)
+    if (sizeof(T) <= 4)
+        return (T) _mm_popcnt_u32((int) v);
+    else
+        return (T) _mm_popcnt_u64((long long) v);
+#elif defined(_MSC_VER)
+    if (sizeof(T) <= 4) {
+        uint32_t w = (uint32_t) v;
+        w -= (w >> 1) & 0x55555555;
+        w = (w & 0x33333333) + ((w >> 2) & 0x33333333);
+        w = (w + (w >> 4)) & 0x0F0F0F0F;
+        w = (w * 0x01010101) >> 24;
+        return (T) w;
+    } else {
+        uint64_t w = (uint64_t) v;
+        w -= (w >> 1) & 0x5555555555555555ull;
+        w = (w & 0x3333333333333333ull) + ((w >> 2) & 0x3333333333333333ull);
+        w = (w + (w >> 4)) & 0x0F0F0F0F0F0F0F0Full;
+        w = (w * 0x0101010101010101ull) >> 56;
+        return (T) w;
+    }
+#else
+    if (sizeof(T) <= 4)
+        return (T) __builtin_popcount((unsigned int) v);
+    else
+        return (T) __builtin_popcountll((unsigned long long) v);
+#endif
+}
+
+template <typename T, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+ENOKI_INLINE T lzcnt(T v) {
+#if defined(__AVX2__)
+    if (sizeof(T) <= 4)
+        return (T) _lzcnt_u32((unsigned int) v);
+    else
+        return (T) _lzcnt_u64((unsigned long long) v);
+#elif defined(_MSC_VER)
+    unsigned long result;
+    if (sizeof(T) <= 4) {
+        _BitScanReverse(&result, (unsigned long) v);
+        return (v != 0) ? (31 - result) : 32;
+    } else {
+        _BitScanReverse64(&result, (unsigned long long) v);
+        return (v != 0) ? (63 - result) : 64;
+    }
+#else
+    if (sizeof(T) <= 4)
+        return (T) (v != 0 ? __builtin_clz((unsigned int) v) : 32);
+    else
+        return (T) (v != 0 ? __builtin_clzll((unsigned long long) v) : 64);
+#endif
+}
+
+template <typename T, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+ENOKI_INLINE T tzcnt(T v) {
+#if defined(__AVX2__)
+    if (sizeof(T) <= 4)
+        return (T) _tzcnt_u32((unsigned int) v);
+    else
+        return (T) _tzcnt_u64((unsigned long long) v);
+#elif defined(_MSC_VER)
+    unsigned long result;
+    if (sizeof(T) <= 4) {
+        _BitScanForward(&result, (unsigned long) v);
+        return (v != 0) ? result : 32;
+    } else {
+        _BitScanForward64(&result, (unsigned long long) v);
+        return (v != 0) ? result: 64;
+    }
+#else
+    if (sizeof(T) <= 4)
+        return (T) (v != 0 ? __builtin_ctz((unsigned int) v) : 32);
+    else
+        return (T) (v != 0 ? __builtin_ctzll((unsigned long long) v) : 64);
+#endif
+}
+
+/// Fast implementation for computing the base 2 log of an integer.
+template <typename T> ENOKI_INLINE T log2i(T value) {
+    return scalar_t<T>(sizeof(scalar_t<T>) * 8 - 1) - lzcnt(value);
 }
 
 //! @}

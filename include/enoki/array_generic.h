@@ -698,6 +698,30 @@ public:
         return result;
     }
 
+    /// Population count
+    ENOKI_INLINE auto popcnt_() const {
+        expr_t<Derived> result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            result.coeff(i) = popcnt(coeff(i));
+        return result;
+    }
+
+    /// Leading zero count
+    ENOKI_INLINE auto lzcnt_() const {
+        expr_t<Derived> result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            result.coeff(i) = lzcnt(coeff(i));
+        return result;
+    }
+
+    /// Trailing zero count
+    ENOKI_INLINE auto tzcnt_() const {
+        expr_t<Derived> result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            result.coeff(i) = tzcnt(coeff(i));
+        return result;
+    }
+
     //! @}
     // -----------------------------------------------------------------------
 

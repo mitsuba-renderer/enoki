@@ -269,7 +269,7 @@ void probe_accuracy(T (*func)(const T &), double (*ref)(double),
     bool success = max_ulp <= max_ulp_assert || max_ulp_assert == 0;
 
     if (test::detailed || !success) {
-#if 0
+#if 1
         std::cout << "(in [" << min << ", " << max << "]):" << std::endl
               << "     * avg abs. err = " << avg_err / float(nTries) << std::endl
               << "     * avg rel. err = " << avg_err_rel / float(nTries) << std::endl
@@ -522,18 +522,19 @@ int main(int argc, char** argv) {
     std::cout << "=== Enoki test suite (version " << ENOKI_VERSION << ") ===" << std::endl;
     std::cout << "Enabled compiler features: ";
 
-    if (has_avx512dq) std::cout << "avx512dq ";
-    if (has_avx512bw) std::cout << "avx512bw ";
-    if (has_avx512vl) std::cout << "avx512vl ";
-    if (has_avx512er) std::cout << "avx512eri ";
-    if (has_avx512pf) std::cout << "avx512pfi ";
-    if (has_avx512cd) std::cout << "avx512cdi ";
-    if (has_avx512f)  std::cout << "avx512f ";
-    if (has_avx2)     std::cout << "avx2 ";
-    if (has_avx)      std::cout << "avx ";
-    if (has_fma)      std::cout << "fma ";
-    if (has_f16c)     std::cout << "f16c ";
-    if (has_sse42)    std::cout << "sse4.2 ";
+    if (has_avx512f)         std::cout << "avx512f ";
+    if (has_avx512cd)        std::cout << "avx512cd ";
+    if (has_avx512dq)        std::cout << "avx512dq ";
+    if (has_avx512vl)        std::cout << "avx512vl ";
+    if (has_avx512bw)        std::cout << "avx512bw ";
+    if (has_avx512pf)        std::cout << "avx512pf ";
+    if (has_avx512er)        std::cout << "avx512er ";
+    if (has_avx512vpopcntdq) std::cout << "avx512vpopcntdq ";
+    if (has_avx2)            std::cout << "avx2 ";
+    if (has_avx)             std::cout << "avx ";
+    if (has_fma)             std::cout << "fma ";
+    if (has_f16c)            std::cout << "f16c ";
+    if (has_sse42)           std::cout << "sse4.2 ";
 
     /* Turn on verbose mode if requested */
     if (argc == 2 && strcmp(argv[1], "-v") == 0)

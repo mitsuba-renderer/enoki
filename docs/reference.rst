@@ -1328,6 +1328,22 @@ Miscellaneous operations
 
     Convenience function which multiplies the input array by :math:`\frac{180}{\pi}`.
 
+.. cpp:function:: template <typename Array> Array tzcnt(Array array)
+
+    Return the number of trailing zero bits (assumes that ``Array`` is an integer array).
+
+.. cpp:function:: template <typename Array> Array lzcnt(Array array)
+
+    Return the number of leading zero bits (assumes that ``Array`` is an integer array).
+
+.. cpp:function:: template <typename Array> Array popcnt(Array array)
+
+    Return the number nonzero bits (assumes that ``Array`` is an integer array).
+
+.. cpp:function:: template <typename Array> Array log2i(Array array)
+
+    Return the floor of the base-two logarithm (assumes that ``Array`` is an integer array).
+
 .. cpp:function:: template <typename Index> std::pair<Index, mask_t<Index>> range(scalar_t<Index> begin, scalar_t<Index> end)
 
     Returns an iterable, which generates linearly increasing index vectors from

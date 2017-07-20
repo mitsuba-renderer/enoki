@@ -281,6 +281,9 @@ that they are independently applied to all array elements.
     i1 = roli<3>(i1);  i1 = rori<3>(i1);  /* Rotate by a compile-time constant ("immediate") */
     i1 = rol(i1, i2);  i1 = ror(i1, i2);  /* Element-wise rotation by a variable amount */
 
+    /* Trailing/leading zero count, population count (only for integer arrays) */
+    i1 = lzcnt(i1); i1 = tzcnt(i1); i1 = popcnt(i1);
+
 Casting
 *******
 

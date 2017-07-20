@@ -78,6 +78,18 @@ enum class RoundingMode {
 //! @{ \name Available instruction sets
 // -----------------------------------------------------------------------
 
+#if defined(__AVX512F__)
+    static constexpr bool has_avx512f = true;
+#else
+    static constexpr bool has_avx512f = false;
+#endif
+
+#if defined(__AVX512CD__)
+    static constexpr bool has_avx512cd = true;
+#else
+    static constexpr bool has_avx512cd = false;
+#endif
+
 #if defined(__AVX512DQ__)
     static constexpr bool has_avx512dq = true;
 #else
@@ -96,12 +108,6 @@ enum class RoundingMode {
     static constexpr bool has_avx512bw = false;
 #endif
 
-#if defined(__AVX512CD__)
-    static constexpr bool has_avx512cd = true;
-#else
-    static constexpr bool has_avx512cd = false;
-#endif
-
 #if defined(__AVX512PF__)
     static constexpr bool has_avx512pf = true;
 #else
@@ -114,10 +120,16 @@ enum class RoundingMode {
     static constexpr bool has_avx512er = false;
 #endif
 
-#if defined(__AVX512F__)
-    static constexpr bool has_avx512f = true;
+#if defined(__AVX512VBMI__)
+    static constexpr bool has_avx512vbmi = true;
 #else
-    static constexpr bool has_avx512f = false;
+    static constexpr bool has_avx512vbmi = false;
+#endif
+
+#if defined(__AVX512VPOPCNTDQ__)
+    static constexpr bool has_avx512vpopcntdq = true;
+#else
+    static constexpr bool has_avx512vpopcntdq = false;
 #endif
 
 #if defined(__AVX2__)
@@ -589,50 +601,6 @@ template <typename T> using float64_array_t = like_t<T, double>;
 template <typename T> using bool_array_t    = like_t<T, bool>;
 template <typename T> using size_array_t    = like_t<T, size_t>;
 template <typename T> using ssize_array_t   = like_t<T, ssize_t>;
-
-/// Fast implementation for computing the base 2 log of an integer.
-template <typename T> ENOKI_INLINE T log2i(T value) {
-    assert(value >= 0);
-    unsigned long result = 0;
-#if defined(__GNUC__) && defined(__x86_64__)
-    if (sizeof(T) <= 4)
-        result = (unsigned long) (31 - __builtin_clz((unsigned int) value));
-    else
-        result = (unsigned long) (63 - __builtin_clzll((unsigned long long) value));
-#elif defined(_WIN32)
-    #if defined(__AVX2__)
-        if (sizeof(T) <= 4)
-            result = (unsigned long) (31 - __lzcnt((unsigned int) value));
-        else
-            result = (unsigned long) (63 - __lzcnt64((unsigned long long) value));
-    #else
-        if (sizeof(T) <= 4)
-            _BitScanReverse(&result, (unsigned long) value);
-        else
-            _BitScanReverse64(&result, (unsigned long long) value);
-    #endif
-#else
-    while ((value >> r) != 0)
-        r++;
-    r -= 1;
-#endif
-    return T(result);
-}
-
-inline int tzcnt(unsigned int v) {
-#if defined(__AVX2__)
-    return (int) _tzcnt_u32(v);
-#else
-    #if defined(_MSC_VER)
-        unsigned long r;
-        _BitScanForward(&r, v);
-        return (int) r;
-    #else
-        return __builtin_ctz(v);
-    #endif
-#endif
-}
-
 
 // -----------------------------------------------------------------------
 //! @{ \name Fallbacks for high 32/64 bit integer multiplication

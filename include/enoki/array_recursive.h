@@ -358,6 +358,10 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         return Base::template rol_array_<Imm>();
     }
 
+    Derived lzcnt_() const { return Derived(lzcnt(a1), lzcnt(a2)); }
+    Derived tzcnt_() const { return Derived(tzcnt(a1), tzcnt(a2)); }
+    Derived popcnt_() const { return Derived(popcnt(a1), popcnt(a2)); }
+
     //! @}
     // -----------------------------------------------------------------------
 

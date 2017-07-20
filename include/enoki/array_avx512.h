@@ -1401,6 +1401,15 @@ template <typename Value_, typename Derived> struct alignas(64)
         }
     }
 
+#if defined(__AVX512CD__)
+    ENOKI_INLINE Derived lzcnt_() const { return _mm512_lzcnt_epi32(m); }
+    ENOKI_INLINE Derived tzcnt_() const { return Value(32) - lzcnt(~derived() & (derived() - Value(1))); }
+#endif
+
+#if defined(__AVX512VPOPCNTDQ__)
+    ENOKI_INLINE Derived popcnt_() const { return _mm512_popcnt_epi32(m); }
+#endif
+
     // -----------------------------------------------------------------------
     //! @{ \name Horizontal operations
     // -----------------------------------------------------------------------
@@ -1701,45 +1710,6 @@ template <typename Value_, typename Derived> struct alignas(64)
         #endif
     }
 
-    ENOKI_INLINE Derived mulhi_(Arg b) const {
-        if (std::is_unsigned<Value>::value) {
-            const __m512i low_bits = _mm512_set1_epi64(0xffffffffu);
-            __m512i al = m, bl = b.m;
-            __m512i ah = _mm512_srli_epi64(al, 32);
-            __m512i bh = _mm512_srli_epi64(bl, 32);
-
-            // 4x unsigned 32x32->64 bit multiplication
-            __m512i albl = _mm512_mul_epu32(al, bl);
-            __m512i albh = _mm512_mul_epu32(al, bh);
-            __m512i ahbl = _mm512_mul_epu32(ah, bl);
-            __m512i ahbh = _mm512_mul_epu32(ah, bh);
-
-            // Calculate a possible carry from the low bits of the multiplication.
-            __m512i carry = _mm512_add_epi64(
-                _mm512_srli_epi64(albl, 32),
-                _mm512_add_epi64(_mm512_and_epi64(albh, low_bits),
-                                 _mm512_and_epi64(ahbl, low_bits)));
-
-            __m512i s0 = _mm512_add_epi64(ahbh, _mm512_srli_epi64(carry, 32));
-            __m512i s1 = _mm512_add_epi64(_mm512_srli_epi64(albh, 32),
-                                          _mm512_srli_epi64(ahbl, 32));
-
-            return _mm512_add_epi64(s0, s1);
-        } else {
-            const Derived mask(0xffffffff);
-            const Derived a = derived();
-            Derived ah = sri<32>(a), bh = sri<32>(b),
-                    al = a & mask, bl = b & mask;
-
-            Derived albl_hi = _mm512_srli_epi64(_mm512_mul_epu32(m, b.m), 32);
-
-            Derived t = ah * bl + albl_hi;
-            Derived w1 = al * bh + (t & mask);
-
-            return ah * bh + sri<32>(t) + sri<32>(w1);
-        }
-    }
-
     ENOKI_INLINE Derived or_ (Arg a) const { return _mm512_or_epi64(m, a.m); }
 
     ENOKI_INLINE Derived or_ (Mask a) const {
@@ -1841,6 +1811,53 @@ template <typename Value_, typename Derived> struct alignas(64)
         return _mm512_permutexvar_epi64(idx, m);
     }
 
+    ENOKI_INLINE Derived mulhi_(Arg b) const {
+        if (std::is_unsigned<Value>::value) {
+            const __m512i low_bits = _mm512_set1_epi64(0xffffffffu);
+            __m512i al = m, bl = b.m;
+            __m512i ah = _mm512_srli_epi64(al, 32);
+            __m512i bh = _mm512_srli_epi64(bl, 32);
+
+            // 4x unsigned 32x32->64 bit multiplication
+            __m512i albl = _mm512_mul_epu32(al, bl);
+            __m512i albh = _mm512_mul_epu32(al, bh);
+            __m512i ahbl = _mm512_mul_epu32(ah, bl);
+            __m512i ahbh = _mm512_mul_epu32(ah, bh);
+
+            // Calculate a possible carry from the low bits of the multiplication.
+            __m512i carry = _mm512_add_epi64(
+                _mm512_srli_epi64(albl, 32),
+                _mm512_add_epi64(_mm512_and_epi64(albh, low_bits),
+                                 _mm512_and_epi64(ahbl, low_bits)));
+
+            __m512i s0 = _mm512_add_epi64(ahbh, _mm512_srli_epi64(carry, 32));
+            __m512i s1 = _mm512_add_epi64(_mm512_srli_epi64(albh, 32),
+                                          _mm512_srli_epi64(ahbl, 32));
+
+            return _mm512_add_epi64(s0, s1);
+        } else {
+            const Derived mask(0xffffffff);
+            const Derived a = derived();
+            Derived ah = sri<32>(a), bh = sri<32>(b),
+                    al = a & mask, bl = b & mask;
+
+            Derived albl_hi = _mm512_srli_epi64(_mm512_mul_epu32(m, b.m), 32);
+
+            Derived t = ah * bl + albl_hi;
+            Derived w1 = al * bh + (t & mask);
+
+            return ah * bh + sri<32>(t) + sri<32>(w1);
+        }
+    }
+
+#if defined(__AVX512CD__)
+    ENOKI_INLINE Derived lzcnt_() const { return _mm512_lzcnt_epi64(m); }
+    ENOKI_INLINE Derived tzcnt_() const { return Value(64) - lzcnt(~derived() & (derived() - Value(1))); }
+#endif
+
+#if defined(__AVX512VPOPCNTDQ__)
+    ENOKI_INLINE Derived popcnt_() const { return _mm512_popcnt_epi64(m); }
+#endif
 
     // -----------------------------------------------------------------------
     //! @{ \name Horizontal operations

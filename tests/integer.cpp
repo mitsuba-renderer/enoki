@@ -139,3 +139,29 @@ ENOKI_TEST_TYPE(test06_shiftrot, int64_t) {
     assert(roli<4>(T((int64_t) 0xCAFEBABEDEADBEEFll)) == T((int64_t) 0xAFEBABEDEADBEEFCull));
     assert(rori<4>(T((int64_t) 0xCAFEBABEDEADBEEFll)) == T((int64_t) 0xFCAFEBABEDEADBEEull));
 }
+
+ENOKI_TEST_INT(test07_bmi) {
+    if (std::is_signed<Value>::value)
+        return;
+    Value lzcnt_ref[] = { 32, 31, 30, 30, 29, 29, 29, 29, 28, 28, 28, 28, 28 };
+    Value tzcnt_ref[] = { 32, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2 };
+    Value popcnt_ref[] = { 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2 };
+
+    for (int i =0; i<13; ++i) {
+        Value v = (Value) i;
+        assert(lzcnt(T(v))[0] == lzcnt_ref[i] + (sizeof(Value) == 8 ? 32 : 0));
+        assert(lzcnt(v) == lzcnt_ref[i] + (sizeof(Value) == 8 ? 32 : 0));
+        assert(tzcnt(T(v))[0] == tzcnt_ref[i] + ((sizeof(Value) == 8 && i == 0) ? 32 : 0));
+        assert(tzcnt(v) == tzcnt_ref[i] + ((sizeof(Value) == 8 && i == 0) ? 32 : 0));
+        assert(popcnt(T(v))[0] == popcnt_ref[i]);
+        assert(popcnt(v) == popcnt_ref[i]);
+    }
+
+    Value v = (Value) -1;
+    assert(lzcnt(T(v))[0] == 0);
+    assert(lzcnt(v) == 0);
+    assert(tzcnt(T(v))[0] == 0);
+    assert(tzcnt(v) == 0);
+    assert(popcnt(T(v))[0] == (sizeof(Value) == 8 ? 64 : 32));
+    assert(popcnt(v) == (sizeof(Value) == 8 ? 64 : 32));
+}

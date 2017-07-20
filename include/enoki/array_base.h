@@ -1579,6 +1579,63 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
     // -----------------------------------------------------------------------
 
     // -----------------------------------------------------------------------
+    //! @{ \name Bit counting fallback implementations
+    // -----------------------------------------------------------------------
+
+    Derived popcnt_() const {
+        if (sizeof(Scalar) <= 4) {
+            using UInt = uint32_array_t<expr_t<Derived>>;
+            UInt w = (UInt) derived();
+
+            w -= sri<1>(w) & 0x55555555u;
+            w = (w & 0x33333333u) + ((sri<2>(w)) & 0x33333333u);
+            w = (w + sri<4>(w)) & 0x0F0F0F0Fu;
+            w = sri<24>(w * 0x01010101u);
+
+            return Derived(w);
+        } else {
+            using UInt = uint64_array_t<expr_t<Derived>>;
+            UInt w = (UInt) derived();
+
+            w -= sri<1>(w) & 0x5555555555555555ull;
+            w = (w & 0x3333333333333333ull) + (sri<2>(w) & 0x3333333333333333ull);
+            w = (w + sri<4>(w)) & 0x0F0F0F0F0F0F0F0Full;
+            w = sri<56>(w * 0x0101010101010101ull);
+
+            return Derived(w);
+        }
+    }
+
+    Derived lzcnt_() const {
+        using UInt = uint_array_t<expr_t<Derived>>;
+        UInt w = (UInt) derived();
+        w |= sri<1>(w);
+        w |= sri<2>(w);
+        w |= sri<4>(w);
+        w |= sri<8>(w);
+        w |= sri<16>(w);
+        if (sizeof(Scalar) > 4)
+            w |= sri<32>(w);
+        return popcnt(~w);
+    }
+
+    Derived tzcnt_() const {
+        using UInt = uint_array_t<expr_t<Derived>>;
+        UInt w = (UInt) derived();
+        w |= sli<1>(w);
+        w |= sli<2>(w);
+        w |= sli<4>(w);
+        w |= sli<8>(w);
+        w |= sli<16>(w);
+        if (sizeof(Scalar) > 4)
+            w |= sli<32>(w);
+        return popcnt(~w);
+    }
+
+    //! @}
+    // -----------------------------------------------------------------------
+
+    // -----------------------------------------------------------------------
     //! @{ \name Component access
     // -----------------------------------------------------------------------
 
