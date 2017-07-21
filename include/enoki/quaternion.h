@@ -235,15 +235,15 @@ Quat matrix_to_quat(const Matrix<T, 4> &mat) {
 
     auto mask0 = mat(0, 0) > mat(1, 1);
     Expr t01 = select(mask0, t0, t1);
-    Quat q01 = select(mask_t<Quat>(mask0), q0, q1);
+    Quat q01 = select(mask0, q0, q1);
 
     auto mask1 = mat(0, 0) < -mat(1, 1);
     Expr t23 = select(mask1, t2, t3);
-    Quat q23 = select(mask_t<Quat>(mask1), q2, q3);
+    Quat q23 = select(mask1, q2, q3);
 
     auto mask2 = mat(2, 2) < c0;
     Expr t0123 = select(mask2, t01, t23);
-    Quat q0123 = select(mask_t<Quat>(mask2), q01, q23);
+    Quat q0123 = select(mask2, q01, q23);
 
     return q0123 * (rsqrt(t0123) * ch);
 }

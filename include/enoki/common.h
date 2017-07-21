@@ -301,7 +301,7 @@ private:
     static constexpr size_t D1 = array_depth<T1>::value;
 
 public:
-    using type = std::conditional_t<(D0 > D1), T0, T1>;
+    using type = std::conditional_t<(D1 > D0 || D0 == 0), T1, T0>;
 };
 
 template <> struct extract_array<> { using type = void; };

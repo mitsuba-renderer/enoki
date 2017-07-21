@@ -53,6 +53,7 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
     ENOKI_INLINE explicit KMask(Type k) : k(k) { }
     template <typename T, std::enable_if_t<std::is_same<T, bool>::value, int> = 0>
     ENOKI_INLINE KMask(T b) : k(b ? Type(-1) : Type(0)) { }
+    ENOKI_INLINE explicit KMask(KMaskBit k) : k(k.value ? Type(-1) : Type(0)) { }
     /// Convert a compatible mask
     template <typename T, std::enable_if_t<T::IsMask, int> = 0>
     ENOKI_INLINE KMask(T value) : k(reinterpret_array<KMask>(value).k) { }
@@ -913,7 +914,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
                 r = _mm512_fnmadd_pd(t1, r, t0);
             }
 
-            return _mm512_mask_mov_ps(r, k, ro);
+            return _mm512_mask_mov_pd(r, k, ro);
         } else {
             return Base::rcp_();
         }
@@ -947,7 +948,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
                 r = _mm512_mul_pd(_mm512_fnmadd_pd(t1, r, c1), t0);
             }
 
-            return _mm512_mask_mov_ps(r, k, ro);
+            return _mm512_mask_mov_pd(r, k, ro);
         } else {
             return Base::rsqrt_();
         }

@@ -348,24 +348,42 @@ ENOKI_INLINE auto select(const T1 &m, const T2 &t, const T3 &f) {
                   (detail::ref_cast_t<T3, Output>) f);
 }
 
-template <typename Target, typename Type, size_t Size, bool Approx,
-          RoundingMode Mode, typename Derived>
-ENOKI_INLINE Target
-reinterpret_array(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
-    return Target(a.derived(), detail::reinterpret_flag());
+template <typename Target, typename Array,
+          std::enable_if_t<is_static_array<Target>::value &&
+                           !std::is_same<Array, Target>::value, int> = 0>
+ENOKI_INLINE Target reinterpret_array(const Array &a) {
+    return Target(a, detail::reinterpret_flag());
 }
 
-template <typename Target, typename Arg, enable_if_not_array_t<Arg> = 0,
-          std::enable_if_t<!std::is_same<Target, bool>::value, int> = 0>
+template <typename Target, typename Array,
+          std::enable_if_t<is_static_array<Target>::value &&
+                           std::is_same<Array, Target>::value, int> = 0>
+ENOKI_INLINE Target reinterpret_array(const Array &a) {
+    return a;
+}
+
+template <typename Target, typename Arg, enable_if_not_array_t<Target> = 0,
+          std::enable_if_t<sizeof(Arg) == sizeof(Target), int> = 0>
 ENOKI_INLINE Target reinterpret_array(const Arg &a) {
     return memcpy_cast<Target>(a);
 }
 
-template <typename Target, typename Arg, enable_if_not_array_t<Arg> = 0,
-          std::enable_if_t<std::is_same<Target, bool>::value, int> = 0>
+template <typename Target, typename Arg, enable_if_not_array_t<Target> = 0,
+          std::enable_if_t<sizeof(Arg) != sizeof(Target) &&
+                           std::is_same<Target, bool>::value, int> = 0>
 ENOKI_INLINE Target reinterpret_array(const Arg &a) {
     using Int = typename detail::type_chooser<sizeof(Arg)>::Int;
     return memcpy_cast<Int>(a) != 0;
+}
+
+template <typename Target, typename Arg, enable_if_not_array_t<Target> = 0,
+          std::enable_if_t<sizeof(Arg) != sizeof(Target) &&
+          std::is_same<Arg, bool>::value, int> = 0>
+ENOKI_INLINE Target reinterpret_array(const Arg &a) {
+    using Scalar = scalar_t<Target>;
+    using Int = typename detail::type_chooser<sizeof(Scalar)>::Int;
+    Int value = a ? Int(-1) : Int(0);
+    return Target(Scalar(value));
 }
 
 template <typename T1, typename T2,
@@ -771,9 +789,9 @@ template <typename T, std::enable_if_t<std::is_integral<T>::value, int> = 0>
 ENOKI_INLINE T popcnt(T v) {
 #if defined(__SSE4_2__)
     if (sizeof(T) <= 4)
-        return (T) _mm_popcnt_u32((int) v);
+        return (T) _mm_popcnt_u32((unsigned int) v);
     else
-        return (T) _mm_popcnt_u64((long long) v);
+        return (T) _mm_popcnt_u64((unsigned long long) v);
 #elif defined(_MSC_VER)
     if (sizeof(T) <= 4) {
         uint32_t w = (uint32_t) v;

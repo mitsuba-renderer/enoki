@@ -666,10 +666,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             s = fmadd(s, x, x);
             c = fmadd(c, z, fmadd(z, Expr(Scalar(-0.5)), Expr(Scalar(1))));
 
-            auto polymask = mask_t<Expr>(
-                eq(j & Int(2), zero<IntArray>()));
-
-            r = select(polymask, s, c) ^ sign;
+            r = select(eq(j & Int(2), zero<IntArray>()), s, c) ^ sign;
         } else {
             ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
                 r.coeff(i) = sin(derived().coeff(i));
@@ -733,11 +730,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             s = fmadd(s, x, x);
             c = fmadd(c, z, fmadd(z, Expr(Scalar(-0.5)), Expr(Scalar(1))));
 
-
-            auto polymask = mask_t<Expr>(
-                eq(j & Int(2), zero<IntArray>()));
-
-            r = select(polymask, c, s) ^ sign;
+            r = select(eq(j & Int(2), zero<IntArray>()), c, s) ^ sign;
         } else {
             ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
                 r.coeff(i) = cos(derived().coeff(i));
@@ -813,8 +806,7 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             s = fmadd(s, x, x);
             c = fmadd(c, z, fmadd(z, Expr(Scalar(-0.5)), Expr(Scalar(1))));
 
-            auto polymask = mask_t<Expr>(
-                eq(j & Int(2), zero<IntArray>()));
+            mask_t<Expr> polymask(eq(j & Int(2), zero<IntArray>()));
 
             s_out = select(polymask, s, c) ^ sign_sin;
             c_out = select(polymask, c, s) ^ sign_cos;

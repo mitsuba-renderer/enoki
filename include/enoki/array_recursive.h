@@ -57,22 +57,22 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         Mask1 m1;
         Mask2 m2;
 
-        ENOKI_INLINE RMask() : m1(), m2() { }
+        RMask() = default;
+        RMask(const RMask &) = default;
+        RMask& operator=(const RMask &) = default;
+
         ENOKI_INLINE RMask(Mask1 m1, Mask2 m2) : m1(m1), m2(m2) { }
-        template <typename T, std::enable_if_t<std::is_same<T, bool>::value, int> = 0>
-        ENOKI_INLINE RMask(T b) : m1(b), m2(b) { }
 
-        /// Cast another array
-        template <typename Other, enable_if_static_array_t<Other> = 0>
-        ENOKI_INLINE RMask(const Other &m)
-            : m1(reinterpret_array<Mask1>(low(m))),
-              m2(reinterpret_array<Mask2>(high(m))) { }
+        template <typename T, enable_if_mask_t<T> = 0> ENOKI_INLINE RMask(const T &v)
+            : RMask(v, detail::reinterpret_flag()) { }
 
-        /// Reinterpret another array
-        template <typename Other, enable_if_static_array_t<Other> = 0>
-        ENOKI_INLINE RMask(const Other &m, detail::reinterpret_flag)
-            : m1(reinterpret_array<Mask1>(low(m))),
-              m2(reinterpret_array<Mask2>(high(m))) { }
+        template <typename T, enable_if_static_array_t<T> = 0> ENOKI_INLINE RMask(const T &v, detail::reinterpret_flag)
+            : m1(low(v), detail::reinterpret_flag()),
+              m2(high(v), detail::reinterpret_flag()) { }
+
+        template <typename T, enable_if_not_array_t<T> = 0> ENOKI_INLINE RMask(const T &v, detail::reinterpret_flag)
+            : m1(reinterpret_array<Mask1>(v)),
+              m2(reinterpret_array<Mask2>(v)) { }
 
         ENOKI_INLINE explicit operator Derived() const { return Derived((Array1) m1, (Array2) m2); }
 
@@ -91,17 +91,17 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
         ENOKI_INLINE bool all_() const { return all(m1 & m2); }
         template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
-        ENOKI_INLINE bool all_() const { return all(m1) && all(m2); }
+        ENOKI_INLINE bool all_() const { return all(m1) & all(m2); }
 
         template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
         ENOKI_INLINE bool any_() const { return any(m1 | m2); }
         template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
-        ENOKI_INLINE bool any_() const { return any(m1) || any(m2); }
+        ENOKI_INLINE bool any_() const { return any(m1) | any(m2); }
 
         template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
         ENOKI_INLINE bool none_() const { return none(m1 | m2); }
         template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
-        ENOKI_INLINE bool none_() const { return none(m1) && none(m2); }
+        ENOKI_INLINE bool none_() const { return none(m1) & none(m2); }
 
         ENOKI_INLINE size_t count_() const { return count(m1) + count(m2); }
 

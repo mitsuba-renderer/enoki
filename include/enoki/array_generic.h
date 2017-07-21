@@ -35,23 +35,21 @@ struct MaskWrapper : StaticArrayImpl<Type_, Size_, Approx_, Mode_,
     using typename Base::Value;
     using typename Base::Scalar;
 
-    /// Convert a compatible mask
-    template <typename T,
-        std::enable_if_t<T::IsMask && !std::is_same<scalar_t<T>, scalar_t<Value>>::value, int> = 0>
-    ENOKI_INLINE MaskWrapper(T value) : Base(value, detail::reinterpret_flag()) { }
+    /// Turn mask casts into reinterpreting casts
+    template <typename T, typename T2 = Type_,
+              std::enable_if_t<is_mask<T>::value
+#if defined(_MSC_VER)
+              /* Visual studio handles resolution order of imported constructors differently and
+                 requires this extra check to avoid ambiguous constructor errors */
+              && !std::is_same<T2, bool>::value
+#endif
+        , int> = 0> /* only enable constructor if not already provided by base class */
+    ENOKI_INLINE MaskWrapper(const T &value)
+        : MaskWrapper(value, detail::reinterpret_flag()) { }
 
-    template <typename T,
-              std::enable_if_t<std::is_same<T, bool>::value, int> = 0,
-              typename Int = typename detail::type_chooser<sizeof(Scalar)>::Int>
-    ENOKI_INLINE MaskWrapper(T b)
-        : MaskWrapper(b ? memcpy_cast<Scalar>(Int(-1))
-                        : memcpy_cast<Scalar>(Int(0))) { }
-
-    template <typename T, std::enable_if_t<std::is_same<T, bool>::value, int> = 0,
-              typename Int = typename detail::type_chooser<sizeof(Scalar)>::Int>
-    ENOKI_INLINE MaskWrapper& operator=(T b)
-        { operator=(b ? memcpy_cast<Scalar>(Int(-1))
-                      : memcpy_cast<Scalar>(Int(0))); return *this; }
+    /// Initialize mask with a boolean scalar
+    ENOKI_INLINE MaskWrapper(bool value_, detail::reinterpret_flag)
+        : Base(reinterpret_array<Scalar>(value_)) { }
 
     ENOKI_DECLARE_CUSTOM_ARRAY(Base, MaskWrapper)
     ENOKI_ALIGNED_OPERATOR_NEW()
@@ -117,6 +115,10 @@ struct StaticArrayImpl<
     /// Default move assignment operator
     StaticArrayImpl& operator=(StaticArrayImpl &&) = default;
 
+    /// Reinterpret an array (without any changes)
+    StaticArrayImpl(const StaticArrayImpl &a, detail::reinterpret_flag)
+        : StaticArrayImpl(a) { }
+
     //! @}
     // -----------------------------------------------------------------------
 
@@ -153,13 +155,6 @@ struct StaticArrayImpl<
             m_data[i] = Value(value);
     }
 
-    template <typename T, typename T2 = Scalar,
-              std::enable_if_t<std::is_same<T, bool>::value, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(T value) {
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            m_data[i] = Value(value);
-    }
-
     /// Initialize the individual components
     template <typename Arg, typename... Args,
               /* Ugly, works around a compiler ICE in MSVC */
@@ -168,15 +163,21 @@ struct StaticArrayImpl<
                                  std::is_constructible<StorageType, Args>::value...,
                                  sizeof...(Args) + 1 == Size_ && (sizeof...(Args) > 0)>::value, int> = 0>
     ENOKI_INLINE StaticArrayImpl(Arg&& arg, Args&&... args)
-        : m_data{{ StorageType(std::forward<Arg>(arg)),
-                   StorageType(std::forward<Args>(args))... }} { ENOKI_CHKSCALAR }
+        : m_data{{ (StorageType) std::forward<Arg>(arg),
+                   (StorageType) std::forward<Args>(args)... }} { ENOKI_CHKSCALAR }
 
 private:
     template <typename T, size_t... Index>
     ENOKI_INLINE StaticArrayImpl(T &&t, std::index_sequence<Index...>)
-        : m_data{{ StorageType(t.derived().coeff(Index))... }} { }
+        : m_data{{ (StorageType) t.derived().coeff(Index)... }} { }
 
 public:
+    /// Convert a compatible mask
+    template <typename T, typename T2 = Type_,
+              std::enable_if_t<is_mask<T>::value &&
+                               std::is_same<bool, T2>::value, int> = 0>
+    ENOKI_INLINE StaticArrayImpl(const T &value)
+        : StaticArrayImpl(value, detail::reinterpret_flag()) { }
 
     /// Convert a compatible array type (const, non-recursive)
     template <
@@ -207,14 +208,6 @@ public:
     ENOKI_INLINE StaticArrayImpl(
               StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a)
         : StaticArrayImpl(a, std::make_index_sequence<Size>()) { }
-
-    /// Construct from a mask
-    template <typename Type2, size_t Size2, bool Approx2, RoundingMode Mode2,
-              typename Derived2, typename T = Derived,
-              std::enable_if_t<T::IsMask, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(
-        const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a)
-        : StaticArrayImpl(a, detail::reinterpret_flag()) { }
 
     /// Reinterpret another array (non-recursive)
     template <typename Type2, size_t Size2, bool Approx2, RoundingMode Mode2,
