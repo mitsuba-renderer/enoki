@@ -160,18 +160,6 @@ NAMESPACE_END(detail)
                     (detail::ref_cast_t<T3, Output>) a3);                      \
     }
 
-#define ENOKI_ROUTE_TERNARY_SCALAR(name, func, expr)                           \
-    /* Case 3: scalar input */                                                 \
-    template <typename T1, typename T2, typename T3,                           \
-              typename Void = detail::extract_array_t<T1, T2, T3>,             \
-              std::enable_if_t<std::is_void<Void>::value, int> = 0>            \
-    ENOKI_INLINE auto name(const T1 &a1, const T2 &a2, const T3 &a3)           \
-            -> decltype(expr) {                                                \
-        return expr;                                                           \
-    }                                                                          \
-    ENOKI_ROUTE_TERNARY(name, func)
-
-
 /// Macro for compound assignment operators (operator+=, etc.)
 #define ENOKI_ROUTE_COMPOUND_OPERATOR(op)                                      \
     template <typename T1, enable_if_static_array_t<T1> = 0, typename T2>      \
@@ -231,12 +219,12 @@ ENOKI_ROUTE_BINARY(mulhi, mulhi)
 
 ENOKI_ROUTE_UNARY(abs, abs)
 
-ENOKI_ROUTE_TERNARY_SCALAR(fmadd,    fmadd,     a1 * a2 + a3)
-ENOKI_ROUTE_TERNARY_SCALAR(fmsub,    fmsub,     a1 * a2 - a3)
-ENOKI_ROUTE_TERNARY_SCALAR(fnmadd,   fnmadd,   -a1 * a2 + a3)
-ENOKI_ROUTE_TERNARY_SCALAR(fnmsub,   fnmsub,   -a1 * a2 - a3)
-ENOKI_ROUTE_TERNARY_SCALAR(fmsubadd, fmsubadd,  a1 * a2 + a3)
-ENOKI_ROUTE_TERNARY_SCALAR(fmaddsub, fmaddsub,  a1 * a2 - a3)
+ENOKI_ROUTE_TERNARY(fmadd,    fmadd)
+ENOKI_ROUTE_TERNARY(fmsub,    fmsub)
+ENOKI_ROUTE_TERNARY(fnmadd,   fnmadd)
+ENOKI_ROUTE_TERNARY(fnmsub,   fnmsub)
+ENOKI_ROUTE_TERNARY(fmsubadd, fmsubadd)
+ENOKI_ROUTE_TERNARY(fmaddsub, fmaddsub)
 
 ENOKI_ROUTE_UNARY_SCALAR(sincos,  sincos,  std::make_pair(std::sin(a),  std::cos(a)))
 ENOKI_ROUTE_UNARY_SCALAR(sincosh, sincosh, std::make_pair(std::sinh(a), std::cosh(a)))
@@ -269,7 +257,6 @@ ENOKI_ROUTE_UNARY_SCALAR(sqrt,  sqrt,  std::sqrt(a))
 ENOKI_ROUTE_UNARY_SCALAR(floor, floor, std::floor(a))
 ENOKI_ROUTE_UNARY_SCALAR(ceil,  ceil,  std::ceil(a))
 ENOKI_ROUTE_UNARY_SCALAR(rint,  rint,  std::rint(a))
-ENOKI_ROUTE_UNARY_SCALAR(exp,   exp,   std::exp(a))
 ENOKI_ROUTE_UNARY_SCALAR(log,   log,   std::log(a))
 
 ENOKI_ROUTE_UNARY_SCALAR(sin,   sin,   std::sin(a))
@@ -496,7 +483,7 @@ ENOKI_INLINE auto rcp(const T &a) {
 }
 
 /// Reciprocal (scalar fallback)
-template <bool ForceApprox = false, typename Arg, enable_if_not_array_t<Arg> = 0>
+template <bool Approx = false, typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg rcp(const Arg &a) {
 #if defined(__AVX512ER__)
     if (std::is_same<Arg, float>::value) {
@@ -506,7 +493,7 @@ ENOKI_INLINE Arg rcp(const Arg &a) {
 #endif
 
 #if defined(__SSE4_2__)
-    if (ForceApprox && std::is_same<Arg, float>::value) {
+    if (Approx && std::is_same<Arg, float>::value) {
         __m128 v = _mm_set_ss((float) a), r;
 
         #if defined(__AVX512F__)
@@ -534,7 +521,7 @@ ENOKI_INLINE Arg rcp(const Arg &a) {
 #endif
 
 #if defined(__AVX512F__) || defined(__AVX512ER__)
-    if (ForceApprox && std::is_same<Arg, double>::value) {
+    if (Approx && std::is_same<Arg, double>::value) {
         __m128d v = _mm_set_sd((double) a), r;
 
         #if defined(__AVX512ER__)
@@ -580,7 +567,7 @@ ENOKI_INLINE auto rsqrt(const T &a) {
 }
 
 /// Reciprocal square root (scalar fallback)
-template <bool ForceApprox = false, typename Arg, enable_if_not_array_t<Arg> = 0>
+template <bool Approx = false, typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg rsqrt(const Arg &a) {
 #if defined(__AVX512ER__)
     if (std::is_same<Arg, float>::value) {
@@ -590,7 +577,7 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
 #endif
 
 #if defined(__SSE4_2__)
-    if (ForceApprox && std::is_same<Arg, float>::value) {
+    if (Approx && std::is_same<Arg, float>::value) {
         __m128 v = _mm_set_ss((float) a), r;
 
         #if defined(__AVX512F__)
@@ -620,7 +607,7 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
 #endif
 
 #if defined(__AVX512F__) || defined(__AVX512ER__)
-    if (ForceApprox && std::is_same<Arg, double>::value) {
+    if (Approx && std::is_same<Arg, double>::value) {
         __m128d v = _mm_set_sd((double) a), r;
 
         #if defined(__AVX512ER__)
@@ -653,6 +640,32 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
 #endif
 
     return Arg(1) / std::sqrt(a);
+}
+
+template <bool = false, typename T,
+          std::enable_if_t<is_static_array<T>::value &&
+                           std::is_same<expr_t<T>, T>::value, int> = 0>
+ENOKI_INLINE auto exp(const T &a) {
+    return a.derived().exp_();
+}
+template <bool = false, typename T,
+          std::enable_if_t<is_static_array<T>::value &&
+                           !std::is_same<expr_t<T>, T>::value, int> = 0>
+ENOKI_INLINE auto exp(const T &a) {
+    return exp((expr_t<T>) a);
+}
+
+template <bool Approx = false, typename Arg, enable_if_not_array_t<Arg> = 0>
+ENOKI_INLINE Arg exp(const Arg &a) {
+#if defined(__AVX512ER__)
+    if (std::is_same<Arg, float>::value && Approx) {
+        __m128 v = _mm512_castps512_ps128(
+            _mm512_exp2a23_ps(_mm512_castps128_ps512(_mm_mul_ps(
+                _mm_set_ss((float) a), _mm_set1_ps(1.4426950408889634074f)))));
+        return Arg(_mm_cvtss_f32(v));
+    }
+#endif
+    return std::exp(a);
 }
 
 /* operator/, operator%: case 1: use array-specific implementation of operation */
@@ -1253,6 +1266,65 @@ template <typename Arg, enable_if_not_array_t<Arg> = 0, typename Mask>
 ENOKI_INLINE Arg extract(const Arg &value, const Mask &) {
     return value;
 }
+template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
+          std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
+ENOKI_INLINE T fmadd(const T1 &t1, const T2 &t2, const T3 &t3) {
+    return std::fma((T) t1, (T) t2, (T) t3);
+}
+
+template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
+          std::enable_if_t<!std::is_floating_point<T>::value && !is_array<T>::value, int> = 0>
+ENOKI_INLINE T fmadd(const T1 &t1, const T2 &t2, const T3 &t3) {
+    return (T) t1 * (T) t2 + (T) t3;
+}
+
+template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
+          std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
+ENOKI_INLINE T fmsub(const T1 &t1, const T2 &t2, const T3 &t3) {
+    return std::fma((T) t1, (T) t2, -(T) t3);
+}
+
+template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
+          std::enable_if_t<!std::is_floating_point<T>::value && !is_array<T>::value, int> = 0>
+ENOKI_INLINE T fmsub(const T1 &t1, const T2 &t2, const T3 &t3) {
+    return (T) t1 * (T) t2 - (T) t3;
+}
+
+template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
+          std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
+ENOKI_INLINE T fnmadd(const T1 &t1, const T2 &t2, const T3 &t3) {
+    return std::fma(-(T) t1, (T) t2, (T) t3);
+}
+
+template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
+          std::enable_if_t<!std::is_floating_point<T>::value && !is_array<T>::value, int> = 0>
+ENOKI_INLINE T fnmadd(const T1 &t1, const T2 &t2, const T3 &t3) {
+    return -(T) t1 * (T) t2 + (T) t3;
+}
+
+template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
+          std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
+ENOKI_INLINE T fnmsub(const T1 &t1, const T2 &t2, const T3 &t3) {
+    return std::fma(-(T) t1, (T) t2, -(T) t3);
+}
+
+template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
+          std::enable_if_t<!std::is_floating_point<T>::value && !is_array<T>::value, int> = 0>
+ENOKI_INLINE T fnmsub(const T1 &t1, const T2 &t2, const T3 &t3) {
+    return -(T) t1 * (T) t2 - (T) t3;
+}
+
+template <typename T1, typename T2, typename T3,
+          typename T = expr_t<T1, T2, T3>, enable_if_not_array_t<T> = 0>
+ENOKI_INLINE T fmaddsub(const T1 &t1, const T2 &t2, const T3 &t3) {
+    return fmsub(t1, t2, t3);
+}
+
+template <typename T1, typename T2, typename T3,
+          typename T = expr_t<T1, T2, T3>, enable_if_not_array_t<T> = 0>
+ENOKI_INLINE T fmsubadd(const T1 &t1, const T2 &t2, const T3 &t3) {
+    return fmadd(t1, t2, t3);
+}
 
 //! @}
 // -----------------------------------------------------------------------
@@ -1584,7 +1656,6 @@ ENOKI_INLINE T poly8(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5, T2 c6, T2 c
 #undef ENOKI_ROUTE_BINARY_SCALAR
 #undef ENOKI_ROUTE_SHIFT
 #undef ENOKI_ROUTE_TERNARY
-#undef ENOKI_ROUTE_TERNARY_SCALAR
 #undef ENOKI_ROUTE_COMPOUND_OPERATOR
 
 NAMESPACE_END(enoki)

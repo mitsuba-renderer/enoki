@@ -47,7 +47,7 @@ ENOKI_TEST_ALL(test00_align) {
     static_assert(std::is_same<value_t<Vector4xP>,  Packet>::value, "value_t failure");
     static_assert(std::is_same<value_t<Vector4xPr>, Packet&>::value, "value_t failure");
 
-    using DoubleP    = Array<double, Packet::Size>;
+    using DoubleP    = Array<double, Packet::Size, Vector4xP::Approx>;
 
     using Vector4x   = Array<Value, 4>;
     using Vector4xr  = Array<Value&, 4>;
@@ -55,7 +55,7 @@ ENOKI_TEST_ALL(test00_align) {
     using Vector4xP  = Array<Packet, 4>;
     using Vector4xPr = Array<Packet&, 4>;
 
-    using Vector4d   = Array<double, 4>;
+    using Vector4d   = Array<double, 4, Vector4x::Approx>;
     using Vector4dP  = Array<DoubleP, 4>;
 
     /* Non-array input */
@@ -71,7 +71,7 @@ ENOKI_TEST_ALL(test00_align) {
     static_assert(std::is_same<expr_t<Vector4xPr>,          Vector4xP>::value, "expr_t failure");
 
     static_assert(std::is_same<expr_t<Vector4x, double>,    Vector4d>::value, "expr_t failure");
-    static_assert(std::is_same<expr_t<Vector4xPr, double&>, Vector4dP>::value, "expr_t failure");
+    static_assert(std::is_same<expr_t<Vector4xPr, double>,  Vector4dP>::value, "expr_t failure");
 
     /* Non-array input */
     static_assert(std::is_same<scalar_t<Value>,             Value>::value, "scalar_t failure");

@@ -390,10 +390,14 @@ template <typename Input, typename Output>
 using ref_cast_t = std::conditional_t<std::is_same<Input, Output>::value,
                                       const Input &, Output>;
 
+template <typename T>
+using is_std_float =
+    std::integral_constant<bool, std::is_same<T, float>::value ||
+                                 std::is_same<T, double>::value>;
 
 /// Type trait to determine if a type should be handled using approximate mode by default
 template <typename T, typename = int> struct approx_default {
-    static constexpr bool value = std::is_same<std::decay_t<T>, float>::value;
+    static constexpr bool value = is_std_float<std::decay_t<T>>::value;
 };
 
 template <typename T> struct approx_default<T, enable_if_array_t<T>> {

@@ -474,7 +474,7 @@ NAMESPACE_END(test)
 
 #define ENOKI_TEST_TYPE(name, type)                                             \
     template <typename Value, size_t Size,                                      \
-              bool Approx = std::is_same<Value, float>::value,                  \
+              bool Approx = enoki::detail::is_std_float<Value>::value,          \
               typename T = enoki::Array<Value, Size, Approx>>                   \
     void name##_##type();                                                       \
     ENOKI_TEST_HELPER(name##_##type, type)                                      \
@@ -483,7 +483,7 @@ NAMESPACE_END(test)
 
 #define ENOKI_TEST_FLOAT(name)                                                  \
     template <typename Value, size_t Size,                                      \
-              bool Approx = std::is_same<Value, float>::value,                  \
+              bool Approx = enoki::detail::is_std_float<Value>::value,          \
               typename T = enoki::Array<Value, Size, Approx>>                   \
     void name();                                                                \
     ENOKI_TEST(array_float_01acc_##name) { name<float, 1, false>();  }          \
@@ -505,7 +505,7 @@ NAMESPACE_END(test)
 
 #define ENOKI_TEST_ALL(name)                                                    \
     template <typename Value, size_t Size,                                      \
-              bool Approx = std::is_same<Value, float>::value,                  \
+              bool Approx = enoki::detail::is_std_float<Value>::value,          \
               typename T = enoki::Array<Value, Size, Approx>>                   \
     void name();                                                                \
     ENOKI_TEST(array_float_01acc_##name) { name<float, 1, false>();  }          \

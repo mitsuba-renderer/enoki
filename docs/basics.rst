@@ -96,9 +96,9 @@ Most of the parameters can be omitted: if ``Size`` is not specified, the
 implementation chooses the largest value that is natively supported by the
 target hardware. The ``Approx`` and ``Mode`` template parameters only make
 sense when dealing with floating point types. In that case, approximate math is
-activated by default when ``Type`` is a single precision ``float``. The default
-rounding mode :any:`RoundingMode::Default` means that the library won't
-interfere with the hardware's currently selected rounding mode.
+activated by default. The default rounding mode :any:`RoundingMode::Default`
+means that the library won't interfere with the hardware's currently selected
+rounding mode.
 
 Initializing, reading, and writing data
 ---------------------------------------

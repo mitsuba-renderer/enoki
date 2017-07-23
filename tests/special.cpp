@@ -32,7 +32,7 @@ ENOKI_TEST_FLOAT(test02_erf) {
     test::probe_accuracy<T>(
         [](const T &a) -> T { return erf(a); },
         [](double a) { return std::erf(a); },
-        Value(-1), Value(1), 85
+        Value(-1), Value(1), 6
     );
 
     Array<T, 4> x((Value) 0.5);
@@ -40,7 +40,19 @@ ENOKI_TEST_FLOAT(test02_erf) {
     assert(erf(x) == erf(y));
 }
 
-ENOKI_TEST_FLOAT(test03_erfinv) {
+ENOKI_TEST_FLOAT(test02_erfc) {
+    test::probe_accuracy<T>(
+        [](const T &a) -> T { return erfc(a); },
+        [](double a) { return std::erfc(a); },
+        Value(-1), Value(1), 17
+    );
+
+    Array<T, 4> x((Value) 0.5);
+    Array<T&, 4> y(x);
+    assert(erfc(x) == erfc(y));
+}
+
+ENOKI_TEST_FLOAT(test04_erfinv) {
     for (int i = 0; i < 1000; ++i) {
         auto f = T((float) i / 1000.0f * 2 - 1 + 1e-6f);
         auto inv = erfinv(f);
@@ -49,7 +61,7 @@ ENOKI_TEST_FLOAT(test03_erfinv) {
     }
 }
 
-ENOKI_TEST_FLOAT(test04_dawson)  {
+ENOKI_TEST_FLOAT(test05_dawson)  {
     using Scalar = scalar_t<T>;
 
     double results[] = { 0.0,

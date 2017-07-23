@@ -701,18 +701,6 @@ template <bool Approx, typename Derived> struct alignas(16)
     }
 #endif
 
-#if defined(__AVX512ER__)
-    ENOKI_INLINE Derived exp_() const {
-        if (Approx) {
-            return _mm512_castpd512_pd128(
-                _mm512_exp2a23_pd(_mm512_castpd128_pd512(
-                    _mm_mul_pd(m, _mm_set1_pd(1.4426950408889634074)))));
-        } else {
-            return Base::exp_();
-        }
-    }
-#endif
-
     //! @}
     // -----------------------------------------------------------------------
 

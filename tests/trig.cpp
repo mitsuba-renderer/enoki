@@ -62,7 +62,20 @@ ENOKI_TEST_FLOAT(test05_tan) {
     assert(tan(x) == tan(y));
 }
 
-ENOKI_TEST_FLOAT(test06_asin) {
+ENOKI_TEST_FLOAT(test06_cot) {
+    test::probe_accuracy<T>(
+        [](const T &a) -> T { return cot(a); },
+        [](double a) { return 1.0 / std::tan(a); },
+        Value(-8192), Value(8192),
+        47
+    );
+
+    Array<T, 4> x((Value) M_PI);
+    Array<T&, 4> y(x);
+    assert(tan(x) == tan(y));
+}
+
+ENOKI_TEST_FLOAT(test07_asin) {
     test::probe_accuracy<T>(
         [](const T &a) -> T { return asin(a); },
         [](double a) { return std::asin(a); },
@@ -75,7 +88,7 @@ ENOKI_TEST_FLOAT(test06_asin) {
     assert(asin(x) == asin(y));
 }
 
-ENOKI_TEST_FLOAT(test07_acos) {
+ENOKI_TEST_FLOAT(test08_acos) {
     test::probe_accuracy<T>(
         [](const T &a) -> T { return acos(a); },
         [](double a) { return std::acos(a); },
@@ -88,7 +101,7 @@ ENOKI_TEST_FLOAT(test07_acos) {
     assert(acos(x) == acos(y));
 }
 
-ENOKI_TEST_FLOAT(test08_atan) {
+ENOKI_TEST_FLOAT(test09_atan) {
     test::probe_accuracy<T>(
         [](const T &a) -> T { return atan(a); },
         [](double a) { return std::atan(a); },
@@ -101,7 +114,7 @@ ENOKI_TEST_FLOAT(test08_atan) {
     assert(atan(x) == atan(y));
 }
 
-ENOKI_TEST_FLOAT(test09_atan2) {
+ENOKI_TEST_FLOAT(test10_atan2) {
     for (int ix = 0; ix <= 100; ++ix) {
         for (int iy = 0; iy <= 100; ++iy) {
             Value x = Value(ix) / Value(100) * 2 - 1;
@@ -115,13 +128,13 @@ ENOKI_TEST_FLOAT(test09_atan2) {
     }
 }
 
-ENOKI_TEST_FLOAT(test10_remainder) {
+ENOKI_TEST_FLOAT(test11_remainder) {
     assert(std::abs(T(csc(T(1.f)) - 1 / std::sin(1.f))[0]) < 1e-6f);
     assert(std::abs(T(sec(T(1.f)) - 1 / std::cos(1.f))[0]) < 1e-6f);
     assert(std::abs(T(cot(T(1.f)) - 1 / std::tan(1.f))[0]) < 1e-6f);
 }
 
-ENOKI_TEST_FLOAT(test11_safe_math) {
+ENOKI_TEST_FLOAT(test12_safe_math) {
 #if defined(_MSC_VER)
     // MSVC codegen issue :-|
     std::cout << abs(safe_asin(T(Value(-10))) - Value(-M_PI / 2)) << std::endl;

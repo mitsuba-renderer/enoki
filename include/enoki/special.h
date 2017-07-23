@@ -40,44 +40,120 @@ template <typename T, enable_if_not_array_t<T> = 0> T erf(T x) {
     return std::erf(x);
 }
 
-template <typename T, typename Expr = expr_t<T>, enable_if_array_t<T> = 0> Expr erf(T x_) {
+
+template <typename T, enable_if_not_array_t<T> = 0> T erfc(T x) {
+    return std::erfc(x);
+}
+
+template <typename T, bool C = true, typename Expr = expr_t<T>, enable_if_array_t<T> = 0> Expr erfc(T x);
+template <typename T, bool C = true, typename Expr = expr_t<T>, enable_if_array_t<T> = 0> Expr erf(T x);
+
+template <typename T, bool C, typename Expr, enable_if_array_t<T>> ENOKI_INLINE Expr erfc(T x) {
+    constexpr bool Single = std::is_same<scalar_t<T>, float>::value;
     using Scalar = scalar_t<T>;
 
     Expr r;
     if (Expr::Approx) {
-        /*
-         - erf (in [-1, 1]):
-           * avg abs. err = 1.02865e-07
-           * avg rel. err = 3.29449e-07
-              -> in ULPs  = 3.96707
-           * max abs. err = 5.58794e-07
-             (at x=-0.0803231)
-           * max rel. err = 6.17859e-06
-             -> in ULPs   = 75
-             (at x=-0.0803231)
-         */
+        Expr xa = abs(x),
+             z  = exp(-x*x);
 
-        // A&S formula 7.1.26
-        Expr x = abs(x_), x2 = x_ * x_;
-        Expr t = rcp(fmadd(Expr(Scalar(0.3275911)), x, Expr(Scalar(1))));
+        auto erf_mask   = xa < Scalar(1),
+             large_mask = xa > (Single ? 2 : 8);
 
-        Expr y = poly4(t, 0.254829592, -0.284496736,
-                          1.421413741, -1.453152027,
-                          1.061405429);
+        if (Single) {
+            Expr q  = rcp(xa),
+                 y  = q*q, p_small, p_large;
 
-        y *= t * exp(-x2);
+            if (!all_nested(large_mask))
+                p_small = poly8(y, 5.638259427386472e-1, -2.741127028184656e-1,
+                                   3.404879937665872e-1, -4.944515323274145e-1,
+                                   6.210004621745983e-1, -5.824733027278666e-1,
+                                   3.687424674597105e-1, -1.387039388740657e-1,
+                                   2.326819970068386e-2);
 
-        /* Switch between the A&S approximation and a Taylor series
-           expansion around the origin */
-        r = select(
-            x > Expr(Scalar(0.08)),
-            (Scalar(1) - y) | detail::sign_mask(x_),
-            x_ * fmadd(x2, Expr(Scalar(-M_2_SQRTPI/3)),
-                           Expr(Scalar( M_2_SQRTPI)))
-        );
+            if (any_nested(large_mask))
+                p_large = poly7(y, 5.641895067754075e-1, -2.820767439740514e-1,
+                                   4.218463358204948e-1, -1.015265279202700e+0,
+                                   2.921019019210786e+0, -7.495518717768503e+0,
+                                   1.297719955372516e+1, -1.047766399936249e+1);
+            r = z * q * select(large_mask, p_large, p_small);
+        } else {
+            Expr p_small, p_large, q_small, q_large;
+
+            if (!all_nested(large_mask)) {
+                p_small = poly8(xa, 5.57535335369399327526e2, 1.02755188689515710272e3,
+                                    9.34528527171957607540e2, 5.26445194995477358631e2,
+                                    1.96520832956077098242e2, 4.86371970985681366614e1,
+                                    7.46321056442269912687e0, 5.64189564831068821977e-1,
+                                    2.46196981473530512524e-10);
+
+                q_small = poly8(xa, 5.57535340817727675546e2, 1.65666309194161350182e3,
+                                    2.24633760818710981792e3, 1.82390916687909736289e3,
+                                    9.75708501743205489753e2, 3.54937778887819891062e2,
+                                    8.67072140885989742329e1, 1.32281951154744992508e1,
+                                    1.00000000000000000000e0);
+            }
+
+
+            if (any_nested(large_mask)) {
+                p_large = poly5(xa, 2.97886665372100240670e0, 7.40974269950448939160e0,
+                                    6.16021097993053585195e0, 5.01905042251180477414e0,
+                                    1.27536670759978104416e0, 5.64189583547755073984e-1);
+
+                q_large = poly6(xa, 3.36907645100081516050e0, 9.60896809063285878198e0,
+                                    1.70814450747565897222e1, 1.20489539808096656605e1,
+                                    9.39603524938001434673e0, 2.26052863220117276590e0,
+                                    1.00000000000000000000e0);
+            }
+
+            r = (z * select(large_mask, p_large, p_small)) /
+                     select(large_mask, q_large, q_small);
+
+            r &= neq(z, zero<Expr>());
+        }
+
+        r[x < 0] = Scalar(2) - r;
+
+        if (ENOKI_UNLIKELY(C && any_nested(erf_mask)))
+            r[erf_mask] = Scalar(1) - erf<T, false>(x);
     } else {
         for (size_t i = 0; i < Expr::Size; ++i)
-            r.coeff(i) = enoki::erf(x_.coeff(i));
+            r.coeff(i) = enoki::erfc(x.coeff(i));
+    }
+    return r;
+}
+
+template <typename T, bool C, typename Expr, enable_if_array_t<T>> ENOKI_INLINE Expr erf(T x) {
+    constexpr bool Single = std::is_same<scalar_t<T>, float>::value;
+    using Scalar = scalar_t<T>;
+
+    Expr r;
+    if (Expr::Approx) {
+        auto erfc_mask = abs(x) > 1.0f;
+
+        Expr z = x * x;
+
+        if (Single) {
+            r = poly6(z, 1.128379165726710e+0, -3.761262582423300e-1,
+                         1.128358514861418e-1, -2.685381193529856e-2,
+                         5.188327685732524e-3, -8.010193625184903e-4,
+                         7.853861353153693e-5);
+        } else {
+            r = poly4(z, 5.55923013010394962768e4, 7.00332514112805075473e3,
+                         2.23200534594684319226e3, 9.00260197203842689217e1,
+                         9.60497373987051638749e0) /
+                poly5(z, 4.92673942608635921086e4, 2.26290000613890934246e4,
+                         4.59432382970980127987e3, 5.21357949780152679795e2,
+                         3.35617141647503099647e1, 1.00000000000000000000e0);
+        }
+
+        r *= x;
+
+        if (ENOKI_UNLIKELY(C && any_nested(erfc_mask)))
+            r[erfc_mask] = Scalar(1) - erfc<T, false>(x);
+    } else {
+        for (size_t i = 0; i < Expr::Size; ++i)
+            r.coeff(i) = enoki::erf(x.coeff(i));
     }
     return r;
 }
@@ -146,16 +222,16 @@ template <typename T, typename Expr = expr_t<T>> Expr i0e(T x) {
      * lim(x->0) { exp(-x) I0(x) } = 1.
      */
 
-    static float A[] = {
-        -1.30002500998624804212E-8f, 6.04699502254191894932E-8f,
-        -2.67079385394061173391E-7f, 1.11738753912010371815E-6f,
-        -4.41673835845875056359E-6f, 1.64484480707288970893E-5f,
-        -5.75419501008210370398E-5f, 1.88502885095841655729E-4f,
-        -5.76375574538582365885E-4f, 1.63947561694133579842E-3f,
-        -4.32430999505057594430E-3f, 1.05464603945949983183E-2f,
-        -2.37374148058994688156E-2f, 4.93052842396707084878E-2f,
-        -9.49010970480476444210E-2f, 1.71620901522208775349E-1f,
-        -3.04682672343198398683E-1f, 6.76795274409476084995E-1f
+    static double A[] = {
+        -1.30002500998624804212E-8, 6.04699502254191894932E-8,
+        -2.67079385394061173391E-7, 1.11738753912010371815E-6,
+        -4.41673835845875056359E-6, 1.64484480707288970893E-5,
+        -5.75419501008210370398E-5, 1.88502885095841655729E-4,
+        -5.76375574538582365885E-4, 1.63947561694133579842E-3,
+        -4.32430999505057594430E-3, 1.05464603945949983183E-2,
+        -2.37374148058994688156E-2, 4.93052842396707084878E-2,
+        -9.49010970480476444210E-2, 1.71620901522208775349E-1,
+        -3.04682672343198398683E-1, 6.76795274409476084995E-1
     };
 
 
@@ -165,11 +241,11 @@ template <typename T, typename Expr = expr_t<T>> Expr i0e(T x) {
      * lim(x->inf) { exp(-x) sqrt(x) I0(x) } = 1/sqrt(2pi).
      */
 
-    static float B[] = {
-        3.39623202570838634515E-9f, 2.26666899049817806459E-8f,
-        2.04891858946906374183E-7f, 2.89137052083475648297E-6f,
-        6.88975834691682398426E-5f, 3.36911647825569408990E-3f,
-        8.04490411014108831608E-1f
+    static double B[] = {
+        3.39623202570838634515E-9, 2.26666899049817806459E-8,
+        2.04891858946906374183E-7, 2.89137052083475648297E-6,
+        6.88975834691682398426E-5, 3.36911647825569408990E-3,
+        8.04490411014108831608E-1
     };
 
 

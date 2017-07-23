@@ -683,6 +683,14 @@ public:
         return result;
     }
 
+    /// Exponential function
+    ENOKI_INLINE auto exp_() const {
+        expr_t<Derived> result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            result.coeff(i) = exp<Approx_>(coeff(i));
+        return result;
+    }
+
     /// Ternary operator -- select between to values based on mask
     static ENOKI_INLINE auto select_(const Mask &m, const Derived &t, const Derived &f) {
         expr_t<Derived> result;
@@ -892,7 +900,6 @@ public:
         return result;
     }
 
-    ENOKI_FORWARD_FUNCTION(exp)
     ENOKI_FORWARD_FUNCTION(log)
     ENOKI_FORWARD_FUNCTION(sin)
     ENOKI_FORWARD_FUNCTION(sinh)
