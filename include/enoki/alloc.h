@@ -21,6 +21,10 @@
 #  include <malloc.h>
 #endif
 
+#if defined(ENOKI_USE_MEMKIND)
+#  include <hbwmalloc.h>
+#endif
+
 NAMESPACE_BEGIN(enoki)
 
 // -----------------------------------------------------------------------
@@ -34,7 +38,10 @@ inline ENOKI_MALLOC void *alloc(size_t size) {
     ENOKI_TRACK_ALLOC
 
     void *ptr;
-    #if defined(_WIN32)
+    #if defined(ENOKI_USE_MEMKIND)
+        (void) align;
+        ptr = hbw_malloc(size);
+    #elif defined(_WIN32)
         ptr = _aligned_malloc(size, align);
     #elif defined(__APPLE__)
         if (posix_memalign(&ptr, align, size) != 0)
@@ -57,7 +64,9 @@ template <typename T> static ENOKI_INLINE ENOKI_MALLOC T *alloc(size_t size) {
 /// Release aligned memory
 static ENOKI_INLINE void dealloc(void *ptr) {
     ENOKI_TRACK_DEALLOC
-    #if defined(_WIN32)
+    #if defined(ENOKI_USE_MEMKIND)
+        hbw_free(ptr);
+    #elif defined(_WIN32)
         _aligned_free(ptr);
     #else
         free(ptr);

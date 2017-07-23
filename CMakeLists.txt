@@ -91,6 +91,21 @@ if (ENOKI_ARCHFLAGS MATCHES "SKX")
   set(TEST_SKX ON)
 endif()
 
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources")
+
+# Use memkind library (high-bandwidth memory on Xeon Phi) if available
+find_package(Memkind QUIET)
+
+if (MEMKIND_FOUND)
+  if (NOT ENOKI_MASTER_PROJECT)
+    set(MEMKIND_INCLUDE_DIRS ${MEMKIND_INCLUDE_DIRS} PARENT_SCOPE)
+    set(MEMKIND_LIBRARIES ${MEMKIND_LIBRARIES} PARENT_SCOPE)
+  endif()
+  message(STATUS "Enoki: Using memkind library for heap memory allocation.")
+else()
+  message(STATUS "Enoki: Using C library for heap memory allocation.")
+endif()
+
 macro(enoki_set_native_flags)
   add_compile_options(${ENOKI_NATIVE_FLAGS})
 endmacro()
@@ -110,6 +125,12 @@ macro(enoki_set_compile_flags)
 
   if (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
     add_compile_options(-fp-model precise)
+  endif()
+
+  if (MEMKIND_INCLUDE_DIRS)
+    include_directories(${MEMKIND_INCLUDE_DIRS})
+    add_definitions(-DENOKI_USE_MEMKIND)
+    set(CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_CXX_STANDARD_LIBRARIES} ${MEMKIND_LIBRARIES}")
   endif()
 
   if (MSVC)
@@ -306,7 +327,6 @@ endif()
 
 # Build the documentation
 if (ENOKI_MASTER_PROJECT)
-  set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources")
   find_package(Sphinx)
 
   if (Sphinx_FOUND)
