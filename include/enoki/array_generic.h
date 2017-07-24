@@ -685,10 +685,14 @@ public:
 
     /// Exponential function
     ENOKI_INLINE auto exp_() const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = exp<Approx_>(coeff(i));
-        return result;
+        if (std::is_arithmetic<Value>::value && !has_avx512er) {
+            return Base::exp_();
+        } else {
+            expr_t<Derived> result;
+            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+                result.coeff(i) = exp<Approx_>(coeff(i));
+            return result;
+        }
     }
 
     /// Ternary operator -- select between to values based on mask
