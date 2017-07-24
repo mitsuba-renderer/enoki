@@ -1063,6 +1063,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
     using Value = Type_;
     using Scalar = Type_;
 
+    StaticArrayImpl() : Base() { }
     StaticArrayImpl(Type value) : Base(UnderlyingType(value)) { }
 
     ENOKI_INLINE const Type& coeff(size_t i) const { return (Type &) Base::coeff(i); }
@@ -1236,6 +1237,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
     using Value = Type_;
     using Scalar = Type_;
 
+    StaticArrayImpl() : Base() { }
     StaticArrayImpl(Type value) : Base(UnderlyingType(value)) { }
 
     /// Initialize the individual components

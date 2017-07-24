@@ -45,10 +45,14 @@ template <typename T, enable_if_not_array_t<T> = 0> T erfc(T x) {
     return std::erfc(x);
 }
 
-template <typename T, bool C = true, typename Expr = expr_t<T>, enable_if_array_t<T> = 0> Expr erfc(T x);
-template <typename T, bool C = true, typename Expr = expr_t<T>, enable_if_array_t<T> = 0> Expr erf(T x);
+template <typename T, bool Recurse = true, typename Expr = expr_t<T>, enable_if_array_t<T> = 0> Expr erfc(T x);
+template <typename T, bool Recurse = true, typename Expr = expr_t<T>, enable_if_array_t<T> = 0> Expr erf(T x);
 
-template <typename T, bool C, typename Expr, enable_if_array_t<T>> ENOKI_INLINE Expr erfc(T x) {
+template <typename T, bool Recurse, typename Expr, enable_if_array_t<T>>
+#if !defined(_MSC_VER)
+  ENOKI_INLINE
+#endif
+Expr erfc(T x) {
     constexpr bool Single = std::is_same<scalar_t<T>, float>::value;
     using Scalar = scalar_t<T>;
 
@@ -58,7 +62,7 @@ template <typename T, bool C, typename Expr, enable_if_array_t<T>> ENOKI_INLINE 
              z  = exp(-x*x);
 
         auto erf_mask   = xa < Scalar(1),
-             large_mask = xa > (Single ? 2 : 8);
+             large_mask = xa > Scalar(Single ? 2 : 8);
 
         if (Single) {
             Expr q  = rcp(xa),
@@ -112,9 +116,9 @@ template <typename T, bool C, typename Expr, enable_if_array_t<T>> ENOKI_INLINE 
             r &= neq(z, zero<Expr>());
         }
 
-        r[x < 0] = Scalar(2) - r;
+        r[x < Scalar(0)] = Scalar(2) - r;
 
-        if (ENOKI_UNLIKELY(C && any_nested(erf_mask)))
+        if (ENOKI_UNLIKELY(Recurse && any_nested(erf_mask)))
             r[erf_mask] = Scalar(1) - erf<T, false>(x);
     } else {
         for (size_t i = 0; i < Expr::Size; ++i)
@@ -123,13 +127,17 @@ template <typename T, bool C, typename Expr, enable_if_array_t<T>> ENOKI_INLINE 
     return r;
 }
 
-template <typename T, bool C, typename Expr, enable_if_array_t<T>> ENOKI_INLINE Expr erf(T x) {
+template <typename T, bool Recurse, typename Expr, enable_if_array_t<T>>
+#if !defined(_MSC_VER)
+  ENOKI_INLINE
+#endif
+Expr erf(T x) {
     constexpr bool Single = std::is_same<scalar_t<T>, float>::value;
     using Scalar = scalar_t<T>;
 
     Expr r;
     if (Expr::Approx) {
-        auto erfc_mask = abs(x) > 1.0f;
+        auto erfc_mask = abs(x) > Scalar(1);
 
         Expr z = x * x;
 
@@ -149,7 +157,7 @@ template <typename T, bool C, typename Expr, enable_if_array_t<T>> ENOKI_INLINE 
 
         r *= x;
 
-        if (ENOKI_UNLIKELY(C && any_nested(erfc_mask)))
+        if (ENOKI_UNLIKELY(Recurse && any_nested(erfc_mask)))
             r[erfc_mask] = Scalar(1) - erfc<T, false>(x);
     } else {
         for (size_t i = 0; i < Expr::Size; ++i)
