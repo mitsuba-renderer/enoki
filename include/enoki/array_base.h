@@ -1118,13 +1118,13 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
             */
 
             const Expr inf(std::numeric_limits<Scalar>::infinity());
-            const Expr max_range(Scalar(Single ? +88.3762626647949       : +7.09782712893383996843e2));
-            const Expr min_range(Scalar(Single ? -103.278929903431851103 : -7.08396418532264106224e2));
+            const Expr max_range(Scalar(Single ? +88.3762588501 : +7.0943613930310391424428e2));
+            const Expr min_range(Scalar(Single ? -88.3762588501 : -7.0943613930310391424428e2));
 
             Expr x(derived());
 
-            auto mask_overflow = x > max_range;
-            auto mask_underflow = x < min_range;
+            auto mask_overflow  = x > max_range,
+                 mask_underflow = x < min_range;
 
             /* Express e^x = e^g 2^n
                  = e^g e^(n loge(2))
