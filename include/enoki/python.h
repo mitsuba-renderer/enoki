@@ -45,17 +45,21 @@ template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_dyn
 template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_array<Type>::value>> {
     using Scalar = std::conditional_t<Type::IsMask, bool, enoki::scalar_t<Type>>;
 
-    bool load(handle src, bool) {
+    bool load(handle src, bool convert) {
+        if (!convert && !isinstance<array_t<Scalar>>(src))
+            return false;
+
         auto arr = array_t<Scalar, array::f_style | array::forcecast>::ensure(src);
         if (!arr)
             return false;
 
         constexpr size_t ndim = enoki::array_depth<Type>::value;
-        if (ndim != arr.ndim())
+        if (ndim != arr.ndim() && !(arr.ndim() == 0 && convert))
             return false;
 
         std::array<size_t, ndim> shape;
-        std::reverse_copy(arr.shape(), arr.shape() + ndim, shape.begin());
+        std::fill(shape.begin(), shape.end(), (size_t) 1);
+        std::reverse_copy(arr.shape(), arr.shape() + arr.ndim(), shape.begin());
 
         try {
             enoki::resize(value, shape);

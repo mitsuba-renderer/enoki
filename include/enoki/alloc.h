@@ -50,7 +50,7 @@ inline ENOKI_MALLOC void *alloc(size_t size) {
         ptr = memalign(align, size);
     #endif
 
-    if (!ptr)
+    if (!ptr && size != 0)
         throw std::bad_alloc();
 
     return ptr;

@@ -115,10 +115,28 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
                 return m2.coeff(i - Size1);
         }
 
-        /* This is just here for the mask compression in array_generic.h */
+        ENOKI_INLINE void store_(void *mem) const {
+            store(mem, m1);
+            store((uint8_t *) mem + sizeof(Mask1), m2);
+        }
+
         ENOKI_INLINE void store_unaligned_(void *mem) const {
-            store_unaligned((uint8_t *) mem, m1);
+            store_unaligned(mem, m1);
             store_unaligned((uint8_t *) mem + sizeof(Mask1), m2);
+        }
+
+        static ENOKI_INLINE RMask load_(const void *mem) {
+            return RMask(
+                load<Mask1>(mem),
+                load<Mask2>((uint8_t *) mem + sizeof(Mask1))
+            );
+        }
+
+        static ENOKI_INLINE RMask load_unaligned_(const void *mem) {
+            return RMask(
+                load_unaligned<Mask1>(mem),
+                load_unaligned<Mask2>((uint8_t *) mem + sizeof(Mask1))
+            );
         }
 
         template <typename T>
@@ -358,8 +376,8 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         return Base::template rol_array_<Imm>();
     }
 
-    Derived lzcnt_() const { return Derived(lzcnt(a1), lzcnt(a2)); }
-    Derived tzcnt_() const { return Derived(tzcnt(a1), tzcnt(a2)); }
+    Derived lzcnt_() const  { return Derived(lzcnt(a1),  lzcnt(a2));  }
+    Derived tzcnt_() const  { return Derived(tzcnt(a1),  tzcnt(a2));  }
     Derived popcnt_() const { return Derived(popcnt(a1), popcnt(a2)); }
 
     //! @}
@@ -465,37 +483,37 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     //! @{ \name Initialization, loading/writing data
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE void store_(void *out) const {
-        store((Value *) out, a1);
-        store((Value *) out + Size1, a2);
+    ENOKI_INLINE void store_(void *mem) const {
+        store((Value *) mem, a1);
+        store((Value *) mem + Size1, a2);
     }
 
-    ENOKI_INLINE void store_(void *out, const Mask &mask) const {
-        store((Value *) out, a1, low(mask));
-        store((Value *) out + Size1, a2, high(mask));
+    ENOKI_INLINE void store_(void *mem, const Mask &mask) const {
+        store((Value *) mem, a1, low(mask));
+        store((Value *) mem + Size1, a2, high(mask));
     }
 
-    ENOKI_INLINE void store_unaligned_(void *out) const {
-        store_unaligned((Value *) out, a1);
-        store_unaligned((Value *) out + Size1, a2);
+    ENOKI_INLINE void store_unaligned_(void *mem) const {
+        store_unaligned((Value *) mem, a1);
+        store_unaligned((Value *) mem + Size1, a2);
     }
 
-    ENOKI_INLINE void store_unaligned_(void *out, const Mask &mask) const {
-        store_unaligned((Value *) out, a1, low(mask));
-        store_unaligned((Value *) out + Size1, a2, high(mask));
+    ENOKI_INLINE void store_unaligned_(void *mem, const Mask &mask) const {
+        store_unaligned((Value *) mem, a1, low(mask));
+        store_unaligned((Value *) mem + Size1, a2, high(mask));
     }
 
-    static ENOKI_INLINE Derived load_(const void *a) {
+    static ENOKI_INLINE Derived load_(const void *mem) {
         return Derived(
-            load<Array1>((Value *) a),
-            load<Array2>((Value *) a + Size1)
+            load<Array1>((Value *) mem),
+            load<Array2>((Value *) mem + Size1)
         );
     }
 
-    static ENOKI_INLINE Derived load_(const void *a, const Mask &mask) {
+    static ENOKI_INLINE Derived load_(const void *mem, const Mask &mask) {
         return Derived(
-            load<Array1>((Value *) a, low(mask)),
-            load<Array2>((Value *) a + Size1, high(mask))
+            load<Array1>((Value *) mem, low(mask)),
+            load<Array2>((Value *) mem + Size1, high(mask))
         );
     }
 

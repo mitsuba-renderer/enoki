@@ -91,7 +91,7 @@ if (ENOKI_ARCHFLAGS MATCHES "SKX")
   set(TEST_SKX ON)
 endif()
 
-set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/resources")
 
 # Use memkind library (high-bandwidth memory on Xeon Phi) if available
 find_package(Memkind QUIET)

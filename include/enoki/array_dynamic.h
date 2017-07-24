@@ -372,8 +372,29 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
      * initialized with NaNs.
      */
     ENOKI_NOINLINE void resize_(size_t size) {
+        using Index = Array<uint32_t, Packet::Size>;
+        bool scalar_flag = m_size == 1;
+        Value scalar = scalar_flag ? m_packets[0].coeff(0) : Value();
+
         if (size <= m_packets_allocated * PacketSize) {
+            size_t packets = (size + PacketSize - 1) / PacketSize;
             m_size = size;
+
+            if (scalar_flag && size > 1) {
+                /* Broadcast scalars to the entire array */
+                Packet p(scalar);
+                for (size_t i = 0; i < packets; ++i)
+                    store(m_packets + i, p);
+            }
+
+            uint32_t remainder = (uint32_t) (size % PacketSize);
+            if (remainder > 0) {
+                /* There is a partially used packet at the end */
+                size_t idx = m_packets_allocated - 1;
+                auto keep_mask = index_sequence<Index>() < Index(remainder);
+                store(m_packets + idx, load<Packet>(m_packets + idx) & keep_mask);
+            }
+
             return;
         }
 
@@ -384,16 +405,24 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
         m_packets = enoki::alloc<Packet>(m_packets_allocated);
         m_size = size;
 
-        #if !defined(NDEBUG)
+        if (scalar_flag && size > 1) {
+            Packet p(scalar);
             for (size_t i = 0; i < m_packets_allocated; ++i)
-                new (&m_packets[i]) Packet();
-        #endif
+                store(m_packets + i, p);
+        } else {
+            #if !defined(NDEBUG)
+                for (size_t i = 0; i < m_packets_allocated; ++i)
+                    new (&m_packets[i]) Packet();
+            #endif
+        }
 
-        /* Clear unused entries */
-        size_t used = sizeof(Value) * size;
-        size_t allocated =
-            sizeof(Value) * m_packets_allocated * PacketSize;
-        memset((uint8_t *) m_packets + used, 0, allocated - used);
+        uint32_t remainder = (uint32_t) (size % PacketSize);
+        if (remainder > 0) {
+            /* There is a partially used packet at the end */
+            size_t idx = m_packets_allocated - 1;
+            auto keep_mask = index_sequence<Index>() < Index(remainder);
+            store(m_packets + idx, load<Packet>(m_packets + idx) & keep_mask);
+        }
     }
 
 protected:
@@ -430,25 +459,41 @@ ENOKI_INLINE void vectorize_inner_2(std::index_sequence<Index...>, Func &&f,
         packet(out, i) = f(packet(args, i)...);
 }
 
-template <bool Check, typename Return, typename Func, typename... Args,
+template <typename T> struct mutable_ref { using type = std::add_lvalue_reference_t<T>; };
+template <typename T> struct mutable_ref<const T &> { using type = T &; };
+
+template <typename T>
+using mutable_ref_t = typename mutable_ref<T>::type;
+
+template <bool Check, bool Resize, typename Return, typename Func, typename... Args,
     std::enable_if_t<std::is_void<Return>::value, int> = 0>
 ENOKI_INLINE void vectorize(Func&& f, Args&&... args) {
     size_t packet_count = 0;
 
     bool unused[] = { (
-        (packet_count = (is_dynamic_nested<Args>::value ? packets(args) : packet_count)),
+        (packet_count = !is_dynamic_nested<Args>::value
+                        ? packet_count : (Resize ? std::max(packet_count, packets(args))
+                                                 : packets(args))),
         false)... };
+
     (void) unused;
 
-    if (Check) {
-        size_t dsize = 0;
+    if (Check || Resize) {
+        size_t slice_count = 0;
+
         bool unused2[] = { (
-            (dsize = (is_dynamic_nested<Args>::value ? slices(args) : dsize)),
+            (slice_count = !is_dynamic_nested<Args>::value
+                            ? slice_count : (Resize ? std::max(slice_count, slices(args))
+                                                     : slices(args))),
             false)... };
+
         (void) unused2;
 
-        bool status[] = { (!is_dynamic_nested<Args>::value ||
-                           (slices(args) == dsize))... };
+        size_t status[] = { (!is_dynamic_nested<Args>::value ||
+                            ((slice_count != 1 && slices(args) == 1 && Resize) ?
+                                (set_slices((mutable_ref_t<decltype(args)>) args, slice_count), true) :
+                                (slices(args) == slice_count)))... };
+
         for (bool flag : status)
             if (!flag)
                 throw std::length_error("vectorize(): vector arguments have incompatible lengths");
@@ -458,28 +503,35 @@ ENOKI_INLINE void vectorize(Func&& f, Args&&... args) {
                       std::forward<Func>(f), packet_count, ref_wrap(args)...);
 }
 
-template <bool Check, typename Return, typename Func, typename... Args,
+template <bool Check, bool Resize, typename Return, typename Func, typename... Args,
     std::enable_if_t<!std::is_void<Return>::value, int> = 0>
 ENOKI_INLINE auto vectorize(Func&& f, Args&&... args) {
-    size_t packet_count = 0, dsize = 0;
+    size_t packet_count = 0, slice_count = 0;
 
     bool unused[] = { (
-        (packet_count = (is_dynamic_nested<Args>::value ? packets(args) : packet_count)),
+        (packet_count = !is_dynamic_nested<Args>::value
+                        ? packet_count : (Resize ? std::max(packet_count, packets(args))
+                                                 : packets(args))),
         false)... };
 
     bool unused2[] = { (
-        (dsize = (is_dynamic_nested<Args>::value ? slices(args) : dsize)),
+        (slice_count = !is_dynamic_nested<Args>::value
+                        ? slice_count : (Resize ? std::max(slice_count, slices(args))
+                                                 : slices(args))),
         false)... };
 
     (void) unused;
     (void) unused2;
 
     make_dynamic_t<Return> out;
-    set_slices(out, dsize);
+    set_slices(out, slice_count);
 
-    if (Check) {
-        bool status[] = { (!is_dynamic_nested<Args>::value ||
-                           (slices(args) == dsize))... };
+    if (Check || Resize) {
+        size_t status[] = { (!is_dynamic_nested<Args>::value ||
+                            ((slice_count != 1 && slices(args) == 1 && Resize) ?
+                                (set_slices((mutable_ref_t<decltype(args)>) args, slice_count), true) :
+                                (slices(args) == slice_count)))... };
+
         for (bool flag : status)
             if (!flag)
                 throw std::length_error("vectorize(): vector arguments have incompatible lengths");
@@ -502,13 +554,13 @@ ENOKI_INLINE auto vectorize(Func&& f, Args&&... args) {
     constexpr bool Check = true;
 #endif
     using Return = decltype(f(packet(args, 0)...));
-    return detail::vectorize<Check, Return>(std::forward<Func>(f), args...);
+    return detail::vectorize<Check, false, Return>(std::forward<Func>(f), args...);
 }
 
 template <typename Func, typename... Args>
 ENOKI_INLINE auto vectorize_safe(Func&& f, Args&&... args) {
     using Return = decltype(f(packet(args, 0)...));
-    return detail::vectorize<true, Return>(std::forward<Func>(f), args...);
+    return detail::vectorize<true, true, Return>(std::forward<Func>(f), args...);
 }
 
 NAMESPACE_END(enoki)

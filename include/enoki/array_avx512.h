@@ -182,6 +182,10 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
     }
 
     ENOKI_INLINE void store_unaligned_(void *mem) const { memcpy(mem, &k, sizeof(Type)); }
+    ENOKI_INLINE void store_(void *mem) const { memcpy(mem, &k, sizeof(Type)); }
+
+    ENOKI_INLINE static KMask load_unaligned_(const void *mem) { KMask m; memcpy(&m.k, mem, sizeof(Type)); return m; }
+    ENOKI_INLINE static KMask load_(const void *mem) { KMask m; memcpy(&m.k, mem, sizeof(Type)); return m; }
 
     KMask<HalfType> low_()  const { return KMask<HalfType>(HalfType(k)); }
     KMask<HalfType> high_() const { return KMask<HalfType>(HalfType(k >> (Size/2))); }

@@ -370,7 +370,7 @@ ENOKI_INLINE Target reinterpret_array(const Arg &a) {
     using Scalar = scalar_t<Target>;
     using Int = typename detail::type_chooser<sizeof(Scalar)>::Int;
     Int value = a ? Int(-1) : Int(0);
-    return Target(Scalar(value));
+    return Target(memcpy_cast<Scalar>(value));
 }
 
 template <typename T1, typename T2,
@@ -1460,8 +1460,9 @@ struct dynamic_support {
     static constexpr bool is_dynamic_nested = false;
     using dynamic_t = T;
 
-    static ENOKI_INLINE size_t slices(const T &) { return 0; }
-    static ENOKI_INLINE size_t packets(const T&) { return 0; }
+    template <typename T2> static ENOKI_INLINE size_t slices(const T2 &) { return 0; }
+    template <typename T2> static ENOKI_INLINE size_t packets(const T2 &) { return 0; }
+    template <typename T2> static ENOKI_INLINE void set_slices(const T2 &, size_t) { }
 
     template <typename T2> static ENOKI_INLINE decltype(auto) ref_wrap(T2&& value) { return value; }
     template <typename T2> static ENOKI_INLINE decltype(auto) packet(T2&& value, size_t) { return value; }
