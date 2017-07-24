@@ -598,28 +598,31 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     ENOKI_INLINE const Array1& low_() const { return a1; }
     ENOKI_INLINE const Array2& high_() const { return a2; }
 
+
+    template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
     ENOKI_INLINE const Value& coeff(size_t i) const {
-        #if defined(__clang__) || defined(NDEBUG)
-            union Helper { Derived t; Value x[Size]; };
-            return ((const Helper *) this)->x[i];
-        #else
-            if (i < Size1)
-                return a1.coeff(i);
-            else
-                return a2.coeff(i - Size1);
-        #endif
+        return ((i < Size1) ? a1 : a2).coeff(i % Size1);
     }
 
+    template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
     ENOKI_INLINE Value& coeff(size_t i) {
-        #if defined(__clang__) || defined(NDEBUG)
-            union Helper { Derived t; Value x[Size]; };
-            return ((Helper *) this)->x[i];
-        #else
-            if (i < Size1)
-                return a1.coeff(i);
-            else
-                return a2.coeff(i - Size1);
-        #endif
+        return ((i < Size1) ? a1 : a2).coeff(i % Size1);
+    }
+
+    template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
+    ENOKI_INLINE const Value& coeff(size_t i) const {
+        if (i < Size1)
+            return a1.coeff(i);
+        else
+            return a2.coeff(i - Size1);
+    }
+
+    template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
+    ENOKI_INLINE Value& coeff(size_t i) {
+        if (i < Size1)
+            return a1.coeff(i);
+        else
+            return a2.coeff(i - Size1);
     }
 
     //! @}
