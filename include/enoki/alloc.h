@@ -43,11 +43,41 @@ inline ENOKI_MALLOC void *alloc(size_t size) {
         ptr = hbw_malloc(size);
     #elif defined(_WIN32)
         ptr = _aligned_malloc(size, align);
-    #elif defined(__APPLE__)
+    #else
         if (posix_memalign(&ptr, align, size) != 0)
             ptr = nullptr;
+    #endif
+
+    if (!ptr && size != 0)
+        throw std::bad_alloc();
+
+    return ptr;
+}
+
+/// Re-allocate a suitably aligned memory block
+inline ENOKI_MALLOC void *realloc(void *cur, size_t size) {
+    constexpr size_t align = sizeof(void *) > size_t(max_packet_size)
+        ? sizeof(void *) : max_packet_size;
+    ENOKI_TRACK_ALLOC
+
+    void *ptr;
+    #if defined(ENOKI_USE_MEMKIND)
+        (void) align;
+        ptr = hbw_realloc(cur, size);
+    #elif defined(_WIN32)
+        ptr = _aligned_realloc(cur, size, align);
     #else
-        ptr = memalign(align, size);
+        ptr = ::realloc(cur, size);
+        if (((uintptr_t) cur) % align != 0) {
+            /* Oops, we lost the alignment :( */
+            cur = ptr;
+            if (posix_memalign(&ptr, align, size) == 0) {
+                memcpy(ptr, cur, size);
+                free(cur);
+            } else {
+                ptr = nullptr;
+            }
+        }
     #endif
 
     if (!ptr && size != 0)
@@ -59,6 +89,11 @@ inline ENOKI_MALLOC void *alloc(size_t size) {
 /// Allocate a suitably aligned memory block of the given type
 template <typename T> static ENOKI_INLINE ENOKI_MALLOC T *alloc(size_t size) {
     return (T *) enoki::alloc(sizeof(T) * size);
+}
+
+/// Re-allocate a suitably aligned memory block of the given type
+template <typename T> static ENOKI_INLINE ENOKI_MALLOC T *realloc(void *cur, size_t size) {
+    return (T *) enoki::realloc(cur, sizeof(T) * size);
 }
 
 /// Release aligned memory

@@ -398,11 +398,12 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
             return;
         }
 
-        if (m_packets_allocated > 0)
-            dealloc(m_packets);
-
+        size_t packets_old = m_packets_allocated;
         m_packets_allocated = (size + PacketSize - 1) / PacketSize;
-        m_packets = enoki::alloc<Packet>(m_packets_allocated);
+        if (m_packets)
+            m_packets = enoki::realloc<Packet>(m_packets, m_packets_allocated);
+        else
+            m_packets = enoki::alloc<Packet>(m_packets_allocated);
         m_size = size;
 
         if (scalar_flag && size > 1) {
@@ -411,8 +412,10 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
                 store(m_packets + i, p);
         } else {
             #if !defined(NDEBUG)
-                for (size_t i = 0; i < m_packets_allocated; ++i)
+                for (size_t i = packets_old; i < m_packets_allocated; ++i)
                     new (&m_packets[i]) Packet();
+            #else
+                (void) packets_old;
             #endif
         }
 
@@ -426,7 +429,7 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     }
 
 protected:
-    Packet *m_packets;
+    Packet *m_packets = nullptr;
     size_t m_packets_allocated = 0;
     size_t m_size = 0;
 };

@@ -264,3 +264,21 @@ ENOKI_TEST(array_float_04_test07_compress) { test07_compress<4>();  }
 ENOKI_TEST(array_float_08_test07_compress) { test07_compress<8>();  }
 ENOKI_TEST(array_float_16_test07_compress) { test07_compress<16>(); }
 ENOKI_TEST(array_float_32_test07_compress) { test07_compress<32>(); }
+
+ENOKI_TEST(test07_realloc) {
+    using FloatP = Array<uint32_t>;
+    using FloatX = DynamicArray<FloatP>;
+
+    FloatX array;
+    for (size_t i = 0; i < 1024; ++i) {
+        set_slices(array, (i + 1) * 1024);
+        for (size_t j = 0; j < 1024; ++j)
+            slice(array, i * 1024 + j) = (uint32_t) (i * 1024 + j);
+    }
+    for (size_t j = 0; j < 1024 * 1024; ++j)
+        assert(slice(array, j) == j);
+
+    set_slices(array, 1024 * 512);
+    for (size_t j = 0; j < 1024 * 512; ++j)
+        assert(slice(array, j) == j);
+}
