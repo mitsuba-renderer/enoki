@@ -1496,6 +1496,18 @@ Miscellaneous operations
 
     Convenience function which multiplies the input array by :math:`\frac{180}{\pi}`.
 
+.. cpp:function:: template <typename Array> Array prev_float(Array array)
+
+    Return the prev representable floating point value for each element of
+    ``array`` analogous to ``std::nextafter(array, -∞)``. Special values
+    (infinities & not-a-number values) are returned unchanged.
+
+.. cpp:function:: template <typename Array> Array next_float(Array array)
+
+    Return the next representable floating point value for each element of
+    ``array`` analogous to ``std::nextafter(array, ∞)``. Special values
+    (infinities & not-a-number values) are returned unchanged.
+
 .. cpp:function:: template <typename Array> Array tzcnt(Array array)
 
     Return the number of trailing zero bits (assumes that ``Array`` is an integer array).

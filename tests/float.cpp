@@ -245,3 +245,25 @@ ENOKI_TEST_FLOAT(test15_hypot) {
                              },
                              1e-6f);
 }
+
+ENOKI_TEST_FLOAT(test15_next_float) {
+    Value inf = std::numeric_limits<Value>::infinity();
+    Value nan = std::numeric_limits<Value>::quiet_NaN();
+    Value zero = Value(0), one = Value(1.f);
+
+    assert(next_float(T( zero))  == T(std::nextafter(zero, inf)));
+    assert(next_float(T(-zero)) == T(std::nextafter(-zero, inf)));
+    assert(next_float(T( one)) == T(std::nextafter( one, inf)));
+    assert(next_float(T(-one)) == T(std::nextafter(-one, inf)));
+    assert(next_float(T( inf))  == inf);
+    assert(next_float(T(-inf)) == -inf);
+    assert(all(enoki::isnan(next_float(T(nan)))));
+
+    assert(prev_float(T( zero))  == T(std::nextafter(zero, -inf)));
+    assert(prev_float(T(-zero)) == T(std::nextafter(-zero, -inf)));
+    assert(prev_float(T( one)) == T(std::nextafter( one, -inf)));
+    assert(prev_float(T(-one)) == T(std::nextafter(-one, -inf)));
+    assert(prev_float(T( inf))  == inf);
+    assert(prev_float(T(-inf)) == -inf);
+    assert(all(enoki::isnan(prev_float(T(nan)))));
+}

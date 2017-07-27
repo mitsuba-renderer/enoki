@@ -1414,6 +1414,58 @@ ENOKI_INLINE auto hypot(const Array1 &a, const Array2 &b) {
     );
 }
 
+template <typename Value, typename Expr = expr_t<Value>>
+ENOKI_INLINE Expr prev_float(const Value &value) {
+    using Int = int_array_t<Expr>;
+    using IntScalar = scalar_t<Int>;
+
+    const Int exponent_mask = sizeof(IntScalar) == 4
+                                  ? IntScalar(0x7f800000)
+                                  : IntScalar(0x7ff0000000000000ll);
+
+    const Int pos_denorm = sizeof(IntScalar) == 4
+                              ? IntScalar(0x80000001)
+                              : IntScalar(0x8000000000000001ll);
+
+    Int i = reinterpret_array<Int>(value);
+
+    auto is_nan_inf = eq(i & exponent_mask, exponent_mask);
+    auto is_pos_0   = eq(i, 0);
+    auto is_gt_0    = i >= 0;
+    auto is_special = is_nan_inf | is_pos_0;
+
+    Int j1 = i + select(is_gt_0, Int(-1), Int(1));
+    Int j2 = select(is_pos_0, pos_denorm, i);
+
+    return reinterpret_array<Expr>(select(is_special, j2, j1));
+}
+
+template <typename Value, typename Expr = expr_t<Value>>
+ENOKI_INLINE Expr next_float(const Value &value) {
+    using Int = int_array_t<Expr>;
+    using IntScalar = scalar_t<Int>;
+
+    const Int exponent_mask = sizeof(IntScalar) == 4
+                                  ? IntScalar(0x7f800000)
+                                  : IntScalar(0x7ff0000000000000ll);
+
+    const Int sign_mask = sizeof(IntScalar) == 4
+                              ? IntScalar(0x80000000)
+                              : IntScalar(0x8000000000000000ll);
+
+    Int i = reinterpret_array<Int>(value);
+
+    auto is_nan_inf = eq(i & exponent_mask, exponent_mask);
+    auto is_neg_0   = eq(i, sign_mask);
+    auto is_gt_0    = i >= 0;
+    auto is_special = is_nan_inf | is_neg_0;
+
+    Int j1 = i + select(is_gt_0, Int(1), Int(-1));
+    Int j2 = select(is_neg_0, Int(1), i);
+
+    return reinterpret_array<Expr>(select(is_special, j2, j1));
+}
+
 /**
  * Broadcast the given array to the entries of an array of
  * shape (<shape of Other>, <shape of Array>)
