@@ -88,7 +88,7 @@ template <bool Approx, typename Derived> struct alignas(32)
         uint64_t ival;
         memcpy(&ival, a.data(), 8);
         __m128i value = _mm_cmpgt_epi8(
-            _mm_cvtsi64_si128((long long) ival), _mm_setzero_si128());
+            detail::mm_cvtsi64_si128((long long) ival), _mm_setzero_si128());
         #if defined(__AVX2__)
             m = _mm256_castsi256_ps(_mm256_cvtepi8_epi32(value));
         #else
@@ -439,7 +439,7 @@ template <bool Approx, typename Derived> struct alignas(32)
             size_t kn = (size_t) _mm_popcnt_u32(k);
             ptr += kn;
             return kn;
-        #elif defined(__AVX2__)
+        #elif defined(__AVX2__) && (defined(__x86_64__) || defined(_M_X64))
             /** Clever BMI2-based partitioning algorithm by Christoph Diegelmann
                 see https://goo.gl/o3ysMN for context */
 
@@ -449,7 +449,7 @@ template <bool Approx, typename Derived> struct alignas(32)
                                                   0x0F0F0F0F0F0F0F0Full);
             size_t kn = (size_t) (_mm_popcnt_u32(k) >> 2);
 
-            __m128i bytevec = _mm_cvtsi64_si128((long long) expanded_indices);
+            __m128i bytevec = detail::mm_cvtsi64_si128((long long) expanded_indices);
             __m256i shufmask = _mm256_cvtepu8_epi32(bytevec);
             __m256 perm = _mm256_permutevar8x32_ps(m, shufmask);
 
@@ -820,7 +820,7 @@ template <bool Approx, typename Derived> struct alignas(32)
             size_t kn = (size_t) _mm_popcnt_u32(k);
             ptr += kn;
             return kn;
-        #else
+        #elif defined(__x86_64__) || defined(_M_X64) // requires _pdep_u64
             /** Clever BMI2-based partitioning algorithm by Christoph Diegelmann
                 see https://goo.gl/o3ysMN for context */
 
@@ -830,13 +830,15 @@ template <bool Approx, typename Derived> struct alignas(32)
                                                   0x0F0F0F0F0F0F0F0Full);
             size_t kn = (size_t) (_mm_popcnt_u32(k) >> 3);
 
-            __m128i bytevec = _mm_cvtsi64_si128((long long) expanded_indices);
+            __m128i bytevec = detail::mm_cvtsi64_si128((long long) expanded_indices);
             __m256i shufmask = _mm256_cvtepu8_epi32(bytevec);
             __m256 perm = _mm256_permutevar8x32_ps(_mm256_castpd_ps(m), shufmask);
 
             _mm256_storeu_ps((float *) ptr, perm);
             ptr += kn;
             return kn;
+        #else
+            return Base::compress_(ptr, mask);
         #endif
     }
 #endif

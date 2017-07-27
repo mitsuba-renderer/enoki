@@ -803,8 +803,14 @@ ENOKI_INLINE T popcnt(T v) {
 #if defined(__SSE4_2__)
     if (sizeof(T) <= 4)
         return (T) _mm_popcnt_u32((unsigned int) v);
-    else
+    #if defined(__x86_64__) || defined(_M_X64)
         return (T) _mm_popcnt_u64((unsigned long long) v);
+    #else
+        unsigned long long v_ = (unsigned long long) v;
+        unsigned int lo = (unsigned int) v_;
+        unsigned int hi = (unsigned int) (v_ >> 32);
+        return (T) (_mm_popcnt_u32(lo) + _mm_popcnt_u32(hi));
+    #endif
 #elif defined(_MSC_VER)
     if (sizeof(T) <= 4) {
         uint32_t w = (uint32_t) v;
@@ -834,8 +840,14 @@ ENOKI_INLINE T lzcnt(T v) {
 #if defined(__AVX2__)
     if (sizeof(T) <= 4)
         return (T) _lzcnt_u32((unsigned int) v);
-    else
+    #if defined(__x86_64__) || defined(_M_X64)
         return (T) _lzcnt_u64((unsigned long long) v);
+    #else
+        unsigned long long v_ = (unsigned long long) v;
+        unsigned int lo = (unsigned int) v_;
+        unsigned int hi = (unsigned int) (v_ >> 32);
+        return (T) (hi != 0 ? _lzcnt_u32(hi) : (_lzcnt_u32(lo) + 32));
+    #endif
 #elif defined(_MSC_VER)
     unsigned long result;
     if (sizeof(T) <= 4) {
@@ -858,8 +870,14 @@ ENOKI_INLINE T tzcnt(T v) {
 #if defined(__AVX2__)
     if (sizeof(T) <= 4)
         return (T) _tzcnt_u32((unsigned int) v);
-    else
+    #if defined(__x86_64__) || defined(_M_X64)
         return (T) _tzcnt_u64((unsigned long long) v);
+    #else
+        unsigned long long v_ = (unsigned long long) v;
+        unsigned int lo = (unsigned int) v_;
+        unsigned int hi = (unsigned int) (v_ >> 32);
+        return (T) (lo != 0 ? _tzcnt_u32(lo) : (_tzcnt_u32(hi) + 32));
+    #endif
 #elif defined(_MSC_VER)
     unsigned long result;
     if (sizeof(T) <= 4) {

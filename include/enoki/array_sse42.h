@@ -1584,11 +1584,11 @@ struct alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMode::Default,
     //! @{ \name Horizontal operations
     // -----------------------------------------------------------------------
 
-    #define ENOKI_HORIZONTAL_OP(name, op) \
-        ENOKI_INLINE Value name##_() const { \
-            Value t1 = Value(_mm_extract_epi64(m, 1)); \
-            Value t2 = Value(_mm_cvtsi128_si64(m)); \
-            return op; \
+    #define ENOKI_HORIZONTAL_OP(name, op)                                     \
+        ENOKI_INLINE Value name##_() const {                                  \
+            Value t1 = Value(detail::mm_extract_epi64<1>(m));                 \
+            Value t2 = Value(detail::mm_cvtsi128_si64(m));                    \
+            return op;                                                        \
         }
 
     ENOKI_HORIZONTAL_OP(hsum,  t1 + t2)

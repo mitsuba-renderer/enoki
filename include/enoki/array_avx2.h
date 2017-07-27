@@ -122,7 +122,7 @@ struct alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMode::Default,
     ENOKI_REINTERPRET(bool) {
         uint64_t ival;
         memcpy(&ival, a.data(), 8);
-        __m128i value = _mm_cmpgt_epi8(_mm_cvtsi64_si128((long long) ival),
+        __m128i value = _mm_cmpgt_epi8(detail::mm_cvtsi64_si128((long long) ival),
                                        _mm_setzero_si128());
         m = _mm256_cvtepi8_epi32(value);
     }
@@ -420,7 +420,7 @@ struct alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMode::Default,
             _mm256_storeu_si256((__m256i *) ptr, _mm256_maskz_compress_epi32(k, m));
             ptr += kn;
             return kn;
-        #else
+        #elif defined(__x86_64__) || defined(_M_X64) // requires _pdep_u64
             /** Clever BMI2-based partitioning algorithm by Christoph Diegelmann
                 see https://goo.gl/o3ysMN for context */
 
@@ -430,13 +430,15 @@ struct alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMode::Default,
                                                   0x0F0F0F0F0F0F0F0Full);
             size_t kn = (size_t) (_mm_popcnt_u32(k) >> 2);
 
-            __m128i bytevec = _mm_cvtsi64_si128((long long) expanded_indices);
+            __m128i bytevec = detail::mm_cvtsi64_si128((long long) expanded_indices);
             __m256i shufmask = _mm256_cvtepu8_epi32(bytevec);
             __m256i perm = _mm256_permutevar8x32_epi32(m, shufmask);
 
             _mm256_storeu_si256((__m256i *) ptr, perm);
             ptr += kn;
             return kn;
+        #else
+            return Base::compress_(ptr, mask);
         #endif
     }
 
@@ -853,7 +855,7 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
             _mm256_storeu_si256((__m256i *) ptr, _mm256_maskz_compress_epi64(k, m));
             ptr += kn;
             return kn;
-        #else
+        #elif defined(__x86_64__) || defined(_M_X64) // requires _pdep_u64
             /** Clever BMI2-based partitioning algorithm by Christoph Diegelmann
                 see https://goo.gl/o3ysMN for context */
 
@@ -863,7 +865,7 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
                                                   0x0F0F0F0F0F0F0F0Full);
             size_t kn = (size_t) (_mm_popcnt_u32(k) >> 3);
 
-            __m128i bytevec = _mm_cvtsi64_si128((long long) expanded_indices);
+            __m128i bytevec = detail::mm_cvtsi64_si128((long long) expanded_indices);
             __m256i shufmask = _mm256_cvtepu8_epi32(bytevec);
 
             __m256i perm = _mm256_permutevar8x32_epi32(m, shufmask);
@@ -871,6 +873,8 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
             _mm256_storeu_si256((__m256i *) ptr, perm);
             ptr += kn;
             return kn;
+        #else
+            return Base::compress_(ptr, mask);
         #endif
     }
 

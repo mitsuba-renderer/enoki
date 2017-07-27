@@ -68,7 +68,7 @@ inline ENOKI_MALLOC void *realloc(void *cur, size_t size) {
         ptr = _aligned_realloc(cur, size, align);
     #else
         ptr = ::realloc(cur, size);
-        if (((uintptr_t) cur) % align != 0) {
+        if (((uintptr_t) ptr) % align != 0) {
             /* Oops, we lost the alignment :( */
             cur = ptr;
             if (posix_memalign(&ptr, align, size) == 0) {

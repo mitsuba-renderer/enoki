@@ -57,7 +57,7 @@ ENOKI_INLINE Type scatter_bits(Type x) { return x; }
 
 template <size_t Dimension, typename Type,
           size_t Level = clog2i(sizeof(Type) * 8),
-          std::enable_if_t<Level != 0 && (!has_avx2 || !std::is_integral<Type>::value), int> = 0>
+          std::enable_if_t<Level != 0 && (!(has_avx2 && has_x86_64) || !std::is_integral<Type>::value), int> = 0>
 ENOKI_INLINE Type scatter_bits(Type x) {
     using Scalar = scalar_t<Type>;
 
@@ -80,7 +80,7 @@ ENOKI_INLINE Type gather_bits(Type x) { return x; }
 /// Bit gather function. \c Dimension defines the final distance between two input bits
 template <size_t Dimension, typename Type,
           size_t Level = clog2i(sizeof(Type) * 8),
-          std::enable_if_t<Level != 0 && (!has_avx2 || !std::is_integral<Type>::value), int> = 0>
+          std::enable_if_t<Level != 0 && (!(has_avx2 && has_x86_64) || !std::is_integral<Type>::value), int> = 0>
 ENOKI_INLINE Type gather_bits(Type x) {
     using Scalar = scalar_t<Type>;
 
@@ -97,7 +97,7 @@ ENOKI_INLINE Type gather_bits(Type x) {
     return gather_bits<Dimension, Type, Level - 1>(x);
 }
 
-#if defined(__AVX2__)
+#if defined(__AVX2__) && (defined(__x86_64__) || defined(_M_X64))
 template <size_t Dimension, typename Type,
           std::enable_if_t<std::is_integral<Type>::value, int> = 0>
 ENOKI_INLINE Type scatter_bits(Type x) {

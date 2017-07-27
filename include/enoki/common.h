@@ -29,6 +29,9 @@
 
 #if defined(_MSC_VER)
 #  include <intrin.h>
+#  if !defined(_WIN64)
+#    error "Fatal error: Enoki does not (and will never) support compilation on 32-bit Windows machines."
+#  endif
 #endif
 
 #include "alloc.h"
@@ -160,6 +163,12 @@ enum class RoundingMode {
     static constexpr bool has_sse42 = true;
 #else
     static constexpr bool has_sse42 = false;
+#endif
+
+#if defined(__x86_64__) || defined(_M_X64)
+    static constexpr bool has_x86_64 = true;
+#else
+    static constexpr bool has_x86_64 = false;
 #endif
 
 static constexpr bool has_vectorization = has_sse42;
@@ -822,6 +831,36 @@ ENOKI_INLINE __m256i mm512_cvtepi64_epi32(__m256i x0, __m256i x1) {
 ENOKI_INLINE __m128i mm256_cvtepi64_epi32(__m128i x0, __m128i x1) {
     return _mm_castps_si128(_mm_shuffle_ps(
         _mm_castsi128_ps(x0), _mm_castsi128_ps(x1), _MM_SHUFFLE(2, 0, 2, 0)));
+}
+
+ENOKI_INLINE __m128i mm_cvtsi64_si128(long long a)  {
+    #if defined(__x86_64__) || defined(_M_X64)
+        return _mm_cvtsi64_si128(a);
+    #else
+        alignas(16) long long x[2] = { a, 0ll };
+        return _mm_load_si128((__m128i *) x);
+    #endif
+}
+
+ENOKI_INLINE long long mm_cvtsi128_si64(__m128i m)  {
+    #if defined(__x86_64__) || defined(_M_X64)
+        return _mm_cvtsi128_si64(m);
+    #else
+        alignas(16) long long x[2];
+        _mm_store_si128((__m128i *) x, m);
+        return x[0];
+    #endif
+}
+
+template <int Imm8>
+ENOKI_INLINE long long mm_extract_epi64(__m128i m)  {
+    #if defined(__x86_64__) || defined(_M_X64)
+        return _mm_extract_epi64(m, Imm8);
+    #else
+        alignas(16) long long x[2];
+        _mm_store_si128((__m128i *) x, m);
+        return x[Imm8];
+    #endif
 }
 
 #endif

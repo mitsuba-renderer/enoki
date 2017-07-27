@@ -348,7 +348,7 @@ public:
             lo = _mm_shuffle_epi8(lo, shufmask);
             hi = _mm_shuffle_epi8(hi, shufmask);
         #endif
-        uint64_t result = (uint64_t) _mm_cvtsi128_si64(_mm_unpacklo_epi32(hi, lo));
+        uint64_t result = (uint64_t) detail::mm_cvtsi128_si64(_mm_unpacklo_epi32(hi, lo));
         memcpy(m_data.data(), &result, T::Size);
     }
 #endif
