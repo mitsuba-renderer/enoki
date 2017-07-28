@@ -152,7 +152,7 @@ include_directories(include)
 
 set(ENOKI_HEADERS
   ${PROJECT_SOURCE_DIR}/include/enoki/alloc.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/definitions.h
+  ${PROJECT_SOURCE_DIR}/include/enoki/fwd.h
   ${PROJECT_SOURCE_DIR}/include/enoki/array.h
   ${PROJECT_SOURCE_DIR}/include/enoki/array_avx.h
   ${PROJECT_SOURCE_DIR}/include/enoki/array_avx2.h

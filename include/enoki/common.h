@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include "definitions.h"
+#include "fwd.h"
 
 #include <cmath>
 #include <type_traits>
@@ -36,26 +36,6 @@
 
 #include "alloc.h"
 
-NAMESPACE_BEGIN(enoki)
-
-/// Choice of rounding modes for floating point operations
-enum class RoundingMode {
-    /// Default rounding mode configured in the hardware's status register
-    Default = 4,
-
-    /// Round to the nearest representable value (tie-breaking method is hardware dependent)
-    Nearest = 8,
-
-    /// Always round to negative infinity
-    Down = 9,
-
-    /// Always round to positive infinity
-    Up = 10,
-
-    /// Always round to zero
-    Zero = 11
-};
-
 /* Fix missing/inconsistent preprocessor flags */
 #if defined(__AVX512F__) && !defined(__AVX2__)
 #  define __AVX2__
@@ -76,6 +56,8 @@ enum class RoundingMode {
 #if defined(__AVX__) && !defined(__SSE4_2__)
 #  define __SSE4_2__
 #endif
+
+NAMESPACE_BEGIN(enoki)
 
 // -----------------------------------------------------------------------
 //! @{ \name Available instruction sets
@@ -179,13 +161,6 @@ static constexpr bool has_vectorization = has_sse42;
 // -----------------------------------------------------------------------
 //! @{ \name Forward declarations
 // -----------------------------------------------------------------------
-
-template <typename Type, typename Derived> struct ArrayBase;
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode, typename Derived> struct StaticArrayBase;
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode, typename Derived, typename SFINAE = void> struct StaticArrayImpl;
-template <typename Type, typename Derived> struct DynamicArrayBase;
-template <typename Type> struct DynamicArray;
-struct half;
 
 NAMESPACE_BEGIN(detail)
 
@@ -399,16 +374,6 @@ template <typename Input, typename Output>
 using ref_cast_t = std::conditional_t<std::is_same<Input, Output>::value,
                                       const Input &, Output>;
 
-template <typename T>
-using is_std_float =
-    std::integral_constant<bool, std::is_same<T, float>::value ||
-                                 std::is_same<T, double>::value>;
-
-/// Type trait to determine if a type should be handled using approximate mode by default
-template <typename T, typename = int> struct approx_default {
-    static constexpr bool value = is_std_float<std::decay_t<T>>::value;
-};
-
 template <typename T> struct approx_default<T, enable_if_array_t<T>> {
     static constexpr bool value = std::decay_t<T>::Approx;
 };
@@ -427,14 +392,6 @@ NAMESPACE_END(detail)
 
 //! @}
 // -----------------------------------------------------------------------
-
-/// Array type
-template <typename Type_,
-          size_t Size_ = (max_packet_size / sizeof(Type_) > 1)
-                        ? max_packet_size / sizeof(Type_) : 1,
-          bool Approx_ = detail::approx_default<Type_>::value,
-          RoundingMode Mode_ = RoundingMode::Default>
-struct Array;
 
 /// Replace the base scalar type of a (potentially nested) array
 template <typename T, typename Value, typename = void>
@@ -601,8 +558,6 @@ using uint_array_t = like_t<T, typename detail::type_chooser<sizeof(scalar_t<T>)
 /// Floating point-based version of a given array class
 template <typename T>
 using float_array_t = like_t<T, typename detail::type_chooser<sizeof(scalar_t<T>)>::Float>;
-
-using ssize_t = std::make_signed_t<size_t>;
 
 template <typename T> using int32_array_t   = like_t<T, int32_t>;
 template <typename T> using uint32_array_t  = like_t<T, uint32_t>;

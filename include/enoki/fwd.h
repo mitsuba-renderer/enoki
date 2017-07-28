@@ -1,5 +1,5 @@
 /*
-    enoki/definitions.h -- Preprocessor definitions
+    enoki/fwd.h -- Preprocessor definitions and forward declarations
 
     Enoki is a C++ template library that enables transparent vectorization
     of numerical kernels using SIMD instruction sets available on current
@@ -20,6 +20,7 @@
 #endif
 
 #include <cstddef>
+#include <type_traits>
 
 #if defined(_MSC_VER)
 #  define ENOKI_INLINE                 __forceinline
@@ -100,6 +101,8 @@
 
 NAMESPACE_BEGIN(enoki)
 
+using ssize_t = std::make_signed_t<size_t>;
+
 /// Maximum hardware-supported packet size in bytes
 #if defined(__AVX512F__)
     static constexpr size_t max_packet_size = 64;
@@ -110,5 +113,68 @@ NAMESPACE_BEGIN(enoki)
 #else
     static constexpr size_t max_packet_size = 4;
 #endif
+
+/// Choice of rounding modes for floating point operations
+enum class RoundingMode {
+    /// Default rounding mode configured in the hardware's status register
+    Default = 4,
+
+    /// Round to the nearest representable value (tie-breaking method is hardware dependent)
+    Nearest = 8,
+
+    /// Always round to negative infinity
+    Down = 9,
+
+    /// Always round to positive infinity
+    Up = 10,
+
+    /// Always round to zero
+    Zero = 11
+};
+
+NAMESPACE_BEGIN(detail)
+
+template <typename T>
+using is_std_float =
+    std::integral_constant<bool, std::is_same<T, float>::value ||
+                                 std::is_same<T, double>::value>;
+
+/// Type trait to determine if a type should be handled using approximate mode by default
+template <typename T, typename = int> struct approx_default {
+    static constexpr bool value = is_std_float<std::decay_t<T>>::value;
+};
+
+NAMESPACE_END()
+
+// -----------------------------------------------------------------------
+//! @{ \name Forward declarations
+// -----------------------------------------------------------------------
+
+template <typename Type, typename Derived> struct ArrayBase;
+
+template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
+          typename Derived>
+struct StaticArrayBase;
+
+template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
+          typename Derived, typename SFINAE = void>
+struct StaticArrayImpl;
+
+template <typename Type, typename Derived> struct DynamicArrayBase;
+
+template <typename Type> struct DynamicArray;
+
+struct half;
+
+/// Array type
+template <typename Type_,
+          size_t Size_ = (max_packet_size / sizeof(Type_) > 1)
+                        ? max_packet_size / sizeof(Type_) : 1,
+          bool Approx_ = detail::approx_default<Type_>::value,
+          RoundingMode Mode_ = RoundingMode::Default>
+struct Array;
+
+//! @}
+// -----------------------------------------------------------------------
 
 NAMESPACE_END(enoki)

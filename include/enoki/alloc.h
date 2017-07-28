@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include "definitions.h"
+#include "fwd.h"
 #include <cstdlib>
 #include <new>
 
