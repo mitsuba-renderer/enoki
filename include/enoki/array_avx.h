@@ -296,9 +296,14 @@ template <bool Approx, typename Derived> struct alignas(32)
 
 #if defined(__AVX512ER__)
     ENOKI_INLINE Derived exp_() const {
-        return _mm512_castps512_ps256(
-            _mm512_exp2a23_ps(_mm512_castps256_ps512(
-                _mm256_mul_ps(m, _mm256_set1_ps(1.4426950408889634074f)))));
+        if (Approx) {
+            /* 23 bit precision, only use in approximate mode */
+            return _mm512_castps512_ps256(
+                _mm512_exp2a23_ps(_mm512_castps256_ps512(
+                    _mm256_mul_ps(m, _mm256_set1_ps(1.4426950408889634074f)))));
+        } else {
+            return Base::exp_();
+        }
     }
 #endif
 

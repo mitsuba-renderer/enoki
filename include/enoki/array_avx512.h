@@ -483,8 +483,14 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
 
 #if defined(__AVX512ER__)
     ENOKI_INLINE Derived exp_() const {
-        return _mm512_exp2a23_ps(
-            _mm512_mul_ps(m, _mm512_set1_ps(1.4426950408889634074f)));
+        if (Approx) {
+            /* 23 bit precision, only use in approximate mode */
+            return _mm512_exp2a23_round_ps(
+                _mm512_mul_round_ps(m, _mm512_set1_ps(1.4426950408889634074f),
+                                    (int) Mode), (int) Mode);
+        } else {
+            return Base::exp_();
+        }
     }
 #endif
 
