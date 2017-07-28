@@ -124,8 +124,6 @@ macro(enoki_set_compile_flags)
         add_compile_options(-ffp-contract=fast)
       endif()
     endif()
-
-    add_compile_options(-fno-strict-aliasing)
   endif()
 
   if (CMAKE_CXX_COMPILER_ID MATCHES "Intel")

@@ -27,8 +27,8 @@ NAMESPACE_END(detail)
 
 /// Partial overload of StaticArrayImpl using AVX2 intrinsics (32 bit integers)
 template <typename Value_, typename Derived>
-struct alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMode::Default,
-                                   Derived, detail::is_int32_t<Value_>>
+struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMode::Default,
+                                                   Derived, detail::is_int32_t<Value_>>
     : StaticArrayBase<Value_, 8, false, RoundingMode::Default, Derived> {
     ENOKI_NATIVE_ARRAY_CLASSIC(Value_, 8, false, __m256i)
 
@@ -448,8 +448,8 @@ struct alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMode::Default,
 
 /// Partial overload of StaticArrayImpl using AVX2 intrinsics (64 bit integers)
 template <typename Value_, typename Derived>
-struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
-                                   Derived, detail::is_int64_t<Value_>>
+struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
+                                                   Derived, detail::is_int64_t<Value_>>
     : StaticArrayBase<Value_, 4, false, RoundingMode::Default, Derived> {
     ENOKI_NATIVE_ARRAY_CLASSIC(Value_, 4, false, __m256i)
 
@@ -883,7 +883,7 @@ struct alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
 };
 
 /// Partial overload of StaticArrayImpl for the n=3 case (64 bit integers)
-template <typename Value_, typename Derived> struct alignas(32)
+template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     StaticArrayImpl<Value_, 3, false, RoundingMode::Default, Derived, detail::is_int64_t<Value_>>
     : StaticArrayImpl<Value_, 4, false, RoundingMode::Default, Derived> {
     using Base = StaticArrayImpl<Value_, 4, false, RoundingMode::Default, Derived>;

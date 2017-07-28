@@ -25,6 +25,7 @@
 #  define ENOKI_INLINE                 __forceinline
 #  define ENOKI_NOINLINE               __declspec(noinline)
 #  define ENOKI_MALLOC                 __declspec(restrict)
+#  define ENOKI_MAY_ALIAS
 #  define ENOKI_ASSUME_ALIGNED(x)      x
 #  define ENOKI_ASSUME_ALIGNED_S(x, s) x
 #  define ENOKI_UNROLL
@@ -46,11 +47,14 @@
 #    define ENOKI_UNROLL               _Pragma("unroll")
 #    define ENOKI_NOUNROLL             _Pragma("nounroll")
 #    define ENOKI_IVDEP
+#    define ENOKI_MAY_ALIAS            __attribute__ ((may_alias))
 #  elif defined(__INTEL_COMPILER)
+#    define ENOKI_MAY_ALIAS
 #    define ENOKI_UNROLL               _Pragma("unroll")
 #    define ENOKI_NOUNROLL             _Pragma("nounroll")
 #    define ENOKI_IVDEP                _Pragma("ivdep")
 #  else
+#    define ENOKI_MAY_ALIAS
 #    define ENOKI_UNROLL
 #    define ENOKI_NOUNROLL
 #    if defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 9))

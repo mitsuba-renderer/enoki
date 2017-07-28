@@ -25,7 +25,7 @@ template <> struct is_native<double,   3> : std::true_type { };
 NAMESPACE_END(detail)
 
 /// Partial overload of StaticArrayImpl using AVX intrinsics (single precision)
-template <bool Approx, typename Derived> struct alignas(32)
+template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     StaticArrayImpl<float, 8, Approx, RoundingMode::Default, Derived>
     : StaticArrayBase<float, 8, Approx, RoundingMode::Default, Derived> {
     ENOKI_NATIVE_ARRAY_CLASSIC(float, 8, Approx, __m256)
@@ -473,7 +473,7 @@ template <bool Approx, typename Derived> struct alignas(32)
 };
 
 /// Partial overload of StaticArrayImpl using AVX intrinsics (double precision)
-template <bool Approx, typename Derived> struct alignas(32)
+template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     StaticArrayImpl<double, 4, Approx, RoundingMode::Default, Derived>
     : StaticArrayBase<double, 4, Approx, RoundingMode::Default, Derived> {
     ENOKI_NATIVE_ARRAY_CLASSIC(double, 4, Approx, __m256d)
@@ -853,7 +853,7 @@ template <bool Approx, typename Derived> struct alignas(32)
 };
 
 /// Partial overload of StaticArrayImpl for the n=3 case (double precision)
-template <bool Approx, typename Derived> struct alignas(32)
+template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     StaticArrayImpl<double, 3, Approx, RoundingMode::Default, Derived>
     : StaticArrayImpl<double, 4, Approx, RoundingMode::Default, Derived> {
     using Base = StaticArrayImpl<double, 4, Approx, RoundingMode::Default, Derived>;

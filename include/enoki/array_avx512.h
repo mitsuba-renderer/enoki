@@ -194,7 +194,7 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
 NAMESPACE_END(detail)
 
 /// Partial overload of StaticArrayImpl using AVX512 intrinsics (single precision)
-template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
+template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
     StaticArrayImpl<float, 16, Approx, Mode, Derived>
     : StaticArrayBase<float, 16, Approx, Mode, Derived> {
 
@@ -728,7 +728,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
 };
 
 /// Partial overload of StaticArrayImpl using AVX512 intrinsics (double precision)
-template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
+template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
     StaticArrayImpl<double, 8, Approx, Mode, Derived>
     : StaticArrayBase<double, 8, Approx, Mode, Derived> {
 
@@ -1189,7 +1189,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct alignas(64)
 };
 
 /// Partial overload of StaticArrayImpl using AVX512 intrinsics (32 bit integers)
-template <typename Value_, typename Derived> struct alignas(64)
+template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
     StaticArrayImpl<Value_, 16, false, RoundingMode::Default, Derived, detail::is_int32_t<Value_>>
     : StaticArrayBase<Value_, 16, false, RoundingMode::Default, Derived> {
 
@@ -1613,7 +1613,7 @@ template <typename Value_, typename Derived> struct alignas(64)
 };
 
 /// Partial overload of StaticArrayImpl using AVX512 intrinsics (64 bit integers)
-template <typename Value_, typename Derived> struct alignas(64)
+template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
     StaticArrayImpl<Value_, 8, false, RoundingMode::Default, Derived, detail::is_int64_t<Value_>>
     : StaticArrayBase<Value_, 8, false, RoundingMode::Default, Derived> {
 
