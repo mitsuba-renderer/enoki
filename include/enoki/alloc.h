@@ -35,7 +35,6 @@ NAMESPACE_BEGIN(enoki)
 inline ENOKI_MALLOC void *alloc(size_t size) {
     constexpr size_t align = sizeof(void *) > size_t(max_packet_size)
         ? sizeof(void *) : max_packet_size;
-    ENOKI_TRACK_ALLOC
 
     void *ptr;
     #if defined(ENOKI_USE_MEMKIND)
@@ -48,6 +47,7 @@ inline ENOKI_MALLOC void *alloc(size_t size) {
             ptr = nullptr;
     #endif
 
+    ENOKI_TRACK_ALLOC
     if (!ptr && size != 0)
         throw std::bad_alloc();
 
@@ -58,7 +58,6 @@ inline ENOKI_MALLOC void *alloc(size_t size) {
 inline ENOKI_MALLOC void *realloc(void *cur, size_t size) {
     constexpr size_t align = sizeof(void *) > size_t(max_packet_size)
         ? sizeof(void *) : max_packet_size;
-    ENOKI_TRACK_ALLOC
 
     void *ptr;
     #if defined(ENOKI_USE_MEMKIND)
@@ -80,6 +79,7 @@ inline ENOKI_MALLOC void *realloc(void *cur, size_t size) {
         }
     #endif
 
+    ENOKI_TRACK_REALLOC
     if (!ptr && size != 0)
         throw std::bad_alloc();
 

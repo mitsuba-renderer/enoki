@@ -17,21 +17,17 @@
 
 NAMESPACE_BEGIN(enoki)
 
-NAMESPACE_BEGIN(detail)
-
-NAMESPACE_END(detail)
-
 #define ENOKI_ROUTE_UNARY(name, func)                                          \
     /* Case 1: use array-specific implementation of operation */               \
     template <typename T,                                                      \
-              std::enable_if_t<is_static_array<T>::value &&                    \
+              std::enable_if_t<is_array<T>::value &&                           \
                                std::is_same<expr_t<T>, T>::value, int> = 0>    \
     ENOKI_INLINE auto name(const T &a) {                                       \
         return a.derived().func##_();                                          \
     }                                                                          \
     /* Case 2: broadcast/evaluate input arrays and try again */                \
     template <typename T,                                                      \
-              std::enable_if_t<is_static_array<T>::value &&                    \
+              std::enable_if_t<is_array<T>::value &&                           \
                                !std::is_same<expr_t<T>, T>::value, int> = 0>   \
     ENOKI_INLINE auto name(const T &a) {                                       \
         return name((expr_t<T>) a);                                            \
@@ -49,14 +45,14 @@ NAMESPACE_END(detail)
 #define ENOKI_ROUTE_UNARY_IMM(name, func)                                      \
     /* Case 1: use array-specific implementation of operation */               \
     template <size_t Imm, typename T,                                          \
-              std::enable_if_t<is_static_array<T>::value &&                    \
+              std::enable_if_t<is_array<T>::value &&                           \
                                std::is_same<expr_t<T>, T>::value, int> = 0>    \
     ENOKI_INLINE auto name(const T &a) {                                       \
         return a.template func##_<Imm>();                                      \
     }                                                                          \
     /* Case 2: broadcast/evaluate input arrays and try again */                \
     template <size_t Imm, typename T,                                          \
-              std::enable_if_t<is_static_array<T>::value &&                    \
+              std::enable_if_t<is_array<T>::value &&                           \
                                !std::is_same<expr_t<T>, T>::value, int> = 0>   \
     ENOKI_INLINE auto name(const T &a) {                                       \
         return name<Imm>((expr_t<T>) a);                                       \
@@ -73,7 +69,7 @@ NAMESPACE_END(detail)
 #define ENOKI_ROUTE_BINARY(name, func)                                         \
     /* Case 1: use array-specific implementation of operation */               \
     template <typename T,                                                      \
-              std::enable_if_t<is_static_array<T>::value &&                    \
+              std::enable_if_t<is_array<T>::value &&                           \
                                std::is_same<expr_t<T>, T>::value, int> = 0>    \
     ENOKI_INLINE auto name(const T &a1, const T &a2) {                         \
         return a1.derived().func##_(a2.derived());                             \
@@ -101,7 +97,7 @@ NAMESPACE_END(detail)
 #define ENOKI_ROUTE_BINARY_BIT(name, func)                                     \
     /* Case 1: use array-specific implementation of operation */               \
     template <typename T,                                                      \
-              std::enable_if_t<is_static_array<T>::value &&                    \
+              std::enable_if_t<is_array<T>::value &&                           \
                                std::is_same<expr_t<T>, T>::value, int> = 0>    \
     ENOKI_INLINE auto name(const T &a1, const T &a2) {                         \
         return a1.derived().func##_(a2.derived());                             \
@@ -118,7 +114,7 @@ NAMESPACE_END(detail)
     }                                                                          \
     /* Case 2: broadcast/evaluate input arrays and try again */                \
     template <typename T1, typename T2,                                        \
-              std::enable_if_t<is_static_array<T1>::value &&                   \
+              std::enable_if_t<is_array<T1>::value &&                          \
                                is_mask<T2>::value, int> = 0>                   \
     ENOKI_INLINE auto name(const T1 &a1, const T2 &a2) {                       \
         return a1.derived().func##_(mask_t<expr_t<T1>>(a2));                   \
@@ -127,14 +123,14 @@ NAMESPACE_END(detail)
 #define ENOKI_ROUTE_SHIFT(name, func)                                          \
     /* Case 1: use array-specific implementation of operation */               \
     template <typename T,                                                      \
-              std::enable_if_t<is_static_array<T>::value &&                    \
+              std::enable_if_t<is_array<T>::value &&                           \
                                std::is_same<expr_t<T>, T>::value, int> = 0>    \
     ENOKI_INLINE auto name(const T &a1, const T &a2) {                         \
         return a1.derived().func##_(a2.derived());                             \
     }                                                                          \
     /* Case 2: broadcast/evaluate input arrays and try again */                \
     template <typename T1, typename T2,                                        \
-              std::enable_if_t<is_static_array<T1>::value, int> = 0>           \
+              std::enable_if_t<is_array<T1>::value, int> = 0>                  \
     ENOKI_INLINE auto name(const T1 &a1, const T2 &a2) {                       \
         using Output = expr_t<T1, T2>;                                         \
         return name((detail::ref_cast_t<T1, Output>) a1,                       \
@@ -144,7 +140,7 @@ NAMESPACE_END(detail)
 #define ENOKI_ROUTE_TERNARY(name, func)                                        \
     /* Case 1: use array-specific implementation of operation */               \
     template <typename T,                                                      \
-              std::enable_if_t<is_static_array<T>::value &&                    \
+              std::enable_if_t<is_array<T>::value &&                           \
                                std::is_same<expr_t<T>, T>::value, int> = 0>    \
     ENOKI_INLINE auto name(const T &a1, const T &a2, const T &a3) {            \
         return a1.derived().func##_(a2.derived(), a3.derived());               \
@@ -162,7 +158,7 @@ NAMESPACE_END(detail)
 
 /// Macro for compound assignment operators (operator+=, etc.)
 #define ENOKI_ROUTE_COMPOUND_OPERATOR(op)                                      \
-    template <typename T1, enable_if_static_array_t<T1> = 0, typename T2>      \
+    template <typename T1, enable_if_array_t<T1> = 0, typename T2>             \
     ENOKI_INLINE T1 &operator op##=(T1 &a1, const T2 &a2) {                    \
         a1 = a1 op a2;                                                         \
         return a1;                                                             \
@@ -229,8 +225,6 @@ ENOKI_ROUTE_TERNARY(fmaddsub, fmaddsub)
 ENOKI_ROUTE_UNARY_SCALAR(sincos,  sincos,  std::make_pair(std::sin(a),  std::cos(a)))
 ENOKI_ROUTE_UNARY_SCALAR(sincosh, sincosh, std::make_pair(std::sinh(a), std::cosh(a)))
 
-ENOKI_ROUTE_UNARY_SCALAR(round, round, std::rint(a))
-
 ENOKI_ROUTE_UNARY(popcnt, popcnt)
 ENOKI_ROUTE_UNARY(lzcnt, lzcnt)
 ENOKI_ROUTE_UNARY(tzcnt, tzcnt)
@@ -256,7 +250,8 @@ ENOKI_ROUTE_UNARY_SCALAR(hprod_nested,  hprod_nested,  a)
 ENOKI_ROUTE_UNARY_SCALAR(sqrt,  sqrt,  std::sqrt(a))
 ENOKI_ROUTE_UNARY_SCALAR(floor, floor, std::floor(a))
 ENOKI_ROUTE_UNARY_SCALAR(ceil,  ceil,  std::ceil(a))
-ENOKI_ROUTE_UNARY_SCALAR(rint,  rint,  std::rint(a))
+ENOKI_ROUTE_UNARY_SCALAR(round, round, std::rint(a))
+
 ENOKI_ROUTE_UNARY_SCALAR(log,   log,   std::log(a))
 
 ENOKI_ROUTE_UNARY_SCALAR(sin,   sin,   std::sin(a))
@@ -297,19 +292,19 @@ ENOKI_INLINE std::pair<Arg, Arg> frexp(const Arg &a) {
 
 ENOKI_ROUTE_UNARY(frexp, frexp)
 
-template <typename T, std::enable_if_t<!is_static_array<T>::value && std::is_signed<T>::value, int> = 0>
+template <typename T, std::enable_if_t<!is_array<T>::value && std::is_signed<T>::value, int> = 0>
 ENOKI_INLINE T abs(const T &a) {
     return std::abs(a);
 }
 
-template <typename T, std::enable_if_t<!is_static_array<T>::value && std::is_unsigned<T>::value, int> = 0>
+template <typename T, std::enable_if_t<!is_array<T>::value && std::is_unsigned<T>::value, int> = 0>
 ENOKI_INLINE T abs(const T &a) {
     return a;
 }
 
 /* select(): case 1: use array-specific implementation of operation */
 template <typename T,
-          std::enable_if_t<is_static_array<T>::value &&
+          std::enable_if_t<is_array<T>::value &&
                            std::is_same<expr_t<T>, T>::value, int> = 0>
 ENOKI_INLINE auto select(mask_t<T> m, const T &t, const T &f) {
     return T::Derived::select_(m.derived(), t.derived(), f.derived());
@@ -320,7 +315,7 @@ template <typename T1, typename T2, typename T3,
           typename Void = detail::extract_array_t<T1, T2, T3>,
           std::enable_if_t<std::is_void<Void>::value, int> = 0>
 ENOKI_INLINE auto select(const T1 &m, const T2 &t, const T3 &f) {
-    using T = decltype(t + f);
+    using T = expr_t<T2, T3>;
     return (bool) m ? (T) t : (T) f;
 }
 
@@ -336,14 +331,14 @@ ENOKI_INLINE auto select(const T1 &m, const T2 &t, const T3 &f) {
 }
 
 template <typename Target, typename Array,
-          std::enable_if_t<is_static_array<Target>::value &&
+          std::enable_if_t<is_array<Target>::value &&
                            !std::is_same<Array, Target>::value, int> = 0>
 ENOKI_INLINE Target reinterpret_array(const Array &a) {
     return Target(a, detail::reinterpret_flag());
 }
 
 template <typename Target, typename Array,
-          std::enable_if_t<is_static_array<Target>::value &&
+          std::enable_if_t<is_array<Target>::value &&
                            std::is_same<Array, Target>::value, int> = 0>
 ENOKI_INLINE Target reinterpret_array(const Array &a) {
     return a;
@@ -432,27 +427,23 @@ ENOKI_INLINE auto rol(const Array &a, size_t value) {
 }
 
 template <typename T,
-          std::enable_if_t<is_static_array<T>::value &&
-                           std::is_same<expr_t<T>, T>::value, int> = 0>
+          std::enable_if_t<is_array<T>::value && std::is_same<expr_t<T>, T>::value, int> = 0>
 ENOKI_INLINE auto operator<<(const T &a, size_t value) {
     return a.derived().sl_(value);
 }
 template <typename T,
-          std::enable_if_t<is_static_array<T>::value &&
-                           !std::is_same<expr_t<T>, T>::value, int> = 0>
+          std::enable_if_t<is_array<T>::value && !std::is_same<expr_t<T>, T>::value, int> = 0>
 ENOKI_INLINE auto operator<<(const T &a, size_t value) {
     return operator<<((expr_t<T>) a, value);
 }
 
 template <typename T,
-          std::enable_if_t<is_static_array<T>::value &&
-                           std::is_same<expr_t<T>, T>::value, int> = 0>
+          std::enable_if_t<is_array<T>::value && std::is_same<expr_t<T>, T>::value, int> = 0>
 ENOKI_INLINE auto operator>>(const T &a, size_t value) {
     return a.derived().sr_(value);
 }
 template <typename T,
-          std::enable_if_t<is_static_array<T>::value &&
-                           !std::is_same<expr_t<T>, T>::value, int> = 0>
+          std::enable_if_t<is_array<T>::value && !std::is_same<expr_t<T>, T>::value, int> = 0>
 ENOKI_INLINE auto operator>>(const T &a, size_t value) {
     return operator>>((expr_t<T>) a, value);
 }
@@ -470,14 +461,12 @@ ENOKI_ROUTE_BINARY(ror, rorv)
 ENOKI_ROUTE_BINARY(rol, rolv)
 
 template <bool = false, typename T,
-          std::enable_if_t<is_static_array<T>::value &&
-                           std::is_same<expr_t<T>, T>::value, int> = 0>
+          std::enable_if_t<is_array<T>::value && std::is_same<expr_t<T>, T>::value, int> = 0>
 ENOKI_INLINE auto rcp(const T &a) {
     return a.derived().rcp_();
 }
 template <bool = false, typename T,
-          std::enable_if_t<is_static_array<T>::value &&
-                           !std::is_same<expr_t<T>, T>::value, int> = 0>
+          std::enable_if_t<is_array<T>::value && !std::is_same<expr_t<T>, T>::value, int> = 0>
 ENOKI_INLINE auto rcp(const T &a) {
     return rcp((expr_t<T>) a);
 }
@@ -554,14 +543,12 @@ ENOKI_INLINE Arg rcp(const Arg &a) {
 }
 
 template <bool = false, typename T,
-          std::enable_if_t<is_static_array<T>::value &&
-                           std::is_same<expr_t<T>, T>::value, int> = 0>
+          std::enable_if_t<is_array<T>::value && std::is_same<expr_t<T>, T>::value, int> = 0>
 ENOKI_INLINE auto rsqrt(const T &a) {
     return a.derived().rsqrt_();
 }
 template <bool = false, typename T,
-          std::enable_if_t<is_static_array<T>::value &&
-                           !std::is_same<expr_t<T>, T>::value, int> = 0>
+          std::enable_if_t<is_array<T>::value && !std::is_same<expr_t<T>, T>::value, int> = 0>
 ENOKI_INLINE auto rsqrt(const T &a) {
     return rsqrt((expr_t<T>) a);
 }
@@ -643,14 +630,12 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
 }
 
 template <bool = false, typename T,
-          std::enable_if_t<is_static_array<T>::value &&
-                           std::is_same<expr_t<T>, T>::value, int> = 0>
+          std::enable_if_t<is_array<T>::value && std::is_same<expr_t<T>, T>::value, int> = 0>
 ENOKI_INLINE auto exp(const T &a) {
     return a.derived().exp_();
 }
 template <bool = false, typename T,
-          std::enable_if_t<is_static_array<T>::value &&
-                           !std::is_same<expr_t<T>, T>::value, int> = 0>
+          std::enable_if_t<is_array<T>::value && !std::is_same<expr_t<T>, T>::value, int> = 0>
 ENOKI_INLINE auto exp(const T &a) {
     return exp((expr_t<T>) a);
 }
@@ -670,19 +655,16 @@ ENOKI_INLINE Arg exp(const Arg &a) {
 
 /* operator/, operator%: case 1: use array-specific implementation of operation */
 template <typename T,
-          std::enable_if_t<is_static_array<T>::value &&
-                           std::is_same<expr_t<T>, T>::value, int> = 0>
+          std::enable_if_t<is_array<T>::value && std::is_same<expr_t<T>, T>::value, int> = 0>
 ENOKI_INLINE auto operator/(const T &a1, const T &a2) {
     return a1.derived().div_(a2.derived());
 }
 
 template <typename T,
-          std::enable_if_t<is_static_array<T>::value &&
-                           std::is_same<expr_t<T>, T>::value, int> = 0>
-ENOKI_INLINE auto operator$(const T &a1, const T &a2) {
+          std::enable_if_t<is_array<T>::value && std::is_same<expr_t<T>, T>::value, int> = 0>
+ENOKI_INLINE auto operator%(const T &a1, const T &a2) {
     return a1.derived().mod_(a2.derived());
 }
-
 
 /* operator/, operator%: case 2: broadcast/evaluate input arrays and try again */
 template <typename T1, typename T2,

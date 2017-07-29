@@ -34,25 +34,58 @@ vectorizes using 4-wide SSE arithmetic.
 
 .. note::
 
-    Perhaps somewhat suprisingly, :cpp:class:`enoki::DynamicArray` *cannot* be
-    used for arithmetic operations. For instance, there is no ``operator+`` to
-    add two :cpp:class:`enoki::DynamicArray` instances. This is intentional.
+    Perhaps somewhat suprisingly, a :cpp:class:`enoki::DynamicArray` instance
+    *should never* be part of an arithmetic expression. For instance, the
+    following will compile and yield the expected result, but this style of
+    using dynamic arrays is *strongly* disouraged.
 
-    Efficient implementation of operators for dynamic memory regions generally
-    involves a technique named `expression templates
-    <https://en.wikipedia.org/wiki/Expression_templates>`_ that is used in
-    libraries such as `Eigen <https://http://eigen.tuxfamily.org>`_. However,
-    pushed to the scale of full programs, this approach unfortunately tends to
-    produce intermediate code with an extremely large number of common
-    subexpressions that exceeds the capabilities of the *common subexpression
-    elimination* (CSE) stage of current compilers. The first version of Enoki
-    in fact used expression templates, and it was due to the difficulties with
-    them that an alternative was developed.
+    .. code-block:: cpp
+        :emphasize-lines: 4
+
+        FloatX in1 = ... , in2 = ... , in3 = ... , in4 = ...;
+
+        /* Add the dynamic arrays using operator+() */
+        FloatX out = in1 + in2 + in3 + in4;
+
+    Why that is the case requires a longer explanation on the design of this
+    library.
+
+    At a high level, there are two "standard" ways of implementing arithmetic
+    for dynamically allocated memory regions.
+
+    1. A common approach (used e.g. by most ``std::valarray`` implementations)
+       is to evaluate partial expressions in place, creating a large number
+       of temporaries in the process.
+
+       This is unsatisfactory since the amount of computation is very small
+       compared to the resulting memory traffic.
+
+    2. The second is a technique named `expression templates
+       <https://en.wikipedia.org/wiki/Expression_templates>`_ that is used
+       in libraries such as `Eigen <https://eigen.tuxfamily.org>`_.
+       Expression templates construct complex graphs describing the inputs
+       and operations of a mathematical expression using C++ templates.
+       The underlying motivation is to avoid numerous memory allocations
+       for temporaries by postponing evaluation until the point where the
+       expression template is assigned to a storage container.
+
+       Unfortunately, pushed to the scale of entire programs, this approach
+       tends to produce intermediate code with an extremely large number of
+       common subexpressions that exceeds the capabilities of the *common
+       subexpression elimination* (CSE) stage of current compilers. The
+       first version of Enoki in fact used expression templates, and it was
+       due to the difficulties with them that an alternative was developed.
 
     The key idea of vectorizing over dynamic Enoki arrays is to iterate over
     packets (i.e. static arrays) that represent a sliding window into the
     dynamic array's contents. Packets, in turn, are easily supported using the
-    tools discussed in the previous sections.
+    tools discussed in the previous sections. Enoki provides a powerful
+    operation named :cpp:func:`enoki::vectorize`, discussed later, that
+    implements this sliding window technique automatically.
+
+    That said, arithmetic operations like ``operator+`` *are* also implemented
+    for dynamic arrays, and they are realized using approach 1 of the above
+    list (i.e. with copious amounts of memory allocation for temporaries).
 
 Allocating dynamic arrays
 -------------------------

@@ -87,11 +87,22 @@
 
 /* The following macro is used by the test suite to detect
    unimplemented methods in vectorized backends */
+
 #if !defined(ENOKI_TRACK_SCALAR)
 #  define ENOKI_TRACK_SCALAR
 #endif
+
+#if defined(ENOKI_ALLOC_VERBOSE)
+#  define ENOKI_TRACK_ALLOC   printf("Enoki: %p: alloc(%llu)\n", ptr, (uint64_t) size);
+#  define ENOKI_TRACK_REALLOC printf("Enoki: %p -> %p: realloc(%llu)\n", cur, ptr, (uint64_t) size);
+#  define ENOKI_TRACK_DEALLOC printf("Enoki: %p: dealloc()\n", ptr);
+#endif
+
 #if !defined(ENOKI_TRACK_ALLOC)
 #  define ENOKI_TRACK_ALLOC
+#endif
+#if !defined(ENOKI_TRACK_REALLOC)
+#  define ENOKI_TRACK_REALLOC
 #endif
 #if !defined(ENOKI_TRACK_DEALLOC)
 #  define ENOKI_TRACK_DEALLOC

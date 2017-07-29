@@ -168,6 +168,7 @@ template <typename... Args> struct extract_array;
 template <typename... Args> struct expr;
 template <typename     Arg, typename SFINAE = int> struct mask;
 template <typename     Arg, typename SFINAE = int> struct type_;
+template <typename     Arg, typename SFINAE = int> struct packet_;
 template <typename     Arg, typename SFINAE = int> struct scalar;
 struct KMaskBit;
 
@@ -247,12 +248,16 @@ template <typename T>
 using enable_if_dynamic_array_t = std::enable_if_t<is_dynamic_array<T>::value, int>;
 
 /// Determine the nesting level of an array
-template <typename T, typename = int> struct array_depth {
+template <typename T, int Static = 1, int Dynamic = 1, typename = int> struct array_depth {
     static constexpr size_t value = 0;
 };
 
-template <typename T> struct array_depth<T, enable_if_array_t<T>> {
-    static constexpr size_t value = array_depth<typename std::decay_t<T>::Value>::value + 1;
+template <typename T, int Static, int Dynamic> struct array_depth<T, Static, Dynamic, enable_if_static_array_t<T>> {
+    static constexpr size_t value = array_depth<typename std::decay_t<T>::Value>::value + Static;
+};
+
+template <typename T, int Static, int Dynamic> struct array_depth<T, Static, Dynamic, enable_if_dynamic_array_t<T>> {
+    static constexpr size_t value = array_depth<typename std::decay_t<T>::Value>::value + Dynamic;
 };
 
 /// Determine the size of an array
@@ -266,7 +271,8 @@ template <typename T> struct array_size<T, enable_if_array_t<T>> {
 
 template <typename... Args> using expr_t   = typename detail::expr<Args...>::type;
 template <typename     Arg> using mask_t   = typename detail::mask<Arg>::type;
-template <typename     Arg> using value_t   = typename detail::type_<Arg>::type;
+template <typename     Arg> using value_t  = typename detail::type_<Arg>::type;
+template <typename     Arg> using packet_t = typename detail::packet_<Arg>::type;
 template <typename     Arg> using scalar_t = typename detail::scalar<Arg>::type;
 
 NAMESPACE_BEGIN(detail)
@@ -281,8 +287,8 @@ private:
     using T0 = Arg;
     using T1 = extract_array_t<Args...>;
 
-    static constexpr size_t D0 = array_depth<T0>::value;
-    static constexpr size_t D1 = array_depth<T1>::value;
+    static constexpr size_t D0 = array_depth<T0, 1, 2>::value;
+    static constexpr size_t D1 = array_depth<T1, 1, 2>::value;
 
 public:
     using type = std::conditional_t<(D1 > D0 || D0 == 0), T1, T0>;
@@ -313,7 +319,7 @@ struct expr_1<void, T> { using type = std::decay_t<T>; };
 template <typename Array, typename Arg, typename... Args>
 struct expr_n {
 private:
-    using Value = expr_t<value_t<Arg>, value_t<Args>...>;
+    using Value = expr_t<packet_t<Arg>, packet_t<Args>...>;
 public:
     using type  = typename std::decay_t<Array>::template ReplaceType<Value>;
 };
@@ -344,6 +350,17 @@ template <typename T, typename> struct type_ { using type = T; };
 
 template <typename T> struct type_<T, enable_if_array_t<T>> {
     using type = typename std::decay_t<T>::Type;
+};
+
+/// Type trait to access the packet/component type of an array
+template <typename T, typename> struct packet_ { using type = T; };
+
+template <typename T> struct packet_<T, enable_if_static_array_t<T>> {
+    using type = typename std::decay_t<T>::Type;
+};
+
+template <typename T> struct packet_<T, enable_if_dynamic_array_t<T>> {
+    using type = typename std::decay_t<T>::Packet;
 };
 
 /// Type trait to access the base scalar type underlying a potentially nested array

@@ -185,7 +185,30 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
 
     DynamicArrayImpl() { }
 
-    DynamicArrayImpl(const DynamicArrayImpl &other) { operator=(other); }
+    DynamicArrayImpl(const DynamicArrayImpl &other) {
+        operator=(other);
+    }
+
+    template <typename Packet2, typename Derived2, typename T = Derived,
+              std::enable_if_t<!T::IsMask, int> = 0>
+    DynamicArrayImpl(const DynamicArrayImpl<Packet2, Derived2> &other) {
+        operator=(other);
+    }
+
+    template <typename Packet2, typename Derived2, typename T = Derived,
+              std::enable_if_t<T::IsMask, int> = 0>
+    DynamicArrayImpl(const DynamicArrayImpl<Packet2, Derived2> &other)
+        : DynamicArrayImpl(other, detail::reinterpret_flag()) { }
+
+    template <typename Packet2, typename Derived2>
+    DynamicArrayImpl(const DynamicArrayImpl<Packet2, Derived2> &other,
+                     detail::reinterpret_flag) {
+        static_assert(Packet2::Size == Packet::Size, "Packet sizes must match!");
+        resize_(other.size());
+
+        for (size_t i = 0; i<other.packets_(); ++i)
+            packet_(i) = reinterpret_array<Packet>(other.packet_(i));
+    }
 
     DynamicArrayImpl(Value value, size_t size = 1) {
         resize_(size);
@@ -193,7 +216,8 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     }
 
     DynamicArrayImpl(Value *ptr, size_t size)
-        : m_packets((Packet *) ptr), m_packets_allocated(0), m_size(size) { }
+        : m_packets((Packet *) ptr),
+          m_packets_allocated(0), m_size(size) { }
 
     DynamicArrayImpl(DynamicArrayImpl &&other)
         :  m_packets(other.m_packets),
@@ -207,6 +231,267 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
         /* Don't deallocate mapped memory */
         if (m_packets_allocated)
             dealloc(m_packets);
+    }
+
+    //! @}
+    // -----------------------------------------------------------------------
+
+    // -----------------------------------------------------------------------
+    //! @{ \name Dynamic array operations
+    // -----------------------------------------------------------------------
+
+    #define ENOKI_UNARY_OPERATION(name, Return, op)                          \
+            Return name##_() const {                                         \
+                Return result;                                               \
+                result.resize_(m_size);                                      \
+                for (size_t i0 = 0; i0 < packets_(); ++i0) {                 \
+                    Packet a = packet_(i0);                                  \
+                    result.packet_(i0) = op;                                 \
+                }                                                            \
+                return result;                                               \
+            }
+
+    #define ENOKI_UNARY_OPERATION_IMM(name, Return, op)                      \
+            template <size_t Imm> Return name##_() const {                   \
+                Return result;                                               \
+                result.resize_(m_size);                                      \
+                for (size_t i0 = 0; i0 < packets_(); ++i0) {                 \
+                    Packet a = packet_(i0);                                  \
+                    result.packet_(i0) = op;                                 \
+                }                                                            \
+                return result;                                               \
+            }
+
+    #define ENOKI_UNARY_OPERATION_PAIR(name, Return, op)                     \
+        std::pair<Return, Return> name##_() const {                          \
+                std::pair<Return, Return> result;                            \
+                result.first.resize_(m_size);                                \
+                result.second.resize_(m_size);                               \
+                for (size_t i0 = 0; i0 < packets_(); ++i0) {                 \
+                    Packet a = packet_(i0);                                  \
+                    std::tie(result.first.packet_(i0),                       \
+                             result.second.packet_(i0)) = op;                \
+                }                                                            \
+                return result;                                               \
+            }
+
+    #define ENOKI_BINARY_OPERATION(name, Return, op)                         \
+            Return name##_(const Derived &o2) const {                        \
+                Return result;                                               \
+                result.resize_(std::max(m_size, o2.m_size));                 \
+                size_t i1_inc =    m_size == 1 ? 0 : 1,                      \
+                       i2_inc = o2.m_size == 1 ? 0 : 1;                      \
+                for (size_t i0 = 0, i1 = 0, i2 = 0; i0 < result.packets_();  \
+                     ++i0, i1 += i1_inc, i2 += i2_inc) {                     \
+                    Packet a1 = packet_(i1), a2 = o2.packet_(i2);            \
+                    result.packet_(i0) = op;                                 \
+                }                                                            \
+                return result;                                               \
+            }
+
+    #define ENOKI_TERNARY_OPERATION(name, Return, op)                        \
+            Return name##_(const Derived &o2, const Derived &o3) const {     \
+                Return result;                                               \
+                result.resize_(std::max(std::max(m_size, o2.m_size),         \
+                               o3.m_size));                                  \
+                size_t i1_inc =    m_size == 1 ? 0 : 1,                      \
+                       i2_inc = o2.m_size == 1 ? 0 : 1,                      \
+                       i3_inc = o3.m_size == 1 ? 0 : 1;                      \
+                for (size_t i0 = 0, i1 = 0, i2 = 0, i3 = 0;                  \
+                      i0 < result.packets_(); ++i0,                          \
+                      i1 += i1_inc, i2 += i2_inc, i3 += i3_inc) {            \
+                    Packet a1 = packet_(i1), a2 = o2.packet_(i2),            \
+                           a3 = o3.packet_(i3);                              \
+                    result.packet_(i0) = op;                                 \
+                }                                                            \
+                return result;                                               \
+            }
+
+    ENOKI_BINARY_OPERATION(add, Derived, a1 + a2)
+    ENOKI_BINARY_OPERATION(sub, Derived, a1 - a2)
+    ENOKI_BINARY_OPERATION(mul, Derived, a1 * a2)
+    ENOKI_BINARY_OPERATION(div, Derived, a1 / a2)
+    ENOKI_BINARY_OPERATION(mod, Derived, a1 % a2)
+    ENOKI_BINARY_OPERATION(srl, Derived, a1 << a2)
+    ENOKI_BINARY_OPERATION(srv, Derived, a1 >> a2)
+
+    ENOKI_BINARY_OPERATION(and, Derived, a1 & a2)
+    ENOKI_BINARY_OPERATION(or,  Derived, a1 | a2)
+    ENOKI_BINARY_OPERATION(xor, Derived, a1 ^ a2)
+
+    ENOKI_UNARY_OPERATION(not, Derived, ~a);
+    ENOKI_UNARY_OPERATION(neg, Derived, -a);
+
+    ENOKI_BINARY_OPERATION(eq,  Mask,  eq(a1, a2))
+    ENOKI_BINARY_OPERATION(neq, Mask, neq(a1, a2))
+    ENOKI_BINARY_OPERATION(gt,  Mask, a1 > a2)
+    ENOKI_BINARY_OPERATION(ge,  Mask, a1 >= a2)
+    ENOKI_BINARY_OPERATION(lt,  Mask, a1 < a2)
+    ENOKI_BINARY_OPERATION(le,  Mask, a1 <= a2)
+
+    ENOKI_TERNARY_OPERATION(fmadd,    Derived, fmadd(a1, a2, a3))
+    ENOKI_TERNARY_OPERATION(fmsub,    Derived, fmsub(a1, a2, a3))
+    ENOKI_TERNARY_OPERATION(fnmadd,   Derived, fnmadd(a1, a2, a3))
+    ENOKI_TERNARY_OPERATION(fnmsub,   Derived, fnmsub(a1, a2, a3))
+    ENOKI_TERNARY_OPERATION(fmsubadd, Derived, fmsubadd(a1, a2, a3))
+    ENOKI_TERNARY_OPERATION(fmaddsub, Derived, fmaddsub(a1, a2, a3))
+
+    ENOKI_BINARY_OPERATION(min, Derived, min(a1, a2))
+    ENOKI_BINARY_OPERATION(max, Derived, max(a1, a2))
+    ENOKI_BINARY_OPERATION(ldexp, Derived, ldexp(a1, a2))
+
+    ENOKI_UNARY_OPERATION(abs,   Derived, abs(a));
+    ENOKI_UNARY_OPERATION(ceil,  Derived, ceil(a));
+    ENOKI_UNARY_OPERATION(floor, Derived, floor(a));
+    ENOKI_UNARY_OPERATION(sqrt,  Derived, sqrt(a));
+    ENOKI_UNARY_OPERATION(round, Derived, round(a));
+
+    ENOKI_UNARY_OPERATION(rsqrt, Derived, rsqrt(a));
+    ENOKI_UNARY_OPERATION(rcp,   Derived, rcp(a));
+
+    ENOKI_UNARY_OPERATION(isnan,    Mask, isnan(a));
+    ENOKI_UNARY_OPERATION(isinf,    Mask, isinf(a));
+    ENOKI_UNARY_OPERATION(isfinite, Mask, isfinite(a));
+
+    ENOKI_UNARY_OPERATION(exp,   Derived, exp(a));
+    ENOKI_UNARY_OPERATION(log,   Derived, log(a));
+
+    ENOKI_UNARY_OPERATION(sin,   Derived, sin(a));
+    ENOKI_UNARY_OPERATION(cos,   Derived, cos(a));
+    ENOKI_UNARY_OPERATION(tan,   Derived, tan(a));
+    ENOKI_UNARY_OPERATION(csc,   Derived, csc(a));
+    ENOKI_UNARY_OPERATION(sec,   Derived, sec(a));
+    ENOKI_UNARY_OPERATION(cot,   Derived, cot(a));
+    ENOKI_UNARY_OPERATION(asin,  Derived, asin(a));
+    ENOKI_UNARY_OPERATION(acos,  Derived, acos(a));
+    ENOKI_UNARY_OPERATION(atan,  Derived, atan(a));
+
+    ENOKI_UNARY_OPERATION(popcnt, Derived, popcnt(a));
+    ENOKI_UNARY_OPERATION(lzcnt,  Derived, lzcnt(a));
+    ENOKI_UNARY_OPERATION(tzcnt,  Derived, tzcnt(a));
+
+    ENOKI_UNARY_OPERATION(sinh,  Derived, sinh(a));
+    ENOKI_UNARY_OPERATION(cosh,  Derived, cosh(a));
+    ENOKI_UNARY_OPERATION(tanh,  Derived, tanh(a));
+    ENOKI_UNARY_OPERATION(csch,  Derived, csch(a));
+    ENOKI_UNARY_OPERATION(sech,  Derived, sech(a));
+    ENOKI_UNARY_OPERATION(coth,  Derived, coth(a));
+    ENOKI_UNARY_OPERATION(asinh, Derived, asinh(a));
+    ENOKI_UNARY_OPERATION(acosh, Derived, acosh(a));
+    ENOKI_UNARY_OPERATION(atanh, Derived, atanh(a));
+
+    ENOKI_UNARY_OPERATION_IMM(sli, Derived, sli<Imm>(a))
+    ENOKI_UNARY_OPERATION_IMM(sri, Derived, sri<Imm>(a))
+    ENOKI_UNARY_OPERATION_IMM(rori, Derived, rori<Imm>(a))
+    ENOKI_UNARY_OPERATION_IMM(roli, Derived, roli<Imm>(a))
+
+    ENOKI_UNARY_OPERATION_PAIR(frexp, Derived, frexp(a));
+    ENOKI_UNARY_OPERATION_PAIR(sincos, Derived, sincos(a));
+    ENOKI_UNARY_OPERATION_PAIR(sincosh, Derived, sincosh(a));
+
+    #undef ENOKI_UNARY_OPERATION
+    #undef ENOKI_UNARY_OPERATION_PAIR
+    #undef ENOKI_UNARY_OPERATION_IMM
+    #undef ENOKI_BINARY_OPERATION
+    #undef ENOKI_TERNARY_OPERATION
+
+    static Derived select_(const Mask &mask, const Derived &t, const Derived &f) {
+        Derived result;
+        result.resize_(std::max(std::max(slices(mask), t.m_size), f.m_size));
+        size_t i1_inc = slices(mask) == 1 ? 0 : 1,
+               i2_inc = t.m_size == 1 ? 0 : 1,
+               i3_inc = f.m_size == 1 ? 0 : 1;
+        for (size_t i0 = 0, i1 = 0, i2 = 0, i3 = 0; i0 < result.packets_();
+             ++i0, i1 += i1_inc, i2 += i2_inc, i3 += i3_inc) {
+            result.packet_(i0) = select(mask.packet_(i1), t.packet_(i2), f.packet_(i3));
+        }
+        return result;
+    }
+
+    Value hsum_() const {
+        Packet packet = zero<Packet>();
+        size_t count = packets_();
+        for (size_t i = 0; i < count - 1; ++i)
+            packet += packet_(i);
+        Value result = hsum(packet);
+        for (size_t i = (count - 1) * PacketSize; i < m_size; ++i)
+            result += coeff(i);
+        return result;
+    }
+
+    Value hprod_() const {
+        Packet packet(1.f);
+        size_t count = packets_();
+        for (size_t i = 0; i < count - 1; ++i)
+            packet *= packet_(i);
+        Value result = hprod(packet);
+        for (size_t i = (count - 1) * PacketSize; i < m_size; ++i)
+            result *= coeff(i);
+        return result;
+    }
+
+    Value hmin_() const {
+        Packet packet = zero<Packet>();
+        size_t count = packets_();
+        for (size_t i = 0; i < count - 1; ++i)
+            packet = min(packet, packet_(i));
+        Value result = hmin(packet);
+        for (size_t i = (count - 1) * PacketSize; i < m_size; ++i)
+            result = std::min(result, coeff(i));
+        return result;
+    }
+
+    Value hmax_() const {
+        Packet packet = zero<Packet>();
+        size_t count = packets_();
+        for (size_t i = 0; i < count - 1; ++i)
+            packet = max(packet, packet_(i));
+        Value result = hmax(packet);
+        for (size_t i = (count - 1) * PacketSize; i < m_size; ++i)
+            result = std::max(result, coeff(i));
+        return result;
+    }
+
+    bool any_() const {
+        Packet packet(false);
+        size_t count = packets_();
+        for (size_t i = 0; i < count - 1; ++i)
+            packet |= packet_(i);
+        bool result = any(packet);
+        for (size_t i = (count - 1) * PacketSize; i < m_size; ++i)
+            result |= (bool) coeff(i);
+        return result;
+    }
+
+    bool all_() const {
+        Packet packet(true);
+        size_t count = packets_();
+        for (size_t i = 0; i < count - 1; ++i)
+            packet &= packet_(i);
+        bool result = all(packet);
+        for (size_t i = (count - 1) * PacketSize; i < m_size; ++i)
+            result &= (bool) coeff(i);
+        return result;
+    }
+
+    bool none_() const {
+        Packet packet(false);
+        size_t count = packets_();
+        for (size_t i = 0; i < count - 1; ++i)
+            packet |= packet_(i);
+        bool result = none(packet);
+        for (size_t i = (count - 1) * PacketSize; i < m_size; ++i)
+            result &= !((bool) coeff(i));
+        return result;
+    }
+
+    size_t count_() const {
+        size_t result = 0, count = packets_();
+        for (size_t i = 0; i < count - 1; ++i)
+            result += enoki::count(packet_(i));
+        for (size_t i = (count - 1) * PacketSize; i < m_size; ++i)
+            result += ((bool) coeff(i)) ? 1 : 0;
+        return result;
     }
 
     //! @}
@@ -233,18 +518,46 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     ENOKI_INLINE size_t packets_() const { return (m_size + PacketSize - 1) / PacketSize; }
 
     ENOKI_INLINE Packet &packet_(size_t i) {
+        #if !defined(NDEBUG) && !defined(ENOKI_DISABLE_RANGE_CHECK)
+            if (i >= packets_())
+                throw std::out_of_range(
+                    "DynamicArrayBase: out of range access (tried to access packet " +
+                    std::to_string(i) + " in an array of size " +
+                    std::to_string(packets_()) + ")");
+        #endif
         return ((Packet *) ENOKI_ASSUME_ALIGNED(m_packets))[i];
     }
 
     ENOKI_INLINE const Packet &packet_(size_t i) const {
+        #if !defined(NDEBUG) && !defined(ENOKI_DISABLE_RANGE_CHECK)
+            if (i >= packets_())
+                throw std::out_of_range(
+                    "DynamicArrayBase: out of range access (tried to access packet " +
+                    std::to_string(i) + " in an array of size " +
+                    std::to_string(packets_()) + ")");
+        #endif
         return ((const Packet *) ENOKI_ASSUME_ALIGNED(m_packets))[i];
     }
 
     ENOKI_INLINE Value &slice_(size_t i) {
+        #if !defined(NDEBUG) && !defined(ENOKI_DISABLE_RANGE_CHECK)
+            if (i >= slices_())
+                throw std::out_of_range(
+                    "DynamicArrayBase: out of range access (tried to access slice " +
+                    std::to_string(i) + " in an array of size " +
+                    std::to_string(slices_()) + ")");
+        #endif
         return m_packets[i / PacketSize][i % PacketSize];
     }
 
     ENOKI_INLINE const Value &slice_(size_t i) const {
+        #if !defined(NDEBUG) && !defined(ENOKI_DISABLE_RANGE_CHECK)
+            if (i >= slices_())
+                throw std::out_of_range(
+                    "DynamicArrayBase: out of range access (tried to access slice " +
+                    std::to_string(i) + " in an array of size " +
+                    std::to_string(slices_()) + ")");
+        #endif
         return m_packets[i / PacketSize][i % PacketSize];
     }
 
@@ -348,7 +661,20 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
         return derived();
     }
 
+    template <typename Packet2, typename Derived2>
+    DynamicArrayImpl &operator=(const DynamicArrayImpl<Packet2, Derived2> &other) {
+        static_assert(Packet2::Size == Packet::Size, "Packet sizes must match!");
+        resize_(other.size());
+
+        for (size_t i = 0; i<other.packets_(); ++i)
+            packet_(i) = Packet(other.packet_(i));
+
+        return derived();
+    }
+
     DynamicArrayImpl &operator=(DynamicArrayImpl &&value) {
+        if (m_packets_allocated)
+            dealloc(m_packets);
         m_packets = value.m_packets;
         m_packets_allocated = value.m_packets_allocated;
         m_size = value.m_size;
