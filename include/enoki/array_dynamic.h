@@ -134,7 +134,7 @@ struct DynamicArrayBase : ArrayBase<value_t<Packet_>, Derived_> {
     static constexpr size_t       PacketSize  = Packet::Size;
     static constexpr bool         Approx      = Packet::Approx;
     static constexpr RoundingMode Mode        = Packet::Mode;
-    static constexpr bool IsMask              = Packet::IsMask;
+    static constexpr bool         IsMask      = Packet::IsMask;
 };
 
 template <typename Packet>
@@ -307,6 +307,26 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
                 return result;                                               \
             }
 
+    #define ENOKI_MASKED_OPERATION(name, expr)                               \
+        template <typename T1, typename T2 = Derived>                        \
+        Derived &m##name##_(const T1 &b_, const mask_t<T2> &m) {             \
+            for (size_t i = 0; i < packets_(); ++i) {                        \
+                auto &a = m_packets[i];                                      \
+                const auto &b = packet(b_, i);                               \
+                a[m.packet_(i)] = expr;                                      \
+            }                                                                \
+            return derived();                                                \
+        }
+
+    ENOKI_MASKED_OPERATION(assign, b)
+    ENOKI_MASKED_OPERATION(add, a + b)
+    ENOKI_MASKED_OPERATION(sub, a - b)
+    ENOKI_MASKED_OPERATION(mul, a * b)
+    ENOKI_MASKED_OPERATION(div, a / b)
+    ENOKI_MASKED_OPERATION(or, a | b)
+    ENOKI_MASKED_OPERATION(and, a & b)
+    ENOKI_MASKED_OPERATION(xor, a ^ b)
+
     ENOKI_BINARY_OPERATION(add, Derived, a1 + a2)
     ENOKI_BINARY_OPERATION(sub, Derived, a1 - a2)
     ENOKI_BINARY_OPERATION(mul, Derived, a1 * a2)
@@ -394,6 +414,7 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     #undef ENOKI_UNARY_OPERATION_IMM
     #undef ENOKI_BINARY_OPERATION
     #undef ENOKI_TERNARY_OPERATION
+    #undef ENOKI_MASKED_OPERATION
 
     static Derived select_(const Mask &mask, const Derived &t, const Derived &f) {
         Derived result;
@@ -752,6 +773,12 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
             auto keep_mask = index_sequence<Index>() < Index(remainder);
             store(m_packets + idx, load<Packet>(m_packets + idx) & keep_mask);
         }
+    }
+
+    using Base::operator[];
+    template <typename T = Derived, typename Mask, enable_if_mask_t<Mask> = 0>
+    ENOKI_INLINE detail::MaskedElement<T> operator[](Mask m) {
+        return detail::MaskedElement<T>{ derived(), reinterpret_array<mask_t<Derived>>(m) };
     }
 
     call_support<Packet, Derived_> operator->() const {
