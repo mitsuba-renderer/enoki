@@ -17,7 +17,11 @@ struct Test;
 
 using Int32P = Array<int>;
 using TestP = Array<const Test*, Int32P::Size>;
+
 using TestPMask = mask_t<TestP>;
+
+using Int32X = DynamicArray<Int32P>;
+using TestX = DynamicArray<TestP>;
 
 
 struct Test {
@@ -56,6 +60,16 @@ ENOKI_TEST(test00_call) {
     Int32P ref = index_sequence<Int32P>() + 10;
     ref.coeff(offset) += 10;
     assert(result == ref);
+
+    TestX pointers_x;
+    Int32X index_x;
+    set_slices(pointers_x, TestP::Size);
+    set_slices(index_x, TestP::Size);
+    packet(pointers_x, 0) = pointers;
+    packet(index_x, 0) = index;
+    assert(result == ref);
+    Int32X result_x = pointers_x->func1(index_x);
+    assert(packet(result_x, 0) == ref);
 
     pointers->func2(index);
     assert(index == ref);

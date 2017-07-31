@@ -1072,15 +1072,17 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
     ENOKI_INLINE Type& operator[](size_t i) { return (Type &) Base::operator[](i); }
 };
 
-template <typename T> struct call_support {
-    call_support(T &) { }
+template <typename Packet, typename Storage> struct call_support {
+    call_support(const Storage &) { }
 };
 
-template <typename T> struct call_support_base {
-    using Value = value_t<T>;
-    using Mask = mask_t<T>;
-    call_support_base(const T &self) : self(self) { }
-    const T &self;
+template <typename Packet_, typename Storage_> struct call_support_base {
+    using Packet = Packet_;
+    using Storage = Storage_;
+    using Value = value_t<Packet>;
+    using Mask = mask_t<Packet>;
+    call_support_base(const Storage &self) : self(self) { }
+    const Storage &self;
 
     template <typename Func, typename InputMask, typename... Args,
               typename Result = decltype((std::declval<Value>()->*std::declval<Func>())(
@@ -1092,7 +1094,7 @@ template <typename T> struct call_support_base {
 
         while (any(mask)) {
             Value value    = extract(self, mask);
-            Mask active    = mask & eq(self, T(value));
+            Mask active    = mask & eq(self, Packet(value));
             mask          &= ~active;
             result[active] = (value->*func)(args..., active);
         }
@@ -1110,7 +1112,7 @@ template <typename T> struct call_support_base {
 
         while (any(mask)) {
             Value value = extract(self, mask);
-            Mask active = mask & eq(self, T(value));
+            Mask active = mask & eq(self, Packet(value));
             mask &= ~active;
             result[active] = (value->*func)(active);
         }
@@ -1127,7 +1129,7 @@ template <typename T> struct call_support_base {
 
         while (any(mask)) {
             Value value    = extract(self, mask);
-            Mask active    = mask & eq(self, T(value));
+            Mask active    = mask & eq(self, Packet(value));
             mask          &= ~active;
             (value->*func)(args..., active);
         }
@@ -1144,7 +1146,7 @@ template <typename T> struct call_support_base {
 
         while (any(mask)) {
             Value value    = extract(self, mask);
-            Mask active    = mask & eq(self, T(value));
+            Mask active    = mask & eq(self, Packet(value));
             mask          &= ~active;
             result[active] = (value->*func)(args...);
         }
@@ -1162,7 +1164,7 @@ template <typename T> struct call_support_base {
 
         while (any(mask)) {
             Value value = extract(self, mask);
-            Mask active = mask & eq(self, T(value));
+            Mask active = mask & eq(self, Packet(value));
             mask &= ~active;
             result[active] = (value->*func)();
         }
@@ -1179,7 +1181,7 @@ template <typename T> struct call_support_base {
 
         while (any(mask)) {
             Value value    = extract(self, mask);
-            mask          &= neq(self, T(value));
+            mask          &= neq(self, Packet(value));
             (value->*func)(args...);
         }
     }
@@ -1256,36 +1258,51 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
     ENOKI_INLINE const Type& operator[](size_t i) const { return (Type &) Base::operator[](i); }
     ENOKI_INLINE Type& operator[](size_t i) { return (Type &) Base::operator[](i); }
 
-    call_support<Derived_> operator->() const { return call_support<Derived_>(derived()); }
+    call_support<Derived_, Derived_> operator->() const {
+        return call_support<Derived_, Derived_>(derived());
+    }
 };
 
-#define ENOKI_CALL_SUPPORT_BEGIN(T)                                            \
+#define ENOKI_CALL_SUPPORT_BEGIN(Packet)                                       \
     namespace enoki {                                                          \
-    template <> struct call_support<T> : call_support_base<T> {                \
-        using Base = call_support_base<T>;                                     \
+    template <typename Storage>                                                \
+    struct call_support<Packet, Storage>                                       \
+        : call_support_base<Packet, Storage> {                                 \
+        using Base = call_support_base<Packet, Storage>;                       \
         using Base::Base;                                                      \
         using Base::dispatch_;                                                 \
         using Base::dispatch_scalar_;                                          \
-        using Type = std::remove_pointer_t<Base::Value>;                       \
-        auto operator->() { return this; }
+        using Base::self;                                                      \
+        using Type = std::remove_pointer_t<typename Base::Value>;              \
+        auto operator-> () { return this; }
 
 #define ENOKI_CALL_SUPPORT(name)                                               \
-    template <typename... Args>                                                \
-    ENOKI_INLINE decltype(auto) name(Args &&... args) {                        \
+    template <typename... Args, typename T = Storage,                          \
+              enable_if_static_array_t<T> = 0>                                 \
+    ENOKI_INLINE decltype(auto) name(Args&&... args) {                         \
         constexpr size_t Size = sizeof...(Args) > 0 ? sizeof...(Args) - 1 : 0; \
         return dispatch_(&Type::name, std::make_index_sequence<Size>(),        \
                          std::forward<Args>(args)...);                         \
+    }                                                                          \
+    template <typename... Args, typename T = Storage,                          \
+              enable_if_dynamic_array_t<T> = 0>                                \
+    ENOKI_INLINE decltype(auto) name(Args&&... args) {                         \
+        return vectorize(                                                      \
+            [](auto self_packet, auto&&... args_packet) {                      \
+                return self_packet->name(args_packet...);                      \
+            },                                                                 \
+            self, args...);                                                    \
     }
 
 #define ENOKI_CALL_SUPPORT_SCALAR(name)                                        \
     template <typename... Args>                                                \
-    ENOKI_INLINE decltype(auto) name(Args &&... args) {                        \
+    ENOKI_INLINE decltype(auto) name(Args&&... args) {                         \
         constexpr size_t Size = sizeof...(Args) > 0 ? sizeof...(Args) - 1 : 0; \
         return dispatch_scalar_(&Type::name, std::make_index_sequence<Size>(), \
                                 std::forward<Args>(args)...);                  \
     }
 
-#define ENOKI_CALL_SUPPORT_END(T)                                              \
+#define ENOKI_CALL_SUPPORT_END(Packet)                                         \
         };                                                                     \
     }
 

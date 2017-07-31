@@ -754,6 +754,10 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
         }
     }
 
+    call_support<Packet, Derived_> operator->() const {
+        return call_support<Packet, Derived_>(derived());
+    }
+
 protected:
     Packet *m_packets = nullptr;
     size_t m_packets_allocated = 0;
