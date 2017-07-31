@@ -1118,16 +1118,31 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index, const Mask &mask
 /// Gather operation
 template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
           typename Index, enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<std::is_integral<scalar_t<Index>>::value &&
-                           Index::Size == Array::Size, int> = 0>
+          std::enable_if_t<Index::Size == Array::Size, int> = 0>
 ENOKI_INLINE Array gather(const void *mem, const Index &index) {
     return Array::template gather_<Stride>(mem, index);
 }
 
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
+          typename Index, enable_if_static_array_t<Array> = 0,
+          std::enable_if_t<Array::Size != array_size<Index>::value &&
+                           array_depth<Index>::value != 0, int> = 0>
+ENOKI_INLINE Array gather(const void *mem, const Index &index) {
+    using Offset = enoki::Array<Index, Array::Size>;
+    return Array::template gather_<Stride>(mem, index + index_sequence<Offset>());
+}
+
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
+          typename Index, enable_if_static_array_t<Array> = 0,
+          std::enable_if_t<Array::Size != array_size<Index>::value &&
+                           array_depth<Index>::value == 0, int> = 0>
+ENOKI_INLINE Array gather(const void *mem, const Index &index) {
+    return load_unaligned<Array>((uint8_t *) mem + index * Stride);
+}
+
 /// Gather operation (scalar fallback)
 template <typename Arg, size_t Stride = sizeof(Arg),
-          typename Index, enable_if_not_array_t<Arg> = 0,
-          std::enable_if_t<std::is_integral<Index>::value, int> = 0>
+          typename Index, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg gather(const void *mem, const Index &index) {
     return *((const Arg *) ((const uint8_t *) mem + index * Index(Stride)));
 }
@@ -1135,19 +1150,39 @@ ENOKI_INLINE Arg gather(const void *mem, const Index &index) {
 /// Masked gather operation
 template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
           typename Index, typename Mask, enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<std::is_integral<scalar_t<Index>>::value &&
-                           Index::Size == Array::Size &&
-                           Mask::Size == Array::Size, int> = 0>
-ENOKI_INLINE Array gather(const void *mem, const Index &index,
-                          const Mask &mask) {
+          std::enable_if_t<Array::Size == Index::Size &&
+                           Array::Size == Mask::Size, int> = 0>
+ENOKI_INLINE Array gather(const void *mem, const Index &index, const Mask &mask) {
     return Array::template gather_<Stride>(
         mem, index, reinterpret_array<mask_t<Array>>(mask));
 }
 
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
+          typename Index, typename Mask, enable_if_static_array_t<Array> = 0,
+          std::enable_if_t<Array::Size != array_size<Index>::value &&
+                           array_depth<Index>::value != 0, int> = 0>
+ENOKI_INLINE Array gather(const void *mem, const Index &index, const Mask &mask) {
+    using Offset = enoki::Array<Index, Array::Size>;
+    using EntryMask = mask_t<value_t<Array>>;
+    return Array::template gather_<Stride>(
+        mem, index + index_sequence<Offset>(),
+        mask_t<Array>(reinterpret_array<EntryMask>(mask)));
+}
+
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
+          typename Index, typename Mask, enable_if_static_array_t<Array> = 0,
+          std::enable_if_t<Array::Size != array_size<Index>::value &&
+                           array_depth<Index>::value == 0, int> = 0>
+ENOKI_INLINE Array gather(const void *mem, const Index &index, const Mask &mask) {
+    if (ENOKI_LIKELY(detail::mask_active(mask)))
+        return load_unaligned<Array>((uint8_t *) mem + index * Stride);
+    else
+        return zero<Array>();
+}
+
 /// Masked gather operation (scalar fallback)
 template <typename Arg, size_t Stride = sizeof(Arg),
-          typename Index, typename Mask, enable_if_not_array_t<Arg> = 0,
-          std::enable_if_t<std::is_integral<Index>::value, int> = 0>
+          typename Index, typename Mask, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg gather(const void *mem, const Index &index, const Mask &mask) {
     return detail::mask_active(mask)
                ? *((const Arg *) ((const uint8_t *) mem +
