@@ -438,7 +438,7 @@ public:
     ENOKI_INLINE auto not_() const {
         expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = detail::not_(coeff(i));
+            result.m_data[i] = detail::not_(coeff(i));
         return result;
     }
 
@@ -447,7 +447,7 @@ public:
     ENOKI_INLINE auto or_(const Array &d) const {
         expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = detail::or_(coeff(i), d.coeff(i));
+            result.m_data[i] = detail::or_(coeff(i), d.coeff(i));
         return result;
     }
 
@@ -456,7 +456,7 @@ public:
     ENOKI_INLINE auto and_(const Array &d) const {
         expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = detail::and_(coeff(i), d.coeff(i));
+            result.m_data[i] = detail::and_(coeff(i), d.coeff(i));
         return result;
     }
 
@@ -465,7 +465,7 @@ public:
     ENOKI_INLINE auto xor_(const Array &d) const {
         expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = detail::xor_(coeff(i), d.coeff(i));
+            result.m_data[i] = detail::xor_(coeff(i), d.coeff(i));
         return result;
     }
 
@@ -940,10 +940,10 @@ public:
     static ENOKI_INLINE Derived load_(const void *ptr) {
         Derived result;
         if (std::is_arithmetic<Value>::value) {
-            memcpy(result.data(), ptr, sizeof(Value) * Size);
+            memcpy(result.m_data.data(), ptr, sizeof(Value) * Size);
         } else {
             ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-                result.coeff(i) = load<Value>(static_cast<const Value *>(ptr) + i);
+                result.m_data[i] = load<Value>(static_cast<const Value *>(ptr) + i);
         }
         return result;
     }
@@ -953,7 +953,7 @@ public:
     static ENOKI_INLINE Derived load_(const void *ptr, const Mask &mask) {
         Derived result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = load<Value>(static_cast<const Value *>(ptr) + i, mask.coeff(i));
+            result.m_data[i] = load<Value>(static_cast<const Value *>(ptr) + i, mask.coeff(i));
         return result;
     }
 
@@ -962,10 +962,10 @@ public:
     static ENOKI_INLINE Derived load_unaligned_(const void *ptr) {
         Derived result;
         if (std::is_arithmetic<Value>::value) {
-            memcpy(result.data(), ptr, sizeof(Value) * Size);
+            memcpy(result.m_data.data(), ptr, sizeof(Value) * Size);
         } else {
             ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-                result.coeff(i) = load_unaligned<Value>(static_cast<const Value *>(ptr) + i);
+                result.m_data[i] = load_unaligned<Value>(static_cast<const Value *>(ptr) + i);
         }
         return result;
     }
@@ -975,7 +975,7 @@ public:
     static ENOKI_INLINE Derived load_unaligned_(const void *ptr, const Mask &mask) {
         Derived result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = load_unaligned<Value>(static_cast<const Value *>(ptr) + i, mask.coeff(i));
+            result.m_data[i] = load_unaligned<Value>(static_cast<const Value *>(ptr) + i, mask.coeff(i));
         return result;
     }
 

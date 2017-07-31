@@ -651,6 +651,17 @@ NAMESPACE_BEGIN(detail)
 //! @{ \name Bitwise arithmetic involving floating point values
 // -----------------------------------------------------------------------
 
+template<typename... Ts> struct make_void { using type = void; };
+template<typename... Ts> using void_t = typename make_void<Ts...>::type;
+
+template <typename, typename, typename = void>
+struct supports_bit_op : std::false_type { };
+
+template <typename T1, typename T2>
+struct supports_bit_op<T1, T2, void_t<decltype(std::declval<T1>() | std::declval<T2>())>>
+    : std::true_type { };
+
+
 template <typename T, std::enable_if_t<std::is_arithmetic<T>::value && !std::is_same<T, bool>::value, int> = 0>
 ENOKI_INLINE T or_(T a, bool b) {
     using Int = typename type_chooser<sizeof(T)>::Int;
@@ -672,43 +683,43 @@ ENOKI_INLINE T xor_(T a, bool b) {
                                                    : memcpy_cast<Int>(Int(0))));
 }
 
-template <typename T, std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
-ENOKI_INLINE T not_(T a) {
+ENOKI_INLINE bool not_(bool a) { return !a; }
+
+template <typename T1, typename T2, std::enable_if_t<supports_bit_op<T1, T2>::value, int> = 0>
+ENOKI_INLINE auto or_(const T1 &a, const T2 &b) { return a | b; }
+
+template <typename T1, typename T2, std::enable_if_t<supports_bit_op<T1, T2>::value, int> = 0>
+ENOKI_INLINE auto and_(const T1 &a, const T2 &b) { return a & b; }
+
+template <typename T1, typename T2, std::enable_if_t<supports_bit_op<T1, T2>::value, int> = 0>
+ENOKI_INLINE auto xor_(const T1 &a, const T2 &b) { return a ^ b; }
+
+template <typename T, std::enable_if_t<supports_bit_op<T, T>::value, int> = 0>
+ENOKI_INLINE auto not_(const T &a) { return ~a; }
+
+template <typename T1, typename T2, std::enable_if_t<!supports_bit_op<T1, T2>::value, int> = 0>
+ENOKI_INLINE T1 or_(const T1 &a, const T2 &b) {
+    using Int = typename type_chooser<sizeof(T1)>::Int;
+    return memcpy_cast<T1>(memcpy_cast<Int>(a) | memcpy_cast<Int>(b));
+}
+
+template <typename T1, typename T2, std::enable_if_t<!supports_bit_op<T1, T2>::value, int> = 0>
+ENOKI_INLINE T1 and_(const T1 &a, const T2 &b) {
+    using Int = typename type_chooser<sizeof(T1)>::Int;
+    return memcpy_cast<T1>(memcpy_cast<Int>(a) & memcpy_cast<Int>(b));
+}
+
+template <typename T1, typename T2, std::enable_if_t<!supports_bit_op<T1, T2>::value, int> = 0>
+ENOKI_INLINE T1 xor_(const T1 &a, const T2 &b) {
+    using Int = typename type_chooser<sizeof(T1)>::Int;
+    return memcpy_cast<T1>(memcpy_cast<Int>(a) ^ memcpy_cast<Int>(b));
+}
+
+template <typename T, std::enable_if_t<!supports_bit_op<T, T>::value, int> = 0>
+ENOKI_INLINE T not_(const T &a) {
     using Int = typename type_chooser<sizeof(T)>::Int;
     return memcpy_cast<T>(~memcpy_cast<Int>(a));
 }
-
-ENOKI_INLINE bool not_(bool a) { return !a; }
-
-template <typename T, std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
-ENOKI_INLINE T or_(T a, T b) {
-    using Int = typename type_chooser<sizeof(T)>::Int;
-    return memcpy_cast<T>(memcpy_cast<Int>(a) | memcpy_cast<Int>(b));
-}
-
-template <typename T, std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
-ENOKI_INLINE T and_(T a, T b) {
-    using Int = typename type_chooser<sizeof(T)>::Int;
-    return memcpy_cast<T>(memcpy_cast<Int>(a) & memcpy_cast<Int>(b));
-}
-
-template <typename T, std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
-ENOKI_INLINE T xor_(T a, T b) {
-    using Int = typename type_chooser<sizeof(T)>::Int;
-    return memcpy_cast<T>(memcpy_cast<Int>(a) ^ memcpy_cast<Int>(b));
-}
-
-template <typename T1, typename T2, std::enable_if_t<!std::is_floating_point<T1>::value || !std::is_floating_point<T2>::value, int> = 0>
-ENOKI_INLINE auto or_ (const T1 &a, const T2 &b) { return a | b; }
-
-template <typename T1, typename T2, std::enable_if_t<!std::is_floating_point<T1>::value || !std::is_floating_point<T2>::value, int> = 0>
-ENOKI_INLINE auto and_(const T1 &a, const T2 &b) { return a & b; }
-
-template <typename T1, typename T2, std::enable_if_t<!std::is_floating_point<T1>::value || !std::is_floating_point<T2>::value, int> = 0>
-ENOKI_INLINE auto xor_(const T1 &a, const T2 &b) { return a ^ b; }
-
-template <typename T, std::enable_if_t<!std::is_floating_point<T>::value, int> = 0>
-ENOKI_INLINE T not_(const T &a) { return ~a; }
 
 //! @}
 // -----------------------------------------------------------------------
