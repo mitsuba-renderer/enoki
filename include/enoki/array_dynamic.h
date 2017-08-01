@@ -173,6 +173,7 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     using typename Base::Derived;
     using Base::derived;
     using Base::PacketSize;
+    using Base::IsMask;
 
     using Mask = DynamicArray<mask_t<Packet_>>;
 
@@ -213,6 +214,12 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     DynamicArrayImpl(Value value, size_t size = 1) {
         resize_(size);
         operator=(value);
+    }
+
+    template <typename T, std::enable_if_t<std::is_same<T, bool>::value && IsMask, int> = 0>
+    DynamicArrayImpl(T value, size_t size = 1) {
+        resize_(size);
+        operator=(Value(value));
     }
 
     DynamicArrayImpl(Value *ptr, size_t size)

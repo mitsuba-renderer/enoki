@@ -53,6 +53,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
 
         using Expr = RMask;
         using Mask = RMask;
+        using Type = value_t<Mask1>;
 
         Mask1 m1;
         Mask2 m2;
@@ -62,6 +63,9 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         RMask& operator=(const RMask &) = default;
 
         ENOKI_INLINE RMask(Mask1 m1, Mask2 m2) : m1(m1), m2(m2) { }
+
+        ENOKI_INLINE RMask(const value_t<Mask1> &v)
+            : RMask(v, detail::reinterpret_flag()) { }
 
         template <typename T, enable_if_mask_t<T> = 0> ENOKI_INLINE RMask(const T &v)
             : RMask(v, detail::reinterpret_flag()) { }
@@ -108,11 +112,22 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         ENOKI_INLINE const Mask1& low_() const { return m1; }
         ENOKI_INLINE const Mask2& high_() const { return m2; }
 
-        ENOKI_INLINE Value coeff(size_t i) const {
+        template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
+        ENOKI_INLINE decltype(auto) coeff(size_t i) const {
+            return (i < Size1 ? m1 : m2).coeff(i);
+        }
+
+        template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
+        ENOKI_INLINE decltype(auto) coeff(size_t i) {
+            return (i < Size1 ? m1 : m2).coeff(i);
+        }
+
+        template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
+        ENOKI_INLINE value_t<Mask1> coeff(size_t i) const {
             if (i < Size1)
                 return m1.coeff(i);
             else
-                return m2.coeff(i - Size1);
+                return reinterpret_array<value_t<Mask1>>(m2.coeff(i));
         }
 
         ENOKI_INLINE void store_(void *mem) const {
@@ -629,18 +644,12 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
 
     template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
     ENOKI_INLINE const Value& coeff(size_t i) const {
-        if (i < Size1)
-            return a1.coeff(i);
-        else
-            return a2.coeff(i - Size1);
+        return (i < Size1) ? a1.coeff(i) : a2.coeff(i - Size1);
     }
 
     template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
     ENOKI_INLINE Value& coeff(size_t i) {
-        if (i < Size1)
-            return a1.coeff(i);
-        else
-            return a2.coeff(i - Size1);
+        return (i < Size1) ? a1.coeff(i) : a2.coeff(i - Size1);
     }
 
     //! @}

@@ -207,6 +207,10 @@ template <> struct is_mask<bool> {
     static constexpr bool value = true;
 };
 
+template <> struct is_mask<detail::KMaskBit> {
+    static constexpr bool value = true;
+};
+
 /// SFINAE helper to test whether a class is a static array type
 template <typename T> struct is_static_array {
 private:

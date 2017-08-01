@@ -27,6 +27,9 @@ template <typename T> struct is_native<T, 8,  is_int64_t<T>> : std::true_type { 
 struct KMaskBit {
     bool value : 1;
 
+    KMaskBit() { }
+    KMaskBit(bool value) : value(value) { }
+
     operator bool() const { return value; }
 
     friend std::ostream &operator<<(std::ostream &os, const KMaskBit &b) {
@@ -51,14 +54,13 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
 
     ENOKI_INLINE KMask() { }
     ENOKI_INLINE explicit KMask(Type k) : k(k) { }
-    template <typename T, std::enable_if_t<std::is_same<T, bool>::value, int> = 0>
-    ENOKI_INLINE KMask(T b) : k(b ? Type(-1) : Type(0)) { }
-    ENOKI_INLINE explicit KMask(KMaskBit k) : k(k.value ? Type(-1) : Type(0)) { }
     /// Convert a compatible mask
     template <typename T, std::enable_if_t<T::IsMask, int> = 0>
-    ENOKI_INLINE KMask(T value) : k(reinterpret_array<KMask>(value).k) { }
+    ENOKI_INLINE KMask(T value) : KMask(value, reinterpret_flag()) { }
 
     ENOKI_INLINE KMask(KMask k, reinterpret_flag) : k(k.k) { }
+    ENOKI_INLINE KMask(KMaskBit k, reinterpret_flag) : k(k.value ? Type(-1) : Type(0)) { }
+    ENOKI_INLINE KMask(bool b) : k(b ? Type(-1) : Type(0)) { }
 
     ENOKI_REINTERPRET_KMASK(bool, 16) {
         __m128i value = _mm_loadu_si128((__m128i *) a.data());
