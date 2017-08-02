@@ -1062,6 +1062,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
     using Type = Type_;
     using Value = Type_;
     using Scalar = Type_;
+    using Base::operator[];
 
     StaticArrayImpl() : Base() { }
     StaticArrayImpl(Type value) : Base(UnderlyingType(value)) { }
@@ -1234,6 +1235,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
 
     using Base::Base;
     using Base::operator=;
+    using Base::operator[];
     using Base::derived;
     using Type = Type_;
     using Value = Type_;
@@ -1295,11 +1297,21 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
     }
 
 #define ENOKI_CALL_SUPPORT_SCALAR(name)                                        \
-    template <typename... Args>                                                \
+    template <typename... Args, typename T = Storage,                          \
+              enable_if_static_array_t<T> = 0>                                 \
     ENOKI_INLINE decltype(auto) name(Args&&... args) {                         \
         constexpr size_t Size = sizeof...(Args) > 0 ? sizeof...(Args) - 1 : 0; \
         return dispatch_scalar_(&Type::name, std::make_index_sequence<Size>(), \
                                 std::forward<Args>(args)...);                  \
+    }                                                                          \
+    template <typename... Args, typename T = Storage,                          \
+              enable_if_dynamic_array_t<T> = 0>                                \
+    ENOKI_INLINE decltype(auto) name(Args&&... args) {                         \
+        return vectorize(                                                      \
+            [](auto self_packet, auto&&... args_packet) {                      \
+                return self_packet->name(args_packet...);                      \
+            },                                                                 \
+            self, args...);                                                    \
     }
 
 #define ENOKI_CALL_SUPPORT_END(Packet)                                         \
