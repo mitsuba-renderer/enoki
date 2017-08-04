@@ -1086,8 +1086,8 @@ template <typename Packet_, typename Storage_> struct call_support_base {
     const Storage &self;
 
     template <typename Func, typename InputMask, typename... Args,
-              typename Result = decltype((std::declval<Value>()->*std::declval<Func>())(
-                  std::declval<Args>()..., std::declval<Mask>())),
+              typename Result = decltype(std::declval<Func>()(
+                  std::declval<Value>(), std::declval<Args>()..., std::declval<Mask>())),
               std::enable_if_t<!std::is_void<Result>::value && sizeof...(Args) != 0, int> = 0>
     ENOKI_INLINE Result dispatch_(Func func, Args&&... args, InputMask mask_) {
         Mask mask(mask_);
@@ -1097,15 +1097,15 @@ template <typename Packet_, typename Storage_> struct call_support_base {
             Value value    = extract(self, mask);
             Mask active    = mask & eq(self, Packet(value));
             mask          &= ~active;
-            result[active] = (value->*func)(args..., active);
+            result[active] = func(value, args..., active);
         }
 
         return result;
     }
 
     template <typename Func, typename InputMask,
-        typename Result = decltype((std::declval<Value>()->*std::declval<Func>())(
-            std::declval<Mask>())),
+        typename Result = decltype(std::declval<Func>()(
+            std::declval<Value>(), std::declval<Mask>())),
         std::enable_if_t<!std::is_void<Result>::value, int> = 0>
     ENOKI_INLINE Result dispatch_(Func func, InputMask mask_) {
         Mask mask(mask_);
@@ -1115,15 +1115,15 @@ template <typename Packet_, typename Storage_> struct call_support_base {
             Value value = extract(self, mask);
             Mask active = mask & eq(self, Packet(value));
             mask &= ~active;
-            result[active] = (value->*func)(active);
+            result[active] = func(value, active);
         }
 
         return result;
     }
 
     template <typename Func, typename InputMask, typename... Args,
-              typename Result = decltype((std::declval<Value>()->*std::declval<Func>())(
-                  std::declval<Args>()..., std::declval<Mask>())),
+              typename Result = decltype(std::declval<Func>()(
+                  std::declval<Value>(), std::declval<Args>()..., std::declval<Mask>())),
               std::enable_if_t<std::is_void<Result>::value, int> = 0>
     ENOKI_INLINE void dispatch_(Func func, Args&&... args, InputMask mask_) {
         Mask mask(mask_);
@@ -1132,13 +1132,13 @@ template <typename Packet_, typename Storage_> struct call_support_base {
             Value value    = extract(self, mask);
             Mask active    = mask & eq(self, Packet(value));
             mask          &= ~active;
-            (value->*func)(args..., active);
+            func(value, args..., active);
         }
     }
 
     template <typename Func, typename InputMask, typename... Args,
-              typename Result = decltype((std::declval<Value>()->*std::declval<Func>())(
-                  std::declval<Args>()...)),
+              typename Result = decltype(std::declval<Func>()(
+                  std::declval<Value>(), std::declval<Args>()...)),
               typename ResultArray = like_t<Mask, Result>,
               std::enable_if_t<!std::is_void<Result>::value && sizeof...(Args) != 0, int> = 0>
     ENOKI_INLINE ResultArray dispatch_scalar_(Func func, Args&&... args, InputMask mask_) {
@@ -1149,14 +1149,14 @@ template <typename Packet_, typename Storage_> struct call_support_base {
             Value value    = extract(self, mask);
             Mask active    = mask & eq(self, Packet(value));
             mask          &= ~active;
-            result[active] = (value->*func)(args...);
+            result[active] = func(value, args...);
         }
 
         return result;
     }
 
     template <typename Func, typename InputMask,
-        typename Result = decltype((std::declval<Value>()->*std::declval<Func>())()),
+        typename Result = decltype(std::declval<Func>()(std::declval<Value>())),
         typename ResultArray = like_t<Mask, Result>,
         std::enable_if_t<!std::is_void<Result>::value, int> = 0>
     ENOKI_INLINE ResultArray dispatch_scalar_(Func func, InputMask mask_) {
@@ -1167,15 +1167,15 @@ template <typename Packet_, typename Storage_> struct call_support_base {
             Value value = extract(self, mask);
             Mask active = mask & eq(self, Packet(value));
             mask &= ~active;
-            result[active] = (value->*func)();
+            result[active] = func(value);
         }
 
         return result;
     }
 
     template <typename Func, typename InputMask, typename... Args,
-              typename Result = decltype((std::declval<Value>()->*std::declval<Func>())(
-                  std::declval<Args>()...)),
+              typename Result = decltype(std::declval<Func>()(
+                  std::declval<Value>(), std::declval<Args>()...)),
               std::enable_if_t<std::is_void<Result>::value, int> = 0>
     ENOKI_INLINE void dispatch_scalar_(Func func, Args&&... args, InputMask mask_) {
         Mask mask(mask_);
@@ -1183,7 +1183,7 @@ template <typename Packet_, typename Storage_> struct call_support_base {
         while (any(mask)) {
             Value value    = extract(self, mask);
             mask          &= neq(self, Packet(value));
-            (value->*func)(args...);
+            func(value, args...);
         }
     }
 
@@ -1283,8 +1283,9 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
               enable_if_static_array_t<T> = 0>                                 \
     ENOKI_INLINE decltype(auto) name(Args&&... args) {                         \
         constexpr size_t Size = sizeof...(Args) > 0 ? sizeof...(Args) - 1 : 0; \
-        return dispatch_(&Type::name, std::make_index_sequence<Size>(),        \
-                         std::forward<Args>(args)...);                         \
+        return dispatch_(                                                      \
+            [](Type *self, auto&&... args2) { return self->name(args2...); },  \
+            std::make_index_sequence<Size>(), std::forward<Args>(args)...);    \
     }                                                                          \
     template <typename... Args, typename T = Storage,                          \
               enable_if_dynamic_array_t<T> = 0>                                \
@@ -1301,8 +1302,9 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived_,
               enable_if_static_array_t<T> = 0>                                 \
     ENOKI_INLINE decltype(auto) name(Args&&... args) {                         \
         constexpr size_t Size = sizeof...(Args) > 0 ? sizeof...(Args) - 1 : 0; \
-        return dispatch_scalar_(&Type::name, std::make_index_sequence<Size>(), \
-                                std::forward<Args>(args)...);                  \
+        return dispatch_scalar_(                                               \
+            [](Type *self, auto&&... args2) { return self->name(args2...); },  \
+            std::make_index_sequence<Size>(), std::forward<Args>(args)...);    \
     }                                                                          \
     template <typename... Args, typename T = Storage,                          \
               enable_if_dynamic_array_t<T> = 0>                                \
