@@ -82,6 +82,15 @@ ENOKI_TEST_ALL(test00_align) {
     static_assert(std::is_same<scalar_t<Vector4xr>,         Value>::value, "scalar_t failure");
     static_assert(std::is_same<scalar_t<Vector4xP>,         Value>::value, "scalar_t failure");
     static_assert(std::is_same<scalar_t<Vector4xPr>,        Value>::value, "scalar_t failure");
+
+    /* Pointers */
+    struct Test;
+    static_assert(std::is_same<Test*, expr_t<Test*, Test*>>::value, "expr_t failure");
+    static_assert(std::is_same<const Test*, expr_t<const Test*, const Test*>>::value, "expr_t failure");
+    static_assert(std::is_same<const Test*, expr_t<Test*, const Test*>>::value, "expr_t failure");
+    static_assert(std::is_same<const Test*, expr_t<const Test*, Test*>>::value, "expr_t failure");
+    static_assert(std::is_same<const Test*, expr_t<const Test*, std::nullptr_t>>::value, "expr_t failure");
+    static_assert(std::is_same<Test*, expr_t<std::nullptr_t, Test*>>::value, "expr_t failure");
 }
 
 ENOKI_TEST_ALL(test01_add) {

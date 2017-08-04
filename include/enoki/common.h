@@ -333,10 +333,11 @@ struct expr_n<void, Arg, Args...> {
     using type = decltype(std::declval<Arg>() + std::declval<expr_t<Args...>>());
 };
 
-template <typename T> struct expr_n<void, T*, T*> { using type = const T*; };
+template <typename T> struct expr_n<void, T*, T*> { using type = T*; };
 template <typename T> struct expr_n<void, T*, const T*> { using type = const T*; };
 template <typename T> struct expr_n<void, const T*, T*> { using type = const T*; };
-template <typename T> struct expr_n<void, const T*, const T*> { using type = const T*; };
+template <typename T> struct expr_n<void, T*, std::nullptr_t> { using type = T*; };
+template <typename T> struct expr_n<void, std::nullptr_t, T*> { using type = T*; };
 
 /// Type trait to compute the result of arbitrary expressions
 template <typename... Args> struct expr      : detail::expr_n<detail::extract_array_t<Args...>, Args...> { };
