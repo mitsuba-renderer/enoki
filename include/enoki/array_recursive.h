@@ -122,7 +122,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
             return (i < Size1 ? m1 : m2).coeff(i);
         }
 
-        template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
+        template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
         ENOKI_INLINE value_t<Mask1> coeff(size_t i) const {
             if (i < Size1)
                 return m1.coeff(i);

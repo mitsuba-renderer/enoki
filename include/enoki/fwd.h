@@ -155,7 +155,7 @@ template <typename T, typename = int> struct approx_default {
     static constexpr bool value = is_std_float<std::decay_t<T>>::value;
 };
 
-NAMESPACE_END()
+NAMESPACE_END(detail)
 
 // -----------------------------------------------------------------------
 //! @{ \name Forward declarations

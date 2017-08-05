@@ -887,7 +887,7 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     StaticArrayImpl<Value_, 3, false, RoundingMode::Default, Derived, detail::is_int64_t<Value_>>
     : StaticArrayImpl<Value_, 4, false, RoundingMode::Default, Derived> {
     using Base = StaticArrayImpl<Value_, 4, false, RoundingMode::Default, Derived>;
-    using Mask = detail::MaskWrapper<Value_, 3, false, RoundingMode::Default>;
+    using Mask = detail::ArrayMask<Value_, 3, false, RoundingMode::Default>;
 
     using typename Base::Value;
     using Arg = const Base &;

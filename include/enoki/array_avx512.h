@@ -53,14 +53,16 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
     Type k;
 
     ENOKI_INLINE KMask() { }
-    ENOKI_INLINE explicit KMask(Type k) : k(k) { }
+    KMask(const KMask &) = default;
+
     /// Convert a compatible mask
-    template <typename T, std::enable_if_t<T::IsMask, int> = 0>
+    template <typename T>
     ENOKI_INLINE KMask(T value) : KMask(value, reinterpret_flag()) { }
 
     ENOKI_INLINE KMask(KMask k, reinterpret_flag) : k(k.k) { }
     ENOKI_INLINE KMask(KMaskBit k, reinterpret_flag) : k(k.value ? Type(-1) : Type(0)) { }
-    ENOKI_INLINE KMask(bool b) : k(b ? Type(-1) : Type(0)) { }
+    ENOKI_INLINE KMask(bool b, reinterpret_flag) : k(b ? Type(-1) : Type(0)) { }
+    ENOKI_INLINE KMask(Type k, reinterpret_flag) : k(k) { }
 
     ENOKI_REINTERPRET_KMASK(bool, 16) {
         __m128i value = _mm_loadu_si128((__m128i *) a.data());

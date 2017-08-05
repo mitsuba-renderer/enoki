@@ -2094,6 +2094,6 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
     ENOKI_NATIVE_ARRAY(Value_, Size_, Approx_, Register,                       \
                        RoundingMode::Default)                                  \
     using Mask =                                                               \
-        detail::MaskWrapper<Value_, Size_, Approx_, RoundingMode::Default>;
+        detail::ArrayMask<Value_, Size_, Approx_, RoundingMode::Default>;
 
 NAMESPACE_END(enoki)

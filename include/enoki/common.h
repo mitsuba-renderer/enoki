@@ -199,16 +199,11 @@ private:
     template <typename T2 = T>
     static constexpr std::integral_constant<bool, T2::Derived::IsMask> check(T2 *);
 public:
-    using type = decltype(check((std::decay_t<T> *) nullptr));
-    static constexpr bool value = type::value;
-};
-
-template <> struct is_mask<bool> {
-    static constexpr bool value = true;
-};
-
-template <> struct is_mask<detail::KMaskBit> {
-    static constexpr bool value = true;
+    using T2 = std::decay_t<T>;
+    using type = decltype(check((T2 *) nullptr));
+    static constexpr bool value = type::value ||
+        std::is_same<T2, bool>::value ||
+        std::is_same<T2, detail::KMaskBit>::value;
 };
 
 /// SFINAE helper to test whether a class is a static array type
@@ -269,7 +264,7 @@ template <typename T, typename = int> struct array_size {
     static constexpr size_t value = 1;
 };
 
-template <typename T> struct array_size<T, enable_if_array_t<T>> {
+template <typename T> struct array_size<T, enable_if_static_array_t<T>> {
     static constexpr size_t value = std::decay_t<T>::Derived::Size;
 };
 
@@ -561,11 +556,16 @@ ENOKI_INLINE bool mask_active(const bool &value) {
 }
 
 /* Extract the nth entry of a parameter pack */
-template <size_t N, typename... Args> struct nth { };
-template <size_t N, typename Head, typename... Tail> struct nth<N, Head, Tail...> : nth<N-1, Tail...> { };
-template <typename Head, typename... Tail> struct nth<0, Head, Tail...> { using type = Head; };
-template <> struct nth<0> { using type = std::nullptr_t; };
-template <size_t N, typename... Args> using nth_t = typename nth<N, Args...>::type;
+template <typename T>
+struct tuple_tail { using type = std::nullptr_t; };
+
+template <typename Arg, typename... Args>
+struct tuple_tail<std::tuple<Arg, Args...>> {
+    using type =
+        std::tuple_element_t<sizeof...(Args), std::tuple<Arg, Args...>>;
+};
+
+template <typename T> using tuple_tail_t = typename tuple_tail<T>::type;
 
 NAMESPACE_END(detail)
 
