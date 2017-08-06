@@ -889,24 +889,6 @@ template <typename T> ENOKI_INLINE T log2i(T value) {
 //! @{ \name Initialization, loading/writing data
 // -----------------------------------------------------------------------
 
-/// Construct a zero-initialized array
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE Array zero() {
-    return Array::zero_();
-}
-
-/// Construct a zero-initialized array
-template <typename Array, enable_if_dynamic_array_t<Array> = 0>
-ENOKI_INLINE Array zero(size_t size) {
-    return Array::zero_(size);
-}
-
-/// Construct a zero-initialized array (scalar fallback)
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg zero() {
-    return Arg(0);
-}
-
 NAMESPACE_BEGIN(detail)
 template <typename Array, size_t... Args>
 ENOKI_INLINE Array index_sequence_(std::index_sequence<Args...>) {
@@ -918,6 +900,30 @@ ENOKI_INLINE Array linspace_(std::index_sequence<Args...>, Value offset, Value s
     return Array(((Value) Args * step + offset)...);
 }
 NAMESPACE_END(detail)
+
+/// Construct a zero-initialized array
+template <typename Array, enable_if_static_array_t<Array> = 0>
+ENOKI_INLINE Array zero() { return Array::zero_(); }
+
+/// Construct a zero-initialized array
+template <typename Array, enable_if_dynamic_array_t<Array> = 0>
+ENOKI_INLINE Array zero(size_t size) { return Array::zero_(size); }
+
+/// Construct a zero-initialized array (scalar fallback)
+template <typename Arg, std::enable_if_t<std::is_arithmetic<Arg>::value ||
+                                         std::is_pointer<Arg>::value ||
+                                         std::is_enum<Arg>::value, int> = 0>
+ENOKI_INLINE Arg zero() {
+    return Arg(0);
+}
+
+template <typename Arg, size_t... Indices> auto zero(std::index_sequence<Indices...>) {
+    return Arg(zero<std::tuple_element_t<Indices, Arg>>()...);
+}
+
+template <typename Arg, size_t Size = std::tuple_size<Arg>::value> auto zero() {
+    return zero<Arg>(std::make_index_sequence<Size>());
+}
 
 /// Construct an index sequence, i.e. 0, 1, 2, ..
 template <typename Array, enable_if_static_array_t<Array> = 0>
@@ -1518,32 +1524,56 @@ ENOKI_INLINE auto broadcast(const Array &value) {
 //! @}
 // -----------------------------------------------------------------------
 
-#define ENOKI_MASKED_OPERATOR(name, expr)                                      \
-    template <typename Arg, enable_if_not_array_t<Arg> = 0>                    \
-    ENOKI_INLINE void name(Arg &a, const Arg &b, bool m) {                     \
-        if (m)                                                                 \
-            a = expr;                                                          \
-    }                                                                          \
-    template <typename Array, enable_if_static_array_t<Array> = 0>             \
-    ENOKI_INLINE void name(Array &a, const Array &b,                           \
-                           const mask_t<Array> &m) {                           \
-        a.derived().name##_(b, m);                                             \
-    }
+NAMESPACE_BEGIN(detail)
 
-ENOKI_MASKED_OPERATOR(madd, a + b)
-ENOKI_MASKED_OPERATOR(msub, a - b)
-ENOKI_MASKED_OPERATOR(mmul, a * b)
-ENOKI_MASKED_OPERATOR(mdiv, a / b)
-ENOKI_MASKED_OPERATOR(mor, a | b)
-ENOKI_MASKED_OPERATOR(mand, a & b)
-ENOKI_MASKED_OPERATOR(mxor, a ^ b)
+template <typename T> struct MaskedScalar {
+    MaskedScalar(T &d, bool m) : d(d), m(m) { }
+
+    template <typename T2> ENOKI_INLINE void operator =(const T2 &value) { if (m) d = value; }
+    template <typename T2> ENOKI_INLINE void operator+=(const T2 &value) { if (m) d += value; }
+    template <typename T2> ENOKI_INLINE void operator-=(const T2 &value) { if (m) d -= value; }
+    template <typename T2> ENOKI_INLINE void operator*=(const T2 &value) { if (m) d *= value; }
+    template <typename T2> ENOKI_INLINE void operator/=(const T2 &value) { if (m) d /= value; }
+    template <typename T2> ENOKI_INLINE void operator|=(const T2 &value) { if (m) d |= value; }
+    template <typename T2> ENOKI_INLINE void operator&=(const T2 &value) { if (m) d &= value; }
+    template <typename T2> ENOKI_INLINE void operator^=(const T2 &value) { if (m) d ^= value; }
+
+    T &d;
+    bool m;
+};
+
+template <typename T> struct MaskedArray : ArrayBase<value_t<T>, MaskedArray<T>> {
+    static constexpr bool Approx = T::Approx;
+    using Mask = mask_t<T>;
+    using Scalar = scalar_t<T>;
+
+    MaskedArray(T &d, const Mask &m) : d(d), m(m) { }
+
+    template <typename T2> ENOKI_INLINE void operator =(const T2 &value) { d.massign_(value, m); }
+    template <typename T2> ENOKI_INLINE void operator+=(const T2 &value) { d.madd_(value, m); }
+    template <typename T2> ENOKI_INLINE void operator-=(const T2 &value) { d.msub_(value, m); }
+    template <typename T2> ENOKI_INLINE void operator*=(const T2 &value) { d.mmul_(value, m); }
+    template <typename T2> ENOKI_INLINE void operator/=(const T2 &value) { d.mdiv_(value, m); }
+    template <typename T2> ENOKI_INLINE void operator|=(const T2 &value) { d.mor_(value, m); }
+    template <typename T2> ENOKI_INLINE void operator&=(const T2 &value) { d.mand_(value, m); }
+    template <typename T2> ENOKI_INLINE void operator^=(const T2 &value) { d.mxor_(value, m); }
+
+    /// Type alias for a similar-shaped array over a different type
+    template <typename T2> using ReplaceType = MaskedArray<typename T::template ReplaceType<T2>>;
+
+    T &d;
+    Mask m;
+};
+
+NAMESPACE_END(detail)
+
 
 // -----------------------------------------------------------------------
 //! @{ \name Adapter and routing functions for dynamic data structures
 // -----------------------------------------------------------------------
 
 template <typename T, typename = int>
-struct dynamic_support {
+struct struct_support {
     static constexpr bool is_dynamic_nested = false;
     using dynamic_t = T;
 
@@ -1561,51 +1591,59 @@ struct dynamic_support {
         mem += count;
         return count;
     }
+    template <typename T2> static ENOKI_INLINE auto masked(T2 &value, bool mask) {
+        return detail::MaskedScalar<T2>{value, mask};
+    }
 };
 
 template <typename T> ENOKI_INLINE size_t packets(const T &value) {
-    return dynamic_support<std::decay_t<T>>::packets(value);
+    return struct_support<std::decay_t<T>>::packets(value);
 }
 
 template <typename T> ENOKI_INLINE size_t slices(const T &value) {
-    return dynamic_support<std::decay_t<T>>::slices(value);
+    return struct_support<std::decay_t<T>>::slices(value);
 }
 
 template <typename T> ENOKI_NOINLINE void set_slices(T &value, size_t size) {
-    dynamic_support<std::decay_t<T>>::set_slices(value, size);
+    struct_support<std::decay_t<T>>::set_slices(value, size);
 }
 
 template <typename T>
 ENOKI_INLINE decltype(auto) packet(T &&value, size_t i) {
-    return dynamic_support<std::decay_t<T>>::packet(value, i);
+    return struct_support<std::decay_t<T>>::packet(value, i);
 }
 
 template <typename T>
 ENOKI_INLINE decltype(auto) slice(T &&value, size_t i) {
-    return dynamic_support<std::decay_t<T>>::slice(value, i);
+    return struct_support<std::decay_t<T>>::slice(value, i);
 }
 
 template <typename T>
 ENOKI_INLINE decltype(auto) slice_ptr(T &&value, size_t i) {
-    return dynamic_support<std::decay_t<T>>::slice_ptr(value, i);
+    return struct_support<std::decay_t<T>>::slice_ptr(value, i);
 }
 
 template <typename T>
 ENOKI_INLINE decltype(auto) ref_wrap(T &&value) {
-    return dynamic_support<std::decay_t<T>>::ref_wrap(value);
+    return struct_support<std::decay_t<T>>::ref_wrap(value);
 }
 
 template <typename Mem, typename Value, typename Mask>
 ENOKI_INLINE size_t compress(Mem &mem, const Value &value, const Mask& mask) {
-    return dynamic_support<std::decay_t<Value>>::compress(mem, value, mask);
+    return struct_support<std::decay_t<Value>>::compress(mem, value, mask);
 }
 
 template <typename T>
 using is_dynamic_nested =
-    std::integral_constant<bool, dynamic_support<std::decay_t<T>>::is_dynamic_nested>;
+    std::integral_constant<bool, struct_support<std::decay_t<T>>::is_dynamic_nested>;
+
+template <typename Array, typename Mask>
+ENOKI_INLINE auto masked(Array &array, const Mask &mask) {
+    return struct_support<std::decay_t<Array>>::masked(array, mask);
+}
 
 template <typename T>
-using make_dynamic_t = typename dynamic_support<std::decay_t<T>>::dynamic_t;
+using make_dynamic_t = typename struct_support<std::decay_t<T>>::dynamic_t;
 
 template <typename T>
 using enable_if_dynamic_nested_t =

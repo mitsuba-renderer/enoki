@@ -17,23 +17,6 @@
 
 NAMESPACE_BEGIN(enoki)
 
-NAMESPACE_BEGIN(detail)
-
-template <typename Derived> struct MaskedElement {
-    Derived &d;
-    typename Derived::Mask m;
-    template <typename T> ENOKI_INLINE void operator=(T value) { d.massign_(value, m); }
-    template <typename T> ENOKI_INLINE void operator+=(T value) { d.madd_(value, m); }
-    template <typename T> ENOKI_INLINE void operator-=(T value) { d.msub_(value, m); }
-    template <typename T> ENOKI_INLINE void operator*=(T value) { d.mmul_(value, m); }
-    template <typename T> ENOKI_INLINE void operator/=(T value) { d.mdiv_(value, m); }
-    template <typename T> ENOKI_INLINE void operator|=(T value) { d.mor_(value, m); }
-    template <typename T> ENOKI_INLINE void operator&=(T value) { d.mand_(value, m); }
-    template <typename T> ENOKI_INLINE void operator^=(T value) { d.mxor_(value, m); }
-};
-
-NAMESPACE_END(detail)
-
 template <typename Type_, typename Derived_> struct ArrayBase {
     // -----------------------------------------------------------------------
     //! @{ \name Curiously Recurring Template design pattern
@@ -210,8 +193,8 @@ struct StaticArrayBase : ArrayBase<Type_, Derived_> {
 
     using Base::operator[];
     template <typename T = Derived, typename Mask, enable_if_mask_t<Mask> = 0>
-    ENOKI_INLINE detail::MaskedElement<T> operator[](Mask m) {
-        return detail::MaskedElement<T>{ derived(), reinterpret_array<mask_t<Derived>>(m) };
+    ENOKI_INLINE detail::MaskedArray<T> operator[](Mask m) {
+        return detail::MaskedArray<T>{ derived(), reinterpret_array<mask_t<Derived>>(m) };
     }
 
     //! @}

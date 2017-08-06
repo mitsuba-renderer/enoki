@@ -132,7 +132,6 @@
 #define ENOKI_MAP_EXPR_F3(f, v, t, ...) \
     ENOKI_EVAL(ENOKI_MAP_EXPR_F3_0(f, v, t, __VA_ARGS__, (), 0))
 
-
 #define ENOKI_STRUCT(Struct, ...)                                              \
     Struct()  = default;                                                       \
     Struct(ENOKI_MAP_EXPR_DECL(__VA_ARGS__))                                   \
@@ -180,7 +179,7 @@
 
 #define ENOKI_STRUCT_DYNAMIC(Struct, ...)                                      \
     NAMESPACE_BEGIN(enoki)                                                     \
-    template <typename... Args> struct dynamic_support<Struct<Args...>> {      \
+    template <typename... Args> struct struct_support<Struct<Args...>> {      \
         static constexpr bool is_dynamic_nested = enoki::detail::any_of<       \
             enoki::is_dynamic_nested<Args>::value...>::value;                  \
         using dynamic_t = Struct<enoki::make_dynamic_t<Args>...>;              \
@@ -236,6 +235,13 @@
                 std::conditional_t<co_, const Args &, Args &>>()))...>;        \
             return Type{ ENOKI_MAP_EXPR_F1(enoki::ref_wrap, value,             \
                                            __VA_ARGS__) };                     \
+        }                                                                      \
+        template <typename T, typename M> static ENOKI_INLINE                  \
+        auto masked(T& value, const M & mask) {                                \
+            using Type = Struct<decltype(enoki::masked(                        \
+                        std::declval<Args &>(), mask))...>;                    \
+            return Type{ ENOKI_MAP_EXPR_F2(enoki::masked,                      \
+                                           value, mask, __VA_ARGS__) };        \
         }                                                                      \
     };                                                                         \
     NAMESPACE_END(enoki)

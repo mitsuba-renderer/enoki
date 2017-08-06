@@ -17,7 +17,7 @@
 
 NAMESPACE_BEGIN(enoki)
 
-template <typename T> struct dynamic_support<T, enable_if_static_array_t<T>> {
+template <typename T> struct struct_support<T, enable_if_static_array_t<T>> {
     static constexpr size_t Size = array_size<T>::value;
     using Value = value_t<T>;
 
@@ -68,6 +68,11 @@ template <typename T> struct dynamic_support<T, enable_if_static_array_t<T>> {
         return value.compress_(mem, mask);
     }
 
+    template <typename T2, typename Mask>
+    static ENOKI_INLINE auto masked(T2 &value, const Mask mask) {
+        return detail::MaskedArray<T2>{ value, reinterpret_array<mask_t<T2>>(mask) };
+    }
+
 private:
     template <typename T2, size_t... Index>
     static ENOKI_INLINE auto packet(T2&& value, size_t i, std::index_sequence<Index...>) {
@@ -98,7 +103,7 @@ private:
     }
 };
 
-template <typename T> struct dynamic_support<T, enable_if_dynamic_array_t<T>> {
+template <typename T> struct struct_support<T, enable_if_dynamic_array_t<T>> {
     static constexpr bool is_dynamic_nested = true;
     using dynamic_t = T;
 
@@ -123,6 +128,10 @@ template <typename T> struct dynamic_support<T, enable_if_dynamic_array_t<T>> {
 
     template <typename T2> static ENOKI_INLINE decltype(auto) ref_wrap(T2 &&value) {
         return value.ref_wrap_();
+    }
+    template <typename T2, typename Mask>
+    static ENOKI_INLINE auto masked(T2 &value, const Mask mask) {
+        return detail::MaskedArray<T2>{ value, reinterpret_array<mask_t<T2>>(mask) };
     }
 };
 
@@ -784,8 +793,8 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
 
     using Base::operator[];
     template <typename T = Derived, typename Mask, enable_if_mask_t<Mask> = 0>
-    ENOKI_INLINE detail::MaskedElement<T> operator[](Mask m) {
-        return detail::MaskedElement<T>{ derived(), reinterpret_array<mask_t<Derived>>(m) };
+    ENOKI_INLINE detail::MaskedArray<T> operator[](Mask m) {
+        return detail::MaskedArray<T>{ derived(), reinterpret_array<mask_t<Derived>>(m) };
     }
 
     call_support<Packet, Derived_> operator->() const {

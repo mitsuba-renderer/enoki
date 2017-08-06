@@ -17,7 +17,7 @@
 
 NAMESPACE_BEGIN(enoki)
 
-template <typename Arg0, typename Arg1> struct dynamic_support<std::pair<Arg0, Arg1>> {
+template <typename Arg0, typename Arg1> struct struct_support<std::pair<Arg0, Arg1>> {
     static constexpr bool is_dynamic_nested =
         enoki::is_dynamic_nested<Arg0>::value || enoki::is_dynamic_nested<Arg1>::value;
     using dynamic_t = std::pair<enoki::make_dynamic_t<Arg0>, enoki::make_dynamic_t<Arg1>>;
@@ -63,9 +63,16 @@ template <typename Arg0, typename Arg1> struct dynamic_support<std::pair<Arg0, A
                          decltype(enoki::ref_wrap(value.second))>(
             enoki::ref_wrap(value.first), enoki::ref_wrap(value.second));
     }
+
+    template <typename T2, typename Mask>
+    static ENOKI_INLINE auto masked(T2 &&value, const Mask &mask) {
+        return std::pair<decltype(enoki::masked(value.first, mask)),
+                         decltype(enoki::masked(value.second, mask))>(
+            enoki::masked(value.first, mask), enoki::masked(value.second, mask));
+    }
 };
 
-template <typename... Args> struct dynamic_support<std::tuple<Args...>> {
+template <typename... Args> struct struct_support<std::tuple<Args...>> {
     static constexpr bool is_dynamic_nested = !enoki::detail::all_of<(!enoki::is_dynamic_nested<Args>::value)...>::value;
     using dynamic_t = std::tuple<enoki::make_dynamic_t<Args>...>;
     using Value = std::tuple<Args...>;
@@ -102,6 +109,10 @@ template <typename... Args> struct dynamic_support<std::tuple<Args...>> {
         return ref_wrap(std::forward<T2>(value), std::make_index_sequence<sizeof...(Args)>());
     }
 
+    template <typename T2, typename Mask>
+    static ENOKI_INLINE auto masked(T2 &value, const Mask &mask) {
+        return masked(std::forward<T2>(value), mask, std::make_index_sequence<sizeof...(Args)>());
+    }
 private:
     template <size_t... Index>
     static ENOKI_INLINE void set_slices(Value &value, size_t i, std::index_sequence<Index...>) {
@@ -132,9 +143,15 @@ private:
         return std::tuple<decltype(enoki::ref_wrap(std::get<Index>(value)))...>(
             enoki::ref_wrap(std::get<Index>(value))...);
     }
+
+    template <typename T2, typename Mask, size_t... Index>
+    static ENOKI_INLINE auto masked(T2 &value, const Mask &mask, std::index_sequence<Index...>) {
+        return std::tuple<decltype(enoki::masked(std::get<Index>(value), mask))...>(
+            enoki::masked(std::get<Index>(value), mask)...);
+    }
 };
 
-template <typename T, size_t Size> struct dynamic_support<std::array<T, Size>> {
+template <typename T, size_t Size> struct struct_support<std::array<T, Size>> {
     static constexpr bool is_dynamic_nested = enoki::is_dynamic_nested<T>::value;
     using dynamic_t = std::array<enoki::make_dynamic_t<T>, Size>;
     using Value = std::array<T, Size>;
@@ -172,6 +189,10 @@ template <typename T, size_t Size> struct dynamic_support<std::array<T, Size>> {
         return ref_wrap(std::forward<T2>(value), std::make_index_sequence<Size>());
     }
 
+    template <typename T2, typename Mask>
+    static ENOKI_INLINE auto masked(T2 &value, const Mask &mask) {
+        return masked(value, mask, std::make_index_sequence<Size>());
+    }
 private:
     template <typename T2, size_t... Index>
     static ENOKI_INLINE auto packet(T2 &&value, size_t i, std::index_sequence<Index...>) {
@@ -195,6 +216,12 @@ private:
     static ENOKI_INLINE auto ref_wrap(T2 &&value, std::index_sequence<Index...>) {
         return std::array<decltype(enoki::ref_wrap(value[0])), Size>{{
             enoki::ref_wrap(value[Index])...}};
+    }
+
+    template <typename T2, typename Mask, size_t... Index>
+    static ENOKI_INLINE auto masked(T2 &value, const Mask &mask, std::index_sequence<Index...>) {
+        return std::array<decltype(enoki::masked(value[0], mask)), Size>{{
+            enoki::masked(value[Index], mask)...}};
     }
 };
 

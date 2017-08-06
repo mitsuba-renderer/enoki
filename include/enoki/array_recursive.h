@@ -395,6 +395,23 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     Derived tzcnt_() const  { return Derived(tzcnt(a1),  tzcnt(a2));  }
     Derived popcnt_() const { return Derived(popcnt(a1), popcnt(a2)); }
 
+    #define ENOKI_MASKED_OPERATOR(name)                                        \
+        ENOKI_INLINE void name##_(const Mask &mask, const Derived &value) {    \
+            a1.name##_(low(mask), value);                                      \
+            a2.name##_(high(mask), value);                                     \
+        }
+
+    ENOKI_MASKED_OPERATOR(assign)
+    ENOKI_MASKED_OPERATOR(add)
+    ENOKI_MASKED_OPERATOR(sub)
+    ENOKI_MASKED_OPERATOR(mul)
+    ENOKI_MASKED_OPERATOR(div)
+    ENOKI_MASKED_OPERATOR(and)
+    ENOKI_MASKED_OPERATOR(or)
+    ENOKI_MASKED_OPERATOR(xor)
+
+    #undef ENOKI_MASKED_OPERATOR
+
     //! @}
     // -----------------------------------------------------------------------
 

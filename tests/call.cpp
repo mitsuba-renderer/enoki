@@ -12,6 +12,7 @@
 */
 
 #include "test.h"
+#include <enoki/stl.h>
 
 struct Test;
 
@@ -36,6 +37,8 @@ struct Test {
 
     bool func3() const { return value == 20; }
 
+    std::pair<Int32P, Int32P> func4(TestPMask) const { return std::make_pair(value, value+1); }
+
     int32_t value;
 };
 
@@ -45,6 +48,7 @@ ENOKI_CALL_SUPPORT_BEGIN(TestP)
 ENOKI_CALL_SUPPORT(func1)
 ENOKI_CALL_SUPPORT(func2)
 ENOKI_CALL_SUPPORT_SCALAR(func3)
+ENOKI_CALL_SUPPORT(func4)
 ENOKI_CALL_SUPPORT_END(TestP)
 
 ENOKI_TEST(test00_call) {
@@ -58,8 +62,16 @@ ENOKI_TEST(test00_call) {
     Int32P index = index_sequence<Int32P>();
     Int32P result = pointers->func1(index);
     Int32P ref = index_sequence<Int32P>() + 10;
-    ref.coeff(offset) += 10;
+    if (offset < Int32P::Size)
+        ref.coeff(offset) += 10;
     assert(result == ref);
+
+    Int32P ref2 = 10;
+    if (offset < Int32P::Size)
+        ref2.coeff(offset) += 10;
+    std::pair<Int32P, Int32P> result2 = pointers->func4();
+    assert(result2.first == ref2);
+    assert(result2.second == ref2+1);
 
     TestX pointers_x;
     Int32X index_x;

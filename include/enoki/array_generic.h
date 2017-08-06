@@ -28,7 +28,7 @@ NAMESPACE_BEGIN(detail)
 
 template <typename Type_, size_t Size_, bool Approx_, RoundingMode Mode_>
 struct ArrayMask : StaticArrayImpl<Type_, Size_, Approx_, Mode_,
-                                     ArrayMask<Type_, Size_, Approx_, Mode_>> {
+                                   ArrayMask<Type_, Size_, Approx_, Mode_>> {
     using Base = StaticArrayImpl<Type_, Size_, Approx_, Mode_,
                                  ArrayMask<Type_, Size_, Approx_, Mode_>>;
     static constexpr bool IsMask = true;
@@ -237,6 +237,15 @@ public:
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             coeff(i) = reinterpret_array<Value>(a);
     }
+
+    template <typename T> ENOKI_INLINE StaticArrayImpl(detail::MaskedArray<T> &value)
+        : StaticArrayImpl(value, std::make_index_sequence<Size>()) { }
+
+    template <typename T, size_t... Index>
+    ENOKI_INLINE StaticArrayImpl(detail::MaskedArray<T> &value,
+                                 std::index_sequence<Index...>)
+        : m_data{ detail::MaskedArray<value_t<T>>(value.d.coeff(Index),
+                                                  value.m.coeff(Index))... } { }
 
     //! @}
     // -----------------------------------------------------------------------
@@ -804,7 +813,7 @@ public:
         const Int one(1);
         Int result(0);
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            madd(result, one, mask_t<Int>(coeff(i)));
+            masked(result, coeff(i)) += one;
         return result;
     }
 
@@ -1144,10 +1153,10 @@ template <typename Packet_, typename Storage_> struct call_support_base {
         Result result = zero<Result>();
 
         while (any(mask)) {
-            Value value    = extract(self, mask);
-            Mask active    = mask & eq(self, Packet(value));
-            mask          &= ~active;
-            result[active] = func(value, args..., active);
+            Value value            = extract(self, mask);
+            Mask active            = mask & eq(self, Packet(value));
+            mask                  &= ~active;
+            masked(result, active) = func(value, args..., active);
         }
 
         return result;
@@ -1179,10 +1188,10 @@ template <typename Packet_, typename Storage_> struct call_support_base {
         ResultArray result = zero<Result>();
 
         while (any(mask)) {
-            Value value    = extract(self, mask);
-            Mask active    = mask & eq(self, Packet(value));
-            mask          &= ~active;
-            result[active] = func(value, args...);
+            Value value             = extract(self, mask);
+            Mask active             = mask & eq(self, Packet(value));
+            mask                   &= ~active;
+            masked(result, active)  = func(value, args...);
         }
 
         return result;
@@ -1219,7 +1228,7 @@ template <typename Packet_, typename Storage_> struct call_support_base {
               std::enable_if_t<is_mask<detail::tuple_tail_t<Tuple>>::value, int> = 0>
     decltype(auto) dispatch_scalar_1(Func &&func, Tuple &&args, std::index_sequence<Indices...>) {
         return dispatch_scalar_2(func, std::get<(Indices + sizeof...(Indices) - 1) %
-                                  sizeof...(Indices)>(args)...);
+                                 sizeof...(Indices)>(args)...);
     }
 
     template <typename Func, typename Tuple, size_t... Indices,
@@ -1258,8 +1267,10 @@ template <typename Packet_, typename Storage_> struct call_support_base {
                          }, self, args...);                                    \
     }
 
-#define ENOKI_CALL_SUPPORT(name)        ENOKI_CALL_SUPPORT_GENERIC(name, dispatch_1)
-#define ENOKI_CALL_SUPPORT_SCALAR(name) ENOKI_CALL_SUPPORT_GENERIC(name, dispatch_scalar_1)
+#define ENOKI_CALL_SUPPORT(name)                                               \
+    ENOKI_CALL_SUPPORT_GENERIC(name, dispatch_1)
+#define ENOKI_CALL_SUPPORT_SCALAR(name)                                        \
+    ENOKI_CALL_SUPPORT_GENERIC(name, dispatch_scalar_1)
 
 #define ENOKI_CALL_SUPPORT_END(Packet)                                         \
         };                                                                     \

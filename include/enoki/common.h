@@ -355,11 +355,11 @@ template <typename T> struct type_<T, enable_if_array_t<T>> {
 /// Type trait to access the packet/component type of an array
 template <typename T, typename> struct packet_ { using type = T; };
 
-template <typename T> struct packet_<T, enable_if_static_array_t<T>> {
+template <typename T> struct packet_<T, std::enable_if_t<is_array<T>::value && !is_dynamic_array<T>::value, int>> {
     using type = typename std::decay_t<T>::Type;
 };
 
-template <typename T> struct packet_<T, enable_if_dynamic_array_t<T>> {
+template <typename T> struct packet_<T, std::enable_if_t<is_array<T>::value && is_dynamic_array<T>::value, int>> {
     using type = typename std::decay_t<T>::Packet;
 };
 
@@ -411,32 +411,21 @@ NAMESPACE_END(detail)
 // -----------------------------------------------------------------------
 
 /// Replace the base scalar type of a (potentially nested) array
-template <typename T, typename Value, typename = void>
+template <typename T, typename Value, typename = int>
 struct like { };
-
-template <typename T, typename Value>
-struct like<T, Value, std::enable_if_t<!is_array<T>::value>> {
-    using type = detail::copy_flags_t<T, Value>;
-};
 
 template <typename T, typename Value> using like_t = typename like<T, Value>::type;
 
-template <typename T, typename Value>
-struct like<T, Value, std::enable_if_t<is_static_array<T>::value>> {
-private:
-    using Array = typename std::decay_t<T>::Derived;
-    using Entry = like_t<value_t<Array>, Value>;
-public:
-    using type = detail::copy_flags_t<T, typename Array::template ReplaceType<Entry>>;
+template <typename T, typename Value> struct like<T, Value, enable_if_not_array_t<T>> {
+    using type = detail::copy_flags_t<T, Value>;
 };
 
-template <typename T, typename Value>
-struct like<T, Value, std::enable_if_t<is_dynamic_array<T>::value>> {
+template <typename T, typename Value> struct like<T, Value, enable_if_array_t<T>> {
 private:
     using Array = typename std::decay_t<T>::Derived;
-    using Entry = like_t<typename Array::Packet, Value>;
+    using Entry = like_t<packet_t<Array>, Value>;
 public:
-    using type = typename Array::template ReplaceType<Entry>;
+    using type = detail::copy_flags_t<T, typename Array::template ReplaceType<Entry>>;
 };
 
 /// Reinterpret the binary represesentation of a data type

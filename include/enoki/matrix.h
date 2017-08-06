@@ -366,7 +366,7 @@ transpose(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
 //! @{ \name Enoki accessors for static & dynamic vectorization
 // =======================================================================
 
-template <typename T, size_t Size> struct dynamic_support<Matrix<T, Size>, enable_if_static_array_t<Matrix<T, Size>>> {
+template <typename T, size_t Size> struct struct_support<Matrix<T, Size>, enable_if_static_array_t<Matrix<T, Size>>> {
     static constexpr bool is_dynamic_nested = enoki::is_dynamic_nested<T>::value;
     using dynamic_t = Matrix<enoki::make_dynamic_t<T>, Size>;
     using Value = Matrix<T, Size>;
