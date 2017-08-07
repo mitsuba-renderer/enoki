@@ -12,8 +12,8 @@ found in computer graphics and vision applications.
     Enoki attempts to store matrix entries in processor registers---it is
     unwise to work with large matrices since this will cause considerable
     pressure on the register allocator. Instead, consider using specialized
-    libraries for large-scale linear algebra (e.g. Eigen or Intel MKL) for
-    larger matrices.
+    libraries for large-scale linear algebra (e.g. Eigen or Intel MKL) in
+    such cases.
 
 To use this feature, include the following header:
 
@@ -108,10 +108,22 @@ Reference
 
         Denotes the Enoki array type of a matrix column.
 
+    .. cpp:function:: template <typename... Values> Matrix(Values... values)
+
+        Creates a new :cpp:class:`enoki::Matrix` instance with the
+        given set of entries (where ``sizeof...(Values) == Size*Size``)
+
     .. cpp:function:: template <typename... Columns> Matrix(Columns... columns)
 
         Creates a new :cpp:class:`enoki::Matrix` instance with the
-        given set of columns (where ``Size == sizeof...(Columns)``)
+        given set of columns (where ``sizeof...(Columns) == Size``)
+
+    .. cpp:function:: template <size_t Size2> Matrix(Matrix<Type, Size2> m)
+
+        Construct a matrix from another matrix of the same type, but with a
+        different size. If ``Size2 > Size``, the constructor copies the top
+        left part of ``m``. Otherwise, it copies all of ``m`` and fills the
+        rest of the matrix with the identity.
 
     .. cpp:function:: Matrix(Type f)
 
@@ -125,6 +137,18 @@ Reference
     .. cpp:function:: const Type& operator()(size_t i, size_t j) const
 
         Returns a const reference to the matrix entry :math:`(i, j)`.
+
+    .. cpp:function:: Column& col(size_t i)
+
+        Returns a reference to :math:`i`-th column.
+
+    .. cpp:function:: const Column& col(size_t i) const
+
+        Returns a const reference to :math:`i`-th column.
+
+    .. cpp:function:: Column row(size_t i)
+
+        Returns the :math:`i`-th row by value.
 
     .. cpp:function:: template <typename... Columns> static Matrix from_columns(Columns... columns)
 
@@ -155,6 +179,10 @@ Supported operations
 
     Computes the trace (i.e. sum of the diagonal elements) of the given matrix.
 
+.. cpp:function:: template <typename T, size_t Size> T frob(Matrix<T, Size> m)
+
+    Computes the Frobenius norm of the given matrix.
+
 .. cpp:function:: template <typename Matrix> Matrix identity()
 
     Returns the identity matrix.
@@ -163,17 +191,53 @@ Supported operations
 
     Returns a diagonal matrix whoose entries are copied from ``v``.
 
+
+.. cpp:function:: template <typename Matrix> typename Matrix::Column diag(Matrix m)
+
+    Extracts the diagonal from a matrix ``m`` and returns it as a vector.
+
 .. cpp:function:: template <typename T, size_t Size> Matrix<T, Size> transpose(Matrix<T, Size> m)
 
     Computes the transpose of ``m`` using an efficient set of shuffles.
 
-.. cpp:function:: template <typename T, size_t Size> Matrix<T, Size> invert(Matrix<T, Size> m)
+.. cpp:function:: template <typename T, size_t Size> Matrix<T, Size> inverse(Matrix<T, Size> m)
 
     Computes the inverse of ``m`` using an efficient vectorized form of
-    Cramer's rule
+    Cramer's rule.
 
     .. warning::
 
          This function is only implemented for :math:`1\times 1`,
          :math:`2\times 2`, :math:`3\times 3`, and :math:`4\times 4` matrices
          (which are allowed to be packets of matrices).
+
+.. cpp:function:: template <typename T, size_t Size> Matrix<T, Size> inverse_transpose(Matrix<T, Size> m)
+
+    Computes the inverse transpose of ``m`` using an efficient vectorized form
+    of Cramer's rule. (This function is more efficient than ``transpose(inverse(m))``)
+
+    .. warning::
+
+         This function is only implemented for :math:`1\times 1`,
+         :math:`2\times 2`, :math:`3\times 3`, and :math:`4\times 4` matrices
+         (which are allowed to be packets of matrices).
+
+.. cpp:function:: template <typename T, size_t Size> Matrix<T, Size> det(Matrix<T, Size> m)
+
+    Computes the determinant of ``m``.
+
+    .. warning::
+
+         This function is only implemented for :math:`1\times 1`,
+         :math:`2\times 2`, :math:`3\times 3`, and :math:`4\times 4` matrices
+         (which are allowed to be packets of matrices).
+
+
+.. cpp:function:: template <typename Matrix> std::pair<Matrix, Matrix> polar_decomp(Matrix M, size_t it = 10)
+
+    Given a nonsingular input matrix :math:`\mathbf{M}`, ``polar_decomp``
+    computes the polar decomposition :math:`\mathbf{M} = \mathbf{Q}\mathbf{P}`,
+    where :math:`\mathbf{Q}` is an orthogonal matrix and :math:`\mathbf{Q}` is
+    a symmetric and positive definite matrix. The computation relies on an
+    accelerated version of Heron's method that converges rapidly. ``it``
+    denotes the iteration count---a value of :math:`10` should be plenty.

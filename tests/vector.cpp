@@ -13,6 +13,7 @@
 
 #include "test.h"
 #include <enoki/matrix.h>
+#include <enoki/homogeneous.h>
 
 template <typename T, std::enable_if_t<std::is_signed<typename T::Value>::value, int> = 0>
 void test01_dot_signed() {
@@ -189,3 +190,24 @@ ENOKI_TEST(array_float_04_bcast) { test_bcast<float>(); }
 ENOKI_TEST(array_uint32_04_bcast) { test_bcast<uint32_t>(); }
 ENOKI_TEST(array_double_04_bcast) { test_bcast<double>(); }
 ENOKI_TEST(array_uint64_t_04_bcast) { test_bcast<uint64_t>(); }
+
+
+ENOKI_TEST(transform_decompose) {
+    using Matrix4f = Matrix<float, 4>;
+    using Matrix3f = Matrix<float, 3>;
+    using Vector3f = Array<float, 3>;
+    using Quaternion4f = Quaternion<float>;
+
+    Matrix4f A(
+         0.99646652, -0.13867289,  0.14220636,  1.,
+         0.07042366,  1.99456394, -0.06498755,  2.,
+        -0.04577128,  0.04984837,  2.9959228 ,  3.,
+         0.        ,  0.        ,  0.        ,  1.
+    );
+    Matrix3f s;
+    Quaternion4f q;
+    Vector3f t;
+    std::tie(s, q, t) = transform_decompose(A);
+    auto result2 = transform_compose(s, q, t);
+    assert(frob(A - result2) < 1e-6f);
+}

@@ -717,12 +717,12 @@ template <typename Arg, typename E = expr_t<Arg>> ENOKI_INLINE E deg_to_rad(cons
 }
 
 NAMESPACE_BEGIN(detail)
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE expr_t<Array> sign_mask(const Array &a) {
-    using UInt = scalar_t<uint_array_t<Array>>;
-    using Float = scalar_t<Array>;
+template <typename Arg>
+ENOKI_INLINE auto sign_mask(const Arg &a) {
+    using UInt = scalar_t<uint_array_t<Arg>>;
+    using Float = scalar_t<Arg>;
     const Float mask = memcpy_cast<Float>(UInt(1) << (sizeof(UInt) * 8 - 1));
-    return a & mask;
+    return detail::and_(a, expr_t<Arg>(mask));
 }
 NAMESPACE_END(detail)
 
@@ -738,30 +738,33 @@ ENOKI_INLINE Expr sign(const Array &a) {
         return select(a < Scalar(0), Expr(Scalar(-1)), Expr(Scalar(1)));
 }
 
-template <typename Array, enable_if_static_array_t<Array> = 0, typename Expr = expr_t<Array>>
-ENOKI_INLINE Expr copysign(const Array &a, const Array &b) {
-    using Scalar = scalar_t<Array>;
+template <typename Array1, typename Array2, typename Result = expr_t<Array1, Array2>,
+          enable_if_array_t<Result> = 0>
+ENOKI_INLINE Result copysign(const Array1 &a, const Array2 &b) {
+    static_assert(std::is_same<scalar_t<Array1>, scalar_t<Array2>>::value, "Mismatched argument types!");
+    static_assert(std::is_signed<scalar_t<Array1>>::value, "copysign() expects signed arguments!");
 
-    if (!std::is_signed<Scalar>::value) {
-        return a;
-    } else if (std::is_floating_point<Scalar>::value) {
+    if (std::is_floating_point<scalar_t<Result>>::value) {
         return abs(a) | detail::sign_mask(b);
     } else {
-        auto abs_a = abs(a);
-        return select(b >= Scalar(0), abs_a, -abs_a);
+        Result result(a);
+        result[(a ^ b) < 0] = -a;
+        return result;
     }
 }
 
-template <typename Array, enable_if_static_array_t<Array> = 0, typename Expr = expr_t<Array>>
-ENOKI_INLINE Expr mulsign(const Array &a, const Array &b) {
-    using Scalar = scalar_t<Array>;
+template <typename Array1, typename Array2, typename Result = expr_t<Array1, Array2>,
+          enable_if_array_t<Result> = 0>
+ENOKI_INLINE Result mulsign(const Array1 &a, const Array2 &b) {
+    static_assert(std::is_same<scalar_t<Array1>, scalar_t<Array2>>::value, "Mismatched argument types!");
+    static_assert(std::is_signed<scalar_t<Array1>>::value, "mulsign() expects signed arguments!");
 
-    if (!std::is_signed<Scalar>::value) {
-        return a;
-    } else if (std::is_floating_point<Scalar>::value) {
+    if (std::is_floating_point<scalar_t<Result>>::value) {
         return a ^ detail::sign_mask(b);
     } else {
-        return select(b >= Scalar(0), a, -a);
+        Result result(a);
+        result[b < 0] = -a;
+        return result;
     }
 }
 

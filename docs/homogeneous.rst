@@ -27,6 +27,29 @@ Reference
     Constructs a homogeneous transformation, which rotates by ``angle`` radians
     around the axis ``v``. The function requires ``v`` to be normalized.
 
+.. cpp:function:: template <typename Matrix> auto transform_decompose(Matrix m)
+
+    Performs a polar decomposition of a non-perspective 4x4 homogeneous
+    coordinate matrix and returns a tuple of
+
+    1. A positive definite 3x3 matrix containing an inhomogeneous scaling operation
+
+    2. A rotation quaternion
+
+    3. A 3D translation vector
+
+    This representation is helpful when animating keyframe animations.
+
+    The function also handles singular inputs ``m``, in which case the rotation
+    component is set to the identity quaternion and the scaling part simply
+    copies the input matrix.
+
+.. cpp:function:: template <typename Matrix3, typename Quaternion, typename Vector3> auto transform_compose(Matrix3 scale, Quaternion rotation, Vector3 translate)
+
+    This function composes a 4x4 homogeneous coordinate transformation from the
+    given scale, rotation, and translation. It is the inverse of
+    ``transform_decompose``.
+
 .. cpp:function:: template <typename Matrix, typename Point3, typename Vector3> Matrix look_at(Point3 origin, Point3, target, Vector3 up)
 
     Constructs an homogeneous transformation, which translates to

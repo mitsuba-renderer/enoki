@@ -42,12 +42,13 @@ struct Matrix
                                  detail::approx_default<Type_>::value,
                                  RoundingMode::Default, Matrix<Type_, Size_>>;
 
-    template <typename T> using ReplaceType = Matrix<T, Size_>;
+    template <typename T> using ReplaceType = Matrix<value_t<T>, Size_>;
 
     ENOKI_DECLARE_CUSTOM_ARRAY(Base, Matrix)
 
     using Base::coeff;
     using Base::Size;
+    using Base::data;
 
     /// Initialize the matrix from a set of coefficients
     template <typename... Args, std::enable_if_t<
@@ -65,6 +66,27 @@ struct Matrix
             operator()(i, i) = f;
     }
 
+    /// Initialize from a bigger matrix: retains the top left part
+    template <size_t Size2, std::enable_if_t<(Size2 > Size_), int> = 0>
+    ENOKI_INLINE Matrix(const Matrix<Type_, Size2> &m) {
+        for (size_t i = 0; i < Size; ++i)
+            coeff(i) = head<Size>(m.coeff(i));
+    }
+
+    /// Initialize from a smaller matrix: copies to the top left part and resets
+    /// the remainder to the identity matrix
+    template <size_t Size2, std::enable_if_t<(Size2 < Size_), int> = 0>
+    ENOKI_INLINE Matrix(const Matrix<Type_, Size2> &m) {
+        using Remainder = Array<Type_, Size - Size2>;
+        for (size_t i = 0; i < Size2; ++i)
+            coeff(i) = concat(m.coeff(i), zero<Remainder>());
+        for (size_t i = Size2; i < Size; ++i) {
+            auto col = zero<Column>();
+            col.coeff(i) = 1;
+            coeff(i) = col;
+        }
+    }
+
     template <typename T = Type_,
               std::enable_if_t<!std::is_same<T, scalar_t<T>>::value, int> = 0>
     Matrix(scalar_t<T> f) : Base(zero<Type_>()) {
@@ -80,6 +102,15 @@ struct Matrix
     template <typename... Row>
     ENOKI_INLINE static Matrix from_rows(const Row&... rows) {
         return transpose(Matrix(rows...));
+    }
+
+    ENOKI_INLINE Column& col(size_t index) { return coeff(index); }
+    ENOKI_INLINE const Column& col(size_t index) const { return coeff(index); }
+
+    ENOKI_INLINE Column row(size_t index) const {
+        using Index = Array<uint32_t, Size>;
+        return gather<Column>(coeff(0).data() + index,
+                              index_sequence<Index>() * uint32_t(Size));
     }
 
     /// Return a reference to the (i, j) element
@@ -152,6 +183,13 @@ ENOKI_INLINE expr_t<Type> trace(const Matrix<Type, Size> &m) {
     return result;
 }
 
+template <typename Type, size_t Size> ENOKI_INLINE expr_t<Type> frob(const Matrix<Type, Size> &matrix) {
+    expr_t<column_t<Matrix<Type, Size>>> result = matrix.coeff(0) * matrix.coeff(0);
+    for (size_t i = 1; i < Size; ++i)
+        result = fmadd(matrix.coeff(i), matrix.coeff(i), result);
+    return hsum(result);
+}
+
 template <typename Matrix, std::enable_if_t<Matrix::IsMatrix, int> = 0> ENOKI_INLINE Matrix identity() {
     Matrix result = zero<Matrix>();
     for (size_t i = 0; i < Matrix::Size; ++i)
@@ -159,29 +197,55 @@ template <typename Matrix, std::enable_if_t<Matrix::IsMatrix, int> = 0> ENOKI_IN
     return result;
 }
 
-template <typename Matrix> ENOKI_INLINE Matrix diag(const column_t<Matrix> &value) {
+template <typename Matrix, std::enable_if_t<Matrix::IsMatrix, int> = 0>
+ENOKI_INLINE Matrix diag(const column_t<Matrix> &value) {
     Matrix result = zero<Matrix>();
     for (size_t i = 0; i < Matrix::Size; ++i)
         result(i, i) = value.coeff(i);
     return result;
 }
 
-template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 1> invert(const Matrix<T, 1> &m) {
-    using Vector = Array<E, 1>;
-    return rcp<Vector::Approx>(m(0, 0));
+template <typename Matrix>
+ENOKI_INLINE column_t<expr_t<Matrix>> diag(const Matrix &value) {
+    column_t<expr_t<Matrix>> result;
+    for (size_t i = 0; i < Matrix::Size; ++i)
+        result.coeff(i) = value(i, i);
+    return result;
 }
 
-template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 2> invert(const Matrix<T, 2> &m) {
-    using Vector = Array<E, 2>;
-    E inv_det = rcp<Vector::Approx>(fmsub(m(0, 0), m(1, 1), m(0, 1) * m(1, 0)));
+template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 1> inverse(const Matrix<T, 1> &m) {
+    return rcp<Array<T, 1>::Approx>(m(0, 0));
+}
+
+template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 1> inverse_transpose(const Matrix<T, 1> &m) {
+    return rcp<Array<T, 1>::Approx>(m(0, 0));
+}
+
+template <typename T, typename E = expr_t<T>> ENOKI_INLINE E det(const Matrix<T, 1> &m) {
+    return m(0, 0);
+}
+
+template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 2> inverse(const Matrix<T, 2> &m) {
+    E inv_det = rcp<Matrix<T, 2>::Approx>(fmsub(m(0, 0), m(1, 1), m(0, 1) * m(1, 0)));
     return Matrix<E, 2>( m(1, 1) * inv_det, -m(0, 1) * inv_det,
                         -m(1, 0) * inv_det,  m(0, 0) * inv_det);
 }
 
-template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 3> invert(const Matrix<T, 3> &m) {
+template <typename T, typename E = expr_t<T>> ENOKI_INLINE E det(const Matrix<T, 2> &m) {
+    return fmsub(m(0, 0), m(1, 1), m(0, 1) * m(1, 0));
+}
+
+template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 2> inverse_transpose(const Matrix<T, 2> &m) {
+    E inv_det = rcp<Matrix<T, 2>::Approx>(fmsub(m(0, 0), m(1, 1), m(0, 1) * m(1, 0)));
+    return Matrix<E, 2>( m(1, 1) * inv_det, -m(1, 0) * inv_det,
+                        -m(0, 1) * inv_det,  m(0, 0) * inv_det);
+}
+
+template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 3> inverse_transpose(const Matrix<T, 3> &m) {
     using Vector = Array<E, 3>;
 
-    Vector col0 = m.coeff(0), col1 = m.coeff(1),
+    Vector col0 = m.coeff(0),
+           col1 = m.coeff(1),
            col2 = m.coeff(2);
 
     Vector row0 = cross(col1, col2);
@@ -190,12 +254,20 @@ template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 3> invert(c
 
     Vector inv_det = Vector(rcp<Vector::Approx>(dot(col0, row0)));
 
-    return transpose(Matrix<E, 3>(row0 * inv_det,
-                                  row1 * inv_det,
-                                  row2 * inv_det));
+    return Matrix<E, 3>(row0 * inv_det,
+                        row1 * inv_det,
+                        row2 * inv_det);
 }
 
-template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 4> invert(const Matrix<T, 4> &m) {
+template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 3> inverse(const Matrix<T, 3> &m) {
+    return transpose(inverse(m));
+}
+
+template <typename T, typename E = expr_t<T>> ENOKI_INLINE E det(const Matrix<T, 3> &m) {
+    return dot(m.coeff(0), cross(m.coeff(1), m.coeff(2)));
+}
+
+template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 4> inverse_transpose(const Matrix<T, 4> &m) {
     using Vector = Array<E, 4>;
 
     Vector col0 = m.coeff(0), col1 = m.coeff(1),
@@ -251,10 +323,45 @@ template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 4> invert(c
 
     Vector inv_det = Vector(rcp<Vector::Approx>(dot(col0, row0)));
 
-    return transpose(Matrix<E, 4>(
+    return Matrix<E, 4>(
         row0 * inv_det, row1 * inv_det,
         row2 * inv_det, row3 * inv_det
-    ));
+    );
+}
+
+template <typename T, typename E = expr_t<T>> ENOKI_INLINE Matrix<E, 4> inverse(const Matrix<T, 4> &m) {
+    return transpose(inverse(m));
+}
+
+template <typename T, typename E = expr_t<T>> ENOKI_INLINE E det(const Matrix<T, 4> &m) {
+    using Vector = Array<E, 4>;
+
+    Vector col0 = m.coeff(0), col1 = m.coeff(1),
+           col2 = m.coeff(2), col3 = m.coeff(3);
+
+    col1 = shuffle<2, 3, 0, 1>(col1);
+    col3 = shuffle<2, 3, 0, 1>(col3);
+
+    Vector tmp, row0;
+
+    tmp = shuffle<1, 0, 3, 2>(col2 * col3);
+    row0 = col1 * tmp;
+    tmp = shuffle<2, 3, 0, 1>(tmp);
+    row0 = fmsub(col1, tmp, row0);
+
+    tmp = shuffle<1, 0, 3, 2>(col1 * col2);
+    row0 = fmadd(col3, tmp, row0);
+    tmp = shuffle<2, 3, 0, 1>(tmp);
+    row0 = fnmadd(col3, tmp, row0);
+
+    col1 = shuffle<2, 3, 0, 1>(col1);
+    col2 = shuffle<2, 3, 0, 1>(col2);
+    tmp = shuffle<1, 0, 3, 2>(col1 * col3);
+    row0 = fmadd(col2, tmp, row0);
+    tmp = shuffle<2, 3, 0, 1>(tmp);
+    row0 = fnmadd(col2, tmp, row0);
+
+    return dot(col0, row0);
 }
 
 #if defined(__SSE4_2__)
@@ -362,11 +469,25 @@ transpose(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a) {
     return result;
 }
 
+template <typename T, size_t Size, typename Expr = expr_t<T>, typename Matrix = Matrix<Expr, Size>>
+std::pair<Matrix, Matrix> ENOKI_INLINE polar_decomp(const enoki::Matrix<T, Size> &A, size_t it = 10) {
+    using Arr = Array<Array<Expr, Size>, Size>;
+    Matrix Q = A;
+    for (size_t i = 0; i < it; ++i) {
+        Matrix Qi = inverse_transpose(Q);
+        Expr gamma = sqrt(frob(Qi) / frob(Q));
+        Q = fmadd(Arr(Q), gamma * .5f, Arr(Qi) * (rcp(gamma) * 0.5f));
+    }
+    return std::make_pair(Q, transpose(Q) * A);
+}
+
 // =======================================================================
 //! @{ \name Enoki accessors for static & dynamic vectorization
 // =======================================================================
 
-template <typename T, size_t Size> struct struct_support<Matrix<T, Size>, enable_if_static_array_t<Matrix<T, Size>>> {
+template <typename T, size_t Size>
+struct struct_support<Matrix<T, Size>,
+                      enable_if_static_array_t<Matrix<T, Size>>> {
     static constexpr bool is_dynamic_nested = enoki::is_dynamic_nested<T>::value;
     using dynamic_t = Matrix<enoki::make_dynamic_t<T>, Size>;
     using Value = Matrix<T, Size>;

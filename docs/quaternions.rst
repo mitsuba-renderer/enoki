@@ -36,7 +36,7 @@ The following example shows how to define and perform basic arithmetic using
 
     /* Turn into a 4x4 homogeneous coordinate rotation matrix packet */
     using MatrixP = Matrix<FloatP, 4>;
-    MatrixP c_rot = quat_to_matrix(c);
+    MatrixP c_rot = quat_to_matrix<Matrix4P>(c);
 
     std::cout << "Rotation matrices:" << std::endl;
     std::cout << c_rot << std::endl << std::endl;
@@ -204,15 +204,16 @@ Operations for rotation-related computations
     Performs a spherical linear interpolation between two rotation quaternions,
     where ``slerp(q0, q1, 0.f) == q0`` and ``slerp(q0, q1, 1.f) == q1``.
 
-.. cpp:function:: template <typename T> MatrixP<T, 4> quat_to_matrix(Quaternion<T> q)
+.. cpp:function:: template <typename Matrix, typename T> Matrix quat_to_matrix(Quaternion<T> q)
 
-    Converts a rotation quaternion into a :math:`4\times 4` homogeneous
-    coordinate transformation matrix.
+    Converts a rotation quaternion into a :math:`3\times 3` or `:math:`4\times
+    4` homogeneous coordinate transformation matrix (depending on the
+    ``Matrix`` template argument).
 
-.. cpp:function:: template <typename T> Quaternion<T> matrix_to_quat(MatrixP<T, 4> q)
+.. cpp:function:: template <typename T, size_t Size> Quaternion<T> matrix_to_quat(MatrixP<T, Size> q)
 
-    Converts a :math:`4\times 4` homogeneous containing a pure rotation into a
-    rotation quaternion.
+    Converts a :math:`3\times 3` or :math:`4\times 4` homogeneous containing a
+    pure rotation into a rotation quaternion.
 
 .. cpp:function:: template <typename Quat, typename Vector3, typename Float> Quat rotate(Vector3 v, Float angle)
 

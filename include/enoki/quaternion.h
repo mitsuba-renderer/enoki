@@ -193,45 +193,71 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os, const Quaternion<T> &q
     return os;
 }
 
-template <typename T, typename Expr = expr_t<T>>
-Matrix<Expr, 4> quat_to_matrix(Quaternion<T> q) {
-    const Expr c0(0), c1(1), c2(2);
+template <typename Matrix, typename T, typename Expr = expr_t<T>,
+          std::enable_if_t<Matrix::Size == 4, int> = 0>
+Matrix quat_to_matrix(Quaternion<T> q_) {
+    auto q = q_ * scalar_t<T>(M_SQRT2);
 
     Expr xx = q.x() * q.x(), yy = q.y() * q.y(), zz = q.z() * q.z();
     Expr xy = q.x() * q.y(), xz = q.x() * q.z(), yz = q.y() * q.z();
     Expr xw = q.x() * q.w(), yw = q.y() * q.w(), zw = q.z() * q.w();
 
-    return Matrix<Expr, 4>(
-         c1 - c2 * (yy + zz), c2 * (xy - zw), c2 * (xz + yw), c0,
-         c2 * (xy + zw), c1 - c2 * (xx + zz), c2 * (yz - xw), c0,
-         c2 * (xz - yw), c2 * (yz + xw), c1 - c2 * (xx + yy), c0,
-         c0, c0, c0, c1
+    return Matrix(
+         1.f - (yy + zz), xy - zw, xz + yw, 0.f,
+         xy + zw, 1.f - (xx + zz), yz - xw, 0.f,
+         xz - yw, yz + xw, 1.f - (xx + yy), 0.f,
+         0.f, 0.f, 0.f, 1.f
     );
 }
 
-template <typename T,
+template <typename Matrix, typename T, typename Expr = expr_t<T>,
+          std::enable_if_t<Matrix::Size == 3, int> = 0>
+Matrix quat_to_matrix(Quaternion<T> q_) {
+    auto q = q_ * scalar_t<T>(M_SQRT2);
+
+    Expr xx = q.x() * q.x(), yy = q.y() * q.y(), zz = q.z() * q.z();
+    Expr xy = q.x() * q.y(), xz = q.x() * q.z(), yz = q.y() * q.z();
+    Expr xw = q.x() * q.w(), yw = q.y() * q.w(), zw = q.z() * q.w();
+
+    return Matrix(
+         1.f - (yy + zz), xy - zw, xz + yw,
+         xy + zw, 1.f - (xx + zz), yz - xw,
+         xz - yw,  yz + xw, 1.f - (xx + yy)
+    );
+}
+
+template <typename T, size_t Size,
           typename Expr = expr_t<T>,
-          typename Quat = Quaternion<Expr>>
-Quat matrix_to_quat(const Matrix<T, 4> &mat) {
+          typename Quat = Quaternion<Expr>,
+          std::enable_if_t<Size == 3 || Size == 4, int> = 0>
+Quat matrix_to_quat(const Matrix<T, Size> &mat) {
     const Expr c0(0), c1(1), ch(0.5f);
 
     // Converting a Rotation Matrix to a Quaternion
     // Mike Day, Insomniac Games
     Expr t0(c1 + mat(0, 0) - mat(1, 1) - mat(2, 2));
-    Quat q0(t0, mat(1, 0) + mat(0, 1), mat(0, 2) + mat(2, 0),
+    Quat q0(t0,
+            mat(1, 0) + mat(0, 1),
+            mat(0, 2) + mat(2, 0),
             mat(2, 1) - mat(1, 2));
 
     Expr t1(c1 - mat(0, 0) + mat(1, 1) - mat(2, 2));
-    Quat q1(mat(1, 0) + mat(0, 1), t1, mat(2, 1) + mat(1, 2),
+    Quat q1(mat(1, 0) + mat(0, 1),
+            t1,
+            mat(2, 1) + mat(1, 2),
             mat(0, 2) - mat(2, 0));
 
     Expr t2(c1 - mat(0, 0) - mat(1, 1) + mat(2, 2));
-    Quat q2(mat(0, 2) + mat(2, 0), mat(2, 1) + mat(1, 2), t2,
+    Quat q2(mat(0, 2) + mat(2, 0),
+            mat(2, 1) + mat(1, 2),
+            t2,
             mat(1, 0) - mat(0, 1));
 
     Expr t3(c1 + mat(0, 0) + mat(1, 1) + mat(2, 2));
-    Quat q3(mat(2, 1) - mat(1, 2), mat(0, 2) - mat(2, 0),
-            mat(1, 0) - mat(0, 1), t3);
+    Quat q3(mat(2, 1) - mat(1, 2),
+            mat(0, 2) - mat(2, 0),
+            mat(1, 0) - mat(0, 1),
+            t3);
 
     auto mask0 = mat(0, 0) > mat(1, 1);
     Expr t01 = select(mask0, t0, t1);
@@ -254,7 +280,7 @@ Return slerp(const Quaternion<T0> &q0, const Quaternion<T1> &q1_, Float t) {
     using Scalar = scalar_t<T>;
 
     auto cos_theta = dot(q0, q1_);
-    Return q1 = mulsign(Base(q1_), Base(cos_theta));
+    Return q1 = mulsign(Base(q1_), cos_theta);
     cos_theta = abs(cos_theta);
 
     auto theta = safe_acos(cos_theta);

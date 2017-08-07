@@ -14,6 +14,7 @@
 #pragma once
 
 #include "matrix.h"
+#include "quaternion.h"
 
 NAMESPACE_BEGIN(enoki)
 
@@ -134,5 +135,39 @@ Matrix4 look_at(const Point &origin, const Point &target, const Vector &up) {
     );
 }
 
+template <typename T,
+          typename E       = expr_t<T>,
+          typename Matrix3 = Matrix<E, 3>,
+          typename Vector3 = Array<E, 3>,
+          typename Quat    = enoki::Quaternion<E>>
+std::tuple<Matrix3, Quat, Vector3> transform_decompose(const Matrix<T, 4> &A) {
+    Matrix3 A_sub(A), Q, P;
+    std::tie(Q, P) = polar_decomp(A_sub);
+
+    if (ENOKI_UNLIKELY(any(enoki::isnan(Q(0, 0)))))
+        Q = identity<Matrix3>();
+
+    auto sign_q = det(Q);
+    Q = mulsign(Q, sign_q);
+    P = mulsign(P, sign_q);
+
+    return std::make_tuple(
+        P,
+        matrix_to_quat(Q),
+        head<3>(A.col(3))
+    );
+}
+
+template <typename T,
+          typename E = expr_t<T>,
+          typename Matrix3 = Matrix<E, 3>,
+          typename Matrix4 = Matrix<E, 4>>
+Matrix4 transform_compose(const Matrix<T, 3> &S,
+                          const Quaternion<T> &q,
+                          const Array<T, 3> &t) {
+    Matrix4 result = Matrix4(quat_to_matrix<Matrix3>(q) * S);
+    result.coeff(3) = concat(t, 1.f);
+    return result;
+}
 
 NAMESPACE_END(enoki)
