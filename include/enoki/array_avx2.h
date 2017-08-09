@@ -36,7 +36,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMod
     //! @{ \name Value constructors
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE StaticArrayImpl(Value value) : m(_mm256_set1_epi32((int32_t) value)) { }
+    ENOKI_INLINE StaticArrayImpl(const Value &value) : m(_mm256_set1_epi32((int32_t) value)) { }
     ENOKI_INLINE StaticArrayImpl(Value v0, Value v1, Value v2, Value v3,
                                  Value v4, Value v5, Value v6, Value v7)
         : m(_mm256_setr_epi32((int32_t) v0, (int32_t) v1, (int32_t) v2, (int32_t) v3,
@@ -457,7 +457,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMod
     //! @{ \name Value constructors
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE StaticArrayImpl(Value value)
+    ENOKI_INLINE StaticArrayImpl(const Value &value)
         : m(_mm256_set1_epi64x((long long) value)) { }
 
     ENOKI_INLINE StaticArrayImpl(Value v0, Value v1, Value v2, Value v3)
@@ -904,9 +904,9 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     StaticArrayImpl &operator=(const StaticArrayImpl &) = default;
 
     template <
-        typename Type2, bool Approx2, RoundingMode Mode2, typename Derived2>
+        typename Value2, bool Approx2, RoundingMode Mode2, typename Derived2>
     ENOKI_INLINE StaticArrayImpl(
-        const StaticArrayBase<Type2, 3, Approx2, Mode2, Derived2> &a) {
+        const StaticArrayBase<Value2, 3, Approx2, Mode2, Derived2> &a) {
         ENOKI_TRACK_SCALAR for (size_t i = 0; i < 3; ++i)
             coeff(i) = Value(a.derived().coeff(i));
     }

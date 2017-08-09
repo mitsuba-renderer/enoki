@@ -96,7 +96,7 @@ ENOKI_TEST(test03_alloc_nested)  {
     assert(packets(z[0]) == 1);
     assert(packets(z[0][0]) == 0);
     assert(to_string(packet(z, 0)) == "[[1, 5, 0],\n [2, 6, 11],\n [3, 7, 12],\n [4, 8, 13]]");
-    assert((std::is_reference<decltype(packet(z, 0))::Type>::value));
+    assert((std::is_reference<decltype(packet(z, 0))::Value>::value));
 
     vectorize([](auto &&z) { z = z + Vector3f(1.f, 2.f, 3.f); }, z);
     assert(to_string(z) == "[[2, 7, 3],\n [3, 8, 14]]");
@@ -140,6 +140,10 @@ ENOKI_TEST(test05_meshgrid) {
 
         assert(slices(xy) == 12);
         assert(to_string(xy) == "[[0, 1],\n [1, 1],\n [2, 1],\n [0, 2],\n [1, 2],\n [2, 2],\n [0, 3],\n [1, 3],\n [2, 3],\n [0, 4],\n [1, 4],\n [2, 4]]");
+
+        Array<FloatX, 2> yz = std::move(xy);
+        assert(to_string(yz) == "[[0, 1],\n [1, 1],\n [2, 1],\n [0, 2],\n [1, 2],\n [2, 2],\n [0, 3],\n [1, 3],\n [2, 3],\n [0, 4],\n [1, 4],\n [2, 4]]");
+        assert(to_string(xy) == "[]");
     }
 
     assert(test::alloc_count - ac == 4);

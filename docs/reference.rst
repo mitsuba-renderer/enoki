@@ -27,8 +27,9 @@ hides the fact that
 
        auto z = x + y;
 
-   The entries of ``x`` are broadcast and promoted in the above example, and
-   the type of ``z`` is thus ``Array<Array<double, 8>, 4>``.
+   The entries of ``x`` are broadcasted and promoted in the above example, and
+   the type of ``z`` is thus ``Array<Array<double, 8>, 4>``. See the section on
+   :ref:`broadcasting rules <broadcasting>` for details.
 
 2. The operator uses SFINAE (``std::enable_if``) so that it only becomes active
    when ``x`` or ``y`` are Enoki arrays.
@@ -202,10 +203,10 @@ Rounding modes
 Static arrays
 -------------
 
-.. cpp:class:: template <typename Type, size_t Size = max_packet_size / sizeof(Type), \
-                         bool Approx = detail::approx_default<Type>::value, \
+.. cpp:class:: template <typename Value, size_t Size = max_packet_size / sizeof(Value), \
+                         bool Approx = detail::approx_default<Value>::value, \
                          RoundingMode Mode = RoundingMode::Default> \
-               Array : StaticArrayImpl<Type, Size, Approx, Mode, Array<Type, Size, Approx, Mode>>
+               Array : StaticArrayImpl<Value, Size, Approx, Mode, Array<Value, Size, Approx, Mode>>
 
     The default Enoki array class -- a generic container that stores a
     fixed-size array of an arbitrary data type similar to the standard template
@@ -215,7 +216,7 @@ Static arrays
 
     It has several template parameters:
 
-    * ``typename Type``: the underlying scalar data type.
+    * ``typename Value``: the type of individual array entries.
 
     * ``size_t Size``: the number of packed array entries.
 
@@ -238,7 +239,7 @@ Static arrays
     Pattern (CRTP). The latter provides the actual machinery that is needed to
     evaluate array expressions. See :ref:`custom-arrays` for details.
 
-.. cpp:class:: template <typename Type, size_t Size, bool Approx, \
+.. cpp:class:: template <typename Value, size_t Size, bool Approx, \
                          RoundingMode Mode, typename Derived> StaticArrayImpl
 
     This base class provides the core implementation of an Enoki array. It
@@ -249,10 +250,10 @@ Static arrays
     .. cpp:function:: StaticArrayImpl()
 
         Create an unitialized array. Floating point arrays are initialized
-        using ``std::numeric_limits<Type>::quiet_NaN()`` when the application
+        using ``std::numeric_limits<Value>::quiet_NaN()`` when the application
         is compiled in debug mode.
 
-    .. cpp:function:: StaticArrayImpl(Type type)
+    .. cpp:function:: StaticArrayImpl(Value type)
 
         Broadcast a constant value to all entries of the array.
 
@@ -261,8 +262,8 @@ Static arrays
         Initialize the individual array entries with ``args`` (where
         ``sizeof...(args) == Size``).
 
-    .. cpp:function:: template<typename Type2, bool Approx2, RoundingMode Mode2, typename Derived2> \
-                      StaticArrayImpl(const StaticArrayImpl<Type2, Size, Approx2, Mode2, Derived2> &other)
+    .. cpp:function:: template<typename Value2, bool Approx2, RoundingMode Mode2, typename Derived2> \
+                      StaticArrayImpl(const StaticArrayImpl<Value2, Size, Approx2, Mode2, Derived2> &other)
 
         Initialize the array with the contents of another given array that
         potentially has a different underlying type. Enoki will perform a
@@ -273,7 +274,7 @@ Static arrays
 
         Returns the size of the array.
 
-    .. cpp:function:: const Type& operator[](size_t index) const
+    .. cpp:function:: const Value& operator[](size_t index) const
 
         Return a reference to an array element (const version). When the
         application is compiled in debug mode, the function performs a range
@@ -281,51 +282,51 @@ Static arrays
         access. This behavior can be disabled by defining
         ``ENOKI_DISABLE_RANGE_CHECK``.
 
-    .. cpp:function:: Type& operator[](size_t index)
+    .. cpp:function:: Value& operator[](size_t index)
 
         Return a reference to an array element. When the application is
         compiled in debug mode, the function performs a range check and throws
         ``std::out_of_range`` in case of an out-of-range access. This behavior
         can be disabled by defining ``ENOKI_DISABLE_RANGE_CHECK``.
 
-    .. cpp:function:: const Type& coeff(size_t index) const
+    .. cpp:function:: const Value& coeff(size_t index) const
 
         Just like :cpp:func:`operator[]`, but without the range check (const
         version).
 
-    .. cpp:function:: Type& coeff(size_t index)
+    .. cpp:function:: Value& coeff(size_t index)
 
         Just like :cpp:func:`operator[]`, but without the range check.
 
-    .. cpp:function:: Type& x()
+    .. cpp:function:: Value& x()
 
         Access the first component.
 
-    .. cpp:function:: const Type& x() const
+    .. cpp:function:: const Value& x() const
 
         Access the first component (const version).
 
-    .. cpp:function:: Type& y()
+    .. cpp:function:: Value& y()
 
         Access the second component.
 
-    .. cpp:function:: const Type& y() const
+    .. cpp:function:: const Value& y() const
 
         Access the second component (const version).
 
-    .. cpp:function:: Type& z()
+    .. cpp:function:: Value& z()
 
         Access the third component.
 
-    .. cpp:function:: const Type& z() const
+    .. cpp:function:: const Value& z() const
 
         Access the third component (const version).
 
-    .. cpp:function:: Type& w()
+    .. cpp:function:: Value& w()
 
         Access the fourth component.
 
-    .. cpp:function:: const Type& w() const
+    .. cpp:function:: const Value& w() const
 
         Access the fourth component (const version).
 
@@ -422,9 +423,9 @@ Memory operations
         Array result;
         for (size_t i = 0; i < Array::Size; ++i)
             if (mask[i])
-                result[i] = ((Type *) mem)[index[i]];
+                result[i] = ((Value *) mem)[index[i]];
             else
-                result[i] = Type(0);
+                result[i] = Value(0);
 
     The ``index`` parameter must be a 32 or 64 bit integer array having the
     same number of entries. It will be interpreted as a signed array regardless
@@ -432,7 +433,7 @@ Memory operations
 
     The default value of the ``Stride`` parameter indicates that the data at
     ``mem`` uses a packed memory layout (i.e. a stride value of
-    ``sizeof(Type)``); other values override this behavior.
+    ``sizeof(Value)``); other values override this behavior.
 
 .. cpp:function:: template <size_t Stride = 0, typename Array, typename Index> \
                   void scatter(const void *mem, Array array, Index index, mask_t<Array> mask = true)
@@ -445,7 +446,7 @@ Memory operations
 
         for (size_t i = 0; i < Array::Size; ++i)
             if (mask[i])
-                ((Type *) mem)[index[i]] = array[i];
+                ((Value *) mem)[index[i]] = array[i];
 
     The ``index`` parameter must be a 32 or 64 bit integer array having the
     same number of entries. It will be interpreted as a signed array regardless
@@ -453,7 +454,7 @@ Memory operations
 
     The default value of the ``Stride`` parameter indicates that the data at
     ``mem`` uses a packed memory layout (i.e. a stride value of
-    ``sizeof(Type)``); other values override this behavior.
+    ``sizeof(Value)``); other values override this behavior.
 
 .. cpp:function:: template <typename Array, size_t Stride = sizeof(scalar_t<Array>), \
                             bool Write = false, size_t Level = 2, typename Index> \
@@ -474,7 +475,7 @@ Memory operations
 
     The default value of the ``Stride`` parameter indicates that the data at
     ``mem`` uses a packed memory layout (i.e. a stride value of
-    ``sizeof(Type)``); other values override this behavior.
+    ``sizeof(Value)``); other values override this behavior.
 
 .. cpp:function:: template <typename Output, typename Input, typename Mask> \
                   size_t compress(Output output, Input input, Mask mask)
@@ -1604,6 +1605,64 @@ Rearranging contents of arrays
 .. cpp:function:: template <size_t Size, typename Array> auto tail(Array a)
 
     Returns a new array containing the trailing ``Size`` elements of ``a``.
+
+.. cpp:function:: template <typename Outer, typename Inner> like_t<Outer, Inner> fill(const Inner &inner)
+
+    Given an array type ``Outer`` and a value of type ``Inner``, this function
+    returns a new composite type of shape ``[<shape of Outer>, <shape of
+    Inner>]`` that is filled with the value of the ``inner`` argument.
+
+    In the simplest case, this can be used to create a (potentially nested)
+    array that is filled with constant values.
+
+    .. code-block:: cpp
+
+        using Vector4f  = Array<float, 4>;
+        using MyMatrix = Array<Vector4f, 4>;
+        MyMatrix result = fill<MyMatrix>(10.f);
+        std::cout << result << std::endl;
+
+        /* Prints:
+
+             [[10, 10, 10, 10],
+              [10, 10, 10, 10],
+              [10, 10, 10, 10],
+              [10, 10, 10, 10]]
+        */
+
+    Another use case entails replicating an array over the trailing dimensions
+    of a new array:
+
+    .. code-block:: cpp
+
+        result = fill<Vector4f>(Vector4f(1, 2, 3, 4))
+        std::cout << result << std::endl;
+
+        /* Prints:
+
+            [[1, 1, 1, 1],
+             [2, 2, 2, 2],
+             [3, 3, 3, 3],
+             [4, 4, 4, 4]]
+        */
+
+    Note how this is different from the default broadcasting behavior of
+    arrays. In this case, ``Vector4f`` and ``MyMatrix`` have the same size
+    in the leading dimension, which would replicate the vector over that
+    axis instead:
+
+    .. code-block:: cpp
+
+        result = MyMatrix(Vector4f(1, 2, 3, 4));
+        std::cout << result << std::endl;
+
+        /* Prints:
+
+            [[1, 2, 3, 4],
+             [1, 2, 3, 4],
+             [1, 2, 3, 4],
+             [1, 2, 3, 4]]
+        */
 
 Operations for dynamic arrays
 -----------------------------

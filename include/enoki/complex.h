@@ -17,24 +17,27 @@
 
 NAMESPACE_BEGIN(enoki)
 
-template <typename Type_>
+template <typename Value_>
 struct Complex
-    : StaticArrayImpl<Type_, 2, detail::approx_default<Type_>::value,
-                      RoundingMode::Default, Complex<Type_>> {
-    using Type = Type_;
+    : StaticArrayImpl<Value_, 2, detail::approx_default<Value_>::value,
+                      RoundingMode::Default, Complex<Value_>> {
     using Base =
-        StaticArrayImpl<Type, 2, detail::approx_default<Type>::value,
-                        RoundingMode::Default, Complex<Type>>;
+        StaticArrayImpl<Value_, 2, detail::approx_default<Value_>::value,
+                        RoundingMode::Default, Complex<Value_>>;
+    using typename Base::Value;
+    using typename Base::Scalar;
 
     template <typename T> using ReplaceType = Complex<T>;
 
     ENOKI_DECLARE_CUSTOM_ARRAY(Base, Complex)
 
-    Complex(Type f) : Base(f, zero<Type>()) { }
+    ENOKI_INLINE Complex(const Value &f) : Base(f, zero<Value>()) { }
 
-    template <typename T = Type,
-              std::enable_if_t<!std::is_same<T, scalar_t<T>>::value, int> = 0>
-    Complex(scalar_t<T> f) : Base(f, zero<Type>()) { }
+    template <typename T = Value, std::enable_if_t<!std::is_same<T, Scalar>::value, int> = 0>
+    ENOKI_INLINE Complex(const Scalar &f) : Base(f, zero<Value>()) { }
+
+    template <typename T>
+    ENOKI_INLINE static Complex fill_(const T &value) { return Array<Value, 2>::fill_(value); }
 
     ENOKI_ALIGNED_OPERATOR_NEW()
 };
@@ -80,12 +83,12 @@ ENOKI_INLINE auto operator*(const Complex<T0> &z0, const Complex<T0> &z1) {
 
 template <typename T0, typename T1>
 ENOKI_INLINE Complex<expr_t<T0, T1>> operator*(const Complex<T0> &z, const T1 &s) {
-    return Array<expr_t<T0>, 4>(z) * s;
+    return Array<expr_t<T0>, 2>(z) * fill<Array<scalar_t<T1>, 2>>(s);
 }
 
 template <typename T0, typename T1>
 ENOKI_INLINE Complex<expr_t<T0, T1>> operator*(const T0 &s, const Complex<T1> &z) {
-    return s * Array<expr_t<T1>, 4>(z);
+    return fill<Array<scalar_t<T0>, 2>>(s) * Array<expr_t<T1>, 2>(z);
 }
 
 template <typename T0, typename T1>

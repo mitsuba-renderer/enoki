@@ -251,6 +251,93 @@ computes :math:`\sum_{i=0}^{1000}i^2` using brute force addition (but with only
 The mask is necessary to communicate the fact that the last loop iteration has
 several disabled entries.
 
+.. _broadcasting:
+
+Broadcasting
+------------
+
+Enoki automatically performs broadcasting whenever an array is initialized from
+a lower-dimensional array, or when types of mixed dimension occur in an
+arithmetic expression.
+
+Given a broadcast from a lower-dimensional array ``L`` to a higher-dimensional
+array ``H``, the constructor proceeds recursively dimension by dimension. If
+the outermost sizes match, i.e. when ``H::Size == L::Size``, the components
+of ``H`` are initialized with the components of ``L``. Otherwise, the ``L``
+instance is copied to *all* components of ``H``. These steps trigger recursive
+constructor invocations. When the dimensions of the lower-dimensional array are
+finally exhausted (i.e. when ``L`` becomes a scalar), the remaining dimensions
+of ``H`` are filled with the current scalar value.
+
+For reference, the pseudocode for this broadcasting constructor roughly looks as follows:
+
+.. code-block:: cpp
+
+    Array::Array(const OtherArray &a) {
+        if (is_array<OtherArray>::value && Size == OtherArray::Size) {
+            /* Matched size on the outermost dimension: perform a component-by-component copy. */
+            for (size_t i = 0; i< Size; ++i)
+                (*this)[i] = a[i];
+        } else {
+            /* Mismatched size or scalar input -- broadcast to components */
+            for (size_t i = 0; i < Size; ++i)
+                (*this)[i] = a;
+        }
+    }
+
+.. _scatter-gather:
+
+Scatter, gather, and prefetches for SoA ↔ AoS conversion
+----------------------------------------------------------
+
+Enoki's :cpp:func:`scatter` and :cpp:func:`gather` functions can transparently
+convert between SoA and AoS representations. This case is triggered when the
+supplied index array has a smaller nesting level than that of the data array.
+For instance, consider the following example:
+
+.. code-block:: cpp
+
+    /* Packet types */
+    using FloatP    = Array<float, 4>;
+    using UInt32P   = Array<uint32_t, 4>;
+
+    /* SoA and AoS 3x3 matrix types */
+    using Matrix3f  = Matrix<float, 3>;
+    using Matrix3fP = Matrix<FloatP, 3>;
+
+    Matrix3f *data = ...;
+    UInt32P indices(5, 1, 3, 0);
+
+    /* Gather AoS matrix data into SoA representation */
+    Matrix3fP mat = gather<Matrix3fP>(data, indices);
+
+    /* Modify SoA matrix data and scatter back into AoS-based 'data' array */
+    mat *= 2.f;
+    scatter(data, mat, indices);
+
+The same syntax also works for :cpp:func:`prefetch`, which is convenient to
+ensure that a given set of memory addresses are in cache (preferably a few
+hundred cycles before the actual usage).
+
+.. code-block:: cpp
+
+    /* Prefetch into L2 cache for write access */
+    prefetch<Matrix3fP, /* Write = */ true, /* Level = */ 2>(data, indices);
+
+Scatter and gather operations are also permitted for dynamic arrays, e.g.:
+
+.. code-block:: cpp
+
+    using FloatX    = DynamicArray<FloatP>;
+    using UInt32X   = DynamicArray<UInt32P>;
+    using Matrix3fX = Matrix<FloatX, 3>;
+
+    Matrix3f *data = ...;
+    UInt32X indices = ...;
+
+    /* Gather AoS matrix data into SoA representation */
+    Matrix3fX mat = gather<Matrix3fX>(data, indices);
+
 .. _integer-division:
 
 Vectorized integer division by constants
@@ -455,20 +542,21 @@ Enoki provides a mechanism for declaring custom array types using the
 `Curiously recurring template pattern
 <https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern>`_. The
 following snippet shows a declaration of a hypothetical type named ``Spectrum``
-representing a discretized color spectrum. ``Spectrum`` behaves the same way as
-:cpp:class:`Array` and supports all regular Enoki operations.
+representing a discretized color spectrum. ``Spectrum`` generally behaves the
+same way as :cpp:class:`Array` (one exception is discussed below) and supports
+all regular Enoki operations.
 
 .. code-block:: cpp
 
-    template <typename Type, size_t Size>
-    struct Spectrum : enoki::StaticArrayImpl<Type, Size, false,
-                                            RoundingMode::Default,
-                                            Spectrum<Type, Size>> {
+    template <typename Value, size_t Size>
+    struct Spectrum : enoki::StaticArrayImpl<Value, Size, true,
+                                             RoundingMode::Default,
+                                             Spectrum<Value, Size>> {
 
         /// Base class
-        using Base = enoki::StaticArrayImpl<Type, Size, false,
+        using Base = enoki::StaticArrayImpl<Value, Size, true,
                                             RoundingMode::Default,
-                                            Spectrum<Type, Size>>;
+                                            Spectrum<Value, Size>>;
 
         /// Import constructors, assignment operators, etc.
         ENOKI_DECLARE_CUSTOM_ARRAY(Base, Spectrum)
@@ -477,14 +565,87 @@ representing a discretized color spectrum. ``Spectrum`` behaves the same way as
         template <typename T> using ReplaceType = Spectrum<T, Size>;
     };
 
-The main reason for declaring custom arrays is to tag (and preserve)
-the type of arrays within expressions. For instance, the type of ``value2``
-in the following snippet is ``Spectrum<float, 8>``.
+The main reason for declaring custom arrays is to tag (and preserve) the type
+of arrays within expressions. For instance, the type of ``value2`` in the
+following snippet is ``Spectrum<float, 8>`` rather than a generic
+``enoki::Array<...>``.
 
 .. code-block:: cpp
 
     Spectrum<float, 8> value = { ... };
     auto value2 = exp(-value);
+
+Custom array types also employ different broadcasting semantics: recall that the
+copy constructor of ordinary arrays detects input arrays with the same size at
+the outermost nesting level and performs a component-by-component copy in this
+case (see the section on :ref:`broadcasting rules <broadcasting>` for reference).
+For custom arrays, this behavior is disabled when the source array is an vanilla
+array type (i.e. ``enoki::Array<...>``).
+
+This is helpful when a custom array type size is vectorized with a SIMD base
+type of identical size, which can lead to certain ambiguous situations.
+Consider the following scalar code:
+
+.. code-block:: cpp
+    :emphasize-lines: 7
+
+    /// Spectrum with 4 samples
+    using Spectrum4f  = Spectrum<float, 4>;
+
+    float offset = /* ... */;
+    Spectrum4f spec = /* ... */;
+
+    spec += offset;
+
+There is no ambiguity: the addition operation shifts every component of
+``spec`` by ``offset``. Now, consider the vectorized version of the above code:
+
+.. code-block:: cpp
+    :emphasize-lines: 10
+
+    /// Packet type
+    using FloatP      = Array<float, 4>;
+
+    /// Vectorized spectrum with 4 samples and 4-wide SIMD
+    using Spectrum4fP = Spectrum<FloatP, 4>;
+
+    FloatP offset = /* ... */;
+    Spectrum4fP spec = /* ... */;
+
+    spec += offset; /// ???
+
+It is less clear what the addition operation should do, since the ``offset``
+array of shape ``[4]`` requires a broadcast to a ``[4,4]`` array to conform to
+``SpectrumP``.
+
+The default behavior of ``enoki::Array<...>`` would match up the single
+dimension of ``offset`` with the first dimension of ``spec``, which would
+effectively shift the :math:`i`-th spectral sample of all color spectra by
+``offset[i]``. However, for consistency with the scalar code, the addition
+should instead shift the :math:`i`-th spectrum by ``offset[i]``.
+
+Custom arrays override the broadcasting behavior so that the second case is
+triggered when mixing arrays of different "flavor":
+
+.. code-block:: cpp
+
+    auto s1 = Spectrum4fP(Spectrum4f(1, 2, 3, 4));
+    /* s1 contains 4 identical spectra with value [1, 2, 3, 4]
+
+        [1, 2, 3, 4]
+        [1, 2, 3, 4]
+        [1, 2, 3, 4]
+        [1, 2, 3, 4]
+    */
+
+    auto s2 = Spectrum4fP(FloatP(1, 2, 3, 4));
+    /* s2 contains 4 distinct spectra, which each have uniform sample values
+
+        [1, 1, 1, 1]
+        [2, 2, 2, 2]
+        [3, 3, 3, 3]
+        [4, 4, 4, 4]
+    */
 
 .. _platform-differences:
 
@@ -499,7 +660,7 @@ a partial list:
    AVX512 back-end uses eight dedicated mask registers to store masks compactly
    (allocating only a single bit per mask entry).
 
-   Older machines use a redundant representation based on normal vector
+   Older machines use a redundant representation based on regular vector
    registers that have all bits set to ``1`` for entries where the comparison
    was true and ``0`` elsewhere.
 

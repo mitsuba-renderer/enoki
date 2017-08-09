@@ -24,6 +24,7 @@
 
 #if defined(_MSC_VER)
 #  define ENOKI_INLINE                 __forceinline
+#  define ENOKI_INLINE_LAMBDA
 #  define ENOKI_NOINLINE               __declspec(noinline)
 #  define ENOKI_MALLOC                 __declspec(restrict)
 #  define ENOKI_MAY_ALIAS
@@ -38,6 +39,7 @@
 #else
 #  define ENOKI_NOINLINE               __attribute__ ((noinline))
 #  define ENOKI_INLINE                 __attribute__ ((always_inline)) inline
+#  define ENOKI_INLINE_LAMBDA          __attribute__ ((always_inline))
 #  define ENOKI_MALLOC                 __attribute__ ((malloc))
 #  define ENOKI_ASSUME_ALIGNED(x)      __builtin_assume_aligned(x, ::enoki::max_packet_size)
 #  define ENOKI_ASSUME_ALIGNED_S(x, s) __builtin_assume_aligned(x, s)
@@ -108,7 +110,7 @@
 #  define ENOKI_TRACK_DEALLOC
 #endif
 
-#define ENOKI_CHKSCALAR if (std::is_arithmetic<Value>::value) { ENOKI_TRACK_SCALAR }
+#define ENOKI_CHKSCALAR if (std::is_arithmetic<std::decay_t<Value>>::value) { ENOKI_TRACK_SCALAR }
 
 NAMESPACE_BEGIN(enoki)
 
@@ -150,7 +152,11 @@ using is_std_float =
     std::integral_constant<bool, std::is_same<T, float>::value ||
                                  std::is_same<T, double>::value>;
 
-/// Type trait to determine if a type should be handled using approximate mode by default
+template <typename T>
+using is_std_int =
+    std::integral_constant<bool, std::is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8)>;
+
+/// Value trait to determine if a type should be handled using approximate mode by default
 template <typename T, typename = int> struct approx_default {
     static constexpr bool value = is_std_float<std::decay_t<T>>::value;
 };
@@ -161,28 +167,28 @@ NAMESPACE_END(detail)
 //! @{ \name Forward declarations
 // -----------------------------------------------------------------------
 
-template <typename Type, typename Derived> struct ArrayBase;
+template <typename Value, typename Derived> struct ArrayBase;
 
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
+template <typename Value, size_t Size, bool Approx, RoundingMode Mode,
           typename Derived>
 struct StaticArrayBase;
 
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
+template <typename Value, size_t Size, bool Approx, RoundingMode Mode,
           typename Derived, typename SFINAE = void>
 struct StaticArrayImpl;
 
-template <typename Type, typename Derived> struct DynamicArrayBase;
+template <typename Value, typename Derived> struct DynamicArrayBase;
 
-template <typename Type> struct DynamicArray;
+template <typename Value> struct DynamicArray;
 
 struct half;
 
 /// Array type
-template <typename Type_,
-          size_t Size_ = (max_packet_size / sizeof(Type_) > 1)
-                        ? max_packet_size / sizeof(Type_) : 1,
-          bool Approx_ = detail::approx_default<Type_>::value,
-          RoundingMode Mode_ = RoundingMode::Default>
+template <typename Value,
+          size_t Size = (max_packet_size / sizeof(Value) > 1)
+                       ? max_packet_size / sizeof(Value) : 1,
+          bool Approx = detail::approx_default<Value>::value,
+          RoundingMode Mode = RoundingMode::Default>
 struct Array;
 
 //! @}

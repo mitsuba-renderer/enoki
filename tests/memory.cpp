@@ -12,7 +12,7 @@
 */
 
 #include "test.h"
-
+#include <enoki/matrix.h>
 
 ENOKI_TEST_ALL(test01_load) {
     alignas(alignof(T)) Value mem[Size];
@@ -271,4 +271,77 @@ ENOKI_TEST_ALL(test14_extract) {
     auto idx = index_sequence<T>();
     for (size_t i = 0; i < Size; ++i)
         assert(extract(idx, eq(idx, Value(i))) == Value(i));
+}
+
+ENOKI_TEST_ALL(test15_nested_gather) {
+    using UInt32P = uint32_array_t<T>;
+    using Vector3 = Array<Value, 3>;
+    using Matrix3 = Matrix<Value, 3>;
+    using Matrix3P = Matrix<T, 3>;
+    using Array33 = Array<Vector3, 3>;
+
+    Matrix3 x[32];
+    for (size_t i = 0; i<32; ++i)
+        for (size_t k = 0; k<Matrix3::Size; ++k)
+            for (size_t j = 0; j<Matrix3::Size; ++j)
+                x[i /* slice */ ][k /* col */ ][j /* row */ ] = Value(i*100+k*10+j);
+
+    for (size_t i = 0; i<32; ++i) {
+        /* Direct load */
+        Matrix3 q = gather<Matrix3>(x, i);
+        Matrix3 q2 = Array33(Matrix3(
+            0, 10, 20,
+            1, 11, 21,
+            2, 12, 22
+        )) + Value(100*i);
+        assert(q == q2);
+    }
+
+    /* Variant 2 */
+    for (size_t i = 0; i<32; ++i)
+        assert(gather<Matrix3>(x, i) == x[i]);
+
+    /* Nested gather + slice */
+    auto q = gather<Matrix3P>(x, index_sequence<UInt32P>());
+    for (size_t i = 0; i < T::Size; ++i)
+        assert(slice(q, i) == x[i]);
+
+    /* Masked nested gather */
+    q = gather<Matrix3P>(x, index_sequence<UInt32P>(), index_sequence<UInt32P>() < 2u);
+    for (size_t i = 0; i < T::Size; ++i) {
+        if (i < 2u)
+            assert(slice(q, i) == x[i]);
+        else
+            assert(slice(q, i) == zero<Matrix3>());
+    }
+
+    /* Nested scatter */
+    q = gather<Matrix3P>(x, index_sequence<UInt32P>());
+    scatter(x, q + fill<Matrix3>(Value(1000)), index_sequence<UInt32P>());
+    scatter(x, q + fill<Matrix3>(Value(2000)), index_sequence<UInt32P>(), index_sequence<UInt32P>() < 2u);
+    for (size_t i = 0; i < T::Size; ++i) {
+        if (i < 2u)
+            assert(slice(q, i) + fill<Matrix3>(Value(2000)) == x[i]);
+        else
+            assert(slice(q, i) + fill<Matrix3>(Value(1000)) == x[i]);
+    }
+
+    /* Nested prefetch -- doesn't do anything here, let's just make sure it compiles */
+    prefetch<Matrix3P>(x, index_sequence<UInt32P>());
+    prefetch<Matrix3P>(x, index_sequence<UInt32P>(), index_sequence<UInt32P>() < 2u);
+
+    /* Nested gather + slice for dynamic arrays */
+    using UInt32X   = DynamicArray<UInt32P>;
+    using TX        = DynamicArray<T>;
+    using Matrix3X  = Matrix<TX, 3>;
+    auto q2 = gather<Matrix3X>(x, index_sequence<UInt32X>(2));
+    q2 = q2 + fill<Matrix3>(Value(1000));
+    scatter(x, q2, index_sequence<UInt32X>(2));
+
+    for (size_t i = 0; i < T::Size; ++i) {
+        if (i < 2u)
+            assert(slice(q, i) + fill<Matrix3>(Value(3000)) == x[i]);
+        else
+            assert(slice(q, i) + fill<Matrix3>(Value(1000)) == x[i]);
+    }
 }

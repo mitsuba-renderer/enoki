@@ -39,30 +39,34 @@ struct KMaskBit {
 };
 
 /// Wrapper for AVX512 k0-k7 mask registers
-template <typename Type>
-struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
-                               RoundingMode::Default, KMask<Type>> {
-    using Base = StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
-                                 RoundingMode::Default, KMask<Type>>;
+template <typename Value>
+struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Value) * 8, false,
+                               RoundingMode::Default, KMask<Value>> {
+    using Base = StaticArrayBase<detail::KMaskBit, sizeof(Value) * 8, false,
+                                 RoundingMode::Default, KMask<Value>>;
     static constexpr bool IsMask = true;
-    static constexpr bool IsNative = true;
+    static constexpr bool IsRegister = true;
     using Base::Size;
     using Expr = KMask;
     using Mask = KMask;
     using HalfType = __mmask8;
-    Type k;
+    Value k;
 
-    ENOKI_INLINE KMask() { }
-    KMask(const KMask &) = default;
+    ENOKI_INLINE KMask() = default;
+    ENOKI_INLINE KMask(const KMask &) = default;
 
     /// Convert a compatible mask
     template <typename T>
-    ENOKI_INLINE KMask(T value) : KMask(value, reinterpret_flag()) { }
+    ENOKI_INLINE KMask(const T &value) : KMask(value, reinterpret_flag()) { }
 
-    ENOKI_INLINE KMask(KMask k, reinterpret_flag) : k(k.k) { }
-    ENOKI_INLINE KMask(KMaskBit k, reinterpret_flag) : k(k.value ? Type(-1) : Type(0)) { }
-    ENOKI_INLINE KMask(bool b, reinterpret_flag) : k(b ? Type(-1) : Type(0)) { }
-    ENOKI_INLINE KMask(Type k, reinterpret_flag) : k(k) { }
+    template <typename Type2, size_t Size2, bool Approx2, RoundingMode Mode2, typename Derived2>
+    ENOKI_INLINE KMask(const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &value)
+        : KMask(value.derived(), reinterpret_flag()) { }
+
+    ENOKI_INLINE KMask(const KMask &k, reinterpret_flag) : k(k.k) { }
+    ENOKI_INLINE KMask(const KMaskBit &k, reinterpret_flag) : k(k.value ? Value(-1) : Value(0)) { }
+    ENOKI_INLINE KMask(const bool &b, reinterpret_flag) : k(b ? Value(-1) : Value(0)) { }
+    ENOKI_INLINE KMask(const Value &k, reinterpret_flag) : k(k) { }
 
     ENOKI_REINTERPRET_KMASK(bool, 16) {
         __m128i value = _mm_loadu_si128((__m128i *) a.data());
@@ -89,76 +93,76 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
     ENOKI_REINTERPRET_KMASK(int32_t, 8)  : k(_mm256_test_epi32_mask(a.derived().m, a.derived().m)) { }
     ENOKI_REINTERPRET_KMASK(uint32_t, 8) : k(_mm256_test_epi32_mask(a.derived().m, a.derived().m)) { }
 #else
-    ENOKI_REINTERPRET_KMASK(float, 8)    : k(Type(_mm256_movemask_ps(a.derived().m))) { }
-    ENOKI_REINTERPRET_KMASK(int32_t, 8)  : k(Type(_mm256_movemask_ps(_mm256_castsi256_ps(a.derived().m)))) { }
-    ENOKI_REINTERPRET_KMASK(uint32_t, 8) : k(Type(_mm256_movemask_ps(_mm256_castsi256_ps(a.derived().m)))) { }
+    ENOKI_REINTERPRET_KMASK(float, 8)    : k(Value(_mm256_movemask_ps(a.derived().m))) { }
+    ENOKI_REINTERPRET_KMASK(int32_t, 8)  : k(Value(_mm256_movemask_ps(_mm256_castsi256_ps(a.derived().m)))) { }
+    ENOKI_REINTERPRET_KMASK(uint32_t, 8) : k(Value(_mm256_movemask_ps(_mm256_castsi256_ps(a.derived().m)))) { }
 #endif
 
     ENOKI_REINTERPRET_KMASK(double, 16)   { k = _mm512_kunpackb(high(a).k, low(a).k); }
     ENOKI_REINTERPRET_KMASK(int64_t, 16)  { k = _mm512_kunpackb(high(a).k, low(a).k); }
     ENOKI_REINTERPRET_KMASK(uint64_t, 16) { k = _mm512_kunpackb(high(a).k, low(a).k); }
 
-    ENOKI_INLINE KMask eq_(KMask a) const {
+    ENOKI_INLINE KMask eq_(const KMask &a) const {
         if (Size == 16) /* Use intrinsic if possible */
-            return KMask(Type(_mm512_kxnor((__mmask16) k, (__mmask16) (a.k))));
+            return KMask(Value(_mm512_kxnor((__mmask16) k, (__mmask16) (a.k))));
         else
-            return KMask(Type(~(k ^ a.k)));
+            return KMask(Value(~(k ^ a.k)));
     }
 
-    ENOKI_INLINE KMask neq_(KMask a) const {
+    ENOKI_INLINE KMask neq_(const KMask &a) const {
         if (Size == 16) /* Use intrinsic if possible */
-            return KMask(Type(_mm512_kxor((__mmask16) k, (__mmask16) (a.k))));
+            return KMask(Value(_mm512_kxor((__mmask16) k, (__mmask16) (a.k))));
         else
-            return KMask(Type(k ^ a.k));
+            return KMask(Value(k ^ a.k));
     }
 
-    ENOKI_INLINE KMask or_(KMask a) const {
+    ENOKI_INLINE KMask or_(const KMask &a) const {
         if (Size == 16) /* Use intrinsic if possible */
-            return KMask(Type(_mm512_kor((__mmask16) k, (__mmask16) (a.k))));
+            return KMask(Value(_mm512_kor((__mmask16) k, (__mmask16) (a.k))));
         else
-            return KMask(Type(k | a.k));
+            return KMask(Value(k | a.k));
     }
 
-    ENOKI_INLINE KMask and_(KMask a) const {
+    ENOKI_INLINE KMask and_(const KMask &a) const {
         if (Size == 16) /* Use intrinsic if possible */
-            return KMask(Type(_mm512_kand((__mmask16) k, (__mmask16) (a.k))));
+            return KMask(Value(_mm512_kand((__mmask16) k, (__mmask16) (a.k))));
         else
-            return KMask(Type(k & a.k));
+            return KMask(Value(k & a.k));
     }
 
-    ENOKI_INLINE KMask xor_(KMask a) const {
+    ENOKI_INLINE KMask xor_(const KMask &a) const {
         if (Size == 16) /* Use intrinsic if possible */
-            return KMask(Type(_mm512_kxor((__mmask16) k, (__mmask16) (a.k))));
+            return KMask(Value(_mm512_kxor((__mmask16) k, (__mmask16) (a.k))));
         else
-            return KMask(Type(k ^ a.k));
+            return KMask(Value(k ^ a.k));
     }
 
     ENOKI_INLINE KMask not_() const {
         if (Size == 16) /* Use intrinsic if possible */
-            return KMask(Type(_mm512_knot((__mmask16) k)));
+            return KMask(Value(_mm512_knot((__mmask16) k)));
         else
-            return KMask(Type(~k));
+            return KMask(Value(~k));
     }
 
     ENOKI_INLINE bool all_() const {
-        if (std::is_same<Type, __mmask16>::value)
+        if (std::is_same<Value, __mmask16>::value)
             return _mm512_kortestc((__mmask16) k, (__mmask16) k);
         else
-            return k == Type((1 << Size) - 1);
+            return k == Value((1 << Size) - 1);
     }
 
     ENOKI_INLINE bool none_() const {
-        if (std::is_same<Type, __mmask16>::value)
+        if (std::is_same<Value, __mmask16>::value)
             return _mm512_kortestz((__mmask16) k, (__mmask16) k);
         else
-            return k == Type(0);
+            return k == Value(0);
     }
 
     ENOKI_INLINE bool any_() const {
-        if (std::is_same<Type, __mmask16>::value)
+        if (std::is_same<Value, __mmask16>::value)
             return !_mm512_kortestz((__mmask16) k, (__mmask16) k);
         else
-            return k != Type(0);
+            return k != Value(0);
     }
 
     ENOKI_INLINE size_t count_() const {
@@ -172,8 +176,8 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
 
     static ENOKI_INLINE KMask select_(const Mask &m, const KMask &t,
                                       const KMask &f) {
-        if (std::is_same<Type, __mmask16>::value)
-            return KMask(Type(_mm512_kor(_mm512_kand((__mmask16) m.k, (__mmask16) t.k),
+        if (std::is_same<Value, __mmask16>::value)
+            return KMask(Value(_mm512_kor(_mm512_kand((__mmask16) m.k, (__mmask16) t.k),
                                          _mm512_kandn((__mmask16) m.k, (__mmask16) f.k))));
         else
             return KMask((m & t) | (~m & f));
@@ -181,15 +185,15 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Type) * 8, false,
 
     template <typename T>
     ENOKI_INLINE size_t compress_(T *&ptr, const KMask &mask) const {
-        store_unaligned(ptr, KMask((Type) _pext_u32((unsigned int) k, (unsigned int) mask.k)));
+        store_unaligned(ptr, KMask((Value) _pext_u32((unsigned int) k, (unsigned int) mask.k)));
         return count(mask);
     }
 
-    ENOKI_INLINE void store_unaligned_(void *mem) const { memcpy(mem, &k, sizeof(Type)); }
-    ENOKI_INLINE void store_(void *mem) const { memcpy(mem, &k, sizeof(Type)); }
+    ENOKI_INLINE void store_unaligned_(void *mem) const { memcpy(mem, &k, sizeof(Value)); }
+    ENOKI_INLINE void store_(void *mem) const { memcpy(mem, &k, sizeof(Value)); }
 
-    ENOKI_INLINE static KMask load_unaligned_(const void *mem) { KMask m; memcpy(&m.k, mem, sizeof(Type)); return m; }
-    ENOKI_INLINE static KMask load_(const void *mem) { KMask m; memcpy(&m.k, mem, sizeof(Type)); return m; }
+    ENOKI_INLINE static KMask load_unaligned_(const void *mem) { KMask m; memcpy(&m.k, mem, sizeof(Value)); return m; }
+    ENOKI_INLINE static KMask load_(const void *mem) { KMask m; memcpy(&m.k, mem, sizeof(Value)); return m; }
 
     KMask<HalfType> low_()  const { return KMask<HalfType>(HalfType(k)); }
     KMask<HalfType> high_() const { return KMask<HalfType>(HalfType(k >> (Size/2))); }
@@ -209,7 +213,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
     //! @{ \name Value constructors
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE StaticArrayImpl(Value value) : m(_mm512_set1_ps(value)) { }
+    ENOKI_INLINE StaticArrayImpl(const Value &value) : m(_mm512_set1_ps(value)) { }
     ENOKI_INLINE StaticArrayImpl(Value f0, Value f1, Value f2, Value f3,
                                  Value f4, Value f5, Value f6, Value f7,
                                  Value f8, Value f9, Value f10, Value f11,
@@ -549,41 +553,45 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
 #if defined(__AVX512PF__)
     ENOKI_REQUIRE_INDEX_PF(Index, int32_t)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
+        constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_prefetch_i32scatter_ps(ptr, index.m, Stride, Level);
+            _mm512_prefetch_i32scatter_ps(ptr, index.m, Stride, Hint);
         else
-            _mm512_prefetch_i32gather_ps(index.m, ptr, Stride, Level);
+            _mm512_prefetch_i32gather_ps(index.m, ptr, Stride, Hint);
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int32_t)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index,
                                        const Mask &mask) {
+        constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_mask_prefetch_i32scatter_ps(ptr, mask.k, index.m, Stride, Level);
+            _mm512_mask_prefetch_i32scatter_ps(ptr, mask.k, index.m, Stride, Hint);
         else
-            _mm512_mask_prefetch_i32gather_ps(index.m, mask.k, ptr, Stride, Level);
+            _mm512_mask_prefetch_i32gather_ps(index.m, mask.k, ptr, Stride, Hint);
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int64_t)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
+        constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write) {
-            _mm512_prefetch_i64scatter_ps(ptr, low(index).m, Stride, Level);
-            _mm512_prefetch_i64scatter_ps(ptr, high(index).m, Stride, Level);
+            _mm512_prefetch_i64scatter_ps(ptr, low(index).m, Stride, Hint);
+            _mm512_prefetch_i64scatter_ps(ptr, high(index).m, Stride, Hint);
         } else {
-            _mm512_prefetch_i64gather_ps(low(index).m, ptr, Stride, Level);
-            _mm512_prefetch_i64gather_ps(high(index).m, ptr, Stride, Level);
+            _mm512_prefetch_i64gather_ps(low(index).m, ptr, Stride, Hint);
+            _mm512_prefetch_i64gather_ps(high(index).m, ptr, Stride, Hint);
         }
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int64_t)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index,
                                        const Mask &mask) {
+        constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write) {
-            _mm512_mask_prefetch_i64scatter_ps(ptr, low(mask).k, low(index).m, Stride, Level);
-            _mm512_mask_prefetch_i64scatter_ps(ptr, high(mask).k, high(index).m, Stride, Level);
+            _mm512_mask_prefetch_i64scatter_ps(ptr, low(mask).k, low(index).m, Stride, Hint);
+            _mm512_mask_prefetch_i64scatter_ps(ptr, high(mask).k, high(index).m, Stride, Hint);
         } else {
-            _mm512_mask_prefetch_i64gather_ps(low(index).m, low(mask).k, ptr, Stride, Level);
-            _mm512_mask_prefetch_i64gather_ps(high(index).m, high(mask).k, ptr, Stride, Level);
+            _mm512_mask_prefetch_i64gather_ps(low(index).m, low(mask).k, ptr, Stride, Hint);
+            _mm512_mask_prefetch_i64gather_ps(high(index).m, high(mask).k, ptr, Stride, Hint);
         }
     }
 #endif
@@ -743,7 +751,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
     //! @{ \name Value constructors
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE StaticArrayImpl(Value value) : m(_mm512_set1_pd(value)) { }
+    ENOKI_INLINE StaticArrayImpl(const Value &value) : m(_mm512_set1_pd(value)) { }
     ENOKI_INLINE StaticArrayImpl(Value f0, Value f1, Value f2, Value f3,
                                  Value f4, Value f5, Value f6, Value f7)
         : m(_mm512_setr_pd(f0, f1, f2, f3, f4, f5, f6, f7)) { }
@@ -1022,36 +1030,40 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
 #if defined(__AVX512PF__)
     ENOKI_REQUIRE_INDEX_PF(Index, int32_t)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
+        constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_prefetch_i32scatter_pd(ptr, index.m, Stride, Level);
+            _mm512_prefetch_i32scatter_pd(ptr, index.m, Stride, Hint);
         else
-            _mm512_prefetch_i32gather_pd(index.m, ptr, Stride, Level);
+            _mm512_prefetch_i32gather_pd(index.m, ptr, Stride, Hint);
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int32_t)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index,
                                        const Mask &mask) {
+        constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_mask_prefetch_i32scatter_pd(ptr, mask.k, index.m, Stride, Level);
+            _mm512_mask_prefetch_i32scatter_pd(ptr, mask.k, index.m, Stride, Hint);
         else
-            _mm512_mask_prefetch_i32gather_pd(index.m, mask.k, ptr, Stride, Level);
+            _mm512_mask_prefetch_i32gather_pd(index.m, mask.k, ptr, Stride, Hint);
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int64_t)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
+        constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_prefetch_i64scatter_pd(ptr, index.m, Stride, Level);
+            _mm512_prefetch_i64scatter_pd(ptr, index.m, Stride, Hint);
         else
-            _mm512_prefetch_i64gather_pd(index.m, ptr, Stride, Level);
+            _mm512_prefetch_i64gather_pd(index.m, ptr, Stride, Hint);
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int64_t)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index,
                                        const Mask &mask) {
+        constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_mask_prefetch_i64scatter_pd(ptr, mask.k, index.m, Stride, Level);
+            _mm512_mask_prefetch_i64scatter_pd(ptr, mask.k, index.m, Stride, Hint);
         else
-            _mm512_mask_prefetch_i64gather_pd(index.m, mask.k, ptr, Stride, Level);
+            _mm512_mask_prefetch_i64gather_pd(index.m, mask.k, ptr, Stride, Hint);
     }
 #endif
 
@@ -1204,7 +1216,7 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
     //! @{ \name Value constructors
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE StaticArrayImpl(Value value) : m(_mm512_set1_epi32((int32_t) value)) { }
+    ENOKI_INLINE StaticArrayImpl(const Value &value) : m(_mm512_set1_epi32((int32_t) value)) { }
     ENOKI_INLINE StaticArrayImpl(Value f0, Value f1, Value f2, Value f3,
                                  Value f4, Value f5, Value f6, Value f7,
                                  Value f8, Value f9, Value f10, Value f11,
@@ -1459,41 +1471,43 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
 #if defined(__AVX512PF__)
     ENOKI_REQUIRE_INDEX_PF(Index, int32_t)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
+        constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_prefetch_i32scatter_ps(ptr, index.m, Stride, Level);
+            _mm512_prefetch_i32scatter_ps(ptr, index.m, Stride, Hint);
         else
-            _mm512_prefetch_i32gather_ps(index.m, ptr, Stride, Level);
+            _mm512_prefetch_i32gather_ps(index.m, ptr, Stride, Hint);
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int32_t)
-    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index,
-                                       const Mask &mask) {
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index, const Mask &mask) {
+        constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_mask_prefetch_i32scatter_ps(ptr, mask.k, index.m, Stride, Level);
+            _mm512_mask_prefetch_i32scatter_ps(ptr, mask.k, index.m, Stride, Hint);
         else
-            _mm512_mask_prefetch_i32gather_ps(index.m, mask.k, ptr, Stride, Level);
+            _mm512_mask_prefetch_i32gather_ps(index.m, mask.k, ptr, Stride, Hint);
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int64_t)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
+        constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write) {
-            _mm512_prefetch_i64scatter_ps(ptr, low(index).m, Stride, Level);
-            _mm512_prefetch_i64scatter_ps(ptr, high(index).m, Stride, Level);
+            _mm512_prefetch_i64scatter_ps(ptr, low(index).m, Stride, Hint);
+            _mm512_prefetch_i64scatter_ps(ptr, high(index).m, Stride, Hint);
         } else {
-            _mm512_prefetch_i64gather_ps(low(index).m, ptr, Stride, Level);
-            _mm512_prefetch_i64gather_ps(high(index).m, ptr, Stride, Level);
+            _mm512_prefetch_i64gather_ps(low(index).m, ptr, Stride, Hint);
+            _mm512_prefetch_i64gather_ps(high(index).m, ptr, Stride, Hint);
         }
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int64_t)
-    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index,
-                                       const Mask &mask) {
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index, const Mask &mask) {
+        constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write) {
-            _mm512_mask_prefetch_i64scatter_ps(ptr, low(mask).k, low(index).m, Stride, Level);
-            _mm512_mask_prefetch_i64scatter_ps(ptr, high(mask).k, high(index).m, Stride, Level);
+            _mm512_mask_prefetch_i64scatter_ps(ptr, low(mask).k, low(index).m, Stride, Hint);
+            _mm512_mask_prefetch_i64scatter_ps(ptr, high(mask).k, high(index).m, Stride, Hint);
         } else {
-            _mm512_mask_prefetch_i64gather_ps(low(index).m, low(mask).k, ptr, Stride, Level);
-            _mm512_mask_prefetch_i64gather_ps(high(index).m, high(mask).k, ptr, Stride, Level);
+            _mm512_mask_prefetch_i64gather_ps(low(index).m, low(mask).k, ptr, Stride, Hint);
+            _mm512_mask_prefetch_i64gather_ps(high(index).m, high(mask).k, ptr, Stride, Hint);
         }
     }
 #endif
@@ -1628,7 +1642,7 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
     //! @{ \name Value constructors
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE StaticArrayImpl(Value value) : m(_mm512_set1_epi64((long long) value)) { }
+    ENOKI_INLINE StaticArrayImpl(const Value &value) : m(_mm512_set1_epi64((long long) value)) { }
     ENOKI_INLINE StaticArrayImpl(Value f0, Value f1, Value f2, Value f3,
                                  Value f4, Value f5, Value f6, Value f7)
         : m(_mm512_setr_epi64((long long) f0, (long long) f1, (long long) f2,
@@ -1908,36 +1922,38 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
 #if defined(__AVX512PF__)
     ENOKI_REQUIRE_INDEX_PF(Index, int32_t)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
+        constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_prefetch_i32scatter_pd(ptr, index.m, Stride, Level);
+            _mm512_prefetch_i32scatter_pd(ptr, index.m, Stride, Hint);
         else
-            _mm512_prefetch_i32gather_pd(index.m, ptr, Stride, Level);
+            _mm512_prefetch_i32gather_pd(index.m, ptr, Stride, Hint);
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int32_t)
-    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index,
-                                       const Mask &mask) {
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index, const Mask &mask) {
+        constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_mask_prefetch_i32scatter_pd(ptr, mask.k, index.m, Stride, Level);
+            _mm512_mask_prefetch_i32scatter_pd(ptr, mask.k, index.m, Stride, Hint);
         else
-            _mm512_mask_prefetch_i32gather_pd(index.m, mask.k, ptr, Stride, Level);
+            _mm512_mask_prefetch_i32gather_pd(index.m, mask.k, ptr, Stride, Hint);
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int64_t)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
+        constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_prefetch_i64scatter_pd(ptr, index.m, Stride, Level);
+            _mm512_prefetch_i64scatter_pd(ptr, index.m, Stride, Hint);
         else
-            _mm512_prefetch_i64gather_pd(index.m, ptr, Stride, Level);
+            _mm512_prefetch_i64gather_pd(index.m, ptr, Stride, Hint);
     }
 
     ENOKI_REQUIRE_INDEX_PF(Index, int64_t)
-    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index,
-                                       const Mask &mask) {
+    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index, const Mask &mask) {
+        constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_mask_prefetch_i64scatter_pd(ptr, mask.k, index.m, Stride, Level);
+            _mm512_mask_prefetch_i64scatter_pd(ptr, mask.k, index.m, Stride, Hint);
         else
-            _mm512_mask_prefetch_i64gather_pd(index.m, mask.k, ptr, Stride, Level);
+            _mm512_mask_prefetch_i64gather_pd(index.m, mask.k, ptr, Stride, Hint);
     }
 #endif
 

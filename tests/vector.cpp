@@ -119,9 +119,9 @@ ENOKI_TEST(array_float_05_outer_product) {
     using Vector4f = Array<float, 4>;
     using Vector3f = Array<float, 3>;
 
-    assert(to_string(broadcast<Vector3f>(Vector4f(1, 2, 3, 4)) * Vector3f(0, 1, 0)) == "[[0, 1, 0],\n [0, 2, 0],\n [0, 3, 0],\n [0, 4, 0]]");
-    assert(to_string(broadcast<float>(Vector4f(1, 2, 3, 4)) * 3.f) == "[3, 6, 9, 12]");
-    assert(to_string(broadcast<Vector3f>(3.f) * Vector3f(1, 2, 3)) == "[3, 6, 9]");
+    assert(to_string(fill<Vector3f>(Vector4f(1, 2, 3, 4)) * Vector3f(0, 1, 0)) == "[[0, 1, 0],\n [0, 2, 0],\n [0, 3, 0],\n [0, 4, 0]]");
+    assert(to_string(fill<float>(Vector4f(1, 2, 3, 4)) * 3.f) == "[3, 6, 9, 12]");
+    assert(to_string(fill<Vector3f>(3.f) * Vector3f(1, 2, 3)) == "[3, 6, 9]");
 }
 
 ENOKI_TEST(array_float_06_head_tail) {
@@ -210,4 +210,18 @@ ENOKI_TEST(transform_decompose) {
     std::tie(s, q, t) = transform_decompose(A);
     auto result2 = transform_compose(s, q, t);
     assert(frob(A - result2) < 1e-6f);
+}
+
+ENOKI_TEST(fill) {
+    using Vector4f  = Array<float, 4>;
+    using MyMatrix = Array<Vector4f, 4>;
+    MyMatrix result = fill<MyMatrix>(10.f);
+    assert(to_string(result) == "[[10, 10, 10, 10],\n [10, 10, 10, 10],\n [10, 10, 10, 10],\n [10, 10, 10, 10]]");
+    result = fill<Vector4f>(Vector4f(1, 2, 3, 4));
+    assert(to_string(result) == "[[1, 1, 1, 1],\n [2, 2, 2, 2],\n [3, 3, 3, 3],\n [4, 4, 4, 4]]");
+    result = MyMatrix(Vector4f(1, 2, 3, 4));
+    assert(to_string(result) == "[[1, 2, 3, 4],\n [1, 2, 3, 4],\n [1, 2, 3, 4],\n [1, 2, 3, 4]]");
+
+    Matrix<float, 4> result2 = fill<Matrix<float, 4>>(10.f);
+    assert(to_string(result2) == "[[10, 10, 10, 10],\n [10, 10, 10, 10],\n [10, 10, 10, 10],\n [10, 10, 10, 10]]");
 }

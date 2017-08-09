@@ -179,7 +179,7 @@
 
 #define ENOKI_STRUCT_DYNAMIC(Struct, ...)                                      \
     NAMESPACE_BEGIN(enoki)                                                     \
-    template <typename... Args> struct struct_support<Struct<Args...>> {      \
+    template <typename... Args> struct struct_support<Struct<Args...>> {       \
         static constexpr bool is_dynamic_nested = enoki::detail::any_of<       \
             enoki::is_dynamic_nested<Args>::value...>::value;                  \
         using dynamic_t = Struct<enoki::make_dynamic_t<Args>...>;              \
@@ -205,42 +205,42 @@
         static ENOKI_INLINE auto slice(T &&value, size_t index) {              \
             constexpr static bool co_ = std::is_const<                         \
                 std::remove_reference_t<T>>::value;                            \
-            using Type = Struct<decltype(enoki::slice(std::declval<            \
+            using Value = Struct<decltype(enoki::slice(std::declval<           \
                 std::conditional_t<co_, const Args &, Args &>>(), index))...>; \
-            return Type{ ENOKI_MAP_EXPR_F2(enoki::slice, value, index,         \
+            return Value{ ENOKI_MAP_EXPR_F2(enoki::slice, value, index,        \
                                            __VA_ARGS__) };                     \
         }                                                                      \
         template <typename T>                                                  \
         static ENOKI_INLINE auto slice_ptr(T &&value, size_t index) {          \
             constexpr static bool co_ = std::is_const<                         \
                 std::remove_reference_t<T>>::value;                            \
-            using Type = Struct<decltype(enoki::slice_ptr(std::declval<        \
+            using Value = Struct<decltype(enoki::slice_ptr(std::declval<       \
                 std::conditional_t<co_, const Args &, Args &>>(), index))...>; \
-            return Type{ ENOKI_MAP_EXPR_F2(enoki::slice_ptr, value, index,     \
+            return Value{ ENOKI_MAP_EXPR_F2(enoki::slice_ptr, value, index,    \
                                            __VA_ARGS__) };                     \
         }                                                                      \
         template <typename T>                                                  \
         static ENOKI_INLINE auto packet(T &&value, size_t index) {             \
             constexpr static bool co_ = std::is_const<                         \
                 std::remove_reference_t<T>>::value;                            \
-            using Type = Struct<decltype(enoki::packet(std::declval<           \
+            using Value = Struct<decltype(enoki::packet(std::declval<          \
                 std::conditional_t<co_, const Args &, Args &>>(), index))...>; \
-            return Type{ ENOKI_MAP_EXPR_F2(enoki::packet, value, index,        \
+            return Value{ ENOKI_MAP_EXPR_F2(enoki::packet, value, index,       \
                                            __VA_ARGS__) };                     \
         }                                                                      \
         template <typename T> static ENOKI_INLINE auto ref_wrap(T &&value) {   \
             constexpr static bool co_ = std::is_const<                         \
                 std::remove_reference_t<T>>::value;                            \
-            using Type = Struct<decltype(enoki::ref_wrap(std::declval<         \
+            using Value = Struct<decltype(enoki::ref_wrap(std::declval<        \
                 std::conditional_t<co_, const Args &, Args &>>()))...>;        \
-            return Type{ ENOKI_MAP_EXPR_F1(enoki::ref_wrap, value,             \
+            return Value{ ENOKI_MAP_EXPR_F1(enoki::ref_wrap, value,            \
                                            __VA_ARGS__) };                     \
         }                                                                      \
         template <typename T, typename M> static ENOKI_INLINE                  \
         auto masked(T& value, const M & mask) {                                \
-            using Type = Struct<decltype(enoki::masked(                        \
+            using Value = Struct<decltype(enoki::masked(                       \
                         std::declval<Args &>(), mask))...>;                    \
-            return Type{ ENOKI_MAP_EXPR_F2(enoki::masked,                      \
+            return Value{ ENOKI_MAP_EXPR_F2(enoki::masked,                     \
                                            value, mask, __VA_ARGS__) };        \
         }                                                                      \
     };                                                                         \

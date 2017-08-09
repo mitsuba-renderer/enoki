@@ -32,13 +32,13 @@ inline bool flush_denormals() {
 inline void set_flush_denormals(bool) { }
 #endif
 
-template <typename Type, size_t Size1, size_t Size2, bool Approx1, bool Approx2,
+template <typename Value, size_t Size1, size_t Size2, bool Approx1, bool Approx2,
           RoundingMode Mode1, RoundingMode Mode2, typename Derived1,
-          typename Derived2, typename Result = Array<Type, Derived1::Size + Derived2::Size>,
+          typename Derived2, typename Result = Array<Value, Derived1::Size + Derived2::Size>,
           std::enable_if_t<(Size1 + Size2) / 2 != Size1 || (Size1 + Size2) / 2 != Size2, int> = 0>
 Result
-concat(const StaticArrayBase<Type, Size1, Approx1, Mode1, Derived1> &a1,
-       const StaticArrayBase<Type, Size2, Approx2, Mode2, Derived2> &a2) {
+concat(const StaticArrayBase<Value, Size1, Approx1, Mode1, Derived1> &a1,
+       const StaticArrayBase<Value, Size2, Approx2, Mode2, Derived2> &a2) {
     Result result;
     for (size_t i = 0; i < Derived1::Size; ++i)
         result.coeff(i) = a1.derived().coeff(i);
@@ -47,19 +47,19 @@ concat(const StaticArrayBase<Type, Size1, Approx1, Mode1, Derived1> &a1,
     return result;
 }
 
-template <typename Type, size_t Size1, size_t Size2, bool Approx1, bool Approx2,
+template <typename Value, size_t Size1, size_t Size2, bool Approx1, bool Approx2,
           RoundingMode Mode1, RoundingMode Mode2, typename Derived1,
-          typename Derived2, typename Result = Array<Type, Derived1::Size + Derived2::Size>,
+          typename Derived2, typename Result = Array<Value, Derived1::Size + Derived2::Size>,
           std::enable_if_t<(Size1 + Size2) / 2 == Size1 && (Size1 + Size2) / 2 == Size2, int> = 0>
 Result
-concat(const StaticArrayBase<Type, Size1, Approx1, Mode1, Derived1> &a1,
-       const StaticArrayBase<Type, Size2, Approx2, Mode2, Derived2> &a2) {
+concat(const StaticArrayBase<Value, Size1, Approx1, Mode1, Derived1> &a1,
+       const StaticArrayBase<Value, Size2, Approx2, Mode2, Derived2> &a2) {
     return Result(a1, a2);
 }
 
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
-          typename Derived, typename Result = Array<Type, Derived::Size + 1, Approx, Mode>>
-Result concat(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a, expr_t<value_t<Type>> value) {
+template <typename Value, size_t Size, bool Approx, RoundingMode Mode,
+          typename Derived, typename Result = Array<Value, Derived::Size + 1, Approx, Mode>>
+Result concat(const StaticArrayBase<Value, Size, Approx, Mode, Derived> &a, expr_t<value_t<Value>> value) {
     Result result;
     for (size_t i = 0; i < Derived::Size; ++i)
         result.coeff(i) = a.derived().coeff(i);
@@ -67,11 +67,11 @@ Result concat(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a, expr_
     return result;
 }
 
-template <typename Type, size_t Size, bool Approx, RoundingMode Mode,
-          typename Derived, typename Result = Array<Type, Derived::Size + 1, Approx, Mode>,
-          std::enable_if_t<!std::is_same<scalar_t<Type>, value_t<Type>>::value, int> = 0>
-Result concat(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a,
-              scalar_t<Type> value) {
+template <typename Value, size_t Size, bool Approx, RoundingMode Mode,
+          typename Derived, typename Result = Array<Value, Derived::Size + 1, Approx, Mode>,
+          std::enable_if_t<!std::is_same<scalar_t<Value>, value_t<Value>>::value, int> = 0>
+Result concat(const StaticArrayBase<Value, Size, Approx, Mode, Derived> &a,
+              scalar_t<Value> value) {
     Result result;
     for (size_t i = 0; i < Derived::Size; ++i)
         result.coeff(i) = a.derived().coeff(i);
@@ -79,10 +79,10 @@ Result concat(const StaticArrayBase<Type, Size, Approx, Mode, Derived> &a,
     return result;
 }
 
-template <typename Type, bool Approx, RoundingMode Mode, typename Derived,
+template <typename Value, bool Approx, RoundingMode Mode, typename Derived,
           std::enable_if_t<Derived::Size == 3, int> = 0>
-Array<Type, 4> concat(const StaticArrayBase<Type, 4, Approx, Mode, Derived> &a, value_t<Type> value) {
-    Array<Type, 4, Approx, Mode> result = a.derived();
+Array<Value, 4> concat(const StaticArrayBase<Value, 4, Approx, Mode, Derived> &a, value_t<Value> value) {
+    Array<Value, 4, Approx, Mode> result = a.derived();
     result.w() = value;
     return result;
 }
@@ -109,7 +109,7 @@ Array<Arr, 2> meshgrid(const Arr &x, const Arr &y) {
         for (size_t i = 0; i < y.size(); ++i) {
             for (size_t j = 0; j < packets(x); ++j) {
                 packet(X, pos) = packet(x, j);
-                packet(Y, pos) = typename Arr::Packet(y.coeff(i));
+                packet(Y, pos) = packet_t<Arr>(y.coeff(i));
                 pos++;
             }
         }

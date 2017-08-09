@@ -43,15 +43,15 @@ template <RoundingMode Mode> struct set_rounding_mode {
 };
 #endif
 
-template <typename Type_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived>
-struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
-    std::enable_if_t<detail::rounding_fallback<Type_, Size_, Mode_>::value>>
-    : StaticArrayImpl<Type_, Size_, Approx_, RoundingMode::Default, Derived> {
+template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived>
+struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
+    std::enable_if_t<detail::rounding_fallback<Value_, Size_, Mode_>::value>>
+    : StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, Derived> {
 
-    using Base = StaticArrayImpl<Type_, Size_, Approx_, RoundingMode::Default, Derived>;
+    using Base = StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, Derived>;
 
-    using Expr = std::conditional_t<std::is_same<expr_t<Type_>, Type_>::value, Derived,
-                                    Array<expr_t<Type_>, Size_, Approx_, Mode_>>;
+    using Expr = std::conditional_t<std::is_same<expr_t<Value_>, Value_>::value, Derived,
+                                    Array<expr_t<Value_>, Size_, Approx_, Mode_>>;
 
     /// Rounding mode of arithmetic operations
     static constexpr RoundingMode Mode = Mode_;

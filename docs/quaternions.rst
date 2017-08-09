@@ -206,8 +206,8 @@ Operations for rotation-related computations
 
 .. cpp:function:: template <typename Matrix, typename T> Matrix quat_to_matrix(Quaternion<T> q)
 
-    Converts a rotation quaternion into a :math:`3\times 3` or `:math:`4\times
-    4` homogeneous coordinate transformation matrix (depending on the
+    Converts a rotation quaternion into a :math:`3\times 3` or :math:`4\times4`
+    homogeneous coordinate transformation matrix (depending on the
     ``Matrix`` template argument).
 
 .. cpp:function:: template <typename T, size_t Size> Quaternion<T> matrix_to_quat(MatrixP<T, Size> q)

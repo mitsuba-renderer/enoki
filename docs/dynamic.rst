@@ -83,9 +83,11 @@ vectorizes using 4-wide SSE arithmetic.
     operation named :cpp:func:`enoki::vectorize`, discussed later, that
     implements this sliding window technique automatically.
 
-    That said, arithmetic operations like ``operator+`` *are* also implemented
-    for dynamic arrays, and they are realized using approach 1 of the above
-    list (i.e. with copious amounts of memory allocation for temporaries).
+    That said, for convenience, arithmetic operations like ``operator+`` *are*
+    implemented for dynamic arrays, and they are realized using approach 1 of
+    the above list (i.e. with copious amounts of memory allocation for
+    temporaries). Using them in performance-critical code is unadvisable.
+
 
 Allocating dynamic arrays
 -------------------------
@@ -345,7 +347,7 @@ Extracting individual packets as shown in the snippet above can become fairly
 tedious when a function takes many arguments. Enoki offers a convenient helper
 function named :cpp:func:`enoki::vectorize` that automates this process. It
 takes a function and a number of dynamic arrays as input and calls the function
-once for set of input packets.
+once for each set of input packets.
 
 .. code-block:: cpp
 

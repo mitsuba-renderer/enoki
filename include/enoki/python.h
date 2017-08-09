@@ -42,8 +42,8 @@ template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_dyn
     }
 };
 
-template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_array<Type>::value>> {
-    using Scalar = std::conditional_t<Type::IsMask, bool, enoki::scalar_t<Type>>;
+template<typename Value> struct type_caster<Value, std::enable_if_t<enoki::is_array<Value>::value>> {
+    using Scalar = std::conditional_t<Value::IsMask, bool, enoki::scalar_t<Value>>;
 
     bool load(handle src, bool convert) {
         if (!convert && !isinstance<array_t<Scalar>>(src))
@@ -53,7 +53,7 @@ template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_arra
         if (!arr)
             return false;
 
-        constexpr size_t ndim = enoki::array_depth<Type>::value;
+        constexpr size_t ndim = enoki::array_depth<Value>::value;
         if (ndim != arr.ndim() && !(arr.ndim() == 0 && convert))
             return false;
 
@@ -73,11 +73,11 @@ template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_arra
         return true;
     }
 
-    static handle cast(const Type *src, return_value_policy policy, handle parent) {
+    static handle cast(const Value *src, return_value_policy policy, handle parent) {
         return cast(*src, policy, parent);
     }
 
-    static handle cast(const Type &src, return_value_policy /* policy */, handle /* parent */) {
+    static handle cast(const Value &src, return_value_policy /* policy */, handle /* parent */) {
         if (enoki::ragged(src))
             throw type_error("Ragged arrays are not supported!");
 
@@ -104,11 +104,11 @@ template<typename Type> struct type_caster<Type, std::enable_if_t<enoki::is_arra
         return pybind11::detail::type_descr(
             _("numpy.ndarray[dtype=") +
             npy_format_descriptor<Scalar>::name() + _(", shape=(") +
-            array_shape_descr<Type>::name() + _(")]"));
+            array_shape_descr<Value>::name() + _(")]"));
     }
 
-    operator Type*() { return &value; }
-    operator Type&() { return value; }
+    operator Value*() { return &value; }
+    operator Value&() { return value; }
 
 private:
     template <typename T, std::enable_if_t<!enoki::is_array<enoki::value_t<T>>::value && !T::IsMask, int> = 0>
@@ -163,7 +163,7 @@ private:
     }
 
 private:
-    Type value;
+    Value value;
 };
 
 NAMESPACE_END(detail)

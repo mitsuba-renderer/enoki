@@ -20,13 +20,13 @@
 
 NAMESPACE_BEGIN(enoki)
 
-template <typename Type_, size_t Size_, bool Approx_, RoundingMode Mode_,
+template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_,
           typename Derived>
-struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
-    std::enable_if_t<detail::is_recursive<Type_, Size_, Mode_>::value>>
-    : StaticArrayBase<Type_, Size_, Approx_, Mode_, Derived> {
+struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
+    std::enable_if_t<detail::is_recursive<Value_, Size_, Mode_>::value>>
+    : StaticArrayBase<Value_, Size_, Approx_, Mode_, Derived> {
 
-    using Base = StaticArrayBase<Type_, Size_, Approx_, Mode_, Derived>;
+    using Base = StaticArrayBase<Value_, Size_, Approx_, Mode_, Derived>;
     using Expr = Derived;
     using typename Base::Value;
     using typename Base::Scalar;
@@ -44,7 +44,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
 
     static constexpr bool IsRecursive = true;
 
-    struct RMask : StaticArrayBase<Type_, Size_, false, RoundingMode::Default, RMask> {
+    struct RMask : StaticArrayBase<Value_, Size_, false, RoundingMode::Default, RMask> {
     public:
         static constexpr size_t Size = Size_;
         static constexpr size_t ActualSize = Size_;
@@ -53,7 +53,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
 
         using Expr = RMask;
         using Mask = RMask;
-        using Type = value_t<Mask1>;
+        using Value = value_t<Mask1>;
 
         Mask1 m1;
         Mask2 m2;
@@ -171,7 +171,7 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
     StaticArrayImpl(const StaticArrayImpl &) = default;
 
     /// Initialize all entries with a constant
-    ENOKI_INLINE StaticArrayImpl(Value value) : a1(value), a2(value) { }
+    ENOKI_INLINE StaticArrayImpl(const Value &value) : a1(value), a2(value) { }
 
     /// Copy assignment operator
     StaticArrayImpl& operator=(const StaticArrayImpl &) = default;
@@ -190,17 +190,17 @@ struct StaticArrayImpl<Type_, Size_, Approx_, Mode_, Derived,
         : a1(a1), a2(a2) { }
 
     /// Cast another array
-    template <size_t Size2, typename Type2, bool Approx2, RoundingMode Mode2,
+    template <size_t Size2, typename Value2, bool Approx2, RoundingMode Mode2,
               typename Derived2, std::enable_if_t<Derived2::Size == Size_, int> = 0>
     ENOKI_INLINE StaticArrayImpl(
-        const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a)
+        const StaticArrayBase<Value2, Size2, Approx2, Mode2, Derived2> &a)
         : a1(low(a)), a2(high(a)) { }
 
     /// Reinterpret another array
-    template <size_t Size2, typename Type2, bool Approx2, RoundingMode Mode2,
+    template <size_t Size2, typename Value2, bool Approx2, RoundingMode Mode2,
               typename Derived2, std::enable_if_t<Derived2::Size == Size_, int> = 0>
     ENOKI_INLINE StaticArrayImpl(
-        const StaticArrayBase<Type2, Size2, Approx2, Mode2, Derived2> &a,
+        const StaticArrayBase<Value2, Size2, Approx2, Mode2, Derived2> &a,
         detail::reinterpret_flag)
         : a1(reinterpret_array<Array1>(low (a))),
           a2(reinterpret_array<Array2>(high(a))) { }

@@ -22,11 +22,13 @@ namespace test {
     static bool detailed = false;
     static int nonvectorized_count = 0;
     static int alloc_count = 0;
+    static int realloc_count = 0;
     static int dealloc_count = 0;
 }
 
 #define ENOKI_TRACK_SCALAR { ++test::nonvectorized_count; }
 #define ENOKI_TRACK_ALLOC { ++test::alloc_count; }
+#define ENOKI_TRACK_REALLOC { ++test::realloc_count; }
 #define ENOKI_TRACK_DEALLOC { ++test::dealloc_count; }
 #define ENOKI_TEST(name) void name(); static test::Test name##_test{#name, &name}; void name()
 

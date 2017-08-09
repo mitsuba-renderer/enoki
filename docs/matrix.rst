@@ -92,15 +92,15 @@ following example shows how to compute the inverse of a matrix array.
 Reference
 ---------
 
-.. cpp:class:: template <typename Type, size_t Size> Matrix : StaticArrayImpl<Array<Type, Size>, Size>
+.. cpp:class:: template <typename Value, size_t Size> Matrix : StaticArrayImpl<Array<Value, Size>, Size>
 
     The class :cpp:class:`enoki::Matrix` represents a dense square matrix of
     fixed size as a ``Size`` :math:`\times` ``Size`` Enoki array whose
-    components are of type ``Type``. The implementation relies on a
+    components are of type ``Value``. The implementation relies on a
     column-major storage order to enable a particularly efficient
     implementation of vectorized matrix multiplication.
 
-    .. cpp:type:: Type
+    .. cpp:type:: Value
 
         Denotes the type of matrix elements.
 
@@ -118,23 +118,23 @@ Reference
         Creates a new :cpp:class:`enoki::Matrix` instance with the
         given set of columns (where ``sizeof...(Columns) == Size``)
 
-    .. cpp:function:: template <size_t Size2> Matrix(Matrix<Type, Size2> m)
+    .. cpp:function:: template <size_t Size2> Matrix(Matrix<Value, Size2> m)
 
         Construct a matrix from another matrix of the same type, but with a
         different size. If ``Size2 > Size``, the constructor copies the top
         left part of ``m``. Otherwise, it copies all of ``m`` and fills the
         rest of the matrix with the identity.
 
-    .. cpp:function:: Matrix(Type f)
+    .. cpp:function:: Matrix(Value f)
 
         Creates a :cpp:class:`enoki::Matrix` instance which has the value ``f``
         on the diagonal and zeroes elsewhere.
 
-    .. cpp:function:: Type& operator()(size_t i, size_t j)
+    .. cpp:function:: Value& operator()(size_t i, size_t j)
 
         Returns a reference to the matrix entry :math:`(i, j)`.
 
-    .. cpp:function:: const Type& operator()(size_t i, size_t j) const
+    .. cpp:function:: const Value& operator()(size_t i, size_t j) const
 
         Returns a const reference to the matrix entry :math:`(i, j)`.
 

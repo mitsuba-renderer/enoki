@@ -40,12 +40,22 @@ template <typename T> struct struct_support<T, enable_if_static_array_t<T>> {
         return packet(value, i, std::make_index_sequence<Size>());
     }
 
-    template <typename T2>
+    template <typename T2, std::enable_if_t<array_depth<T2>::value == 1, int> = 0>
+    static ENOKI_INLINE decltype(auto) slice(T2&& value, size_t i) {
+        return value.coeff(i);
+    }
+
+    template <typename T2, std::enable_if_t<array_depth<T2>::value != 1, int> = 0>
     static ENOKI_INLINE auto slice(T2&& value, size_t i) {
         return slice(value, i, std::make_index_sequence<Size>());
     }
 
-    template <typename T2>
+    template <typename T2, std::enable_if_t<array_depth<T2>::value == 1, int> = 0>
+    static ENOKI_INLINE decltype(auto) slice_ptr(T2&& value, size_t i) {
+        return value.data() + i;
+    }
+
+    template <typename T2, std::enable_if_t<array_depth<T2>::value != 1, int> = 0>
     static ENOKI_INLINE auto slice_ptr(T2&& value, size_t i) {
         return slice_ptr(value, i, std::make_index_sequence<Size>());
     }
@@ -220,15 +230,17 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
             packet_(i) = reinterpret_array<Packet>(other.packet_(i));
     }
 
-    DynamicArrayImpl(Value value, size_t size = 1) {
+    template <typename T2 = Derived, std::enable_if_t<!T2::IsMask, int> = 0>
+    DynamicArrayImpl(const Value &value, size_t size = 1) {
         resize_(size);
         operator=(value);
     }
 
-    template <typename T, std::enable_if_t<std::is_same<T, bool>::value && IsMask, int> = 0>
-    DynamicArrayImpl(T value, size_t size = 1) {
+    template <typename T, typename T2 = Derived,
+              std::enable_if_t<std::is_same<T, bool>::value && T2::IsMask, int> = 0>
+    DynamicArrayImpl(const T &value, size_t size = 1) {
         resize_(size);
-        operator=(Value(value));
+        operator=(reinterpret_array<Value>(value));
     }
 
     DynamicArrayImpl(Value *ptr, size_t size)
@@ -735,6 +747,9 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
      * initialized with NaNs.
      */
     ENOKI_NOINLINE void resize_(size_t size) {
+        if (size == m_size)
+            return;
+
         using Index = Array<uint32_t, Packet::Size>;
         bool scalar_flag = m_size == 1;
         Value scalar = scalar_flag ? m_packets[0].coeff(0) : Value();
@@ -807,9 +822,9 @@ protected:
     size_t m_size = 0;
 };
 
-template <typename Type_>
-struct DynamicArray : DynamicArrayImpl<Type_, DynamicArray<Type_>> {
-    using Base = DynamicArrayImpl<Type_, DynamicArray<Type_>>;
+template <typename Value_>
+struct DynamicArray : DynamicArrayImpl<Value_, DynamicArray<Value_>> {
+    using Base = DynamicArrayImpl<Value_, DynamicArray<Value_>>;
     using Base::Base;
     using Base::operator=;
 
@@ -937,6 +952,32 @@ template <typename Func, typename... Args>
 ENOKI_INLINE auto vectorize_safe(Func&& f, Args&&... args) {
     using Return = decltype(f(packet(args, 0)...));
     return detail::vectorize<true, true, Return>(std::forward<Func>(f), args...);
+}
+
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>), enable_if_dynamic_nested_t<Array> = 0, typename Index>
+ENOKI_INLINE Array gather(const void *mem, const Index &index, const mask_t<Index> &mask = true) {
+    using Packet = expr_t<decltype(packet(std::declval<Array>(), 0))>;
+    if (slices(mask) == 1)
+        set_slices(const_cast<mask_t<Index>&>(mask), enoki::slices(index));
+    return vectorize(
+        [mem](auto&& index2, auto&& mask2) ENOKI_INLINE_LAMBDA {
+            return gather<Packet, Stride>(mem, index2, mask2);
+        },
+        index, mask
+    );
+}
+
+template <size_t Stride_ = 0, typename Array, enable_if_dynamic_nested_t<Array> = 0, typename Index>
+ENOKI_INLINE void scatter(void *mem, const Array &array, const Index &index, const mask_t<Index> &mask = true) {
+    if (slices(mask) == 1)
+        set_slices(const_cast<mask_t<Index>&>(mask), enoki::slices(index));
+    vectorize(
+        [mem](auto&& array2, auto&& index2, auto&& mask2) ENOKI_INLINE_LAMBDA {
+            constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(scalar_t<Array>);
+            scatter<Stride>(mem, array2, index2, mask2);
+        },
+        array, index, mask
+    );
 }
 
 NAMESPACE_END(enoki)
