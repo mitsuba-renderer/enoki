@@ -135,12 +135,12 @@ Matrix4 look_at(const Point &origin, const Point &target, const Vector &up) {
     );
 }
 
-template <typename T,
+template <typename T, bool Approx,
           typename E       = expr_t<T>,
-          typename Matrix3 = Matrix<E, 3>,
-          typename Vector3 = Array<E, 3>,
-          typename Quat    = enoki::Quaternion<E>>
-std::tuple<Matrix3, Quat, Vector3> transform_decompose(const Matrix<T, 4> &A) {
+          typename Matrix3 = Matrix<E, 3, Approx>,
+          typename Vector3 = Array<E, 3, Approx>,
+          typename Quat    = Quaternion<E, Approx>>
+std::tuple<Matrix3, Quat, Vector3> transform_decompose(const Matrix<T, 4, Approx> &A) {
     Matrix3 A_sub(A), Q, P;
     std::tie(Q, P) = polar_decomp(A_sub);
 
@@ -158,13 +158,13 @@ std::tuple<Matrix3, Quat, Vector3> transform_decompose(const Matrix<T, 4> &A) {
     );
 }
 
-template <typename T,
+template <typename T, bool Approx,
           typename E = expr_t<T>,
-          typename Matrix3 = Matrix<E, 3>,
-          typename Matrix4 = Matrix<E, 4>>
-Matrix4 transform_compose(const Matrix<T, 3> &S,
-                          const Quaternion<T> &q,
-                          const Array<T, 3> &t) {
+          typename Matrix3 = Matrix<E, 3, Approx>,
+          typename Matrix4 = Matrix<E, 4, Approx>>
+Matrix4 transform_compose(const Matrix<T, 3, Approx> &S,
+                          const Quaternion<T, Approx> &q,
+                          const Array<T, 3, Approx> &t) {
     Matrix4 result = Matrix4(quat_to_matrix<Matrix3>(q) * S);
     result.coeff(3) = concat(t, 1.f);
     return result;
