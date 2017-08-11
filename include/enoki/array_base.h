@@ -354,7 +354,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
 
     /// Fused negative multiply-add fallback implementation
     ENOKI_INLINE auto fnmadd_(const Derived &b, const Derived &c) const {
-        return -derived() * b + c;
+        return fmadd(-derived(), b, c);
     }
 
     /// Fused multiply-subtract fallback implementation
@@ -364,7 +364,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
 
     /// Fused negative multiply-subtract fallback implementation
     ENOKI_INLINE auto fnmsub_(const Derived &b, const Derived &c) const {
-        return -derived() * b - c;
+        return fmsub(-derived(), b, c);
     }
 
     /// Fused multiply-add/subtract fallback implementation
@@ -391,8 +391,113 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
         return result;
     }
 
+    /// round() fallback implementation
+    ENOKI_INLINE auto round_() const {
+        expr_t<Derived> result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
+            result.coeff(i) = round(derived().coeff(i));
+        return result;
+    }
+
+    /// floor() fallback implementation
+    ENOKI_INLINE auto floor_() const {
+        expr_t<Derived> result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
+            result.coeff(i) = floor(derived().coeff(i));
+        return result;
+    }
+
+    /// ceil() fallback implementation
+    ENOKI_INLINE auto ceil_() const {
+        expr_t<Derived> result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
+            result.coeff(i) = ceil(derived().coeff(i));
+        return result;
+    }
+
     /// Dot product fallback implementation
     ENOKI_INLINE auto dot_(const Derived &a) const { return hsum(derived() * a); }
+
+    /// all() fallback implementation
+    template <typename T = Derived, std::enable_if_t<T::IsMask && array_depth<T>::value == 1, int> = 0>
+    ENOKI_INLINE bool all_() const {
+        using UInt = uint_array_t<Scalar>;
+        UInt value = reinterpret_array<UInt>(derived().coeff(0));
+        for (size_t i = 1; i < Derived::Size; ++i)
+            value &= reinterpret_array<UInt>(derived().coeff(i));
+        return value != 0;
+    }
+
+    /// hsum() fallback implementation
+    template <typename T = Value, std::enable_if_t<std::is_arithmetic<T>::value, int> = 0>
+    ENOKI_INLINE bool hsum_() const {
+        Value result = derived().coeff(0);
+        for (size_t i = 1; i < Derived::Size; ++i)
+            result += derived().coeff(i);
+        return result;
+    }
+
+    /// hprod() fallback implementation
+    template <typename T = Value, std::enable_if_t<std::is_arithmetic<T>::value, int> = 0>
+    ENOKI_INLINE bool hprod_() const {
+        Value result = derived().coeff(0);
+        for (size_t i = 1; i < Derived::Size; ++i)
+            result *= derived().coeff(i);
+        return result;
+    }
+
+    /// hmax() fallback implementation
+    template <typename T = Value, std::enable_if_t<std::is_arithmetic<T>::value, int> = 0>
+    ENOKI_INLINE bool hmax_() const {
+        Value result = derived().coeff(0);
+        for (size_t i = 1; i < Derived::Size; ++i)
+            result = enoki::max(result, derived().coeff(i));
+        return result;
+    }
+
+    /// hmin() fallback implementation
+    template <typename T = Value, std::enable_if_t<std::is_arithmetic<T>::value, int> = 0>
+    ENOKI_INLINE bool hmin_() const {
+        Value result = derived().coeff(0);
+        for (size_t i = 1; i < Derived::Size; ++i)
+            result = enoki::min(result, derived().coeff(i));
+        return result;
+    }
+
+    /// any() fallback implementation
+    template <typename T = Derived, std::enable_if_t<T::IsMask && array_depth<T>::value == 1, int> = 0>
+    ENOKI_INLINE bool any_() const {
+        using UInt = uint_array_t<Scalar>;
+        UInt value = reinterpret_array<UInt>(derived().coeff(0));
+        for (size_t i = 1; i < Derived::Size; ++i)
+            value |= reinterpret_array<UInt>(derived().coeff(i));
+        return value != 0;
+    }
+
+    /// none() fallback implementation
+    template <typename T = Derived, std::enable_if_t<T::IsMask && array_depth<T>::value == 1, int> = 0>
+    ENOKI_INLINE bool none_() const {
+        using UInt = uint_array_t<Scalar>;
+        UInt value = reinterpret_array<UInt>(derived().coeff(0));
+        for (size_t i = 1; i < Derived::Size; ++i)
+            value |= reinterpret_array<UInt>(derived().coeff(i));
+        return value == 0;
+    }
+
+    /// count() fallback implementation
+    template <typename T = Derived, std::enable_if_t<T::IsMask && array_depth<T>::value == 1, int> = 0>
+    ENOKI_INLINE size_t count_() const {
+        using UInt = uint_array_t<Scalar>;
+        size_t result = 0;
+        for (size_t i = 0; i < Derived::Size; ++i)
+            result += reinterpret_array<UInt>(derived().coeff(i)) != 0 ? 1 : 0;
+        return result;
+    }
+
+    /// zero() fallback implementation
+    static ENOKI_INLINE auto zero_() {
+        return Derived(Scalar(0));
+    }
 
     /// Nested horizontal sum
     ENOKI_INLINE auto hsum_nested_() const { return hsum_nested(hsum(derived())); }
@@ -578,7 +683,14 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     void store_(void *ptr, const Mask &mask) const {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
             store<Value>((void *) (static_cast<Value *>(ptr) + i),
-                        derived().coeff(i), mask.derived().coeff(i));
+                         derived().coeff(i), mask.derived().coeff(i));
+    }
+
+    template <typename Mask>
+    void store_unaligned_(void *ptr, const Mask &mask) const {
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
+            store_unaligned<Value>((void *) (static_cast<Value *>(ptr) + i),
+                                   derived().coeff(i), mask.derived().coeff(i));
     }
 
     template <typename T = Derived, typename Mask,
@@ -587,6 +699,15 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
         Derived result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = load<Value>(static_cast<const Value *>(ptr) + i, mask.coeff(i));
+        return result;
+    }
+
+    template <typename T = Derived, typename Mask,
+              std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
+    static ENOKI_INLINE Derived load_unaligned_(const void *ptr, const Mask &mask) {
+        Derived result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            result.coeff(i) = load_unaligned<Value>(static_cast<const Value *>(ptr) + i, mask.coeff(i));
         return result;
     }
 

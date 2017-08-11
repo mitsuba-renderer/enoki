@@ -452,7 +452,23 @@ void validate_horizontal(const std::vector<typename T::Value> &args,
 
 NAMESPACE_END(test)
 
-#if !defined(_MSC_VER)
+#if defined(_MSC_VER)
+    /* Don't build the large 31x/32x tests to reduce compilation time on AppVeyor */
+#define ENOKI_TEST_HELPER(name, type)                                           \
+    ENOKI_TEST(array_##type##_01##_##name) { name<type, 1>();  }                \
+    ENOKI_TEST(array_##type##_02##_##name) { name<type, 2>();  }                \
+    ENOKI_TEST(array_##type##_03##_##name) { name<type, 3>();  }                \
+    ENOKI_TEST(array_##type##_04##_##name) { name<type, 4>();  }                \
+    ENOKI_TEST(array_##type##_08##_##name) { name<type, 8>();  }                \
+    ENOKI_TEST(array_##type##_16##_##name) { name<type, 16>(); }
+#elif defined(__aarch64__)
+#define ENOKI_TEST_HELPER(name, type)                                           \
+    ENOKI_TEST(array_##type##_01##_##name) { name<type, 1>();  }                \
+    ENOKI_TEST(array_##type##_02##_##name) { name<type, 2>();  }                \
+    ENOKI_TEST(array_##type##_03##_##name) { name<type, 3>();  }                \
+    ENOKI_TEST(array_##type##_04##_##name) { name<type, 4>();  }                \
+    ENOKI_TEST(array_##type##_08##_##name) { name<type, 8>();  }
+#else
 #define ENOKI_TEST_HELPER(name, type)                                           \
     ENOKI_TEST(array_##type##_01##_##name) { name<type, 1>();  }                \
     ENOKI_TEST(array_##type##_02##_##name) { name<type, 2>();  }                \
@@ -462,16 +478,6 @@ NAMESPACE_END(test)
     ENOKI_TEST(array_##type##_16##_##name) { name<type, 16>(); }                \
     ENOKI_TEST(array_##type##_31##_##name) { name<type, 31>(); }                \
     ENOKI_TEST(array_##type##_32##_##name) { name<type, 32>(); }
-
-#else
-    /* Don't build the large 31x/32x tests to reduce compilation time on AppVeyor */
-#define ENOKI_TEST_HELPER(name, type)                                           \
-    ENOKI_TEST(array_##type##_01##_##name) { name<type, 1>();  }                \
-    ENOKI_TEST(array_##type##_02##_##name) { name<type, 2>();  }                \
-    ENOKI_TEST(array_##type##_03##_##name) { name<type, 3>();  }                \
-    ENOKI_TEST(array_##type##_04##_##name) { name<type, 4>();  }                \
-    ENOKI_TEST(array_##type##_08##_##name) { name<type, 8>();  }                \
-    ENOKI_TEST(array_##type##_16##_##name) { name<type, 16>(); }
 #endif
 
 #define ENOKI_TEST_TYPE(name, type)                                             \
@@ -537,6 +543,9 @@ int main(int argc, char** argv) {
     if (has_fma)             std::cout << "fma ";
     if (has_f16c)            std::cout << "f16c ";
     if (has_sse42)           std::cout << "sse4.2 ";
+    if (has_x86_64)          std::cout << "x86_64 ";
+    if (has_neon)            std::cout << "neon ";
+    if (has_aarch64)         std::cout << "aarch64 ";
 
     /* Turn on verbose mode if requested */
     if (argc == 2 && strcmp(argv[1], "-v") == 0)

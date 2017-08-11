@@ -211,6 +211,8 @@ ENOKI_TEST(test13_half) {
     }
 }
 
+#if !defined(__aarch64__) /* Can't change the rounding mode on ARM Neon */
+
 ENOKI_TEST_FLOAT(test14_round) {
     using T1 = Array<Value, Size, T::Approx, RoundingMode::Up>;
     using T2 = Array<Value, Size, T::Approx, RoundingMode::Down>;
@@ -227,6 +229,7 @@ ENOKI_TEST_FLOAT(test14_round) {
         assert(a[0] > b[0]);
     }
 }
+#endif
 
 ENOKI_TEST_FLOAT(test15_hypot) {
     auto sample = test::sample_values<Value>();

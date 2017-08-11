@@ -25,16 +25,6 @@
 #include <string>
 #include <limits>
 #include <cassert>
-#include <immintrin.h>
-
-#if defined(_MSC_VER)
-#  include <intrin.h>
-#  if !defined(_WIN64)
-#    error "Fatal error: Enoki does not (and will never) support compilation on 32-bit Windows machines."
-#  endif
-#endif
-
-#include "alloc.h"
 
 /* Fix missing/inconsistent preprocessor flags */
 #if defined(__AVX512F__) && !defined(__AVX2__)
@@ -56,6 +46,40 @@
 #if defined(__AVX__) && !defined(__SSE4_2__)
 #  define __SSE4_2__
 #endif
+
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+#  include <immintrin.h>
+#endif
+
+#if defined(__ARM_NEON)
+#  include <arm_neon.h>
+#endif
+
+#if defined(_MSC_VER)
+#  include <intrin.h>
+#  if defined(_WIN32) && !defined(_WIN64)
+     // Enoki does not support vectorization on 32-bit Windows due to various
+     // platform limitations (unaligned stack, calling conventions don't allow
+     // passing vector registers, etc.).
+#    if defined(__SSE4_2__)
+#      undef __SSE4_2__
+#    endif
+#    if defined(__AVX__)
+#      undef __AVX__
+#    endif
+#    if defined(__AVX2__)
+#      undef __AVX2__
+#    endif
+#    if defined(__F16C__)
+#      undef __F16C__
+#    endif
+#    if defined(__FMA__)
+#      undef __FMA__
+#    endif
+#  endif
+#endif
+
+#include "alloc.h"
 
 NAMESPACE_BEGIN(enoki)
 
@@ -153,7 +177,19 @@ NAMESPACE_BEGIN(enoki)
     static constexpr bool has_x86_64 = false;
 #endif
 
-static constexpr bool has_vectorization = has_sse42;
+#if defined(__ARM_NEON)
+    static constexpr bool has_neon = true;
+#else
+    static constexpr bool has_neon = false;
+#endif
+
+#if defined(__aarch64__)
+    static constexpr bool has_aarch64 = true;
+#else
+    static constexpr bool has_aarch64 = false;
+#endif
+
+static constexpr bool has_vectorization = has_sse42 || has_neon;
 
 //! @}
 // -----------------------------------------------------------------------

@@ -1618,7 +1618,7 @@ ENOKI_INLINE auto hypot(const Array1 &a, const Array2 &b) {
     const Scalar inf = std::numeric_limits<Scalar>::infinity();
 
     return select(
-        abs_a < inf & abs_b < inf & ratio < inf,
+        (abs_a < inf) & (abs_b < inf) & (ratio < inf),
         max * sqrt(Scalar(1) + ratio*ratio),
         abs_a + abs_b
     );

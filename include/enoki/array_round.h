@@ -39,7 +39,7 @@ template <RoundingMode Mode> struct set_rounding_mode {
 };
 #else
 template <RoundingMode Mode> struct set_rounding_mode {
-    static_assert(Mode == RoundingMode::Default, "Don't know how to change the rounding mode on this architecture!");
+    // Don't know how to change rounding modes on this platform :(
 };
 #endif
 
@@ -60,49 +60,49 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
 
     template <typename... Args>
     ENOKI_NOINLINE StaticArrayImpl(Args&&... args) {
-        set_rounding_mode<Mode_> mode;
+        set_rounding_mode<Mode_> mode; (void) mode;
         *this = Base(args...);
     }
 
     template <typename... Args>
     ENOKI_NOINLINE StaticArrayImpl& operator=(Args&&... args) {
-        set_rounding_mode<Mode_> mode;
+        set_rounding_mode<Mode_> mode; (void) mode;
         Base::operator=(args...);
         return *this;
     }
 
     ENOKI_NOINLINE auto add_(const Derived &a) const {
-        set_rounding_mode<Mode_> mode;
+        set_rounding_mode<Mode_> mode; (void) mode;
         return Base::add_(a);
     }
 
     ENOKI_NOINLINE auto sub_(const Derived &a) const {
-        set_rounding_mode<Mode_> mode;
+        set_rounding_mode<Mode_> mode; (void) mode;
         return Base::sub_(a);
     }
 
     ENOKI_NOINLINE auto mul_(const Derived &a) const {
-        set_rounding_mode<Mode_> mode;
+        set_rounding_mode<Mode_> mode; (void) mode;
         return Base::mul_(a);
     }
 
     ENOKI_NOINLINE auto div_(const Derived &a) const {
-        set_rounding_mode<Mode_> mode;
+        set_rounding_mode<Mode_> mode; (void) mode;
         return Base::div_(a);
     }
 
     ENOKI_NOINLINE auto sqrt_() const {
-        set_rounding_mode<Mode_> mode;
+        set_rounding_mode<Mode_> mode; (void) mode;
         return Base::sqrt_();
     }
 
     ENOKI_NOINLINE auto fmadd_(const Derived &b, const Derived &c) const {
-        set_rounding_mode<Mode_> mode;
+        set_rounding_mode<Mode_> mode; (void) mode;
         return Base::fmadd_(b, c);
     }
 
     ENOKI_NOINLINE auto fmsub_(const Derived &b, const Derived &c) const {
-        set_rounding_mode<Mode_> mode;
+        set_rounding_mode<Mode_> mode; (void) mode;
         return Base::fmsub_(b, c);
     }
 };

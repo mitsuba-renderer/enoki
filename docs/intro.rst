@@ -9,9 +9,9 @@ Introduction
 numerical code. It is implemented as a set of header files with no dependencies
 other than a sufficiently C++14-capable compiler (GCC, Clang, Intel C++
 Compiler 2016, Visual Studio 2017). Enoki code reduces to efficient SIMD
-instructions available on modern processor architectures (AVX512, AVX2, AVX,
-FMA, BMI, F16C, and SSE4.2), and it generates scalar fallback code if no vector
-instructions are present.
+instructions available on modern processor architectures (**Intel**: AVX512,
+AVX2, AVX, FMA, BMI, F16C, and SSE4.2, **ARMv8**: 64-bit NEON), and it
+generates scalar fallback code if no vector instructions are present.
 
 Motivation
 ----------
@@ -128,7 +128,7 @@ module boundaries. It has the following design goals:
    (e.g. *atan2*) use the back-ends as an abstract interface to the hardware,
    which means that it's simple to support other instruction sets such as a
    hypothetical future AVX1024 or even an entirely different architecture (e.g.
-   ARM) by just adding a new back-end.
+   a DSP chip) by just adding a new back-end.
 
 9. **License**: Enoki is available under a non-viral open source license
    (3-clause BSD).
