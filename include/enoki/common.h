@@ -26,57 +26,101 @@
 #include <limits>
 #include <cassert>
 
+#if defined(__x86_64__) || defined(_M_X64)
+#  define ENOKI_X86_64 1
+#endif
+
+#if (defined(__i386__) || defined(_M_IX86)) && !defined(ENOKI_X86_64)
+#  define ENOKI_X86_32 1
+#endif
+
+#if defined(__aarch64__)
+#  define ENOKI_ARM_64 1
+#endif
+
+#if (defined(_MSC_VER) && defined(ENOKI_X86_32)) && !defined(ENOKI_DISABLE_VECTORIZATION)
+// Enoki does not support vectorization on 32-bit Windows due to various
+// platform limitations (unaligned stack, calling conventions don't allow
+// passing vector registers, etc.).
+# define ENOKI_DISABLE_VECTORIZATION 1
+#endif
+
+# if !defined(ENOKI_DISABLE_VECTORIZATION)
+#  if defined(__AVX512F__)
+#    define ENOKI_X86_AVX512F 1
+#  endif
+#  if defined(__AVX512CD__)
+#    define ENOKI_X86_AVX512CD 1
+#  endif
+#  if defined(__AVX512DQ__)
+#    define ENOKI_X86_AVX512DQ 1
+#  endif
+#  if defined(__AVX512VL__)
+#    define ENOKI_X86_AVX512VL 1
+#  endif
+#  if defined(__AVX512BW__)
+#    define ENOKI_X86_AVX512BW 1
+#  endif
+#  if defined(__AVX512PF__)
+#    define ENOKI_X86_AVX512PF 1
+#  endif
+#  if defined(__AVX512ER__)
+#    define ENOKI_X86_AVX512ER 1
+#  endif
+#  if defined(__AVX512VBMI__)
+#    define ENOKI_X86_AVX512VBMI 1
+#  endif
+#  if defined(__AVX512VPOPCNTDQ__)
+#    define ENOKI_X86_AVX512VPOPCNTDQ 1
+#  endif
+#  if defined(__AVX2__)
+#    define ENOKI_X86_AVX2 1
+#  endif
+#  if defined(__FMA__)
+#    define ENOKI_X86_FMA 1
+#  endif
+#  if defined(__F16C__)
+#    define ENOKI_X86_F16C 1
+#  endif
+#  if defined(__AVX__)
+#    define ENOKI_X86_AVX 1
+#  endif
+#  if defined(__ARM_NEON)
+#    define ENOKI_ARM_NEON
+#  endif
+#endif
+
 /* Fix missing/inconsistent preprocessor flags */
-#if defined(__AVX512F__) && !defined(__AVX2__)
-#  define __AVX2__
+#if defined(ENOKI_X86_AVX512F) && !defined(ENOKI_X86_AVX2)
+#  define ENOKI_X86_AVX2
 #endif
 
-#if defined(__AVX2__) && !defined(__F16C__)
-#  define __F16C__
+#if defined(ENOKI_X86_AVX2) && !defined(ENOKI_X86_F16C)
+#  define ENOKI_X86_F16C
 #endif
 
-#if defined(__AVX2__) && !defined(__FMA__)
-#  define __FMA__
+#if defined(ENOKI_X86_AVX2) && !defined(ENOKI_X86_FMA)
+#  define ENOKI_X86_FMA
 #endif
 
-#if defined(__AVX2__) && !defined(__AVX__)
-#  define __AVX__
+#if defined(ENOKI_X86_AVX2) && !defined(ENOKI_X86_AVX)
+#  define ENOKI_X86_AVX
 #endif
 
-#if defined(__AVX__) && !defined(__SSE4_2__)
-#  define __SSE4_2__
+#if defined(ENOKI_X86_AVX) && !defined(ENOKI_X86_SSE42)
+#  define ENOKI_X86_SSE42
 #endif
 
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+#if defined(ENOKI_X86_64) || defined(ENOKI_X86_32)
 #  include <immintrin.h>
 #endif
 
-#if defined(__ARM_NEON)
+#if defined(ENOKI_ARM_NEON)
 #  include <arm_neon.h>
 #endif
 
 #if defined(_MSC_VER)
 #  include <intrin.h>
-#  if defined(_WIN32) && !defined(_WIN64)
-     // Enoki does not support vectorization on 32-bit Windows due to various
-     // platform limitations (unaligned stack, calling conventions don't allow
-     // passing vector registers, etc.).
-#    if defined(__SSE4_2__)
-#      undef __SSE4_2__
-#    endif
-#    if defined(__AVX__)
-#      undef __AVX__
-#    endif
-#    if defined(__AVX2__)
-#      undef __AVX2__
-#    endif
-#    if defined(__F16C__)
-#      undef __F16C__
-#    endif
-#    if defined(__FMA__)
-#      undef __FMA__
-#    endif
-#  endif
 #endif
 
 #include "alloc.h"
@@ -87,43 +131,43 @@ NAMESPACE_BEGIN(enoki)
 //! @{ \name Available instruction sets
 // -----------------------------------------------------------------------
 
-#if defined(__AVX512F__)
+#if defined(ENOKI_X86_AVX512F)
     static constexpr bool has_avx512f = true;
 #else
     static constexpr bool has_avx512f = false;
 #endif
 
-#if defined(__AVX512CD__)
+#if defined(ENOKI_X86_AVX512CD)
     static constexpr bool has_avx512cd = true;
 #else
     static constexpr bool has_avx512cd = false;
 #endif
 
-#if defined(__AVX512DQ__)
+#if defined(ENOKI_X86_AVX512DQ)
     static constexpr bool has_avx512dq = true;
 #else
     static constexpr bool has_avx512dq = false;
 #endif
 
-#if defined(__AVX512VL__)
+#if defined(ENOKI_X86_AVX512VL)
     static constexpr bool has_avx512vl = true;
 #else
     static constexpr bool has_avx512vl = false;
 #endif
 
-#if defined(__AVX512BW__)
+#if defined(ENOKI_X86_AVX512BW)
     static constexpr bool has_avx512bw = true;
 #else
     static constexpr bool has_avx512bw = false;
 #endif
 
-#if defined(__AVX512PF__)
+#if defined(ENOKI_X86_AVX512PF)
     static constexpr bool has_avx512pf = true;
 #else
     static constexpr bool has_avx512pf = false;
 #endif
 
-#if defined(__AVX512ER__)
+#if defined(ENOKI_X86_AVX512ER)
     static constexpr bool has_avx512er = true;
 #else
     static constexpr bool has_avx512er = false;
@@ -135,55 +179,61 @@ NAMESPACE_BEGIN(enoki)
     static constexpr bool has_avx512vbmi = false;
 #endif
 
-#if defined(__AVX512VPOPCNTDQ__)
+#if defined(ENOKI_X86_AVX512VPOPCNTDQ)
     static constexpr bool has_avx512vpopcntdq = true;
 #else
     static constexpr bool has_avx512vpopcntdq = false;
 #endif
 
-#if defined(__AVX2__)
+#if defined(ENOKI_X86_AVX2)
     static constexpr bool has_avx2 = true;
 #else
     static constexpr bool has_avx2 = false;
 #endif
 
-#if defined(__FMA__)
+#if defined(ENOKI_X86_FMA)
     static constexpr bool has_fma = true;
 #else
     static constexpr bool has_fma = false;
 #endif
 
-#if defined(__F16C__)
+#if defined(ENOKI_X86_F16C)
     static constexpr bool has_f16c = true;
 #else
     static constexpr bool has_f16c = false;
 #endif
 
-#if defined(__AVX__)
+#if defined(ENOKI_X86_AVX)
     static constexpr bool has_avx = true;
 #else
     static constexpr bool has_avx = false;
 #endif
 
-#if defined(__SSE4_2__)
+#if defined(ENOKI_X86_SSE42)
     static constexpr bool has_sse42 = true;
 #else
     static constexpr bool has_sse42 = false;
 #endif
 
-#if defined(__x86_64__) || defined(_M_X64)
+#if ENOKI_X86_32
+    static constexpr bool has_x86_32 = true;
+#else
+    static constexpr bool has_x86_32 = false;
+#endif
+
+#if ENOKI_X86_64
     static constexpr bool has_x86_64 = true;
 #else
     static constexpr bool has_x86_64 = false;
 #endif
 
-#if defined(__ARM_NEON)
+#if defined(ENOKI_ARM_NEON)
     static constexpr bool has_neon = true;
 #else
     static constexpr bool has_neon = false;
 #endif
 
-#if defined(__aarch64__)
+#if defined(ENOKI_ARM_64)
     static constexpr bool has_aarch64 = true;
 #else
     static constexpr bool has_aarch64 = false;
@@ -502,7 +552,7 @@ template <typename Value, size_t Size>
 struct rounding_fallback<Value, Size, RoundingMode::Default, void>
     : std::false_type { };
 
-#if defined(__AVX512F__)
+#if defined(ENOKI_X86_AVX512F)
 
 /* Custom rounding modes can also be realized using AVX512 instructions, but
    this requires the array size to be an exact multiple of what's supported by
@@ -770,7 +820,7 @@ ENOKI_INLINE T not_(const T &a) {
 //! @{ \name Helper routines to merge smaller arrays into larger ones
 // -----------------------------------------------------------------------
 
-#if defined(__AVX__)
+#if defined(ENOKI_X86_AVX)
 ENOKI_INLINE __m256 concat(__m128 l, __m128 h) {
     return _mm256_insertf128_ps(_mm256_castps128_ps256(l), h, 1);
 }
@@ -784,9 +834,9 @@ ENOKI_INLINE __m256i concat(__m128i l, __m128i h) {
 }
 #endif
 
-#if defined(__AVX512F__)
+#if defined(ENOKI_X86_AVX512F)
 ENOKI_INLINE __m512 concat(__m256 l, __m256 h) {
-    #if defined(__AVX512DQ__)
+    #if defined(ENOKI_X86_AVX512DQ)
         return _mm512_insertf32x8(_mm512_castps256_ps512(l), h, 1);
     #else
         return _mm512_castpd_ps(
@@ -811,9 +861,9 @@ ENOKI_INLINE __m512i concat(__m256i l, __m256i h) {
 //! @{ \name Mask conversion routines for various platforms
 // -----------------------------------------------------------------------
 
-#if defined(__AVX__)
+#if defined(ENOKI_X86_AVX)
 ENOKI_INLINE __m256i mm256_cvtepi32_epi64(__m128i x) {
-#if defined(__AVX2__)
+#if defined(ENOKI_X86_AVX2)
     return _mm256_cvtepi32_epi64(x);
 #else
     /* This version is only suitable for mask conversions */
@@ -824,7 +874,7 @@ ENOKI_INLINE __m256i mm256_cvtepi32_epi64(__m128i x) {
 }
 
 ENOKI_INLINE __m128i mm256_cvtepi64_epi32(__m256i x) {
-#if defined(__AVX512VL__)
+#if defined(ENOKI_X86_AVX512VL)
     return _mm256_cvtepi64_epi32(x);
 #else
     __m128i x0 = _mm256_castsi256_si128(x);
@@ -851,7 +901,7 @@ ENOKI_INLINE __m256i mm512_cvtepi64_epi32(__m256i x0, __m256i x1) {
 }
 #endif
 
-#if defined(__SSE4_2__)
+#if defined(ENOKI_X86_SSE42)
 
 ENOKI_INLINE __m128i mm256_cvtepi64_epi32(__m128i x0, __m128i x1) {
     return _mm_castps_si128(_mm_shuffle_ps(

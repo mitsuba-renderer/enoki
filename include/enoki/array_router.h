@@ -474,18 +474,18 @@ ENOKI_INLINE auto rcp(const T &a) {
 /// Reciprocal (scalar fallback)
 template <bool Approx = false, typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg rcp(const Arg &a) {
-#if defined(__AVX512ER__)
+#if defined(ENOKI_X86_AVX512ER)
     if (std::is_same<Arg, float>::value) {
         __m128 v = _mm_set_ss((float) a);
         return Arg(_mm_cvtss_f32(_mm_rcp28_ss(v, v))); /* rel error < 2^-28 */
     }
 #endif
 
-#if defined(__SSE4_2__)
+#if defined(ENOKI_X86_SSE42)
     if (Approx && std::is_same<Arg, float>::value) {
         __m128 v = _mm_set_ss((float) a), r;
 
-        #if defined(__AVX512F__)
+        #if defined(ENOKI_X86_AVX512F)
             r = _mm_rcp14_ss(v, v); /* rel error < 2^-14 */
         #else
             r = _mm_rcp_ss(v);      /* rel error < 1.5*2^-12 */
@@ -497,7 +497,7 @@ ENOKI_INLINE Arg rcp(const Arg &a) {
         __m128 t0 = _mm_add_ss(r, r);
         __m128 t1 = _mm_mul_ss(r, v);
 
-        #if defined(__FMA__)
+        #if defined(ENOKI_X86_FMA)
             r = _mm_fnmadd_ss(r, t1, t0);
         #else
             r = _mm_sub_ss(t0, _mm_mul_ss(r, t1));
@@ -509,13 +509,13 @@ ENOKI_INLINE Arg rcp(const Arg &a) {
     }
 #endif
 
-#if defined(__AVX512F__) || defined(__AVX512ER__)
+#if defined(ENOKI_X86_AVX512F) || defined(ENOKI_X86_AVX512ER)
     if (Approx && std::is_same<Arg, double>::value) {
         __m128d v = _mm_set_sd((double) a), r;
 
-        #if defined(__AVX512ER__)
+        #if defined(ENOKI_X86_AVX512ER)
             r = _mm_rcp28_sd(v, v);  /* rel error < 2^-28 */
-        #elif defined(__AVX512F__)
+        #elif defined(ENOKI_X86_AVX512F)
             r = _mm_rcp14_sd(v, v);  /* rel error < 2^-14 */
         #endif
 
@@ -526,7 +526,7 @@ ENOKI_INLINE Arg rcp(const Arg &a) {
             t0 = _mm_add_sd(r, r);
             t1 = _mm_mul_sd(r, v);
 
-            #if defined(__FMA__)
+            #if defined(ENOKI_X86_FMA)
                 r = _mm_fnmadd_sd(t1, r, t0);
             #else
                 r = _mm_sub_sd(t0, _mm_mul_sd(r, t1));
@@ -556,18 +556,18 @@ ENOKI_INLINE auto rsqrt(const T &a) {
 /// Reciprocal square root (scalar fallback)
 template <bool Approx = false, typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg rsqrt(const Arg &a) {
-#if defined(__AVX512ER__)
+#if defined(ENOKI_X86_AVX512ER)
     if (std::is_same<Arg, float>::value) {
         __m128 v = _mm_set_ss((float) a);
         return Arg(_mm_cvtss_f32(_mm_rsqrt28_ss(v, v))); /* rel error < 2^-28 */
     }
 #endif
 
-#if defined(__SSE4_2__)
+#if defined(ENOKI_X86_SSE42)
     if (Approx && std::is_same<Arg, float>::value) {
         __m128 v = _mm_set_ss((float) a), r;
 
-        #if defined(__AVX512F__)
+        #if defined(ENOKI_X86_AVX512F)
             r = _mm_rsqrt14_ss(v, v);  /* rel error < 2^-14 */
         #else
             r = _mm_rsqrt_ss(v);       /* rel error < 1.5*2^-12 */
@@ -581,7 +581,7 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
                t1 = _mm_mul_ss(r, v),
                ro = r;
 
-        #if defined(__FMA__)
+        #if defined(ENOKI_X86_FMA)
             r = _mm_mul_ss(_mm_fnmadd_ss(t1, r, c1), t0);
         #else
             r = _mm_mul_ss(_mm_sub_ss(c1, _mm_mul_ss(t1, r)), t0);
@@ -593,13 +593,13 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
     }
 #endif
 
-#if defined(__AVX512F__) || defined(__AVX512ER__)
+#if defined(ENOKI_X86_AVX512F) || defined(ENOKI_X86_AVX512ER)
     if (Approx && std::is_same<Arg, double>::value) {
         __m128d v = _mm_set_sd((double) a), r;
 
-        #if defined(__AVX512ER__)
+        #if defined(ENOKI_X86_AVX512ER)
             r = _mm_rsqrt28_sd(v, v);  /* rel error < 2^-28 */
-        #elif defined(__AVX512F__)
+        #elif defined(ENOKI_X86_AVX512F)
             r = _mm_rsqrt14_sd(v, v);  /* rel error < 2^-14 */
         #endif
 
@@ -613,7 +613,7 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
             t0 = _mm_mul_sd(r, c0);
             t1 = _mm_mul_sd(r, v);
 
-            #if defined(__FMA__)
+            #if defined(ENOKI_X86_FMA)
                 r = _mm_mul_sd(_mm_fnmadd_sd(t1, r, c1), t0);
             #else
                 r = _mm_mul_sd(_mm_sub_sd(c1, _mm_mul_sd(t1, r)), t0);
@@ -642,7 +642,7 @@ ENOKI_INLINE auto exp(const T &a) {
 
 template <bool Approx = false, typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg exp(const Arg &a) {
-#if defined(__AVX512ER__)
+#if defined(ENOKI_X86_AVX512ER)
     if (std::is_same<Arg, float>::value && Approx) {
         __m128 v = _mm512_castps512_ps128(
             _mm512_exp2a23_ps(_mm512_castps128_ps512(_mm_mul_ps(
@@ -787,7 +787,7 @@ inline Arg mulsign(const Arg &a, const Arg &b) {
 
 template <typename T, std::enable_if_t<std::is_integral<T>::value, int> = 0>
 ENOKI_INLINE T popcnt(T v) {
-#if defined(__SSE4_2__)
+#if defined(ENOKI_X86_SSE42)
     if (sizeof(T) <= 4)
         return (T) _mm_popcnt_u32((unsigned int) v);
     #if defined(__x86_64__) || defined(_M_X64)
@@ -824,7 +824,7 @@ ENOKI_INLINE T popcnt(T v) {
 
 template <typename T, std::enable_if_t<std::is_integral<T>::value, int> = 0>
 ENOKI_INLINE T lzcnt(T v) {
-#if defined(__AVX2__)
+#if defined(ENOKI_X86_AVX2)
     if (sizeof(T) <= 4)
         return (T) _lzcnt_u32((unsigned int) v);
     #if defined(__x86_64__) || defined(_M_X64)
@@ -854,7 +854,7 @@ ENOKI_INLINE T lzcnt(T v) {
 
 template <typename T, std::enable_if_t<std::is_integral<T>::value, int> = 0>
 ENOKI_INLINE T tzcnt(T v) {
-#if defined(__AVX2__)
+#if defined(ENOKI_X86_AVX2)
     if (sizeof(T) <= 4)
         return (T) _tzcnt_u32((unsigned int) v);
     #if defined(__x86_64__) || defined(_M_X64)
@@ -1088,7 +1088,7 @@ template <typename Arg, size_t Stride = sizeof(Arg), bool Write = false, size_t 
 ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
     static_assert(detail::is_std_int<Index>::value, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
     auto ptr = (const uint8_t *) mem + index * Index(Stride);
-#if defined(__SSE4_2__)
+#if defined(ENOKI_X86_SSE42)
     constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
     _mm_prefetch((char *) ptr, Hint);
 #else
@@ -1119,7 +1119,7 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index, const Mask &mask
     static_assert(detail::is_std_int<Index>::value, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
     static_assert(array_depth<Mask>::value == 0, "prefetch(): invalid mask argument!");
     auto ptr = (const uint8_t *) mem + index * Index(Stride);
-#if defined(__SSE4_2__)
+#if defined(ENOKI_X86_SSE42)
     constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
     if (detail::mask_active(mask))
         _mm_prefetch((char *) ptr, Hint);
@@ -1155,7 +1155,7 @@ template <typename Array, size_t Stride = sizeof(Array), bool Write = false, siz
 ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
     static_assert(detail::is_std_int<Index>::value, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
     auto ptr = (const uint8_t *) mem + index * Index(Stride);
-#if defined(__SSE4_2__)
+#if defined(ENOKI_X86_SSE42)
     _mm_prefetch((char *) ptr, Level == 2 ? _MM_HINT_T1 : _MM_HINT_T0);
 #else
     (void) ptr;
@@ -1186,7 +1186,7 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index, const Mask &mask
     static_assert(detail::is_std_int<Index>::value, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
     static_assert(array_depth<Mask>::value == 0, "prefetch(): invalid mask argument!");
     auto ptr = (const uint8_t *) mem + index * Index(Stride);
-#if defined(__SSE4_2__)
+#if defined(ENOKI_X86_SSE42)
     if (detail::mask_active(mask))
         _mm_prefetch((char *) ptr, Level == 2 ? _MM_HINT_T1 : _MM_HINT_T0);
 #else

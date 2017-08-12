@@ -17,7 +17,7 @@ ENOKI_TEST_FLOAT(test01_ldexp) {
     assert(all(enoki::isnan(ldexp(T(nan), T(Value(2))))));
 }
 
-#if !defined(__AVX512F__)
+#if !defined(ENOKI_X86_AVX512F)
 // AVX512F frexp() uses slightly different conventions
 // It is used by log() where this is not a problem though
 ENOKI_TEST_FLOAT(test02_frexp) {
@@ -64,7 +64,7 @@ ENOKI_TEST_FLOAT(test03_exp) {
         [](const T &a) -> T { return exp(a); },
         [](double a) { return std::exp(a); },
         Value(-20), Value(30),
-#if defined(__AVX512ER__)
+#if defined(ENOKI_X86_AVX512ER)
         27
 #else
         3

@@ -97,7 +97,7 @@ ENOKI_INLINE Value gather_bits(Value x) {
     return gather_bits<Dimension, Value, Level - 1>(x);
 }
 
-#if defined(__AVX2__) && (defined(__x86_64__) || defined(_M_X64))
+#if defined(ENOKI_X86_AVX2) && (defined(__x86_64__) || defined(_M_X64))
 template <size_t Dimension, typename Value,
           std::enable_if_t<std::is_integral<Value>::value, int> = 0>
 ENOKI_INLINE Value scatter_bits(Value x) {

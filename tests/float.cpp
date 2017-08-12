@@ -41,7 +41,7 @@ ENOKI_TEST_FLOAT(test01_div_fp) {
         [](Value a) -> Value { return Value(3) / a; }, 1e-6f
     );
 
-#if !defined(__AVX512F__)
+#if !defined(ENOKI_X86_AVX512F)
     /* In AVX512 mode, the approximate reciprocal function is
        considerably more accurate and this test fails */
     if (std::is_same<Value, float>::value && T::Approx && has_sse42) {
@@ -211,7 +211,7 @@ ENOKI_TEST(test13_half) {
     }
 }
 
-#if !defined(__aarch64__) /* Can't change the rounding mode on ARM Neon */
+#if !defined(ENOKI_ARM_64) /* Can't change the rounding mode on ARM Neon */
 
 ENOKI_TEST_FLOAT(test14_round) {
     using T1 = Array<Value, Size, T::Approx, RoundingMode::Up>;

@@ -17,7 +17,7 @@
 
 NAMESPACE_BEGIN(enoki)
 
-#if defined(__SSE4_2__)
+#if defined(ENOKI_X86_SSE42)
 /// Flush denormalized numbers to zero
 inline void set_flush_denormals(bool value) {
     _MM_SET_FLUSH_ZERO_MODE(value ? _MM_FLUSH_ZERO_ON : _MM_FLUSH_ZERO_OFF);
@@ -87,7 +87,7 @@ Array<Value, 4> concat(const StaticArrayBase<Value, 4, Approx, Mode, Derived> &a
     return result;
 }
 
-#if defined(__SSE4_2__)
+#if defined(ENOKI_X86_SSE42)
 template <bool Approx, RoundingMode Mode, typename Derived, std::enable_if_t<Derived::Size == 3, int> = 0>
 Array<float, 4, Approx, Mode> concat(const StaticArrayBase<float, 4, Approx, Mode, Derived> &a, float value) {
     return _mm_insert_ps(a.derived().m, _mm_set_ss(value), 0b00110000);

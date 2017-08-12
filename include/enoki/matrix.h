@@ -377,7 +377,7 @@ template <typename T, bool Approx, typename E = expr_t<T>> ENOKI_INLINE E det(co
     return dot(col0, row0);
 }
 
-#if defined(__SSE4_2__)
+#if defined(ENOKI_X86_SSE42)
 // Optimized 3x3 transpose (single precision)
 template <typename Value, bool Approx, RoundingMode Mode, typename Derived,
           std::enable_if_t<Value::Size == 3 && std::is_same<value_t<Value>, float>::value, int> = 0>
@@ -420,7 +420,7 @@ transpose(const StaticArrayBase<Value, 4, Approx, Mode, Derived> &a) {
 }
 #endif
 
-#if defined(__AVX__)
+#if defined(ENOKI_X86_AVX)
 // Optimized 3x3 transpose (double precision)
 template <typename Value, bool Approx, RoundingMode Mode, typename Derived,
           std::enable_if_t<Value::Size == 3 && std::is_same<value_t<Value>, double>::value, int> = 0>

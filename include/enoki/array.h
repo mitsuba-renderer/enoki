@@ -30,27 +30,24 @@
 
 #include "array_recursive.h"
 
-#if !defined(ENOKI_DISABLE_VECTORIZATION)
-
-#if defined(__ARM_NEON)
+#if defined(ENOKI_ARM_NEON)
 #  include "array_neon.h"
 #endif
 
-#if defined(__SSE4_2__)
+#if defined(ENOKI_X86_SSE42)
 #  include "array_sse42.h"
 #endif
 
-#if defined(__AVX__)
+#if defined(ENOKI_X86_AVX)
 #  include "array_avx.h"
 #endif
 
-#if defined(__AVX2__)
+#if defined(ENOKI_X86_AVX2)
 #  include "array_avx2.h"
 #endif
 
-#if defined(__AVX512F__)
+#if defined(ENOKI_X86_AVX512F)
 #  include "array_avx512.h"
-#endif
 #endif
 
 #include "array_round.h"

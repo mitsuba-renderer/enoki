@@ -345,7 +345,7 @@ public:
             const StaticArrayBase<Value2, Count, Approx2, Mode2, Derived2> &a, \
             detail::reinterpret_flag)
 
-#if defined(__F16C__)
+#if defined(ENOKI_X86_F16C)
     // -----------------------------------------------------------------------
     //! @{ \name Half-precision conversions
     // -----------------------------------------------------------------------
@@ -356,7 +356,7 @@ public:
     }
 
 
-#if defined(__AVX__)
+#if defined(ENOKI_X86_AVX)
     ENOKI_CONVERT_GENERIC(double, half, 4) {
         __m128i value = _mm_cvtps_ph(_mm256_cvtpd_ps(a.derived().m), _MM_FROUND_CUR_DIRECTION);
         memcpy(m_data.data(), &value, sizeof(uint16_t) * Derived::Size);
@@ -367,7 +367,7 @@ public:
     }
 #endif
 
-#if defined(__AVX512F__)
+#if defined(ENOKI_X86_AVX512F)
     ENOKI_CONVERT_GENERIC(double, half, 8) {
         _mm_storeu_si128((__m128i *) m_data.data(), _mm256_cvtps_ph(_mm512_cvtpd_ps(a.derived().m), _MM_FROUND_CUR_DIRECTION));
     }
@@ -385,7 +385,7 @@ public:
     //! @{ \name SSE/AVX/AVX2/AVX512/.. mask to Array<bool, ..> conversions
     // -----------------------------------------------------------------------
 
-#if defined(__SSE4_2__)
+#if defined(ENOKI_X86_SSE42)
     ENOKI_REINTERPRET_MASK(2, 8) {
         __m128i m = _mm_and_si128((__m128i &) a.derived().m, _mm_set1_epi8(1));
         uint16_t result = (uint16_t) _mm_cvtsi128_si32(_mm_shuffle_epi8(
@@ -401,10 +401,10 @@ public:
     }
 #endif
 
-#if defined(__AVX__)
+#if defined(ENOKI_X86_AVX)
     ENOKI_REINTERPRET_MASK(4, 8) {
         __m128i hi, lo;
-        #if defined(__AVX2__)
+        #if defined(ENOKI_X86_AVX2)
             __m256i m = _mm256_and_si256((__m256i &) a.derived().m, _mm256_set1_epi8(1));
             m = _mm256_shuffle_epi8(
                 m, _mm256_set1_epi32((0 << 0) + (8 << 8) + (0 << 16) + (8 << 24)));
@@ -426,7 +426,7 @@ public:
 
     ENOKI_REINTERPRET_MASK(8, 4) {
         __m128i hi, lo;
-        #if defined(__AVX2__)
+        #if defined(ENOKI_X86_AVX2)
             __m256i m = _mm256_and_si256((__m256i &) a.derived().m, _mm256_set1_epi8(1));
             m = _mm256_shuffle_epi8(
                 m, _mm256_set1_epi32((0 << 0) + (4 << 8) + (8 << 16) + (12 << 24)));
@@ -447,9 +447,9 @@ public:
     }
 #endif
 
-#if defined(__AVX512F__)
+#if defined(ENOKI_X86_AVX512F)
     ENOKI_REINTERPRET_MASK(16, 1) {
-        #if defined(__AVX512BW__) && defined(__AVX512VL__)
+        #if defined(ENOKI_X86_AVX512BW) && defined(ENOKI_X86_AVX512VL)
             __m128i value = _mm_maskz_set1_epi8(a.derived().k, 1);
             _mm_storeu_si128((__m128i *) m_data.data(), value);
         #else
@@ -461,7 +461,7 @@ public:
     }
 
     ENOKI_REINTERPRET_MASK(8, 1) {
-        #if defined(__AVX512BW__) && defined(__AVX512VL__)
+        #if defined(ENOKI_X86_AVX512BW) && defined(ENOKI_X86_AVX512VL)
             __m128i value = _mm_maskz_set1_epi8(a.derived().k, 1);
             uint64_t result = (uint64_t) _mm_cvtsi128_si64(value);
         #else

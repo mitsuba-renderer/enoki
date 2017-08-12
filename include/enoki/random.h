@@ -76,6 +76,13 @@ template <typename T> struct PCG32 {
         UInt32 rot_offset = UInt32(sri<59>(oldstate));
         return ror(xorshifted, rot_offset);
     }
+    
+    /// Generate a uniformly distributed unsigned 64-bit random number
+    UInt32 next_uint64() {
+        UInt64 lo = UInt64(next_uint32());
+        UInt64 hi = sli<32>(UInt64(next_uint32()));
+        return lo + hi;
+    }
 
     /// Generate a single precision floating point value on the interval [0, 1)
     Float32 next_float32() {

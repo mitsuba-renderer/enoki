@@ -46,19 +46,19 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     //! @{ \name Type converting constructors
     // -----------------------------------------------------------------------
 
-#if defined(__F16C__)
+#if defined(ENOKI_X86_F16C)
     ENOKI_CONVERT(half)
         : m(_mm256_cvtph_ps(_mm_loadu_si128((const __m128i *) a.data()))) { }
 #endif
 
     ENOKI_CONVERT(float) : m(a.derived().m) { }
 
-#if defined(__AVX2__)
+#if defined(ENOKI_X86_AVX2)
     ENOKI_CONVERT(int32_t) : m(_mm256_cvtepi32_ps(a.derived().m)) { }
 #endif
 
     ENOKI_CONVERT(uint32_t) {
-        #if defined(__AVX512DQ__) && defined(__AVX512VL__)
+        #if defined(ENOKI_X86_AVX512DQ) && defined(ENOKI_X86_AVX512VL)
             m = _mm256_cvtepu32_ps(a.derived().m);
         #else
             auto ai = reinterpret_array<Array<int32_t, 8>>(a);
@@ -72,7 +72,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
         : m(detail::concat(_mm256_cvtpd_ps(low(a).m),
                            _mm256_cvtpd_ps(high(a).m))) { }
 
-#if defined(__AVX512DQ__)
+#if defined(ENOKI_X86_AVX512DQ)
     ENOKI_CONVERT(int64_t) : m(_mm512_cvtepi64_ps(a.derived().m)) { }
     ENOKI_CONVERT(uint64_t) : m(_mm512_cvtepu64_ps(a.derived().m)) { }
 #endif
@@ -89,7 +89,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
         memcpy(&ival, a.data(), 8);
         __m128i value = _mm_cmpgt_epi8(
             detail::mm_cvtsi64_si128((long long) ival), _mm_setzero_si128());
-        #if defined(__AVX2__)
+        #if defined(ENOKI_X86_AVX2)
             m = _mm256_castsi256_ps(_mm256_cvtepi8_epi32(value));
         #else
         m = _mm256_castsi256_ps(_mm256_insertf128_si256(
@@ -100,7 +100,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
 
     ENOKI_REINTERPRET(float) : m(a.derived().m) { }
 
-#if defined(__AVX2__)
+#if defined(ENOKI_X86_AVX2)
     ENOKI_REINTERPRET(int32_t) : m(_mm256_castsi256_ps(a.derived().m)) { }
     ENOKI_REINTERPRET(uint32_t) : m(_mm256_castsi256_ps(a.derived().m)) { }
 #else
@@ -114,10 +114,10 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
 #endif
 
 
-#if defined(__AVX512DQ__) && defined(__AVX512VL__)
+#if defined(ENOKI_X86_AVX512DQ) && defined(ENOKI_X86_AVX512VL)
     ENOKI_REINTERPRET(detail::KMaskBit)
         : m(_mm256_castsi256_ps(_mm256_movm_epi32(a.derived().k))) { }
-#elif defined(__AVX512F__)
+#elif defined(ENOKI_X86_AVX512F)
     ENOKI_REINTERPRET(detail::KMaskBit)
         : m(_mm512_castps512_ps256(_mm512_maskz_mov_ps(
               (__mmask16) a.derived().k, _mm512_set1_ps(memcpy_cast<float>(int32_t(-1)))))) { }
@@ -125,7 +125,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     ENOKI_REINTERPRET(double)
         : m(_mm256_castsi256_ps(detail::mm512_cvtepi64_epi32(
               _mm256_castpd_si256(low(a).m), _mm256_castpd_si256(high(a).m)))) { }
-#if defined(__AVX2__)
+#if defined(ENOKI_X86_AVX2)
     ENOKI_REINTERPRET(int64_t)
         : m(_mm256_castsi256_ps(
               detail::mm512_cvtepi64_epi32(low(a).m,
@@ -196,7 +196,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
         return _mm256_blendv_ps(f.m, t.m, m.m);
     }
 
-#if defined(__FMA__)
+#if defined(ENOKI_X86_FMA)
     ENOKI_INLINE Derived fmadd_   (Arg b, Arg c) const { return _mm256_fmadd_ps   (m, b.m, c.m); }
     ENOKI_INLINE Derived fmsub_   (Arg b, Arg c) const { return _mm256_fmsub_ps   (m, b.m, c.m); }
     ENOKI_INLINE Derived fnmadd_  (Arg b, Arg c) const { return _mm256_fnmadd_ps  (m, b.m, c.m); }
@@ -205,7 +205,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     ENOKI_INLINE Derived fmaddsub_(Arg b, Arg c) const { return _mm256_fmaddsub_ps(m, b.m, c.m); }
 #endif
 
-#if defined(__AVX2__)
+#if defined(ENOKI_X86_AVX2)
     template <int I0, int I1, int I2, int I3, int I4, int I5, int I6, int I7>
     ENOKI_INLINE Derived shuffle_() const {
         return _mm256_permutevar8x32_ps(m,
@@ -213,7 +213,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     }
 #endif
 
-#if defined(__AVX512VL__)
+#if defined(ENOKI_X86_AVX512VL)
     ENOKI_INLINE Derived ldexp_(Arg arg) const { return _mm256_scalef_ps(m, arg.m); }
 
     ENOKI_INLINE std::pair<Derived, Derived> frexp_() const {
@@ -224,7 +224,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
 #endif
 
     ENOKI_INLINE Derived rcp_() const {
-        #if defined(__AVX512ER__)
+        #if defined(ENOKI_X86_AVX512ER)
             /* rel err < 2^28, use as is */
             return _mm512_castps512_ps256(
                 _mm512_rcp28_ps(_mm512_castps256_ps512(m)));
@@ -233,7 +233,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
                 /* Use best reciprocal approximation available on the current
                    hardware and refine */
                 __m256 r;
-                #if defined(__AVX512VL__)
+                #if defined(ENOKI_X86_AVX512VL)
                     r = _mm256_rcp14_ps(m); /* rel error < 2^-14 */
                 #else
                     r = _mm256_rcp_ps(m);   /* rel error < 1.5*2^-12 */
@@ -244,7 +244,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
                        t1 = _mm256_mul_ps(r, m),
                        ro = r;
 
-                #if defined(__FMA__)
+                #if defined(ENOKI_X86_FMA)
                     r = _mm256_fnmadd_ps(t1, r, t0);
                 #else
                     r = _mm256_sub_ps(t0, _mm256_mul_ps(r, t1));
@@ -258,7 +258,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     }
 
     ENOKI_INLINE Derived rsqrt_() const {
-        #if defined(__AVX512ER__)
+        #if defined(ENOKI_X86_AVX512ER)
             /* rel err < 2^28, use as is */
             return _mm512_castps512_ps256(
                 _mm512_rsqrt28_ps(_mm512_castps256_ps512(m)));
@@ -267,7 +267,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
                 /* Use best reciprocal square root approximation available
                    on the current hardware and refine */
                 __m256 r;
-                #if defined(__AVX512VL__)
+                #if defined(ENOKI_X86_AVX512VL)
                     r = _mm256_rsqrt14_ps(m); /* rel error < 2^-14 */
                 #else
                     r = _mm256_rsqrt_ps(m);   /* rel error < 1.5*2^-12 */
@@ -281,7 +281,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
                        t1 = _mm256_mul_ps(r, m),
                        ro = r;
 
-                #if defined(__FMA__)
+                #if defined(ENOKI_X86_FMA)
                     r = _mm256_mul_ps(_mm256_fnmadd_ps(t1, r, c1), t0);
                 #else
                     r = _mm256_mul_ps(_mm256_sub_ps(c1, _mm256_mul_ps(t1, r)), t0);
@@ -294,7 +294,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
         #endif
     }
 
-#if defined(__AVX512ER__)
+#if defined(ENOKI_X86_AVX512ER)
     ENOKI_INLINE Derived exp_() const {
         if (Approx) {
             /* 23 bit precision, only use in approximate mode */
@@ -369,7 +369,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
 
     static ENOKI_INLINE Derived zero_() { return _mm256_setzero_ps(); }
 
-#if defined(__AVX2__)
+#if defined(ENOKI_X86_AVX2)
     ENOKI_REQUIRE_INDEX(Index, int32_t)
     static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index) {
         return _mm256_i32gather_ps((const float *) ptr, index.m, Stride);
@@ -382,7 +382,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
 
     ENOKI_REQUIRE_INDEX(Index, int64_t)
     static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index) {
-        #if defined(__AVX512F__)
+        #if defined(ENOKI_X86_AVX512F)
             return _mm512_i64gather_ps(index.m, ptr, Stride);
         #else
             return Derived(
@@ -394,7 +394,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
 
     ENOKI_REQUIRE_INDEX(Index, int64_t)
     static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index, const Mask &mask_) {
-        #if defined(__AVX512VL__) && defined(__AVX512DQ__)
+        #if defined(ENOKI_X86_AVX512VL) && defined(ENOKI_X86_AVX512DQ)
             __mmask8 k = _mm256_movepi32_mask(_mm256_castps_si256(mask_.m));
             return _mm512_mask_i64gather_ps(_mm256_setzero_ps(), k, index.m, (const float *) ptr, Stride);
         #else
@@ -406,7 +406,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     }
 #endif
 
-#if defined(__AVX512VL__)
+#if defined(ENOKI_X86_AVX512VL)
     ENOKI_REQUIRE_INDEX(Index, int32_t)
     ENOKI_INLINE void scatter_(void *ptr, const Index &index) const {
         _mm256_i32scatter_ps(ptr, index.m, m, Stride);
@@ -437,14 +437,14 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     }
 
     ENOKI_INLINE size_t compress_(float *&ptr, const Mask &mask) const {
-        #if defined(__AVX512VL__)
+        #if defined(ENOKI_X86_AVX512VL)
             __mmask8 k = _mm256_test_epi32_mask(_mm256_castps_si256(mask.m),
                                                 _mm256_castps_si256(mask.m));
             _mm256_storeu_ps(ptr, _mm256_maskz_compress_ps(k, m));
             size_t kn = (size_t) _mm_popcnt_u32(k);
             ptr += kn;
             return kn;
-        #elif defined(__AVX2__) && (defined(__x86_64__) || defined(_M_X64))
+        #elif defined(ENOKI_X86_AVX2) && (defined(__x86_64__) || defined(_M_X64))
             /** Clever BMI2-based partitioning algorithm by Christoph Diegelmann
                 see https://goo.gl/o3ysMN for context */
 
@@ -493,7 +493,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     //! @{ \name Type converting constructors
     // -----------------------------------------------------------------------
 
-#if defined(__F16C__)
+#if defined(ENOKI_X86_F16C)
     ENOKI_CONVERT(half) {
         m = _mm256_cvtps_pd(
             _mm_cvtph_ps(_mm_loadl_epi64((const __m128i *) a.data())));
@@ -502,17 +502,17 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
 
     ENOKI_CONVERT(float) : m(_mm256_cvtps_pd(a.derived().m)) { }
 
-#if defined(__AVX__)
+#if defined(ENOKI_X86_AVX)
     ENOKI_CONVERT(int32_t) : m(_mm256_cvtepi32_pd(a.derived().m)) { }
 #endif
 
-#if defined(__AVX512DQ__) && defined(__AVX512VL__)
+#if defined(ENOKI_X86_AVX512DQ) && defined(ENOKI_X86_AVX512VL)
     ENOKI_CONVERT(uint32_t) : m(_mm256_cvtepu32_pd(a.derived().m)) { }
 #endif
 
     ENOKI_CONVERT(double) : m(a.derived().m) { }
 
-#if defined(__AVX512DQ__) && defined(__AVX512VL__)
+#if defined(ENOKI_X86_AVX512DQ) && defined(ENOKI_X86_AVX512VL)
     ENOKI_CONVERT(int64_t) : m(_mm256_cvtepi64_pd(a.derived().m)) { }
     ENOKI_CONVERT(uint64_t) : m(_mm256_cvtepu64_pd(a.derived().m)) { }
 #endif
@@ -529,7 +529,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
         memcpy(&ival, a.data(), 4);
         __m128i value = _mm_cmpgt_epi8(
             _mm_cvtsi32_si128(ival), _mm_setzero_si128());
-        #if defined(__AVX2__)
+        #if defined(ENOKI_X86_AVX2)
             m = _mm256_castsi256_pd(_mm256_cvtepi8_epi64(value));
         #else
             m = _mm256_castsi256_pd(_mm256_insertf128_si256(
@@ -550,7 +550,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
 
     ENOKI_REINTERPRET(double) : m(a.derived().m) { }
 
-#if defined(__AVX2__)
+#if defined(ENOKI_X86_AVX2)
     ENOKI_REINTERPRET(int64_t) : m(_mm256_castsi256_pd(a.derived().m)) { }
     ENOKI_REINTERPRET(uint64_t) : m(_mm256_castsi256_pd(a.derived().m)) { }
 #else
@@ -613,7 +613,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
         return _mm256_blendv_pd(f.m, t.m, m.m);
     }
 
-#if defined(__FMA__)
+#if defined(ENOKI_X86_FMA)
     ENOKI_INLINE Derived fmadd_   (Arg b, Arg c) const { return _mm256_fmadd_pd   (m, b.m, c.m); }
     ENOKI_INLINE Derived fmsub_   (Arg b, Arg c) const { return _mm256_fmsub_pd   (m, b.m, c.m); }
     ENOKI_INLINE Derived fnmadd_  (Arg b, Arg c) const { return _mm256_fnmadd_pd  (m, b.m, c.m); }
@@ -622,14 +622,14 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     ENOKI_INLINE Derived fmaddsub_(Arg b, Arg c) const { return _mm256_fmaddsub_pd(m, b.m, c.m); }
 #endif
 
-#if defined(__AVX2__)
+#if defined(ENOKI_X86_AVX2)
     template <int I0, int I1, int I2, int I3>
     ENOKI_INLINE Derived shuffle_() const {
         return _mm256_permute4x64_pd(m, _MM_SHUFFLE(I3, I2, I1, I0));
     }
 #endif
 
-#if defined(__AVX512VL__)
+#if defined(ENOKI_X86_AVX512VL)
     ENOKI_INLINE Derived ldexp_(Arg arg) const { return _mm256_scalef_pd(m, arg.m); }
 
     ENOKI_INLINE std::pair<Derived, Derived> frexp_() const {
@@ -639,17 +639,17 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     }
 #endif
 
-#if defined(__AVX512VL__) || defined(__AVX512ER__)
+#if defined(ENOKI_X86_AVX512VL) || defined(ENOKI_X86_AVX512ER)
     ENOKI_INLINE Derived rcp_() const {
         if (Approx) {
             /* Use best reciprocal approximation available on the current
                hardware and potentially refine */
             __m256d r;
-            #if defined(__AVX512ER__)
+            #if defined(ENOKI_X86_AVX512ER)
                 /* rel err < 2^28 */
                 r = _mm512_castpd512_pd256(
                     _mm512_rcp28_pd(_mm512_castpd256_pd512(m)));
-            #elif defined(__AVX512VL__)
+            #elif defined(ENOKI_X86_AVX512VL)
                 /* rel error < 2^-14 */
                 r = _mm256_rcp14_pd(m);
             #endif
@@ -674,11 +674,11 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
             /* Use best reciprocal square root approximation available
                on the current hardware and potentially refine */
             __m256d r;
-            #if defined(__AVX512ER__)
+            #if defined(ENOKI_X86_AVX512ER)
                 /* rel err < 2^28 */
                 r = _mm512_castpd512_pd256(
                     _mm512_rsqrt28_pd(_mm512_castpd256_pd512(m)));
-            #elif defined(__AVX512VL__)
+            #elif defined(ENOKI_X86_AVX512VL)
                 /* rel error < 2^-14 */
                 r = _mm256_rsqrt14_pd(m);
             #endif
@@ -761,7 +761,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
 
     static ENOKI_INLINE Derived zero_() { return _mm256_setzero_pd(); }
 
-#if defined(__AVX2__)
+#if defined(ENOKI_X86_AVX2)
     ENOKI_REQUIRE_INDEX(T, int32_t)
     static ENOKI_INLINE Derived gather_(const void *ptr, const T &index) {
         return _mm256_i32gather_pd((const double *) ptr, index.m, Stride);
@@ -783,7 +783,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     }
 #endif
 
-#if defined(__AVX512VL__)
+#if defined(ENOKI_X86_AVX512VL)
     ENOKI_REQUIRE_INDEX(T, int32_t)
     ENOKI_INLINE void scatter_(void *ptr, const T &index) const {
         _mm256_i32scatter_pd(ptr, index.m, m, Stride);
@@ -815,9 +815,9 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
         return coeff((size_t) (tzcnt(k) & 3));
     }
 
-#if defined(__AVX2__)
+#if defined(ENOKI_X86_AVX2)
     ENOKI_INLINE size_t compress_(double *&ptr, const Mask &mask) const {
-        #if defined(__AVX512VL__)
+        #if defined(ENOKI_X86_AVX512VL)
             __mmask8 k = _mm256_test_epi64_mask(_mm256_castpd_si256(mask.m),
                                                 _mm256_castpd_si256(mask.m));
             _mm256_storeu_pd(ptr, _mm256_maskz_compress_pd(k, m));
@@ -886,7 +886,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
         return Base::template shuffle_<I0, I1, I2, 3>();
     }
 
-#if !defined(__AVX2__)
+#if !defined(ENOKI_X86_AVX2)
     ENOKI_REINTERPRET(uint64_t) {
         ENOKI_TRACK_SCALAR
         auto v0 = a.derived().coeff(0), v1 = a.derived().coeff(1), v2 = a.derived().coeff(2);
@@ -900,7 +900,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     }
 #endif
 
-#if defined(__F16C__)
+#if defined(ENOKI_X86_F16C)
     template <bool Approx2, RoundingMode Mode2, typename Derived2>
     ENOKI_INLINE StaticArrayImpl(
         const StaticArrayBase<half, 3, Approx2, Mode2, Derived2> &a) {
@@ -916,7 +916,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
         memcpy(&ival, a.data(), 3);
         __m128i value = _mm_cmpgt_epi8(
             _mm_cvtsi32_si128(ival), _mm_setzero_si128());
-        #if defined(__AVX2__)
+        #if defined(ENOKI_X86_AVX2)
             m = _mm256_castsi256_pd(_mm256_cvtepi8_epi64(value));
         #else
             m = _mm256_castsi256_pd(_mm256_insertf128_si256(

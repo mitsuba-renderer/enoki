@@ -18,17 +18,17 @@
 #endif
 
 ENOKI_TEST_ALL(test00_align) {
-#if defined(__SSE4_2__)
+#if defined(ENOKI_X86_SSE42)
     if (sizeof(Value)*Size == 16) {
         assert(sizeof(T) == 16);
         assert(alignof(T) == 16);
     }
-#elif defined(__AVX__)
+#elif defined(ENOKI_X86_AVX)
     if (sizeof(Value)*Size == 32) {
         assert(sizeof(T) == 32);
         assert(alignof(T) == 32);
     }
-#elif defined(__AVX512__)
+#elif defined(ENOKI_X86_AVX512F)
     if (sizeof(Value)*Size == 64) {
         assert(sizeof(T) == 64);
         assert(alignof(T) == 64);
@@ -457,7 +457,7 @@ ENOKI_TEST_ALL(test26_mask_op) {
     );
 }
 
-#if defined(__SSE4_2__)
+#if defined(ENOKI_X86_SSE42)
 ENOKI_TEST(test27_flush_denormals) {
     bool prev = flush_denormals();
     set_flush_denormals(false);

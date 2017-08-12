@@ -53,7 +53,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMod
         if (std::is_signed<Value>::value) {
             m = _mm256_cvttps_epi32(a.derived().m);
         } else {
-            #if defined(__AVX512VL__)
+            #if defined(ENOKI_X86_AVX512VL)
                 m = _mm256_cvttps_epu32(a.derived().m);
             #else
                 constexpr uint32_t limit = 1u << 31;
@@ -80,14 +80,14 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMod
 
     ENOKI_CONVERT(double) {
         if (std::is_signed<Value>::value) {
-            #if defined(__AVX512F__)
+            #if defined(ENOKI_X86_AVX512F)
                 m = _mm512_cvttpd_epi32(a.derived().m);
             #else
                 m = detail::concat(_mm256_cvttpd_epi32(low(a).m),
                                    _mm256_cvttpd_epi32(high(a).m));
             #endif
         } else {
-            #if defined(__AVX512F__)
+            #if defined(ENOKI_X86_AVX512F)
                 m = _mm512_cvttpd_epu32(a.derived().m);
             #else
                 ENOKI_TRACK_SCALAR for (size_t i = 0; i < Size; ++i)
@@ -97,7 +97,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMod
     }
 
     ENOKI_CONVERT(int64_t) {
-        #if defined(__AVX512F__)
+        #if defined(ENOKI_X86_AVX512F)
             m = _mm512_cvtepi64_epi32(a.derived().m);
         #else
             m = detail::mm512_cvtepi64_epi32(low(a).m, high(a).m);
@@ -105,7 +105,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMod
     }
 
     ENOKI_CONVERT(uint64_t) {
-        #if defined(__AVX512F__)
+        #if defined(ENOKI_X86_AVX512F)
             m = _mm512_cvtepi64_epi32(a.derived().m);
         #else
             m = detail::mm512_cvtepi64_epi32(low(a).m, high(a).m);
@@ -131,9 +131,9 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMod
     ENOKI_REINTERPRET(int32_t) : m(a.derived().m) { }
     ENOKI_REINTERPRET(uint32_t) : m(a.derived().m) { }
 
-#if defined(__AVX512DQ__) && defined(__AVX512VL__)
+#if defined(ENOKI_X86_AVX512DQ) && defined(ENOKI_X86_AVX512VL)
     ENOKI_REINTERPRET(detail::KMaskBit) : m(_mm256_movm_epi32(a.derived().k)) { }
-#elif defined(__AVX512F__)
+#elif defined(ENOKI_X86_AVX512F)
     ENOKI_REINTERPRET(detail::KMaskBit)
         : m(_mm512_castsi512_si256(_mm512_maskz_mov_epi32(
               (__mmask16) a.derived().k, _mm512_set1_epi32(int32_t(-1))))) { }
@@ -207,7 +207,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMod
             return _mm256_srlv_epi32(m, k.m);
     }
 
-#if defined(__AVX512VL__)
+#if defined(ENOKI_X86_AVX512VL)
     ENOKI_INLINE Derived rolv_(Arg k) const { return _mm256_rolv_epi32(m, k.m); }
     ENOKI_INLINE Derived rorv_(Arg k) const { return _mm256_rorv_epi32(m, k.m); }
     ENOKI_INLINE Derived rol_(size_t k) const { return rolv_(_mm256_set1_epi32((int32_t) k)); }
@@ -286,7 +286,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMod
         }
     }
 
-#if defined(__AVX512CD__) && defined(__AVX512VL__)
+#if defined(ENOKI_X86_AVX512CD) && defined(ENOKI_X86_AVX512VL)
     ENOKI_INLINE Derived lzcnt_() const { return _mm256_lzcnt_epi32(m); }
     ENOKI_INLINE Derived tzcnt_() const { return Value(32) - lzcnt(~derived() & (derived() - Value(1))); }
 #endif
@@ -359,7 +359,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMod
 
     ENOKI_REQUIRE_INDEX(Index, int64_t)
     static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index) {
-        #if defined(__AVX512F__)
+        #if defined(ENOKI_X86_AVX512F)
             return _mm512_i64gather_epi32(index.m, ptr, Stride);
         #else
             return Derived(
@@ -371,7 +371,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMod
 
     ENOKI_REQUIRE_INDEX(Index, int64_t)
     static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index, const Mask &mask_) {
-        #if defined(__AVX512VL__) && defined(__AVX512DQ__)
+        #if defined(ENOKI_X86_AVX512VL) && defined(ENOKI_X86_AVX512DQ)
             __mmask8 k = _mm256_movepi32_mask(mask_.m);
             return _mm512_mask_i64gather_epi32(_mm256_setzero_si256(), k, index.m, (const float *) ptr, Stride);
         #else
@@ -382,7 +382,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMod
         #endif
     }
 
-#if defined(__AVX512VL__)
+#if defined(ENOKI_X86_AVX512VL)
     ENOKI_REQUIRE_INDEX(Index, int32_t)
     ENOKI_INLINE void scatter_(void *ptr, const Index &index) const {
         _mm256_i32scatter_epi32(ptr, index.m, m, Stride);
@@ -414,7 +414,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMod
 
     template <typename T>
     ENOKI_INLINE size_t compress_(T *&ptr, const Mask &mask) const {
-        #if defined(__AVX512VL__)
+        #if defined(ENOKI_X86_AVX512VL)
             __mmask8 k = _mm256_test_epi32_mask(mask.m, mask.m);
             size_t kn = (size_t) _mm_popcnt_u32(k);
             _mm256_storeu_si256((__m256i *) ptr, _mm256_maskz_compress_epi32(k, m));
@@ -471,7 +471,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMod
     //! @{ \name Type converting constructors
     // -----------------------------------------------------------------------
 
-#if defined(__AVX512DQ__) && defined(__AVX512VL__)
+#if defined(ENOKI_X86_AVX512DQ) && defined(ENOKI_X86_AVX512VL)
     ENOKI_CONVERT(float) {
         if (std::is_signed<Value>::value)
             m = _mm256_cvttps_epi64(a.derived().m);
@@ -538,7 +538,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMod
     ENOKI_INLINE Derived add_(Arg a) const { return _mm256_add_epi64(m, a.m);   }
     ENOKI_INLINE Derived sub_(Arg a) const { return _mm256_sub_epi64(m, a.m);   }
     ENOKI_INLINE Derived mul_(Arg a) const {
-        #if defined(__AVX512DQ__) && defined(__AVX512VL__)
+        #if defined(ENOKI_X86_AVX512DQ) && defined(ENOKI_X86_AVX512VL)
             return _mm256_mullo_epi64(m, a.m);
         #else
             __m256i h0    = _mm256_srli_epi64(m, 32);
@@ -603,7 +603,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMod
 
     template <size_t k> ENOKI_INLINE Derived sri_() const {
         if (std::is_signed<Value>::value) {
-            #if defined(__AVX512VL__)
+            #if defined(ENOKI_X86_AVX512VL)
                 return _mm256_srai_epi64(m, (int) k);
             #else
                 const __m256i offset = _mm256_set1_epi64x((long long) 0x8000000000000000ull);
@@ -622,7 +622,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMod
 
     ENOKI_INLINE Derived sr_(size_t k) const {
         if (std::is_signed<Value>::value) {
-            #if defined(__AVX512VL__)
+            #if defined(ENOKI_X86_AVX512VL)
                 return _mm256_sra_epi64(m, _mm_set1_epi64x((long long) k));
             #else
                 const __m256i offset = _mm256_set1_epi64x((long long) 0x8000000000000000ull);
@@ -642,7 +642,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMod
 
     ENOKI_INLINE Derived srv_(Arg k) const {
         if (std::is_signed<Value>::value) {
-            #if defined(__AVX512VL__)
+            #if defined(ENOKI_X86_AVX512VL)
                 return _mm256_srav_epi64(m, k.m);
             #else
                 const __m256i offset = _mm256_set1_epi64x((long long) 0x8000000000000000ull);
@@ -655,7 +655,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMod
         }
     }
 
-#if defined(__AVX512VL__)
+#if defined(ENOKI_X86_AVX512VL)
     ENOKI_INLINE Derived rolv_(Arg k) const { return _mm256_rolv_epi64(m, k.m); }
     ENOKI_INLINE Derived rorv_(Arg k) const { return _mm256_rorv_epi64(m, k.m); }
     ENOKI_INLINE Derived rol_(size_t k) const { return rolv_(_mm256_set1_epi64x((long long) k)); }
@@ -693,7 +693,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMod
     ENOKI_INLINE auto neq_(Arg a) const { return ~eq_(a); }
 
     ENOKI_INLINE Derived min_(Arg a) const {
-        #if defined(__AVX512VL__)
+        #if defined(ENOKI_X86_AVX512VL)
             if (std::is_signed<Value>::value)
                 return _mm256_min_epi64(a.m, m);
             else
@@ -704,7 +704,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMod
     }
 
     ENOKI_INLINE Derived max_(Arg a) const {
-        #if defined(__AVX512VL__)
+        #if defined(ENOKI_X86_AVX512VL)
             if (std::is_signed<Value>::value)
                 return _mm256_max_epi64(a.m, m);
             else
@@ -717,7 +717,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMod
     ENOKI_INLINE Derived abs_() const {
         if (!std::is_signed<Value>::value)
             return m;
-        #if defined(__AVX512VL__)
+        #if defined(ENOKI_X86_AVX512VL)
             return _mm256_abs_epi64(m);
         #else
             return select(derived() < zero<Derived>(),
@@ -730,7 +730,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMod
         return _mm256_blendv_epi8(f.m, t.m, m.m);
     }
 
-#if defined(__AVX512CD__) && defined(__AVX512VL__)
+#if defined(ENOKI_X86_AVX512CD) && defined(ENOKI_X86_AVX512VL)
     ENOKI_INLINE Derived lzcnt_() const { return _mm256_lzcnt_epi64(m); }
     ENOKI_INLINE Derived tzcnt_() const { return Value(64) - lzcnt(~derived() & (derived() - Value(1))); }
 #endif
@@ -816,7 +816,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMod
                                         index.m, mask.m, Stride);
     }
 
-#if defined(__AVX512VL__)
+#if defined(ENOKI_X86_AVX512VL)
     ENOKI_REQUIRE_INDEX(Index, int32_t)
     ENOKI_INLINE void scatter_(void *ptr, const Index &index) const {
         _mm256_i32scatter_epi64(ptr, index.m, m, Stride);
@@ -849,7 +849,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMod
 
     template <typename T>
     ENOKI_INLINE size_t compress_(T *&ptr, const Mask &mask) const {
-        #if defined(__AVX512VL__)
+        #if defined(ENOKI_X86_AVX512VL)
             __mmask8 k = _mm256_test_epi64_mask(mask.m, mask.m);
             size_t kn = (size_t) _mm_popcnt_u32(k);
             _mm256_storeu_si256((__m256i *) ptr, _mm256_maskz_compress_epi64(k, m));

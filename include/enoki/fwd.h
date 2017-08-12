@@ -117,11 +117,11 @@ NAMESPACE_BEGIN(enoki)
 using ssize_t = std::make_signed_t<size_t>;
 
 /// Maximum hardware-supported packet size in bytes
-#if defined(__AVX512F__)
+#if defined(ENOKI_X86_AVX512F)
     static constexpr size_t max_packet_size = 64;
-#elif defined(__AVX__)
+#elif defined(ENOKI_X86_AVX)
     static constexpr size_t max_packet_size = 32;
-#elif defined(__SSE4_2__)
+#elif defined(ENOKI_X86_SSE42)
     static constexpr size_t max_packet_size = 16;
 #else
     static constexpr size_t max_packet_size = 4;

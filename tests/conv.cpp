@@ -49,7 +49,7 @@ ENOKI_TEST_ALL(test10_mask_int64_t)  { masktest<T, int64_t>();  }
 ENOKI_TEST_ALL(test11_mask_uint64_t) { masktest<T, uint64_t>(); }
 ENOKI_TEST_ALL(test12_mask_float)    { masktest<T, float>();    }
 ENOKI_TEST_ALL(test13_mask_double)   { masktest<T, double>();   }
-#if !defined(__AVX512F__) || !defined(__clang__) // Auto-vectorizer bug :(
+#if !defined(ENOKI_X86_AVX512F) || !defined(__clang__) // Auto-vectorizer bug :(
 ENOKI_TEST_ALL(test14_mask_half)     { masktest<T, half>();     }
 #endif
 

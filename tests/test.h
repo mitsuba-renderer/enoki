@@ -461,7 +461,7 @@ NAMESPACE_END(test)
     ENOKI_TEST(array_##type##_04##_##name) { name<type, 4>();  }                \
     ENOKI_TEST(array_##type##_08##_##name) { name<type, 8>();  }                \
     ENOKI_TEST(array_##type##_16##_##name) { name<type, 16>(); }
-#elif defined(__aarch64__)
+#elif defined(ENOKI_ARM_64)
 #define ENOKI_TEST_HELPER(name, type)                                           \
     ENOKI_TEST(array_##type##_01##_##name) { name<type, 1>();  }                \
     ENOKI_TEST(array_##type##_02##_##name) { name<type, 2>();  }                \

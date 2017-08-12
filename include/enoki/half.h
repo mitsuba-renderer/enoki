@@ -109,7 +109,7 @@ private:
 
 public:
     static uint16_t float32_to_float16(float value) {
-        #if defined(__F16C__)
+        #if defined(ENOKI_X86_F16C)
             return (uint16_t) _mm_cvtsi128_si32(_mm_cvtps_ph(_mm_set_ss(value), _MM_FROUND_CUR_DIRECTION));
         #else
             Bits v, s;
@@ -130,7 +130,7 @@ public:
     }
 
     static float float16_to_float32(uint16_t value) {
-        #if defined(__F16C__)
+        #if defined(ENOKI_X86_F16C)
             return _mm_cvtss_f32(_mm_cvtph_ps(_mm_set1_epi16((int16_t) value)));
         #else
             Bits v;

@@ -46,6 +46,7 @@ Release
 *_avx2
 *_avx512_knl
 *_avx512_skx
+*_neon
 *.ppm
 
 # Documentation
