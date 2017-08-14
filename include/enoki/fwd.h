@@ -87,6 +87,92 @@
      ENOKI_TOSTRING(ENOKI_VERSION_MINOR) "."                                   \
      ENOKI_TOSTRING(ENOKI_VERSION_PATCH))
 
+#if defined(__x86_64__) || defined(_M_X64)
+#  define ENOKI_X86_64 1
+#endif
+
+#if (defined(__i386__) || defined(_M_IX86)) && !defined(ENOKI_X86_64)
+#  define ENOKI_X86_32 1
+#endif
+
+#if defined(__aarch64__)
+#  define ENOKI_ARM_64 1
+#endif
+
+#if (defined(_MSC_VER) && defined(ENOKI_X86_32)) && !defined(ENOKI_DISABLE_VECTORIZATION)
+// Enoki does not support vectorization on 32-bit Windows due to various
+// platform limitations (unaligned stack, calling conventions don't allow
+// passing vector registers, etc.).
+# define ENOKI_DISABLE_VECTORIZATION 1
+#endif
+
+# if !defined(ENOKI_DISABLE_VECTORIZATION)
+#  if defined(__AVX512F__)
+#    define ENOKI_X86_AVX512F 1
+#  endif
+#  if defined(__AVX512CD__)
+#    define ENOKI_X86_AVX512CD 1
+#  endif
+#  if defined(__AVX512DQ__)
+#    define ENOKI_X86_AVX512DQ 1
+#  endif
+#  if defined(__AVX512VL__)
+#    define ENOKI_X86_AVX512VL 1
+#  endif
+#  if defined(__AVX512BW__)
+#    define ENOKI_X86_AVX512BW 1
+#  endif
+#  if defined(__AVX512PF__)
+#    define ENOKI_X86_AVX512PF 1
+#  endif
+#  if defined(__AVX512ER__)
+#    define ENOKI_X86_AVX512ER 1
+#  endif
+#  if defined(__AVX512VBMI__)
+#    define ENOKI_X86_AVX512VBMI 1
+#  endif
+#  if defined(__AVX512VPOPCNTDQ__)
+#    define ENOKI_X86_AVX512VPOPCNTDQ 1
+#  endif
+#  if defined(__AVX2__)
+#    define ENOKI_X86_AVX2 1
+#  endif
+#  if defined(__FMA__)
+#    define ENOKI_X86_FMA 1
+#  endif
+#  if defined(__F16C__)
+#    define ENOKI_X86_F16C 1
+#  endif
+#  if defined(__AVX__)
+#    define ENOKI_X86_AVX 1
+#  endif
+#  if defined(__ARM_NEON)
+#    define ENOKI_ARM_NEON
+#  endif
+#endif
+
+/* Fix missing/inconsistent preprocessor flags */
+#if defined(ENOKI_X86_AVX512F) && !defined(ENOKI_X86_AVX2)
+#  define ENOKI_X86_AVX2
+#endif
+
+#if defined(ENOKI_X86_AVX2) && !defined(ENOKI_X86_F16C)
+#  define ENOKI_X86_F16C
+#endif
+
+#if defined(ENOKI_X86_AVX2) && !defined(ENOKI_X86_FMA)
+#  define ENOKI_X86_FMA
+#endif
+
+#if defined(ENOKI_X86_AVX2) && !defined(ENOKI_X86_AVX)
+#  define ENOKI_X86_AVX
+#endif
+
+#if defined(ENOKI_X86_AVX) && !defined(ENOKI_X86_SSE42)
+#  define ENOKI_X86_SSE42
+#endif
+
+
 /* The following macro is used by the test suite to detect
    unimplemented methods in vectorized backends */
 
@@ -121,7 +207,7 @@ using ssize_t = std::make_signed_t<size_t>;
     static constexpr size_t max_packet_size = 64;
 #elif defined(ENOKI_X86_AVX)
     static constexpr size_t max_packet_size = 32;
-#elif defined(ENOKI_X86_SSE42)
+#elif defined(ENOKI_X86_SSE42) || defined(ENOKI_ARM_NEON)
     static constexpr size_t max_packet_size = 16;
 #else
     static constexpr size_t max_packet_size = 4;

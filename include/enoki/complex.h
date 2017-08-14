@@ -48,7 +48,7 @@ template <typename T, bool Approx> ENOKI_INLINE expr_t<T> real(const Complex<T, 
 template <typename T, bool Approx> ENOKI_INLINE expr_t<T> imag(const Complex<T, Approx> &z) { return z.y(); }
 
 template <typename T, bool Approx> ENOKI_INLINE Complex<expr_t<T>, Approx> rcp(const Complex<T, Approx> &z) {
-    auto scale = rcp(squared_norm(z));
+    auto scale = rcp<Approx>(squared_norm(z));
     return Complex<expr_t<T>, Approx>(
          real(z) * scale,
         -imag(z) * scale
@@ -105,12 +105,20 @@ ENOKI_INLINE auto operator/(const Complex<T0, Approx> &z0, const Complex<T0, App
 
 template <typename T0, typename T1, bool Approx>
 ENOKI_INLINE Complex<expr_t<T0, T1>, Approx> operator/(const Complex<T0, Approx> &z, const T1 &s) {
-    return Array<expr_t<T0>, 4>(z) / s;
+    return Array<expr_t<T0>, 2>(z) / s;
 }
 
 template <typename T, bool Approx> ENOKI_INLINE Complex<expr_t<T>, Approx> conj(const Complex<T, Approx> &z) {
     const Complex<expr_t<T>> mask(0.f, -0.f);
     return z ^ mask;
+}
+
+template <typename T, bool Approx> ENOKI_INLINE expr_t<T> squared_norm(const Complex<T, Approx> &z) {
+    return squared_norm(Array<expr_t<T>, 2>(z));
+}
+
+template <typename T, bool Approx> ENOKI_INLINE expr_t<T> norm(const Complex<T, Approx> &z) {
+    return norm(Array<expr_t<T>, 2>(z));
 }
 
 template <typename T, bool Approx> ENOKI_INLINE expr_t<T> abs(const Complex<T, Approx> &z) { return norm(z); }

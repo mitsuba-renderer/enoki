@@ -463,6 +463,38 @@ ENOKI_INLINE auto transpose(const StaticArrayBase<Value, 4, Approx, Mode, Derive
 }
 #endif
 
+#if defined(ENOKI_ARM_NEON)
+// Optimized 3x3 transpose (single precision)
+template <typename Value, bool Approx, RoundingMode Mode, typename Derived,
+          std::enable_if_t<Value::Size == 3 && std::is_same<value_t<Value>, float>::value, int> = 0>
+ENOKI_INLINE auto transpose(const StaticArrayBase<Value, 3, Approx, Mode, Derived> &a) {
+    float32x4x2_t v01 = vtrnq_f32(a.derived().coeff(0).m, a.derived().coeff(1).m);
+    float32x4x2_t v23 = vtrnq_f32(a.derived().coeff(2).m, a.derived().coeff(2).m);
+
+    return Derived(
+        vcombine_f32(vget_low_f32 (v01.val[0]), vget_low_f32(v23.val[0])),
+        vcombine_f32(vget_low_f32 (v01.val[1]), vget_low_f32(v23.val[1])),
+        vcombine_f32(vget_high_f32(v01.val[0]), vget_high_f32(v23.val[0]))
+    );
+}
+
+// Optimized 4x4 transpose (single precision)
+template <typename Value, bool Approx, RoundingMode Mode, typename Derived,
+          std::enable_if_t<Value::Size == 4 && std::is_same<value_t<Value>, float>::value, int> = 0>
+ENOKI_INLINE auto
+transpose(const StaticArrayBase<Value, 4, Approx, Mode, Derived> &a) {
+    float32x4x2_t v01 = vtrnq_f32(a.derived().coeff(0).m, a.derived().coeff(1).m);
+    float32x4x2_t v23 = vtrnq_f32(a.derived().coeff(2).m, a.derived().coeff(3).m);
+
+    return Derived(
+        vcombine_f32(vget_low_f32 (v01.val[0]), vget_low_f32(v23.val[0])),
+        vcombine_f32(vget_low_f32 (v01.val[1]), vget_low_f32(v23.val[1])),
+        vcombine_f32(vget_high_f32(v01.val[0]), vget_high_f32(v23.val[0])),
+        vcombine_f32(vget_high_f32(v01.val[1]), vget_high_f32(v23.val[1]))
+    );
+}
+#endif
+
 template <typename Value, size_t Size, bool Approx, RoundingMode Mode, typename Derived>
 ENOKI_INLINE auto transpose(const StaticArrayBase<Value, Size, Approx, Mode, Derived> &a) {
     static_assert(Value::Size == Size && array_depth<Derived>::value >= 2,

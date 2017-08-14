@@ -418,50 +418,50 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     /// Dot product fallback implementation
     ENOKI_INLINE auto dot_(const Derived &a) const { return hsum(derived() * a); }
 
-    /// all() fallback implementation
-    template <typename T = Derived, std::enable_if_t<T::IsMask && array_depth<T>::value == 1, int> = 0>
-    ENOKI_INLINE bool all_() const {
-        using UInt = uint_array_t<Scalar>;
-        UInt value = reinterpret_array<UInt>(derived().coeff(0));
-        for (size_t i = 1; i < Derived::Size; ++i)
-            value &= reinterpret_array<UInt>(derived().coeff(i));
-        return value != 0;
-    }
-
     /// hsum() fallback implementation
     template <typename T = Value, std::enable_if_t<std::is_arithmetic<T>::value, int> = 0>
-    ENOKI_INLINE bool hsum_() const {
+    ENOKI_INLINE Value hsum_() const {
         Value result = derived().coeff(0);
-        for (size_t i = 1; i < Derived::Size; ++i)
+        ENOKI_CHKSCALAR for (size_t i = 1; i < Derived::Size; ++i)
             result += derived().coeff(i);
         return result;
     }
 
     /// hprod() fallback implementation
     template <typename T = Value, std::enable_if_t<std::is_arithmetic<T>::value, int> = 0>
-    ENOKI_INLINE bool hprod_() const {
+    ENOKI_INLINE Value hprod_() const {
         Value result = derived().coeff(0);
-        for (size_t i = 1; i < Derived::Size; ++i)
+        ENOKI_CHKSCALAR for (size_t i = 1; i < Derived::Size; ++i)
             result *= derived().coeff(i);
         return result;
     }
 
     /// hmax() fallback implementation
     template <typename T = Value, std::enable_if_t<std::is_arithmetic<T>::value, int> = 0>
-    ENOKI_INLINE bool hmax_() const {
+    ENOKI_INLINE Value hmax_() const {
         Value result = derived().coeff(0);
-        for (size_t i = 1; i < Derived::Size; ++i)
+        ENOKI_CHKSCALAR for (size_t i = 1; i < Derived::Size; ++i)
             result = enoki::max(result, derived().coeff(i));
         return result;
     }
 
     /// hmin() fallback implementation
     template <typename T = Value, std::enable_if_t<std::is_arithmetic<T>::value, int> = 0>
-    ENOKI_INLINE bool hmin_() const {
+    ENOKI_INLINE Value hmin_() const {
         Value result = derived().coeff(0);
-        for (size_t i = 1; i < Derived::Size; ++i)
+        ENOKI_CHKSCALAR for (size_t i = 1; i < Derived::Size; ++i)
             result = enoki::min(result, derived().coeff(i));
         return result;
+    }
+
+    /// all() fallback implementation
+    template <typename T = Derived, std::enable_if_t<T::IsMask && array_depth<T>::value == 1, int> = 0>
+    ENOKI_INLINE bool all_() const {
+        using UInt = uint_array_t<Scalar>;
+        UInt value = reinterpret_array<UInt>(derived().coeff(0));
+        ENOKI_CHKSCALAR for (size_t i = 1; i < Derived::Size; ++i)
+            value &= reinterpret_array<UInt>(derived().coeff(i));
+        return value != 0;
     }
 
     /// any() fallback implementation
@@ -469,7 +469,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     ENOKI_INLINE bool any_() const {
         using UInt = uint_array_t<Scalar>;
         UInt value = reinterpret_array<UInt>(derived().coeff(0));
-        for (size_t i = 1; i < Derived::Size; ++i)
+        ENOKI_CHKSCALAR for (size_t i = 1; i < Derived::Size; ++i)
             value |= reinterpret_array<UInt>(derived().coeff(i));
         return value != 0;
     }
@@ -479,7 +479,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     ENOKI_INLINE bool none_() const {
         using UInt = uint_array_t<Scalar>;
         UInt value = reinterpret_array<UInt>(derived().coeff(0));
-        for (size_t i = 1; i < Derived::Size; ++i)
+        ENOKI_CHKSCALAR for (size_t i = 1; i < Derived::Size; ++i)
             value |= reinterpret_array<UInt>(derived().coeff(i));
         return value == 0;
     }
@@ -489,7 +489,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     ENOKI_INLINE size_t count_() const {
         using UInt = uint_array_t<Scalar>;
         size_t result = 0;
-        for (size_t i = 0; i < Derived::Size; ++i)
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
             result += reinterpret_array<UInt>(derived().coeff(i)) != 0 ? 1 : 0;
         return result;
     }

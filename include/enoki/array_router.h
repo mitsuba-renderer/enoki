@@ -481,8 +481,8 @@ ENOKI_INLINE Arg rcp(const Arg &a) {
     }
 #endif
 
-#if defined(ENOKI_X86_SSE42)
     if (Approx && std::is_same<Arg, float>::value) {
+#if defined(ENOKI_X86_SSE42)
         __m128 v = _mm_set_ss((float) a), r;
 
         #if defined(ENOKI_X86_AVX512F)
@@ -506,8 +506,14 @@ ENOKI_INLINE Arg rcp(const Arg &a) {
         r = _mm_blendv_ps(r, ro, t1); /* mask bit is '1' iff t1 == nan */
 
         return Arg(_mm_cvtss_f32(r));
-    }
+#elif defined(ENOKI_ARM_NEON)
+        float v = (float) a;
+        float r = vrecpes_f32(v);
+        r *= vrecpss_f32(r, v);
+        r *= vrecpss_f32(r, v);
+        return Arg(r);
 #endif
+    }
 
 #if defined(ENOKI_X86_AVX512F) || defined(ENOKI_X86_AVX512ER)
     if (Approx && std::is_same<Arg, double>::value) {
@@ -563,10 +569,9 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
     }
 #endif
 
-#if defined(ENOKI_X86_SSE42)
     if (Approx && std::is_same<Arg, float>::value) {
+#if defined(ENOKI_X86_SSE42)
         __m128 v = _mm_set_ss((float) a), r;
-
         #if defined(ENOKI_X86_AVX512F)
             r = _mm_rsqrt14_ss(v, v);  /* rel error < 2^-14 */
         #else
@@ -590,8 +595,17 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
         r = _mm_blendv_ps(r, ro, t1); /* mask bit is '1' iff t1 == nan */
 
         return Arg(_mm_cvtss_f32(r));
-    }
+#elif defined(ENOKI_ARM_NEON)
+        float v = (float) a;
+        float r0 = vrsqrtes_f32(v), r = r0, tmp;
+        tmp = r*v;
+        bool is_nan = tmp != tmp;
+        r *= vrsqrtss_f32(tmp, r);
+        r *= vrsqrtss_f32(r*v, r);
+        return Arg(is_nan ? r0 : r);
 #endif
+
+    }
 
 #if defined(ENOKI_X86_AVX512F) || defined(ENOKI_X86_AVX512ER)
     if (Approx && std::is_same<Arg, double>::value) {
@@ -1596,8 +1610,15 @@ ENOKI_INLINE auto cross(const Array1 &v1, const Array2 &v2) {
     static_assert(Array1::Derived::Size == 3 && Array2::Derived::Size == 3,
                   "cross(): requires Size = 3");
 
+#if defined(ENOKI_ARM_NEON)
+    return fnmadd(
+        shuffle<2, 0, 1>(v1), shuffle<1, 2, 0>(v2),
+        shuffle<1, 2, 0>(v1) * shuffle<2, 0, 1>(v2)
+    );
+#else
     return fmsub(shuffle<1, 2, 0>(v1),  shuffle<2, 0, 1>(v2),
                  shuffle<2, 0, 1>(v1) * shuffle<1, 2, 0>(v2));
+#endif
 }
 
 /// Generic range clamping function

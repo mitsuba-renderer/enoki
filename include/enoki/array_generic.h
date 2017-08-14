@@ -68,9 +68,9 @@ struct ArrayMask : StaticArrayImpl<Value_, Size_, Approx_, Mode_,
     /// Turn mask casts into reinterpreting casts
     template <typename T, typename T2 = Value_,
               std::enable_if_t<is_mask<T>::value
-#if defined(_MSC_VER)
-              /* Visual studio handles resolution order of imported constructors differently and
-                 requires this extra check to avoid ambiguous constructor errors */
+#if defined(_MSC_VER) || (defined(__GNUC__) && !defined(__clang__))
+              /* GCC & Visual studio handle resolution order of imported constructors
+                 differently and require this extra check to avoid ambiguity errors */
               && !std::is_same<T2, bool>::value
 #endif
         , int> = 0> /* only enable constructor if not already provided by base class */
@@ -345,16 +345,15 @@ public:
             const StaticArrayBase<Value2, Count, Approx2, Mode2, Derived2> &a, \
             detail::reinterpret_flag)
 
-#if defined(ENOKI_X86_F16C)
     // -----------------------------------------------------------------------
     //! @{ \name Half-precision conversions
     // -----------------------------------------------------------------------
 
+#if defined(ENOKI_X86_F16C)
     ENOKI_CONVERT_GENERIC(float, half, 4) {
         __m128i value = _mm_cvtps_ph(a.derived().m, _MM_FROUND_CUR_DIRECTION);
         memcpy(m_data.data(), &value, sizeof(uint16_t) * Derived::Size);
     }
-
 
 #if defined(ENOKI_X86_AVX)
     ENOKI_CONVERT_GENERIC(double, half, 4) {
@@ -376,10 +375,17 @@ public:
         _mm256_storeu_si256((__m256i *) m_data.data(), _mm512_cvtps_ph(a.derived().m, _MM_FROUND_CUR_DIRECTION));
     }
 #endif
+#endif
+
+#if defined(ENOKI_ARM_NEON)
+    ENOKI_CONVERT_GENERIC(float, half, 4) {
+        float16x4_t value = vcvt_f16_f32(a.derived().m);
+        memcpy(m_data.data(), &value, sizeof(uint16_t) * Derived::Size);
+    }
+#endif
 
     //! @}
     // -----------------------------------------------------------------------
-#endif
 
     // -----------------------------------------------------------------------
     //! @{ \name SSE/AVX/AVX2/AVX512/.. mask to Array<bool, ..> conversions

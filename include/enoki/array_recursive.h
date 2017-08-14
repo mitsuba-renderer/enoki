@@ -114,12 +114,12 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
 
         template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
         ENOKI_INLINE decltype(auto) coeff(size_t i) const {
-            return (i < Size1 ? m1 : m2).coeff(i);
+            return (i < Size1 ? m1 : m2).coeff(i % Size1);
         }
 
         template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
         ENOKI_INLINE decltype(auto) coeff(size_t i) {
-            return (i < Size1 ? m1 : m2).coeff(i);
+            return (i < Size1 ? m1 : m2).coeff(i % Size1);
         }
 
         template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>

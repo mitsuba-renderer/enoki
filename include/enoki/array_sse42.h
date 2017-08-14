@@ -1805,44 +1805,42 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
         return _mm_castsi128_ps(_mm_setr_epi32(-1, -1, -1, 0));
     }
 
+    using Base::load_;
+    using Base::load_unaligned_;
+    using Base::store_;
+    using Base::store_unaligned_;
+
     ENOKI_INLINE void store_(void *ptr) const {
         memcpy(ptr, &m, sizeof(Value) * 3);
-    }
-    ENOKI_INLINE void store_(void *ptr, const Mask &mask) const {
-        Base::store_(ptr, mask & mask_());
     }
     ENOKI_INLINE void store_unaligned_(void *ptr) const {
         store_(ptr);
     }
-    ENOKI_INLINE void store_unaligned_(void *ptr, const Mask &mask) const {
-        Base::store_unaligned_(ptr, mask & mask_());
-    }
-
     static ENOKI_INLINE Derived load_(const void *ptr) {
         return Base::load_unaligned_(ptr);
-    }
-    static ENOKI_INLINE Derived load_(const void *ptr, const Mask &mask) {
-        return Base::load_(ptr, mask & mask_());
     }
     static ENOKI_INLINE Derived load_unaligned_(const void *ptr) {
         Derived result;
         memcpy(&result.m, ptr, sizeof(Value) * 3);
         return result;
     }
+
+#if defined(ENOKI_X86_AVX)
+    ENOKI_INLINE void store_(void *ptr, const Mask &mask) const {
+        Base::store_(ptr, mask & mask_());
+    }
+    ENOKI_INLINE void store_unaligned_(void *ptr, const Mask &mask) const {
+        Base::store_unaligned_(ptr, mask & mask_());
+    }
+    static ENOKI_INLINE Derived load_(const void *ptr, const Mask &mask) {
+        return Base::load_(ptr, mask & mask_());
+    }
     static ENOKI_INLINE Derived load_unaligned_(const void *ptr, const Mask &mask) {
         return Base::load_unaligned_(ptr, mask & mask_());
     }
+#endif
 
-    template <size_t Stride, bool Write, size_t Level, typename Index>
-    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
-        Base::template prefetch_<Stride, Write, Level>(ptr, index, mask_());
-    }
-
-    template <size_t Stride, bool Write, size_t Level, typename Index>
-    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index, const Mask &mask) {
-        Base::template prefetch_<Stride, Write, Level>(ptr, index, mask & mask_());
-    }
-
+#if defined(ENOKI_X86_AVX2)
     template <size_t Stride, typename Index>
     static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index) {
         return Base::template gather_<Stride>(ptr, index, mask_());
@@ -1852,7 +1850,9 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
     static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
         return Base::template gather_<Stride>(ptr, index, mask & mask_());
     }
+#endif
 
+#if defined(ENOKI_X86_AVX512VL)
     template <size_t Stride, typename Index>
     ENOKI_INLINE void scatter_(void *ptr, const Index &index) const {
         Base::template scatter_<Stride>(ptr, index, mask_());
@@ -1862,6 +1862,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
     ENOKI_INLINE void scatter_(void *ptr, const Index &index, const Mask &mask) const {
         Base::template scatter_<Stride>(ptr, index, mask & mask_());
     }
+#endif
 
     ENOKI_INLINE size_t compress_(float *&ptr, const Mask &mask) const {
         return Base::compress_(ptr, mask & mask_());
@@ -1967,44 +1968,42 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
         return _mm_setr_epi32(-1, -1, -1, 0);
     }
 
+    using Base::load_;
+    using Base::load_unaligned_;
+    using Base::store_;
+    using Base::store_unaligned_;
+
     ENOKI_INLINE void store_(void *ptr) const {
         memcpy(ptr, &m, sizeof(Value) * 3);
-    }
-    ENOKI_INLINE void store_(void *ptr, const Mask &mask) const {
-        return Base::store_(ptr, mask & mask_());
     }
     ENOKI_INLINE void store_unaligned_(void *ptr) const {
         store_(ptr);
     }
-    ENOKI_INLINE void store_unaligned_(void *ptr, const Mask &mask) const {
-        return Base::store_unaligned_(ptr, mask & mask_());
-    }
-
     static ENOKI_INLINE Derived load_(const void *ptr) {
         return Base::load_unaligned_(ptr);
-    }
-    static ENOKI_INLINE Derived load_(const void *ptr, const Mask &mask) {
-        return Base::load_(ptr, mask & mask_());
     }
     static ENOKI_INLINE Derived load_unaligned_(const void *ptr) {
         Derived result;
         memcpy(&result.m, ptr, sizeof(Value) * 3);
         return result;
     }
+
+#if defined(ENOKI_X86_AVX2)
+    ENOKI_INLINE void store_unaligned_(void *ptr, const Mask &mask) const {
+        return Base::store_unaligned_(ptr, mask & mask_());
+    }
+    ENOKI_INLINE void store_(void *ptr, const Mask &mask) const {
+        return Base::store_(ptr, mask & mask_());
+    }
+    static ENOKI_INLINE Derived load_(const void *ptr, const Mask &mask) {
+        return Base::load_(ptr, mask & mask_());
+    }
     static ENOKI_INLINE Derived load_unaligned_(const void *ptr, const Mask &mask) {
         return Base::load_unaligned_(ptr, mask & mask_());
     }
+#endif
 
-    template <size_t Stride, bool Write, size_t Level, typename Index>
-    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
-        Base::template prefetch_<Stride, Write, Level>(ptr, index, mask_());
-    }
-
-    template <size_t Stride, bool Write, size_t Level, typename Index>
-    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index, const Mask &mask) {
-        Base::template prefetch_<Stride, Write, Level>(ptr, index, mask & mask_());
-    }
-
+#if defined(ENOKI_X86_AVX2)
     template <size_t Stride, typename Index>
     static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index) {
         return Base::template gather_<Stride>(ptr, index, mask_());
@@ -2014,7 +2013,9 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
     static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
         return Base::template gather_<Stride>(ptr, index, mask & mask_());
     }
+#endif
 
+#if defined(ENOKI_X86_AVX512VL)
     template <size_t Stride, typename Index>
     ENOKI_INLINE void scatter_(void *ptr, const Index &index) const {
         Base::template scatter_<Stride>(ptr, index, mask_());
@@ -2024,6 +2025,7 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
     ENOKI_INLINE void scatter_(void *ptr, const Index &index, const Mask &mask) const {
         Base::template scatter_<Stride>(ptr, index, mask & mask_());
     }
+#endif
 
     template <typename T>
     ENOKI_INLINE size_t compress_(T *&ptr, const Mask &mask) const {

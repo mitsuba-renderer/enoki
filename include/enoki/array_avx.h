@@ -992,16 +992,6 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
         return Base::load_unaligned_(ptr, mask & mask_());
     }
 
-    template <size_t Stride, bool Write, size_t Level, typename Index>
-    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
-        Base::template prefetch_<Stride, Write, Level>(ptr, index, mask_());
-    }
-
-    template <size_t Stride, bool Write, size_t Level, typename Index>
-    static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index, const Mask &mask) {
-        Base::template prefetch_<Stride, Write, Level>(ptr, index, mask & mask_());
-    }
-
     template <size_t Stride, typename Index>
     static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index) {
         return Base::template gather_<Stride>(ptr, index, mask_());

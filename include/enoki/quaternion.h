@@ -69,6 +69,13 @@ template <typename T, bool Approx> ENOKI_INLINE Quaternion<expr_t<T>, Approx> co
     return q ^ mask;
 }
 
+template <typename T, bool Approx> ENOKI_INLINE expr_t<T> squared_norm(const Quaternion<T, Approx> &q) {
+    return squared_norm(Array<expr_t<T>, 4>(q));
+}
+template <typename T, bool Approx> ENOKI_INLINE expr_t<T> norm(const Quaternion<T, Approx> &q) {
+    return norm(Array<expr_t<T>, 4>(q));
+}
+
 template <typename T, bool Approx> ENOKI_INLINE Quaternion<expr_t<T>, Approx> rcp(const Quaternion<T, Approx> &q) {
     return conj(q) * (1 / squared_norm(q));
 }
