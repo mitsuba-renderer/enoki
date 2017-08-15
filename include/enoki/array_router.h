@@ -211,6 +211,8 @@ ENOKI_ROUTE_BINARY_SCALAR(atan2, atan2, std::atan2((decltype(a1+a2)) a1, (declty
 ENOKI_ROUTE_BINARY_SCALAR(ldexp, ldexp, std::ldexp((decltype(a1+a2)) a1, int(a2)))
 ENOKI_ROUTE_BINARY_SCALAR(dot,   dot,   a1*a2)
 
+ENOKI_ROUTE_BINARY_SCALAR(andnot, andnot, a1 & ~a2)
+
 ENOKI_ROUTE_BINARY(mulhi, mulhi)
 
 ENOKI_ROUTE_UNARY(abs, abs)
@@ -779,7 +781,7 @@ ENOKI_INLINE Result mulsign(const Array1 &a, const Array2 &b) {
         return a ^ detail::sign_mask(b);
     } else {
         Result result(a);
-        result[b < Scalar(0)] = -a;
+        result[Result(b) < Scalar(0)] = -a;
         return result;
     }
 }

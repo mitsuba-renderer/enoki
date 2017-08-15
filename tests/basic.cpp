@@ -261,7 +261,12 @@ ENOKI_TEST_ALL(test11_neq) {
 }
 
 ENOKI_TEST_ALL(test12_min) {
+#if !defined(ENOKI_ARM_NEON)
     auto sample = test::sample_values<Value>();
+#else
+    // ARM NEON propagates NaN more aggressively than x86..
+    auto sample = test::sample_values<Value>(false);
+#endif
 
     test::validate_binary<T>(sample,
         [](const T &a, const T &b) -> T { return min(a, b); },
@@ -273,7 +278,12 @@ ENOKI_TEST_ALL(test12_min) {
 }
 
 ENOKI_TEST_ALL(test13_max) {
+#if !defined(ENOKI_ARM_NEON)
     auto sample = test::sample_values<Value>();
+#else
+    // ARM NEON propagates NaN more aggressively than x86..
+    auto sample = test::sample_values<Value>(false);
+#endif
 
     test::validate_binary<T>(sample,
         [](const T &a, const T &b) -> T { return max(a, b); },

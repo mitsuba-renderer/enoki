@@ -34,10 +34,18 @@ try_run(
   ENOKI_ARCHFLAGS_RETVAL ENOKI_ARCHFLAGS_COMPILE_RESULT
   ${CMAKE_BINARY_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/resources/${ENOKI_ARCHFLAGS_FILE}
+  COMPILE_OUTPUT_VARIABLE ENOKI_ARCHFLAGS_MSG
   RUN_OUTPUT_VARIABLE ENOKI_ARCHFLAGS
 )
+
 if (NOT ${ENOKI_ARCHFLAGS_COMPILE_RESULT})
-   message(FATAL_ERROR "Failed to compile 'archflags' binary")
+  if (${ENOKI_ARCHFLAGS_MSG} MATCHES "the clang compiler does not support '-march=native'" AND
+      ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
+     # Clang refuses -march=native on ARM machines
+     set(ENOKI_ARCHFLAGS "-march=armv8-a+simd")
+   else()
+     message(FATAL_ERROR "Failed to compile 'archflags' binary: ${ENOKI_ARCHFLAGS_MSG}")
+   endif()
 endif()
 
 set(CMAKE_CXX_FLAGS ${ENOKI_CXXFLAGS_BACKUP})

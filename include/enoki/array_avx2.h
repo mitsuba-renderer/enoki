@@ -172,6 +172,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 8, false, RoundingMod
     ENOKI_INLINE Derived mul_(Arg a) const { return _mm256_mullo_epi32(m, a.m); }
     ENOKI_INLINE Derived or_ (Arg a) const { return _mm256_or_si256(m, a.m);    }
     ENOKI_INLINE Derived and_(Arg a) const { return _mm256_and_si256(m, a.m);   }
+    ENOKI_INLINE Derived andnot_(Arg a) const { return _mm256_andnot_si256(a.m, m);   }
     ENOKI_INLINE Derived xor_(Arg a) const { return _mm256_xor_si256(m, a.m);   }
 
     template <size_t k> ENOKI_INLINE Derived sli_() const {
@@ -595,6 +596,7 @@ struct ENOKI_MAY_ALIAS alignas(32) StaticArrayImpl<Value_, 4, false, RoundingMod
 
     ENOKI_INLINE Derived or_ (Arg a) const { return _mm256_or_si256(m, a.m);    }
     ENOKI_INLINE Derived and_(Arg a) const { return _mm256_and_si256(m, a.m);   }
+    ENOKI_INLINE Derived andnot_(Arg a) const { return _mm256_andnot_si256(a.m, m);   }
     ENOKI_INLINE Derived xor_(Arg a) const { return _mm256_xor_si256(m, a.m);   }
 
     template <size_t k> ENOKI_INLINE Derived sli_() const {

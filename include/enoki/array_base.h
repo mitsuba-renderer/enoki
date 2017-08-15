@@ -459,7 +459,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     ENOKI_INLINE bool all_() const {
         using UInt = uint_array_t<Scalar>;
         UInt value = reinterpret_array<UInt>(derived().coeff(0));
-        ENOKI_CHKSCALAR for (size_t i = 1; i < Derived::Size; ++i)
+        for (size_t i = 1; i < Derived::Size; ++i)
             value &= reinterpret_array<UInt>(derived().coeff(i));
         return value != 0;
     }
@@ -469,7 +469,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     ENOKI_INLINE bool any_() const {
         using UInt = uint_array_t<Scalar>;
         UInt value = reinterpret_array<UInt>(derived().coeff(0));
-        ENOKI_CHKSCALAR for (size_t i = 1; i < Derived::Size; ++i)
+        for (size_t i = 1; i < Derived::Size; ++i)
             value |= reinterpret_array<UInt>(derived().coeff(i));
         return value != 0;
     }
@@ -479,7 +479,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     ENOKI_INLINE bool none_() const {
         using UInt = uint_array_t<Scalar>;
         UInt value = reinterpret_array<UInt>(derived().coeff(0));
-        ENOKI_CHKSCALAR for (size_t i = 1; i < Derived::Size; ++i)
+        for (size_t i = 1; i < Derived::Size; ++i)
             value |= reinterpret_array<UInt>(derived().coeff(i));
         return value == 0;
     }
@@ -491,6 +491,15 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
         size_t result = 0;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
             result += reinterpret_array<UInt>(derived().coeff(i)) != 0 ? 1 : 0;
+        return result;
+    }
+
+    /// mulhi() fallback implementation
+    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    ENOKI_INLINE auto mulhi_(const Derived &d) const {
+        expr_t<Derived> result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            result.coeff(i) = mulhi(derived().coeff(i), d.coeff(i));
         return result;
     }
 

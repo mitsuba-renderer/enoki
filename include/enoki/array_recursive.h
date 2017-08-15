@@ -82,6 +82,7 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
 
         ENOKI_INLINE RMask or_ (const RMask &m) const { return RMask(m1 | m.m1, m2 | m.m2); }
         ENOKI_INLINE RMask and_(const RMask &m) const { return RMask(m1 & m.m1, m2 & m.m2); }
+        ENOKI_INLINE RMask andnot_(const RMask &m) const { return RMask(andnot(m1, m.m1), andnot(m2, m.m2)); }
         ENOKI_INLINE RMask xor_(const RMask &m) const { return RMask(m1 ^ m.m1, m2 ^ m.m2); }
         ENOKI_INLINE RMask eq_ (const RMask &m) const { return RMask(eq(m1, m.m1), eq(m2, m.m2)); }
         ENOKI_INLINE RMask neq_(const RMask &m) const { return RMask(neq(m1, m.m1), neq(m2, m.m2)); }
@@ -270,6 +271,10 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
 
     ENOKI_INLINE Derived and_(Arg arg) const {
         return Derived(a1 & arg.a1, a2 & arg.a2);
+    }
+
+    ENOKI_INLINE Derived andnot_(Arg arg) const {
+        return Derived(andnot(a1, arg.a1), andnot(a2, arg.a2));
     }
 
     ENOKI_INLINE Derived and_(const Mask &arg) const {

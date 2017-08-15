@@ -68,9 +68,10 @@ struct ArrayMask : StaticArrayImpl<Value_, Size_, Approx_, Mode_,
     /// Turn mask casts into reinterpreting casts
     template <typename T, typename T2 = Value_,
               std::enable_if_t<is_mask<T>::value
-#if defined(_MSC_VER) || (defined(__GNUC__) && !defined(__clang__))
-              /* GCC & Visual studio handle resolution order of imported constructors
-                 differently and require this extra check to avoid ambiguity errors */
+#if !defined(__clang__)
+              /* Clang handles resolution order of imported constructors
+                 differently and doesn't require this extra check to avoid
+                 ambiguity errors */
               && !std::is_same<T2, bool>::value
 #endif
         , int> = 0> /* only enable constructor if not already provided by base class */
@@ -557,6 +558,15 @@ public:
         expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.m_data[i] = detail::and_(coeff(i), d.coeff(i));
+        return result;
+    }
+
+    /// Arithmetic ANDNOT operation
+    template <typename Array>
+    ENOKI_INLINE auto andnot_(const Array &d) const {
+        expr_t<Derived> result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
+            result.m_data[i] = detail::andnot_(coeff(i), d.coeff(i));
         return result;
     }
 
@@ -1196,7 +1206,7 @@ template <typename Packet_, typename Storage_> struct call_support_base {
         while (any(mask)) {
             Instance value         = extract(self, mask);
             Mask active            = mask & eq(self, Packet(value));
-            mask                  &= ~active;
+            mask                   = andnot(mask, active);
             masked(result, active) = func(value, args..., active);
         }
 
@@ -1214,7 +1224,7 @@ template <typename Packet_, typename Storage_> struct call_support_base {
         while (any(mask)) {
             Instance value = extract(self, mask);
             Mask active    = mask & eq(self, Packet(value));
-            mask          &= ~active;
+            mask           = andnot(mask, active);
             func(value, args..., active);
         }
     }
@@ -1231,7 +1241,7 @@ template <typename Packet_, typename Storage_> struct call_support_base {
         while (any(mask)) {
             Instance value          = extract(self, mask);
             Mask active             = mask & eq(self, Packet(value));
-            mask                   &= ~active;
+            mask                    = andnot(mask, active);
             masked(result, active)  = func(value, args...);
         }
 

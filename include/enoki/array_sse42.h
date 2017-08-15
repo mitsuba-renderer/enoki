@@ -176,6 +176,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
     ENOKI_INLINE Derived div_(Arg a) const { return _mm_div_ps(m, a.m); }
     ENOKI_INLINE Derived or_ (Arg a) const { return _mm_or_ps (m, a.m); }
     ENOKI_INLINE Derived and_(Arg a) const { return _mm_and_ps(m, a.m); }
+    ENOKI_INLINE Derived andnot_(Arg a) const { return _mm_andnot_ps(a.m, m); }
     ENOKI_INLINE Derived xor_(Arg a) const { return _mm_xor_ps(m, a.m); }
 
 #if defined(ENOKI_X86_AVX)
@@ -582,6 +583,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
     ENOKI_INLINE Derived div_(Arg a) const { return _mm_div_pd(m, a.m); }
     ENOKI_INLINE Derived or_ (Arg a) const { return _mm_or_pd (m, a.m); }
     ENOKI_INLINE Derived and_(Arg a) const { return _mm_and_pd(m, a.m); }
+    ENOKI_INLINE Derived andnot_(Arg a) const { return _mm_andnot_pd(a.m, m); }
     ENOKI_INLINE Derived xor_(Arg a) const { return _mm_xor_pd(m, a.m); }
 
 #if defined(ENOKI_X86_AVX)
@@ -987,6 +989,7 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMod
     ENOKI_INLINE Derived mul_(Arg a) const { return _mm_mullo_epi32(m, a.m); }
     ENOKI_INLINE Derived or_ (Arg a) const { return _mm_or_si128(m, a.m);    }
     ENOKI_INLINE Derived and_(Arg a) const { return _mm_and_si128(m, a.m);   }
+    ENOKI_INLINE Derived andnot_(Arg a) const { return _mm_andnot_si128(a.m, m);   }
     ENOKI_INLINE Derived xor_(Arg a) const { return _mm_xor_si128(m, a.m);   }
 
     template <size_t k> ENOKI_INLINE Derived sli_() const {
@@ -1413,6 +1416,7 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMod
     }
     ENOKI_INLINE Derived or_ (Arg a) const { return _mm_or_si128(m, a.m);    }
     ENOKI_INLINE Derived and_(Arg a) const { return _mm_and_si128(m, a.m);   }
+    ENOKI_INLINE Derived andnot_(Arg a) const { return _mm_andnot_si128(a.m, m);   }
     ENOKI_INLINE Derived xor_(Arg a) const { return _mm_xor_si128(m, a.m);   }
 
     template <size_t k> ENOKI_INLINE Derived sli_() const {

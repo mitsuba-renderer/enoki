@@ -684,6 +684,13 @@ ENOKI_INLINE T and_(T a, bool b) {
 }
 
 template <typename T, std::enable_if_t<std::is_arithmetic<T>::value && !std::is_same<T, bool>::value, int> = 0>
+ENOKI_INLINE T andnot_(T a, bool b) {
+    using Int = typename type_chooser<sizeof(T)>::Int;
+    return memcpy_cast<T>(memcpy_cast<Int>(a) & (b ? memcpy_cast<Int>(Int(0))
+                                                   : memcpy_cast<Int>(Int(-1))));
+}
+
+template <typename T, std::enable_if_t<std::is_arithmetic<T>::value && !std::is_same<T, bool>::value, int> = 0>
 ENOKI_INLINE T xor_(T a, bool b) {
     using Int = typename type_chooser<sizeof(T)>::Int;
     return memcpy_cast<T>(memcpy_cast<Int>(a) ^ (b ? memcpy_cast<Int>(Int(-1))
@@ -697,6 +704,9 @@ ENOKI_INLINE auto or_(const T1 &a, const T2 &b) { return a | b; }
 
 template <typename T1, typename T2, std::enable_if_t<supports_bit_op<T1, T2>::value, int> = 0>
 ENOKI_INLINE auto and_(const T1 &a, const T2 &b) { return a & b; }
+
+template <typename T1, typename T2, std::enable_if_t<supports_bit_op<T1, T2>::value, int> = 0>
+ENOKI_INLINE auto andnot_(const T1 &a, const T2 &b) { return a & ~b; }
 
 template <typename T1, typename T2, std::enable_if_t<supports_bit_op<T1, T2>::value, int> = 0>
 ENOKI_INLINE auto xor_(const T1 &a, const T2 &b) { return a ^ b; }
@@ -714,6 +724,12 @@ template <typename T1, typename T2, std::enable_if_t<!supports_bit_op<T1, T2>::v
 ENOKI_INLINE T1 and_(const T1 &a, const T2 &b) {
     using Int = typename type_chooser<sizeof(T1)>::Int;
     return memcpy_cast<T1>(memcpy_cast<Int>(a) & memcpy_cast<Int>(b));
+}
+
+template <typename T1, typename T2, std::enable_if_t<!supports_bit_op<T1, T2>::value, int> = 0>
+ENOKI_INLINE T1 andnot_(const T1 &a, const T2 &b) {
+    using Int = typename type_chooser<sizeof(T1)>::Int;
+    return memcpy_cast<T1>(memcpy_cast<Int>(a) & ~memcpy_cast<Int>(b));
 }
 
 template <typename T1, typename T2, std::enable_if_t<!supports_bit_op<T1, T2>::value, int> = 0>

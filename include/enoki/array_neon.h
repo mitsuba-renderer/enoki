@@ -25,6 +25,17 @@ template <typename T> struct is_native<T, 4, is_int32_t<T>> : std::true_type { }
 template <typename T> struct is_native<T, 3, is_int32_t<T>> : std::true_type { };
 template <typename T> struct is_native<T, 2, is_int64_t<T>> : std::true_type { };
 
+static constexpr uint64_t arm_shuffle_helper_(int i) {
+    if (i == 0)
+        return 0x03020100;
+    else if (i == 1)
+        return 0x07060504;
+    else if (i == 2)
+        return 0x0B0A0908;
+    else
+        return 0x0F0E0D0C;
+}
+
 NAMESPACE_END(detail)
 
 ENOKI_INLINE uint64x2_t vmvnq_u64(uint64x2_t a) {
@@ -94,7 +105,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
     // -----------------------------------------------------------------------
 
     StaticArrayImpl(const Array1 &a1, const Array2 &a2)
-        : m(_mm_setr_ps(a1.coeff(0), a1.coeff(1), a2.coeff(0), a2.coeff(1))) { }
+        : m{a1.coeff(0), a1.coeff(1), a2.coeff(0), a2.coeff(1)} { }
 
     ENOKI_INLINE Array1 low_()  const { return Array1(coeff(0), coeff(1)); }
     ENOKI_INLINE Array2 high_() const { return Array2(coeff(2), coeff(3)); }
@@ -118,6 +129,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
 
     ENOKI_INLINE Derived or_ (Arg a) const { return vreinterpretq_f32_s32(vorrq_s32(vreinterpretq_s32_f32(m), vreinterpretq_s32_f32(a.m))); }
     ENOKI_INLINE Derived and_(Arg a) const { return vreinterpretq_f32_s32(vandq_s32(vreinterpretq_s32_f32(m), vreinterpretq_s32_f32(a.m))); }
+    ENOKI_INLINE Derived andnot_(Arg a) const { return vreinterpretq_f32_s32(vbicq_s32(vreinterpretq_s32_f32(m), vreinterpretq_s32_f32(a.m))); }
     ENOKI_INLINE Derived xor_(Arg a) const { return vreinterpretq_f32_s32(veorq_s32(vreinterpretq_s32_f32(m), vreinterpretq_s32_f32(a.m))); }
 
     ENOKI_INLINE auto lt_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f32_u32(vcltq_f32(m, a.m))); }
@@ -167,17 +179,6 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
         return vbslq_f32(vreinterpretq_u32_f32(m.m), t.m, f.m);
     }
 
-    static constexpr uint64_t shuffle_helper_(int i) {
-        if (i == 0)
-            return 0x03020100;
-        else if (i == 1)
-            return 0x07060504;
-        else if (i == 2)
-            return 0x0B0A0908;
-        else
-            return 0x0F0E0D0C;
-    }
-
     template <int I0, int I1, int I2, int I3>
     ENOKI_INLINE Derived shuffle_() const {
         /// Based on https://stackoverflow.com/a/32537433/1130282
@@ -208,8 +209,8 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
             case 3012: return vextq_f32(m, m, 3);
 
             default: {
-                constexpr uint64_t prec0 = shuffle_helper_(I0) | (shuffle_helper_(I1) << 32);
-                constexpr uint64_t prec1 = shuffle_helper_(I2) | (shuffle_helper_(I3) << 32);
+                constexpr uint64_t prec0 = detail::arm_shuffle_helper_(I0) | (detail::arm_shuffle_helper_(I1) << 32);
+                constexpr uint64_t prec1 = detail::arm_shuffle_helper_(I2) | (detail::arm_shuffle_helper_(I3) << 32);
 
                 uint8x8x2_t tbl;
                 tbl.val[0] = vreinterpret_u8_f32(vget_low_f32(m));
@@ -335,7 +336,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
     // -----------------------------------------------------------------------
 
     StaticArrayImpl(const Array1 &a1, const Array2 &a2)
-        : m(_mm_setr_ps(a1.coeff(0), a2.coeff(0))) { }
+        : m{a1.coeff(0), a2.coeff(0)} { }
 
     ENOKI_INLINE Array1 low_()  const { return Array1(coeff(0)); }
     ENOKI_INLINE Array2 high_() const { return Array2(coeff(1)); }
@@ -359,6 +360,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
 
     ENOKI_INLINE Derived or_ (Arg a) const { return vreinterpretq_f64_s64(vorrq_s64(vreinterpretq_s64_f64(m), vreinterpretq_s64_f64(a.m))); }
     ENOKI_INLINE Derived and_(Arg a) const { return vreinterpretq_f64_s64(vandq_s64(vreinterpretq_s64_f64(m), vreinterpretq_s64_f64(a.m))); }
+    ENOKI_INLINE Derived andnot_(Arg a) const { return vreinterpretq_f64_s64(vbicq_s64(vreinterpretq_s64_f64(m), vreinterpretq_s64_f64(a.m))); }
     ENOKI_INLINE Derived xor_(Arg a) const { return vreinterpretq_f64_s64(veorq_s64(vreinterpretq_s64_f64(m), vreinterpretq_s64_f64(a.m))); }
 
     ENOKI_INLINE auto lt_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f64_u64(vcltq_f64(m, a.m))); }
@@ -516,7 +518,7 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMod
     // -----------------------------------------------------------------------
 
     StaticArrayImpl(const Array1 &a1, const Array2 &a2)
-        : m(_mm_setr_ps(a1.coeff(0), a1.coeff(1), a2.coeff(0), a2.coeff(1))) { }
+        : m{(uint32_t) a1.coeff(0), (uint32_t) a1.coeff(1), (uint32_t) a2.coeff(0), (uint32_t) a2.coeff(1)} { }
 
     ENOKI_INLINE Array1 low_()  const { return Array1(coeff(0), coeff(1)); }
     ENOKI_INLINE Array2 high_() const { return Array2(coeff(2), coeff(3)); }
@@ -534,6 +536,7 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMod
 
     ENOKI_INLINE Derived or_ (Arg a) const { return vorrq_u32(m, a.m); }
     ENOKI_INLINE Derived and_(Arg a) const { return vandq_u32(m, a.m); }
+    ENOKI_INLINE Derived andnot_(Arg a) const { return vbicq_u32(m, a.m); }
     ENOKI_INLINE Derived xor_(Arg a) const { return veorq_u32(m, a.m); }
 
     ENOKI_INLINE auto lt_(Arg a) const {
@@ -574,7 +577,6 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMod
     }
 
     ENOKI_INLINE Derived neg_() const {
-        static_assert(std::is_signed<Value>::value, "Expected a signed value!");
         return vreinterpretq_u32_s32(vnegq_s32(vreinterpretq_s32_u32(m)));
     }
 
@@ -599,7 +601,11 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMod
         return vbslq_u32(m.m, t.m, f.m);
     }
 
-    template <size_t Imm> ENOKI_INLINE Derived sri_() const {
+    template <size_t Imm, std::enable_if_t<Imm == 0, int> = 0> ENOKI_INLINE Derived sri_() const {
+        return derived();
+    }
+
+    template <size_t Imm, std::enable_if_t<Imm != 0, int> = 0> ENOKI_INLINE Derived sri_() const {
         if (std::is_signed<Value>::value)
             return vreinterpretq_u32_s32(
                 vshrq_n_s32(vreinterpretq_s32_u32(m), (int) Imm));
@@ -607,7 +613,11 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMod
             return vshrq_n_u32(m, (int) Imm);
     }
 
-    template <size_t Imm> ENOKI_INLINE Derived sli_() const {
+    template <size_t Imm, std::enable_if_t<Imm == 0, int> = 0> ENOKI_INLINE Derived sli_() const {
+        return derived();
+    }
+
+    template <size_t Imm, std::enable_if_t<Imm != 0, int> = 0> ENOKI_INLINE Derived sli_() const {
         return vshlq_n_u32(m, (int) Imm);
     }
 
@@ -661,17 +671,6 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMod
     ENOKI_INLINE Derived tzcnt_() const { return Value(32) - lzcnt(~derived() & (derived() - Value(1))); }
     ENOKI_INLINE Derived popcnt_() const { return vpaddlq_u16(vpaddlq_u8(vcntq_u8(vreinterpretq_u8_u32(m)))); }
 
-    static constexpr uint64_t shuffle_helper_(int i) {
-        if (i == 0)
-            return 0x03020100;
-        else if (i == 1)
-            return 0x07060504;
-        else if (i == 2)
-            return 0x0B0A0908;
-        else
-            return 0x0F0E0D0C;
-    }
-
     template <int I0, int I1, int I2, int I3>
     ENOKI_INLINE Derived shuffle_() const {
         /// Based on https://stackoverflow.com/a/32537433/1130282
@@ -702,8 +701,8 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMod
             case 3012: return vextq_u32(m, m, 3);
 
             default: {
-                constexpr uint64_t prec0 = shuffle_helper_(I0) | (shuffle_helper_(I1) << 32);
-                constexpr uint64_t prec1 = shuffle_helper_(I2) | (shuffle_helper_(I3) << 32);
+                constexpr uint64_t prec0 = detail::arm_shuffle_helper_(I0) | (detail::arm_shuffle_helper_(I1) << 32);
+                constexpr uint64_t prec1 = detail::arm_shuffle_helper_(I2) | (detail::arm_shuffle_helper_(I3) << 32);
 
                 uint8x8x2_t tbl;
                 tbl.val[0] = vreinterpret_u8_u32(vget_low_u32(m));
@@ -845,7 +844,7 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMod
     // -----------------------------------------------------------------------
 
     StaticArrayImpl(const Array1 &a1, const Array2 &a2)
-        : m(_mm_setr_ps(a1.coeff(0), a2.coeff(0))) { }
+        : m{(uint64_t) a1.coeff(0), (uint64_t) a2.coeff(0)} { }
 
     ENOKI_INLINE Array1 low_()  const { return Array1(coeff(0)); }
     ENOKI_INLINE Array2 high_() const { return Array2(coeff(1)); }
@@ -887,6 +886,7 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMod
 
     ENOKI_INLINE Derived or_ (Arg a) const { return vorrq_u64(m, a.m); }
     ENOKI_INLINE Derived and_(Arg a) const { return vandq_u64(m, a.m); }
+    ENOKI_INLINE Derived andnot_(Arg a) const { return vbicq_u64(m, a.m); }
     ENOKI_INLINE Derived xor_(Arg a) const { return veorq_u64(m, a.m); }
 
     ENOKI_INLINE auto lt_(Arg a) const {
@@ -927,7 +927,6 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMod
     }
 
     ENOKI_INLINE Derived neg_() const {
-        static_assert(std::is_signed<Value>::value, "Expected a signed value!");
         return vreinterpretq_u64_s64(vnegq_s64(vreinterpretq_s64_u64(m)));
     }
 
@@ -941,7 +940,11 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMod
         return vbslq_u64(m.m, t.m, f.m);
     }
 
-    template <size_t Imm> ENOKI_INLINE Derived sri_() const {
+    template <size_t Imm, std::enable_if_t<Imm == 0, int> = 0> ENOKI_INLINE Derived sri_() const {
+        return derived();
+    }
+
+    template <size_t Imm, std::enable_if_t<Imm != 0, int> = 0> ENOKI_INLINE Derived sri_() const {
         if (std::is_signed<Value>::value)
             return vreinterpretq_u64_s64(
                 vshrq_n_s64(vreinterpretq_s64_u64(m), (int) Imm));
@@ -949,7 +952,11 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMod
             return vshrq_n_u64(m, (int) Imm);
     }
 
-    template <size_t Imm> ENOKI_INLINE Derived sli_() const {
+    template <size_t Imm, std::enable_if_t<Imm == 0, int> = 0> ENOKI_INLINE Derived sli_() const {
+        return derived();
+    }
+
+    template <size_t Imm, std::enable_if_t<Imm != 0, int> = 0> ENOKI_INLINE Derived sli_() const {
         return vshlq_n_u64(m, (int) Imm);
     }
 
@@ -1070,34 +1077,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
 
     template <int I0, int I1, int I2>
     ENOKI_INLINE Derived shuffle_() const {
-        /// Based on https://stackoverflow.com/a/32537433/1130282
-        switch (I2 + I1*10 + I0*100) {
-            case 012: return m;
-            case 000: return vdupq_lane_f32(vget_low_f32(m), 0);
-            case 111: return vdupq_lane_f32(vget_low_f32(m), 1);
-            case 222: return vdupq_lane_f32(vget_high_f32(m), 0);
-            case 333: return vdupq_lane_f32(vget_high_f32(m), 1);
-            case 103: return vrev64q_f32(m);
-            case 010: { float32x2_t vt = vget_low_f32(m); return vcombine_f32(vt, vt); }
-            case 232: { float32x2_t vt = vget_high_f32(m); return vcombine_f32(vt, vt); }
-            case 101: { float32x2_t vt = vrev64_f32(vget_low_f32(m)); return vcombine_f32(vt, vt); }
-            case 323: { float32x2_t vt = vrev64_f32(vget_high_f32(m)); return vcombine_f32(vt, vt); }
-            case 013: return vcombine_f32(vget_low_f32(m), vrev64_f32(vget_high_f32(m)));
-            case 102: return vcombine_f32(vrev64_f32(vget_low_f32(m)), vget_high_f32(m));
-            case 231: return vcombine_f32(vget_high_f32(m), vrev64_f32(vget_low_f32(m)));
-            case 320: return vcombine_f32(vrev64_f32(vget_high_f32(m)), vget_low_f32(m));
-            case 321: return vcombine_f32(vrev64_f32(vget_high_f32(m)), vrev64_f32(vget_low_f32(m)));
-            case 002: return vtrn1q_f32(m, m);
-            case 113: return vtrn2q_f32(m, m);
-            case 001: return vzip1q_f32(m, m);
-            case 223: return vzip2q_f32(m, m);
-            case 020: return vuzp1q_f32(m, m);
-            case 131: return vuzp2q_f32(m, m);
-            case 123: return vextq_f32(m, m, 1);
-            case 230: return vextq_f32(m, m, 2);
-            case 301: return vextq_f32(m, m, 3);
-            default: return Base::template shuffle_<I0, I1, I2, 3>();
-        }
+        return Derived(coeff(I0), coeff(I1), coeff(I2));
     }
 
     // -----------------------------------------------------------------------
@@ -1183,34 +1163,7 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
 
     template <int I0, int I1, int I2>
     ENOKI_INLINE Derived shuffle_() const {
-        /// Based on https://stackoverflow.com/a/32537433/1130282
-        switch (I2 + I1*10 + I0*100) {
-            case 012: return m;
-            case 000: return vdupq_lane_u32(vget_low_u32(m), 0);
-            case 111: return vdupq_lane_u32(vget_low_u32(m), 1);
-            case 222: return vdupq_lane_u32(vget_high_u32(m), 0);
-            case 333: return vdupq_lane_u32(vget_high_u32(m), 1);
-            case 103: return vrev64q_u32(m);
-            case 010: { uint32x2_t vt = vget_low_u32(m); return vcombine_u32(vt, vt); }
-            case 232: { uint32x2_t vt = vget_high_u32(m); return vcombine_u32(vt, vt); }
-            case 101: { uint32x2_t vt = vrev64_u32(vget_low_u32(m)); return vcombine_u32(vt, vt); }
-            case 323: { uint32x2_t vt = vrev64_u32(vget_high_u32(m)); return vcombine_u32(vt, vt); }
-            case 013: return vcombine_u32(vget_low_u32(m), vrev64_u32(vget_high_u32(m)));
-            case 102: return vcombine_u32(vrev64_u32(vget_low_u32(m)), vget_high_u32(m));
-            case 231: return vcombine_u32(vget_high_u32(m), vrev64_u32(vget_low_u32(m)));
-            case 320: return vcombine_u32(vrev64_u32(vget_high_u32(m)), vget_low_u32(m));
-            case 321: return vcombine_u32(vrev64_u32(vget_high_u32(m)), vrev64_u32(vget_low_u32(m)));
-            case 002: return vtrn1q_u32(m, m);
-            case 113: return vtrn2q_u32(m, m);
-            case 001: return vzip1q_u32(m, m);
-            case 223: return vzip2q_u32(m, m);
-            case 020: return vuzp1q_u32(m, m);
-            case 131: return vuzp2q_u32(m, m);
-            case 123: return vextq_u32(m, m, 1);
-            case 230: return vextq_u32(m, m, 2);
-            case 301: return vextq_u32(m, m, 3);
-            default: return Base::template shuffle_<I0, I1, I2, 3>();
-        }
+        return Derived(coeff(I0), coeff(I1), coeff(I2));
     }
 
     // -----------------------------------------------------------------------

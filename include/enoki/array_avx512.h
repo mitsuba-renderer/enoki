@@ -104,35 +104,42 @@ struct KMask : StaticArrayBase<detail::KMaskBit, sizeof(Value) * 8, false,
 
     ENOKI_INLINE KMask eq_(const KMask &a) const {
         if (Size == 16) /* Use intrinsic if possible */
-            return KMask(Value(_mm512_kxnor((__mmask16) k, (__mmask16) (a.k))));
+            return KMask(Value(_mm512_kxnor((__mmask16) k, (__mmask16) a.k)));
         else
             return KMask(Value(~(k ^ a.k)));
     }
 
     ENOKI_INLINE KMask neq_(const KMask &a) const {
         if (Size == 16) /* Use intrinsic if possible */
-            return KMask(Value(_mm512_kxor((__mmask16) k, (__mmask16) (a.k))));
+            return KMask(Value(_mm512_kxor((__mmask16) k, (__mmask16) a.k)));
         else
             return KMask(Value(k ^ a.k));
     }
 
     ENOKI_INLINE KMask or_(const KMask &a) const {
         if (Size == 16) /* Use intrinsic if possible */
-            return KMask(Value(_mm512_kor((__mmask16) k, (__mmask16) (a.k))));
+            return KMask(Value(_mm512_kor((__mmask16) k, (__mmask16) a.k)));
         else
             return KMask(Value(k | a.k));
     }
 
     ENOKI_INLINE KMask and_(const KMask &a) const {
         if (Size == 16) /* Use intrinsic if possible */
-            return KMask(Value(_mm512_kand((__mmask16) k, (__mmask16) (a.k))));
+            return KMask(Value(_mm512_kand((__mmask16) k, (__mmask16) a.k)));
         else
             return KMask(Value(k & a.k));
     }
 
+    ENOKI_INLINE KMask andnot_(const KMask &a) const {
+        if (Size == 16) /* Use intrinsic if possible */
+            return KMask(Value(_mm512_kandn((__mmask16) a.k, (__mmask16) k)));
+        else
+            return KMask(Value(k & ~a.k));
+    }
+
     ENOKI_INLINE KMask xor_(const KMask &a) const {
         if (Size == 16) /* Use intrinsic if possible */
-            return KMask(Value(_mm512_kxor((__mmask16) k, (__mmask16) (a.k))));
+            return KMask(Value(_mm512_kxor((__mmask16) k, (__mmask16) a.k)));
         else
             return KMask(Value(k ^ a.k));
     }
@@ -350,7 +357,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
         #endif
     }
 
-    ENOKI_INLINE Derived or_ (Mask a) const {
+    ENOKI_INLINE Derived or_(Mask a) const {
         return _mm512_mask_mov_ps(m, a.k, _mm512_set1_ps(memcpy_cast<Value>(int32_t(-1))));
     }
 
@@ -363,7 +370,16 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
         #endif
     }
 
-    ENOKI_INLINE Derived and_ (Mask a) const {
+    ENOKI_INLINE Derived andnot_(Arg a) const {
+        #if defined(ENOKI_X86_AVX512DQ)
+            return _mm512_andnot_ps(a.m, m);
+        #else
+            return _mm512_castsi512_ps(
+                _mm512_andnot_si512(_mm512_castps_si512(a.m), _mm512_castps_si512(m)));
+        #endif
+    }
+
+    ENOKI_INLINE Derived and_(Mask a) const {
         return _mm512_maskz_mov_ps(a.k, m);
     }
 
@@ -376,7 +392,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
         #endif
     }
 
-    ENOKI_INLINE Derived xor_ (Mask a) const {
+    ENOKI_INLINE Derived xor_(Mask a) const {
         #if defined(ENOKI_X86_AVX512DQ)
             const __m512 v1 = _mm512_set1_ps(memcpy_cast<Value>(int32_t(-1)));
             return _mm512_mask_xor_ps(m, a.k, m, v1);
@@ -839,7 +855,16 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
         #endif
     }
 
-    ENOKI_INLINE Derived and_ (Mask a) const {
+    ENOKI_INLINE Derived andnot_(Arg a) const {
+        #if defined(ENOKI_X86_AVX512DQ)
+            return _mm512_andnot_pd(a.m, m);
+        #else
+            return _mm512_castsi512_pd(
+                _mm512_andnot_si512(_mm512_castpd_si512(a.m), _mm512_castpd_si512(m)));
+        #endif
+    }
+
+    ENOKI_INLINE Derived and_(Mask a) const {
         return _mm512_maskz_mov_pd(a.k, m);
     }
 
@@ -1302,19 +1327,20 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
     ENOKI_INLINE Derived mul_(Arg a) const { return _mm512_mullo_epi32(m, a.m); }
     ENOKI_INLINE Derived or_ (Arg a) const { return _mm512_or_epi32(m, a.m); }
 
-    ENOKI_INLINE Derived or_ (Mask a) const {
+    ENOKI_INLINE Derived or_(Mask a) const {
         return _mm512_mask_mov_epi32(m, a.k, _mm512_set1_epi32(int32_t(-1)));
     }
 
     ENOKI_INLINE Derived and_(Arg a) const { return _mm512_and_epi32(m, a.m); }
+    ENOKI_INLINE Derived andnot_(Arg a) const { return _mm512_andnot_epi32(a.m, m); }
 
-    ENOKI_INLINE Derived and_ (Mask a) const {
+    ENOKI_INLINE Derived and_(Mask a) const {
         return _mm512_maskz_mov_epi32(a.k, m);
     }
 
     ENOKI_INLINE Derived xor_(Arg a) const { return _mm512_xor_epi32(m, a.m); }
 
-    ENOKI_INLINE Derived xor_ (Mask a) const {
+    ENOKI_INLINE Derived xor_(Mask a) const {
         return _mm512_mask_xor_epi32(m, a.k, m, _mm512_set1_epi32(int32_t(-1)));
     }
 
@@ -1737,14 +1763,15 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
     }
 
     ENOKI_INLINE Derived and_(Arg a) const { return _mm512_and_epi64(m, a.m); }
+    ENOKI_INLINE Derived andnot_(Arg a) const { return _mm512_andnot_epi64(a.m, m); }
 
-    ENOKI_INLINE Derived and_ (Mask a) const {
+    ENOKI_INLINE Derived and_(Mask a) const {
         return _mm512_maskz_mov_epi64(a.k, m);
     }
 
     ENOKI_INLINE Derived xor_(Arg a) const { return _mm512_xor_epi64(m, a.m); }
 
-    ENOKI_INLINE Derived xor_ (Mask a) const {
+    ENOKI_INLINE Derived xor_(Mask a) const {
         return _mm512_mask_xor_epi64(m, a.k, m, _mm512_set1_epi64(int32_t(-1)));
     }
 

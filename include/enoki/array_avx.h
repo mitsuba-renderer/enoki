@@ -172,6 +172,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     ENOKI_INLINE Derived div_(Arg a) const { return _mm256_div_ps(m, a.m); }
     ENOKI_INLINE Derived or_ (Arg a) const { return _mm256_or_ps (m, a.m); }
     ENOKI_INLINE Derived and_(Arg a) const { return _mm256_and_ps(m, a.m); }
+    ENOKI_INLINE Derived andnot_(Arg a) const { return _mm256_andnot_ps(a.m, m); }
     ENOKI_INLINE Derived xor_(Arg a) const { return _mm256_xor_ps(m, a.m); }
 
     ENOKI_INLINE Mask lt_ (Arg a) const { return _mm256_cmp_ps(m, a.m, _CMP_LT_OQ);  }
@@ -588,6 +589,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
     ENOKI_INLINE Derived div_(Arg a) const { return _mm256_div_pd(m, a.m); }
     ENOKI_INLINE Derived or_ (Arg a) const { return _mm256_or_pd (m, a.m); }
     ENOKI_INLINE Derived and_(Arg a) const { return _mm256_and_pd(m, a.m); }
+    ENOKI_INLINE Derived andnot_(Arg a) const { return _mm256_andnot_pd(a.m, m); }
     ENOKI_INLINE Derived xor_(Arg a) const { return _mm256_xor_pd(m, a.m); }
 
     ENOKI_INLINE auto lt_ (Arg a) const { return mask_t<Derived>(_mm256_cmp_pd(m, a.m, _CMP_LT_OQ));  }
