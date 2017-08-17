@@ -25,10 +25,11 @@ to an immediate storage savings of :math:`2\times`.
 
 .. note::
 
-    If supported by the target architecture, Enoki uses the *F16* instruction
+    If supported by the target architecture, Enoki uses the *F16C* instruction
     set to perform efficient vectorized conversion between half and single
     precision variables (however, this only affects conversion and no other
-    arithmetic operations).
+    arithmetic operations). ARM NEON also provides native conversion
+    instructions.
 
 Usage
 -----

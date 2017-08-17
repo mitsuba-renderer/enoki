@@ -20,14 +20,12 @@
 
 NAMESPACE_BEGIN(enoki)
 
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_,
-          typename Derived>
+template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived>
 struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
     std::enable_if_t<detail::is_recursive<Value_, Size_, Mode_>::value>>
     : StaticArrayBase<Value_, Size_, Approx_, Mode_, Derived> {
 
     using Base = StaticArrayBase<Value_, Size_, Approx_, Mode_, Derived>;
-    using Expr = Derived;
     using typename Base::Value;
     using typename Base::Scalar;
     using typename Base::Array1;
@@ -36,134 +34,8 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
     using Base::Size1;
     using Base::Size2;
     using Base::operator=;
-
-    using Mask1 = mask_t<Array1>;
-    using Mask2 = mask_t<Array2>;
-
     using Arg = const Derived &;
-
     static constexpr bool IsRecursive = true;
-
-    struct RMask : StaticArrayBase<Value_, Size_, false, RoundingMode::Default, RMask> {
-    public:
-        static constexpr size_t Size = Size_;
-        static constexpr size_t ActualSize = Size_;
-        static constexpr bool IsMask = true;
-        static constexpr bool IsRecursive = true;
-
-        using Expr = RMask;
-        using Mask = RMask;
-        using Value = value_t<Mask1>;
-
-        Mask1 m1;
-        Mask2 m2;
-
-        RMask() = default;
-        RMask(const RMask &) = default;
-        RMask& operator=(const RMask &) = default;
-
-        ENOKI_INLINE RMask(Mask1 m1, Mask2 m2) : m1(m1), m2(m2) { }
-
-        ENOKI_INLINE RMask(const value_t<Mask1> &v)
-            : RMask(v, detail::reinterpret_flag()) { }
-
-        template <typename T, enable_if_mask_t<T> = 0> ENOKI_INLINE RMask(const T &v)
-            : RMask(v, detail::reinterpret_flag()) { }
-
-        template <typename T, enable_if_static_array_t<T> = 0> ENOKI_INLINE RMask(const T &v, detail::reinterpret_flag)
-            : m1(low(v), detail::reinterpret_flag()),
-              m2(high(v), detail::reinterpret_flag()) { }
-
-        template <typename T, enable_if_not_array_t<T> = 0> ENOKI_INLINE RMask(const T &v, detail::reinterpret_flag)
-            : m1(reinterpret_array<Mask1>(v)),
-              m2(reinterpret_array<Mask2>(v)) { }
-
-        ENOKI_INLINE explicit operator Derived() const { return Derived((Array1) m1, (Array2) m2); }
-
-        ENOKI_INLINE RMask or_ (const RMask &m) const { return RMask(m1 | m.m1, m2 | m.m2); }
-        ENOKI_INLINE RMask and_(const RMask &m) const { return RMask(m1 & m.m1, m2 & m.m2); }
-        ENOKI_INLINE RMask andnot_(const RMask &m) const { return RMask(andnot(m1, m.m1), andnot(m2, m.m2)); }
-        ENOKI_INLINE RMask xor_(const RMask &m) const { return RMask(m1 ^ m.m1, m2 ^ m.m2); }
-        ENOKI_INLINE RMask eq_ (const RMask &m) const { return RMask(eq(m1, m.m1), eq(m2, m.m2)); }
-        ENOKI_INLINE RMask neq_(const RMask &m) const { return RMask(neq(m1, m.m1), neq(m2, m.m2)); }
-        ENOKI_INLINE RMask not_() const { return RMask(~m1, ~m2); }
-
-        static ENOKI_INLINE RMask select_(const RMask &m, const RMask &t, const RMask &f) {
-            return Mask(select(m.m1, t.m1, f.m1),
-                        select(m.m2, t.m2, f.m2));
-        }
-
-        template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
-        ENOKI_INLINE bool all_() const { return all(m1 & m2); }
-        template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
-        ENOKI_INLINE bool all_() const { return all(m1) & all(m2); }
-
-        template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
-        ENOKI_INLINE bool any_() const { return any(m1 | m2); }
-        template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
-        ENOKI_INLINE bool any_() const { return any(m1) | any(m2); }
-
-        template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
-        ENOKI_INLINE bool none_() const { return none(m1 | m2); }
-        template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
-        ENOKI_INLINE bool none_() const { return none(m1) & none(m2); }
-
-        ENOKI_INLINE size_t count_() const { return count(m1) + count(m2); }
-
-        ENOKI_INLINE const Mask1& low_() const { return m1; }
-        ENOKI_INLINE const Mask2& high_() const { return m2; }
-
-        template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
-        ENOKI_INLINE decltype(auto) coeff(size_t i) const {
-            return (i < Size1 ? m1 : m2).coeff(i % Size1);
-        }
-
-        template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
-        ENOKI_INLINE decltype(auto) coeff(size_t i) {
-            return (i < Size1 ? m1 : m2).coeff(i % Size1);
-        }
-
-        template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
-        ENOKI_INLINE value_t<Mask1> coeff(size_t i) const {
-            if (i < Size1)
-                return m1.coeff(i);
-            else
-                return reinterpret_array<value_t<Mask1>>(m2.coeff(i));
-        }
-
-        ENOKI_INLINE void store_(void *mem) const {
-            store(mem, m1);
-            store((uint8_t *) mem + sizeof(Mask1), m2);
-        }
-
-        ENOKI_INLINE void store_unaligned_(void *mem) const {
-            store_unaligned(mem, m1);
-            store_unaligned((uint8_t *) mem + sizeof(Mask1), m2);
-        }
-
-        static ENOKI_INLINE RMask load_(const void *mem) {
-            return RMask(
-                load<Mask1>(mem),
-                load<Mask2>((uint8_t *) mem + sizeof(Mask1))
-            );
-        }
-
-        static ENOKI_INLINE RMask load_unaligned_(const void *mem) {
-            return RMask(
-                load_unaligned<Mask1>(mem),
-                load_unaligned<Mask2>((uint8_t *) mem + sizeof(Mask1))
-            );
-        }
-
-        template <typename T>
-        ENOKI_INLINE size_t compress_(T *&ptr, const Mask &mask) const {
-            size_t r0 = compress(ptr, m1, low(mask));
-            size_t r1 = compress(ptr, m2, high(mask));
-            return r0 + r1;
-        }
-    };
-
-    using Mask = RMask;
 
     /// Default constructor
     StaticArrayImpl() = default;
@@ -220,12 +92,12 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
         return Derived(mulhi(a1, a.a1), mulhi(a2, a.a2));
     }
 
-    ENOKI_INLINE Mask lt_ (Arg a) const { return Mask(a1 <  a.a1, a2 <  a.a2); }
-    ENOKI_INLINE Mask gt_ (Arg a) const { return Mask(a1 >  a.a1, a2 >  a.a2); }
-    ENOKI_INLINE Mask le_ (Arg a) const { return Mask(a1 <= a.a1, a2 <= a.a2); }
-    ENOKI_INLINE Mask ge_ (Arg a) const { return Mask(a1 >= a.a1, a2 >= a.a2); }
-    ENOKI_INLINE Mask eq_ (Arg a) const { return Mask(eq(a1, a.a1), eq(a2, a.a2)); }
-    ENOKI_INLINE Mask neq_(Arg a) const { return Mask(neq(a1, a.a1), neq(a2, a.a2)); }
+    ENOKI_INLINE auto lt_ (Arg a) const { return mask_t<Derived>(a1 <  a.a1, a2 <  a.a2); }
+    ENOKI_INLINE auto gt_ (Arg a) const { return mask_t<Derived>(a1 >  a.a1, a2 >  a.a2); }
+    ENOKI_INLINE auto le_ (Arg a) const { return mask_t<Derived>(a1 <= a.a1, a2 <= a.a2); }
+    ENOKI_INLINE auto ge_ (Arg a) const { return mask_t<Derived>(a1 >= a.a1, a2 >= a.a2); }
+    ENOKI_INLINE auto eq_ (Arg a) const { return mask_t<Derived>(eq(a1, a.a1), eq(a2, a.a2)); }
+    ENOKI_INLINE auto neq_(Arg a) const { return mask_t<Derived>(neq(a1, a.a1), neq(a2, a.a2)); }
 
     ENOKI_INLINE Derived min_(Arg a) const { return Derived(min(a1, a.a1), min(a2, a.a2)); }
     ENOKI_INLINE Derived max_(Arg a) const { return Derived(max(a1, a.a1), max(a2, a.a2)); }
@@ -261,32 +133,24 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
         return Derived(fmsubadd(a1, b.a1, c.a1), fmsubadd(a2, b.a2, c.a2));
     }
 
-    ENOKI_INLINE Derived or_(Arg arg) const {
-        return Derived(a1 | arg.a1, a2 | arg.a2);
+    template <typename Other>
+    ENOKI_INLINE Derived or_(const Other &arg) const {
+        return Derived(a1 | low(arg), a2 | high(arg));
     }
 
-    ENOKI_INLINE Derived or_(const Mask &arg) const {
-        return Derived(a1 | arg.m1, a2 | arg.m2);
+    template <typename Other>
+    ENOKI_INLINE Derived andnot_(const Other &arg) const {
+        return Derived(andnot(a1, low(arg)), andnot(a2, high(arg)));
     }
 
-    ENOKI_INLINE Derived and_(Arg arg) const {
-        return Derived(a1 & arg.a1, a2 & arg.a2);
+    template <typename Other>
+    ENOKI_INLINE Derived and_(const Other &arg) const {
+        return Derived(a1 & low(arg), a2 & high(arg));
     }
 
-    ENOKI_INLINE Derived andnot_(Arg arg) const {
-        return Derived(andnot(a1, arg.a1), andnot(a2, arg.a2));
-    }
-
-    ENOKI_INLINE Derived and_(const Mask &arg) const {
-        return Derived(a1 & arg.m1, a2 & arg.m2);
-    }
-
-    ENOKI_INLINE Derived xor_(Arg arg) const {
-        return Derived(a1 ^ arg.a1, a2 ^ arg.a2);
-    }
-
-    ENOKI_INLINE Derived xor_(const Mask &arg) const {
-        return Derived(a1 ^ arg.m1, a2 ^ arg.m2);
+    template <typename Other>
+    ENOKI_INLINE Derived xor_(const Other &arg) const {
+        return Derived(a1 ^ low(arg), a2 ^ high(arg));
     }
 
     template <size_t Imm, typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
@@ -349,6 +213,7 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
         return Derived(ror(a1, arg.a1), ror(a2, arg.a2));
     }
 
+    template <typename Mask>
     static ENOKI_INLINE Derived select_(const Mask &m, Arg t, Arg f) {
         return Derived(select(m.m1, t.a1, f.a1),
                        select(m.m2, t.a2, f.a2));
@@ -359,7 +224,7 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
         static_assert(Imm <= Size1 && Imm <= Size2,
                       "Refusing to rotate a recursively defined array by an "
                       "amount that is larger than the recursive array sizes.");
-        const Mask1 mask = index_sequence<Array1>() >= Scalar(Imm);
+        const mask_t<Array1> mask = index_sequence<Array1>() >= Scalar(Imm);
 
         Array1 a1_r = ror_array<Imm>(a1);
         Array1 a2_r = ror_array<Imm>(a2);
@@ -380,7 +245,7 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
         static_assert(Imm <= Size1 && Imm <= Size2,
                       "Refusing to rotate a recursively defined array by an "
                       "amount that is larger than the recursive array sizes.");
-        const Mask1 mask = index_sequence<Array1>() < Scalar(Size1 - Imm);
+        const mask_t<Array1> mask = index_sequence<Array1>() < Scalar(Size1 - Imm);
 
         Array1 a1_r = rol_array<Imm>(a1);
         Array1 a2_r = rol_array<Imm>(a2);
@@ -401,6 +266,7 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
     Derived popcnt_() const { return Derived(popcnt(a1), popcnt(a2)); }
 
     #define ENOKI_MASKED_OPERATOR(name)                                        \
+        template <typename Mask>                                               \
         ENOKI_INLINE void name##_(const Mask &mask, const Derived &value) {    \
             a1.name##_(low(mask), value);                                      \
             a2.name##_(high(mask), value);                                     \
@@ -424,8 +290,8 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
     //! @{ \name Higher-level functions
     // -----------------------------------------------------------------------
 
-    Derived exp_() const { return Derived(exp(a1), exp(a2));   }
-    Derived log_() const { return Derived(log(a1), log(a2));   }
+    Derived exp_() const { return Derived(exp(a1), exp(a2)); }
+    Derived log_() const { return Derived(log(a1), log(a2)); }
 
     Derived pow_(Arg a) const {
         return Derived(pow(a1, a.a1), pow(a2, a.a2));
@@ -525,6 +391,7 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
         store((Value *) mem + Size1, a2);
     }
 
+    template <typename Mask>
     ENOKI_INLINE void store_(void *mem, const Mask &mask) const {
         store((Value *) mem, a1, low(mask));
         store((Value *) mem + Size1, a2, high(mask));
@@ -535,6 +402,7 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
         store_unaligned((Value *) mem + Size1, a2);
     }
 
+    template <typename Mask>
     ENOKI_INLINE void store_unaligned_(void *mem, const Mask &mask) const {
         store_unaligned((Value *) mem, a1, low(mask));
         store_unaligned((Value *) mem + Size1, a2, high(mask));
@@ -547,6 +415,7 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
         );
     }
 
+    template <typename Mask>
     static ENOKI_INLINE Derived load_(const void *mem, const Mask &mask) {
         return Derived(
             load<Array1>((Value *) mem, low(mask)),
@@ -561,6 +430,7 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
         );
     }
 
+    template <typename Mask>
     static ENOKI_INLINE Derived load_unaligned_(const void *a, const Mask &mask) {
         return Derived(
             load_unaligned<Array1>((Value *) a, low(mask)),
@@ -578,7 +448,7 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
         prefetch<Array2, Stride, Write, Level>(ptr, high(index));
     }
 
-    template <size_t Stride, bool Write, size_t Level, typename Index>
+    template <size_t Stride, bool Write, size_t Level, typename Index, typename Mask>
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index, const Mask &mask) {
         prefetch<Array1, Stride, Write, Level>(ptr, low(index), low(mask));
         prefetch<Array2, Stride, Write, Level>(ptr, high(index), high(mask));
@@ -592,7 +462,7 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
         );
     }
 
-    template <size_t Stride, typename Index>
+    template <size_t Stride, typename Index, typename Mask>
     static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index, const Mask &mask) {
         return Derived(
             gather<Array1, Stride>(ptr, low(index), low(mask)),
@@ -606,18 +476,18 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
         scatter<Stride>(ptr, a2, high(index));
     }
 
-    template <size_t Stride, typename Index>
+    template <size_t Stride, typename Index, typename Mask>
     ENOKI_INLINE void scatter_(void *ptr, const Index &index, const Mask &mask) const {
         scatter<Stride>(ptr, a1, low(index), low(mask));
         scatter<Stride>(ptr, a2, high(index), high(mask));
     }
 
-    template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
+    template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0, typename Mask>
     ENOKI_INLINE Value extract_(const Mask &mask) const {
         return extract(select(low(mask), a1, a2), low(mask) | high(mask));
     }
 
-    template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
+    template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0, typename Mask>
     ENOKI_INLINE Value extract_(const Mask &mask) const {
         if (ENOKI_LIKELY(any(low(mask))))
             return extract(a1, low(mask));
@@ -625,14 +495,14 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
             return extract(a2, high(mask));
     }
 
-    template <typename T>
+    template <typename T, typename Mask>
     ENOKI_INLINE size_t compress_(T *&ptr, const Mask &mask) const {
         size_t r0 = compress(ptr, a1, low(mask));
         size_t r1 = compress(ptr, a2, high(mask));
         return r0 + r1;
     }
 
-    template <size_t Stride, typename Index, typename Func, typename... Args>
+    template <size_t Stride, typename Index, typename Func, typename... Args, typename Mask>
     static ENOKI_INLINE void transform_masked_(void *ptr, const Index &index, const Mask &mask,
                                                const Func &func, const Args &... args) {
         transform<Array1, Stride>(ptr, low(index),  low(mask),  func, low(args)...);
@@ -652,7 +522,6 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
 
     ENOKI_INLINE const Array1& low_() const { return a1; }
     ENOKI_INLINE const Array2& high_() const { return a2; }
-
 
     template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
     ENOKI_INLINE const Value& coeff(size_t i) const {
@@ -679,6 +548,159 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
 
     Array1 a1;
     Array2 a2;
+};
+
+template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived_>
+struct StaticMaskImpl<Value_, Size_, Approx_, Mode_, Derived_,
+                      std::enable_if_t<detail::is_recursive<Value_, Size_, Mode_>::value>>
+    : StaticArrayBase<Value_, Size_, Approx_, Mode_, Derived_> {
+    using Base = StaticArrayBase<Value_, Size_, Approx_, Mode_, Derived_>;
+    using Base::Base;
+    using Base::operator=;
+    using typename Base::Derived;
+    using typename Base::Array1;
+    using typename Base::Array2;
+    using typename Base::Scalar;
+    using Base::Size1;
+    using Base::Size2;
+
+    static constexpr bool IsRecursive = true;
+
+    using Mask1 = mask_t<Array1>;
+    using Mask2 = mask_t<Array2>;
+
+    StaticMaskImpl() = default;
+    StaticMaskImpl(const StaticMaskImpl &) = default;
+    StaticMaskImpl& operator=(const StaticMaskImpl &) = default;
+
+    ENOKI_INLINE StaticMaskImpl(const Mask1 &m1, const Mask2 &m2) : m1(m1), m2(m2) { }
+    ENOKI_INLINE StaticMaskImpl(const Scalar &s) : m1(s), m2(s) { }
+
+    template <typename T, enable_if_static_array_t<T> = 0>
+    ENOKI_INLINE StaticMaskImpl(const T &m, detail::reinterpret_flag)
+        : m1(low(m),  detail::reinterpret_flag()),
+          m2(high(m), detail::reinterpret_flag()) { }
+
+    ENOKI_INLINE Derived or_ (const Derived &m) const { return Derived(m1 | m.m1, m2 | m.m2); }
+    ENOKI_INLINE Derived and_(const Derived &m) const { return Derived(m1 & m.m1, m2 & m.m2); }
+    ENOKI_INLINE Derived andnot_(const Derived &m) const { return Derived(andnot(m1, m.m1), andnot(m2, m.m2)); }
+    ENOKI_INLINE Derived xor_(const Derived &m) const { return Derived(m1 ^ m.m1, m2 ^ m.m2); }
+    ENOKI_INLINE Derived eq_ (const Derived &m) const { return Derived(eq(m1, m.m1), eq(m2, m.m2)); }
+    ENOKI_INLINE Derived neq_(const Derived &m) const { return Derived(neq(m1, m.m1), neq(m2, m.m2)); }
+    ENOKI_INLINE Derived not_() const { return Derived(~m1, ~m2); }
+
+    static ENOKI_INLINE Derived select_(const Derived &m, const Derived &t, const Derived &f) {
+        return Derived(select(m.m1, t.m1, f.m1),
+                       select(m.m2, t.m2, f.m2));
+    }
+
+    template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
+    ENOKI_INLINE bool all_() const { return all(m1 & m2); }
+    template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
+    ENOKI_INLINE bool all_() const { return all(m1) & all(m2); }
+
+    template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
+    ENOKI_INLINE bool any_() const { return any(m1 | m2); }
+    template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
+    ENOKI_INLINE bool any_() const { return any(m1) | any(m2); }
+
+    template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
+    ENOKI_INLINE bool none_() const { return none(m1 | m2); }
+    template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
+    ENOKI_INLINE bool none_() const { return none(m1) & none(m2); }
+
+    ENOKI_INLINE size_t count_() const { return count(m1) + count(m2); }
+
+    // -----------------------------------------------------------------------
+    //! @{ \name Component access
+    // -----------------------------------------------------------------------
+
+    ENOKI_INLINE const Mask1& low_() const { return m1; }
+    ENOKI_INLINE const Mask2& high_() const { return m2; }
+
+    template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
+    ENOKI_INLINE decltype(auto) coeff(size_t i) const {
+        return (i < Size1 ? m1 : m2).coeff(i % Size1);
+    }
+
+    template <typename T = Derived, std::enable_if_t<T::Size1 == T::Size2, int> = 0>
+    ENOKI_INLINE decltype(auto) coeff(size_t i) {
+        return (i < Size1 ? m1 : m2).coeff(i % Size1);
+    }
+
+    template <typename T = Derived, std::enable_if_t<T::Size1 != T::Size2, int> = 0>
+    ENOKI_INLINE value_t<Mask1> coeff(size_t i) const {
+        if (i < Size1)
+            return m1.coeff(i);
+        else
+            return reinterpret_array<value_t<Mask1>>(m2.coeff(i));
+    }
+
+    ENOKI_INLINE void store_(void *mem) const {
+        store(mem, m1);
+        store((uint8_t *) mem + sizeof(Mask1), m2);
+    }
+
+    template <typename Mask>
+    ENOKI_INLINE void store_(void *mem, const Mask &mask) const {
+        store(mem, m1, mask.m1);
+        store((uint8_t *) mem + sizeof(Mask1), m2, mask.m2);
+    }
+
+    ENOKI_INLINE void store_unaligned_(void *mem) const {
+        store_unaligned(mem, m1);
+        store_unaligned((uint8_t *) mem + sizeof(Mask1), m2);
+    }
+
+    template <typename Mask>
+    ENOKI_INLINE void store_unaligned_(void *mem, const Mask &mask) const {
+        store_unaligned(mem, m1, mask.m1);
+        store_unaligned((uint8_t *) mem + sizeof(Mask1), m2, mask.m2);
+    }
+
+
+    static ENOKI_INLINE Derived load_(const void *mem) {
+        return Derived(
+            load<Mask1>(mem),
+            load<Mask2>((uint8_t *) mem + sizeof(Mask1))
+        );
+    }
+
+    template <typename Mask>
+    static ENOKI_INLINE Derived load_(const void *mem, const Mask &mask) {
+        return Derived(
+            load<Mask1>(mem, mask.m1),
+            load<Mask2>((uint8_t *) mem + sizeof(Mask1), mask.m2)
+        );
+    }
+
+    static ENOKI_INLINE Derived load_unaligned_(const void *mem) {
+        return Derived(
+            load_unaligned<Mask1>(mem),
+            load_unaligned<Mask2>((uint8_t *) mem + sizeof(Mask1))
+        );
+    }
+
+    template <typename Mask>
+    static ENOKI_INLINE Derived load_unaligned_(const void *mem, const Mask &mask) {
+        return Derived(
+            load_unaligned<Mask1>(mem, mask.m1),
+            load_unaligned<Mask2>((uint8_t *) mem + sizeof(Mask1), mask.m2)
+        );
+    }
+
+    template <typename T, typename Mask>
+    ENOKI_INLINE size_t compress_(T *&ptr, const Mask &mask) const {
+        size_t r0 = compress(ptr, m1, mask.m1);
+        size_t r1 = compress(ptr, m2, mask.m2);
+        return r0 + r1;
+    }
+
+    //! @}
+    // -----------------------------------------------------------------------
+
+    Mask1 m1;
+    Mask2 m2;
 };
 
 NAMESPACE_END(enoki)

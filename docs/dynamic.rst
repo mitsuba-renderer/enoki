@@ -34,10 +34,11 @@ vectorizes using 4-wide SSE arithmetic.
 
 .. note::
 
-    Perhaps somewhat suprisingly, a :cpp:class:`enoki::DynamicArray` instance
-    *should never* be part of an arithmetic expression. For instance, the
-    following will compile and yield the expected result, but this style of
-    using dynamic arrays is *strongly* disouraged.
+    In contrast to the array types discussed so far, a
+    :cpp:class:`enoki::DynamicArray` instance *should never* be part of an
+    arithmetic expression. For instance, the following will compile and yield
+    the expected result, but this style of using dynamic arrays is *strongly*
+    disouraged.
 
     .. code-block:: cpp
         :emphasize-lines: 4
@@ -214,8 +215,8 @@ The ``packet()`` function is interesting because it returns an instance of a
 new type ``GPSRecord2<FloatP&>`` (note the ampersand) that was not discussed
 yet. Instead of directly storing data, all of its fields are references
 pointing to packets of data elsewhere in memory. In this case, overwriting a field of this
-structure of references will change the corresponding entry of the dynamic
-array. Conceptually, this looks as follows:
+structure of references will change the corresponding entry *of the dynamic
+array*. Conceptually, this looks as follows:
 
 .. image:: dynamic-03.svg
     :width: 600px
@@ -304,7 +305,7 @@ function is required:
         using Scalar = scalar_t<Value>;
         const Value deg_to_rad = Scalar(M_PI / 180.0);
 
-        auto sin_diff_h = sin(deg_to_rad * Scalar(.5) * (r2.pos - r1.pos));
+        auto sin_diff_h = sin(deg_to_rad * .5f * (r2.pos - r1.pos));
         sin_diff_h *= sin_diff_h;
 
         Value a = sin_diff_h.x() + sin_diff_h.y() *
@@ -313,8 +314,8 @@ function is required:
 
         return select(
             r1.reliable & r2.reliable,
-            Scalar(6371.0 * 2.0) * atan2(sqrt(a), sqrt(Scalar(1.0) - a)),
-            Value(std::numeric_limits<Scalar>::quiet_NaN())
+            Scalar(6371.f * 2.f) * atan2(sqrt(a), sqrt(1.f - a)),
+            std::numeric_limits<Scalar>::quiet_NaN()
         );
     }
 
@@ -391,7 +392,7 @@ Naturally, we could also perform the complete calculation within the lambda func
 
             const Value deg_to_rad = Scalar(M_PI / 180.0);
 
-            auto sin_diff_h = sin(deg_to_rad * Scalar(.5) * (coord2.pos - coord1.pos));
+            auto sin_diff_h = sin(deg_to_rad * .5f * (coord2.pos - coord1.pos));
             sin_diff_h *= sin_diff_h;
 
             Value a = sin_diff_h.x() + sin_diff_h.y() *
@@ -400,8 +401,8 @@ Naturally, we could also perform the complete calculation within the lambda func
 
             result = select(
                 coord1.reliable & coord2.reliable,
-                Scalar(6371.0 * 2.0) * atan2(sqrt(a), sqrt(Scalar(1.0) - a)),
-                Value(std::numeric_limits<Scalar>::quiet_NaN())
+                (6371.f * 2.f) * atan2(sqrt(a), sqrt(1.f - a)),
+                std::numeric_limits<Scalar>::quiet_NaN()
             );
         },
 

@@ -128,7 +128,7 @@ ENOKI_TEST_FLOAT(test10_atan2) {
     }
 }
 
-ENOKI_TEST_FLOAT(test11_remainder) {
+ENOKI_TEST_FLOAT(test11_csc_sec_cot) {
     assert(std::abs(T(csc(T(1.f)) - 1 / std::sin(1.f))[0]) < 1e-6f);
     assert(std::abs(T(sec(T(1.f)) - 1 / std::cos(1.f))[0]) < 1e-6f);
     assert(std::abs(T(cot(T(1.f)) - 1 / std::tan(1.f))[0]) < 1e-6f);

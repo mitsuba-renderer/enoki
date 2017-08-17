@@ -19,19 +19,21 @@
 NAMESPACE_BEGIN(enoki)
 
 template <typename Value_, bool Approx_ = detail::approx_default<Value_>::value>
-struct Quaternion
-    : StaticArrayImpl<Value_, 4, Approx_, RoundingMode::Default, Quaternion<Value_, Approx_>> {
+struct Quaternion : StaticArrayImpl<Value_, 4, Approx_, RoundingMode::Default, Quaternion<Value_, Approx_>> {
 
     using Base = StaticArrayImpl<Value_, 4, Approx_, RoundingMode::Default, Quaternion<Value_, Approx_>>;
     using typename Base::Value;
     using typename Base::Scalar;
+
+    using ArrayType = Quaternion;
+    using MaskType = Mask<Value_, 4, Approx_, RoundingMode::Default>;
 
     template <typename T, typename T2 = Quaternion>
     using ReplaceType = Quaternion<T,
         detail::is_std_float<scalar_t<T>>::value ? T2::Approx
                                                  : detail::approx_default<T>::value>;
 
-    ENOKI_DECLARE_CUSTOM_ARRAY(Base, Quaternion)
+    ENOKI_DECLARE_ARRAY(Base, Quaternion)
 
     ENOKI_INLINE Quaternion(const Value &f) : Base(zero<Value>(), zero<Value>(), zero<Value>(), f) { }
 
@@ -44,8 +46,6 @@ struct Quaternion
 
     template <typename T>
     ENOKI_INLINE static Quaternion fill_(const T &value) { return Array<Value, 4>::fill_(value); }
-
-    ENOKI_ALIGNED_OPERATOR_NEW()
 };
 
 template <typename Quat, std::enable_if_t<Quat::IsQuaternion, int> = 0> ENOKI_INLINE Quat identity() {

@@ -18,10 +18,11 @@
 NAMESPACE_BEGIN(enoki)
 
 template <typename Value_, bool Approx_ = detail::approx_default<Value_>::value>
-struct Complex
-    : StaticArrayImpl<Value_, 2, Approx_, RoundingMode::Default, Complex<Value_, Approx_>> {
-    using Base =
-        StaticArrayImpl<Value_, 2, Approx_, RoundingMode::Default, Complex<Value_, Approx_>>;
+struct Complex : StaticArrayImpl<Value_, 2, Approx_, RoundingMode::Default, Complex<Value_, Approx_>> {
+    using Base = StaticArrayImpl<Value_, 2, Approx_, RoundingMode::Default, Complex<Value_, Approx_>>;
+
+    using ArrayType = Complex;
+    using MaskType = Mask<Value_, 2, Approx_, RoundingMode::Default>;
 
     using typename Base::Value;
     using typename Base::Scalar;
@@ -31,7 +32,7 @@ struct Complex
         detail::is_std_float<scalar_t<T>>::value ? T2::Approx
                                                  : detail::approx_default<T>::value>;
 
-    ENOKI_DECLARE_CUSTOM_ARRAY(Base, Complex)
+    ENOKI_DECLARE_ARRAY(Base, Complex)
 
     ENOKI_INLINE Complex(const Value &f) : Base(f, zero<Value>()) { }
 
@@ -40,8 +41,6 @@ struct Complex
 
     template <typename T>
     ENOKI_INLINE static Complex fill_(const T &value) { return Array<Value, 2>::fill_(value); }
-
-    ENOKI_ALIGNED_OPERATOR_NEW()
 };
 
 template <typename T, bool Approx> ENOKI_INLINE expr_t<T> real(const Complex<T, Approx> &z) { return z.x(); }

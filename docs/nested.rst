@@ -109,11 +109,12 @@ Simply rewriting this code using Enoki leads to considerable improvements:
         vmulps      xmm0, xmm0, xmm1
         ret
 
-Enoki uses SSE4.2 instructions that "waste" the last component, leading to more
-compact code in this case. This is better but still not ideal: of the 12
-instructions (a reduction by 50% compared to the previous example), 3 are
-vectorized, 2 are scalar, and 1 is a (slow) horizontal reduction. The remaining
-6 are shuffle and move instructions.
+Here, Enoki has organized the 3D vectors as 4D arrays that "waste" the last
+component, allowing for more compact sequence of SSE4.2 instructions with fewer
+shuffles. This is better but still not ideal: of the 12 instructions (a
+reduction by 50% compared to the previous example), 3 are vectorized, 2 are
+scalar, and 1 is a (slow) horizontal reduction. The remaining 6 are shuffle and
+move instructions.
 
 A better solution
 -----------------
@@ -141,7 +142,7 @@ usage of such an approach.
     /* Declare an underlying packet type with 4 floats (let's try non-approximate math mode first) */
     using FloatP = Array<float, 4, /* Approx = */ false>;
 
-    /* NEW: Packet containing four separate three-dimensional vectors */
+    /* NEW: Packet of 3D vectors containing four separate directions */
     using Vector3fP = Array<FloatP, 3>;
 
     Vector3fP vec(
@@ -158,8 +159,9 @@ usage of such an approach.
          [4, 8, 12]]" */
     std::cout << vec << std::endl;
 
-    /* Element access using operator[] and x()/y()/z()/w() now return size-4 packets */
-    vec.x() = vec[1];
+    /* Element access using operator[] and x()/y()/z()/w() now return size-4 packets.
+       Prints [1, 2, 3, 4]*/
+    std::cout << vec.x() << std::endl;
 
     /* Transcendental functions applied to all components */
     Vector3fP vec2 = sin(vec);
@@ -226,7 +228,8 @@ machine which supports the AVX512ER instruction set:
 
 .. code-block:: cpp
 
-    /* Packet of 16 single precision floats (approximate mode now enabled) */
+    /* Packet of 16 single precision floats (approximate mode now enabled,
+       since we didn't explicitly specify 'false' for the 3rd argument) */
     using FloatP = Array<float, 16>;
 
     /* Packet of 16 3D vectors */
@@ -254,10 +257,54 @@ machine which supports the AVX512ER instruction set:
         vmulps       zmm2, zmm2, zmm0
         vmulps       zmm0, zmm1, zmm0
 
-Note that it can be advantageous to use an integer multiple of the system's
-SIMD width (e.g. :math:`2\times`) to further increase the amount of arithmetic
-that occurs between memory accesses. In the above example, Enoki would then
-unroll every 32x-wide operation into a pair of 16x-wide AVX512 instructions.
+.. code-block:: nasm
+
+Similar optimizations are used on other platforms---for instance, this is the
+ARMv8 NEON version for packets of width 4.
+
+.. code-block:: nasm
+
+    ; Assembly for ARM NEON (armv8a) version
+    __Z4test8Vector3fS_:
+        fmul	v6.4s, v2.4s, v3.4s
+        fmul	v7.4s, v0.4s, v4.4s
+        fmls	v6.4s, v0.4s, v5.4s
+        fmul	v16.4s, v1.4s, v5.4s
+        fmls	v7.4s, v1.4s, v3.4s
+        fmul	v0.4s, v6.4s, v6.4s
+        fmls	v16.4s, v2.4s, v4.4s
+        fmla	v0.4s, v7.4s, v7.4s
+        fmla	v0.4s, v16.4s, v16.4s
+        frsqrte	v1.4s, v0.4s
+        fmul	v2.4s, v1.4s, v1.4s
+        frsqrts	v2.4s, v2.4s, v0.4s
+        fmul	v1.4s, v1.4s, v2.4s
+        fmul	v2.4s, v1.4s, v1.4s
+        frsqrts	v0.4s, v2.4s, v0.4s
+        fmul	v2.4s, v1.4s, v0.4s
+        fmul	v0.4s, v6.4s, v2.4s
+        fmul	v1.4s, v7.4s, v2.4s
+        fmul	v2.4s, v16.4s, v2.4s
+
+Unrolling the computation further
+---------------------------------
+
+On current processor architectures, most floating point operations have a
+latency of :math:`\sim4-6` clock cycles. This means that instructions depending
+the preceding instruction's result will be generally stall for at least that
+long.
+
+To alleviate the effects of latency, it can be advantageous to use an integer
+multiple of the system's SIMD width (e.g. :math:`2\times`) to further improve
+performance.
+
+.. code-block:: cpp
+
+    using FloatP = Array<float, 32>;
+
+With the above type definition, Enoki would then unroll every 32x-wide
+operation into a pair of 16x-wide AVX512 instructions.
+
 
 Nested horizontal operations
 ----------------------------
@@ -277,3 +324,135 @@ a packet of 3-vectors contains a *Not-a-Number* floating point value.
     bool check(Vector3fP x) {
         return none_nested(isnan(x));
     }
+
+.. _broadcasting:
+
+Broadcasting
+------------
+
+Enoki performs an automatic broadcast operation whenever a higher-dimensional
+array is initialized from a lower-dimensional array, or when types of mixed
+dimension occur in an arithmetic expression.
+
+The figure below illustrates a broadcast of a 3D array to a 4-tensor of shape
+:math:`(2, 3, 4, 3)` (note the reversed reading order in the type definition).
+
+.. image:: nested-03.svg
+    :width: 700px
+    :align: center
+
+Enoki works its way through the shape descriptors of both arrays, moving from
+left to right in the above figure (i.e. from the outermost to the innermost
+nesting level). At each iteration, it checks if the current pair of shape
+entries match -- if they do, the iteration advances to the next entry.
+Otherwise, a broadcast is performed over that dimension, which is analogous to
+inserting a ``1`` into the lower-dimensional array's shape. When the dimensions
+of the lower-dimensional array are exhausted, Enoki appends further ones until
+the dimensions match. In the above example, the array is thus copied to the
+second dimension, with a broadcast taking place over the first and trailing two
+dimensions.
+
+Broadcasting nested types works in the same way. Here, the entries of a
+:math:`3\times 3` array are copied to the second and last dimensions of the
+output array:
+
+.. image:: nested-05.svg
+    :width: 700px
+    :align: center
+
+Automatic broadcasting is convenient whenever a computation combines both
+vectorized and non-vectorized data. For instance, it is legal to mix instances
+of type ``Vector4f`` and ``Vector4fP``, defined below, in the same expression.
+
+.. code-block:: cpp
+    :emphasize-lines: 12
+
+    /* Packet data type */
+    using FloatP    = Array<float>;
+
+    /* 4D vector and packets of 4D vectors */
+    using Vector4f  = Array<float, 4>;
+    using Vector4fP = Array<FloatP, 4>;
+
+    Vector4   data1 = ..;
+    Vector4fP data2 = ..;
+
+    /* This is legal -- 'result' is of type Vector4fP */
+    auto result = data1 + data;
+
+.. warning::
+
+    Broadcasting can sometimes lead to unexpected and undesirable behavior. The
+    following section explains how this can be avoided.
+
+.. _broadcasting-gotchas:
+
+Gotchas related to broadcasting
+*******************************
+
+Consider the following innocuous piece of code using the ``Vector4fP`` type
+defined earlier:
+
+.. code-block:: cpp
+
+    Vector4fP data = ...;
+    data /= norm(data);
+
+The intent of the second line is to normalize a packet of 4D vectors by
+dividing each by its norm. Unfortunately, this is not always what happens...
+
+Let's first look at the expected outcome: when the code is compiled for a
+machine with AVX instructions, the return value of ``norm()`` is an 8-wide float
+packet (``Array<float, 8>``). The subsequent ``operator/=`` call triggers a
+broadcast to a shape of ``[4, 8]``, which replicates the array 4 times
+across the first dimension (once for each 4D vector component).
+
+However, when the application is compiled for a machine with SSE4.2
+instructions, the return value of ``norm()`` becomes a 4-wide float packet, and
+the broadcast to a shape of ``[4, 4]`` behaves differently: since the sizes of
+both arrays match in the first dimension, the broadcasting rules specify that
+the array contents should be replicated across the *second dimension*. This
+leads to a nonsensical operation that divides the :math:`i`-th coordinate (of
+all vectors) by the norm of the :math:`i`-th vector.
+
+Enoki provides the ``enoki::Packet<...>`` type to completely avoid such
+platform-dependent ambiguities. It is identical to the ``enoki::Array<...>``
+class except for its broadcasting behavior: the broadcasting rules for packets
+start from the other end -- that is, they try to copy the array to the trailing
+dimensions if possible.
+
+.. image:: nested-04.svg
+    :width: 600px
+    :align: center
+
+Packet types such as ``FloatP`` should be defined using the ``enoki::Packet``
+type to benefit from this behavior. The difference in the broadcasting behavior
+is demonstrated below:
+
+.. code-block:: cpp
+    :emphasize-lines: 2
+
+    /* Packet data type */
+    using FloatP    = Packet<float, 4>;
+
+    /* 4D vector and packets of 4D vectors */
+    using Vector4f  = Array<float, 4>;
+    using Vector4fP = Array<FloatP, 4>;
+
+    auto v1 = Vector4fP(Vector4f(1, 2, 3, 4));
+    /* v1 contains 4 identical vectors with value [1, 2, 3, 4]
+
+        [1, 2, 3, 4]
+        [1, 2, 3, 4]
+        [1, 2, 3, 4]
+        [1, 2, 3, 4]
+    */
+
+    auto v2 = Vector4fP(FloatP(1, 2, 3, 4));
+    /* v2 contains 4 distinct vectors, which each have uniform component values
+
+        [1, 1, 1, 1]
+        [2, 2, 2, 2]
+        [3, 3, 3, 3]
+        [4, 4, 4, 4]
+    */

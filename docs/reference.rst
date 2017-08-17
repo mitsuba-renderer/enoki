@@ -34,11 +34,11 @@ hides the fact that
 2. The operator uses SFINAE (``std::enable_if``) so that it only becomes active
    when ``x`` or ``y`` are Enoki arrays.
 
-3. The operator replicates the C++ typing rules. For instance, adding two
+3. The operator replicates the C++ typing rules. Recall that adding two
    ``float&`` references in standard C++ produces a ``float`` temporary (i.e.
    *not* a reference) holding the result of the operation.
 
-   Similarly, ``z`` is of type ``Array<float, 4>`` in the example below.
+   Analogously, ``z`` is of type ``Array<float, 4>`` in the example below.
 
    .. code-block:: cpp
 
@@ -162,6 +162,22 @@ Global variable definitions
 .. cpp:var:: static constexpr bool has_sse42
 
     Specifies whether SSE 4.2 instructions are available on the target architecture.
+
+.. cpp:var:: static constexpr bool has_arm_neon
+
+    Specifies whether ARM NEON instructions are available on the target architecture.
+
+.. cpp:var:: static constexpr bool has_x86_32
+
+    Specifies whether the target architecture is x86, 32 bit.
+
+.. cpp:var:: static constexpr bool has_x86_64
+
+    Specifies whether the target architecture is x86, 64 bit.
+
+.. cpp:var:: static constexpr bool has_aarch64
+
+    Specifies whether the target architecture is aarch64.
 
 .. cpp:var:: static constexpr size_t max_packet_size
 
@@ -1003,6 +1019,8 @@ Horizontal operations
 Transcendental functions
 ------------------------
 
+.. _transcendental-accuracy:
+
 Accuracy of transcendental function approximations
 **************************************************
 
@@ -1688,7 +1706,9 @@ Operations for dynamic arrays
 .. cpp:function:: template <typename DArray> void set_slices(DArray &a, size_t size)
 
     Resize the given dynamic array or data structure so that there is space for
-    ``size`` slices.
+    ``size`` slices. Old values are preserved if the array is enlarged.
+
+.. _type-traits:
 
 Type traits
 -----------

@@ -161,29 +161,36 @@ ENOKI_TEST(array_uint32_04_concat) { test_concat<uint32_t>(); }
 ENOKI_TEST(array_double_04_concat) { test_concat<double>(); }
 ENOKI_TEST(array_uint64_t_04_concat) { test_concat<uint64_t>(); }
 
-template <typename Type_, size_t Size_>
-struct Vector : enoki::StaticArrayImpl<Type_, Size_, enoki::detail::approx_default<Type_>::value,
-                                       RoundingMode::Default,
-                                       Vector<Type_, Size_>> {
+template <typename Type, size_t Size>
+struct Vector : enoki::StaticArrayImpl<Type, Size, detail::approx_default<Type>::value,
+                                       RoundingMode::Default, Vector<Type, Size>> {
 
-    using Base = enoki::StaticArrayImpl<Type_, Size_, enoki::detail::approx_default<Type_>::value,
-                                        RoundingMode::Default,
-                                        Vector<Type_, Size_>>;
+    static constexpr bool Approx = detail::approx_default<Type>::value;
 
-    ENOKI_DECLARE_CUSTOM_ARRAY(Base, Vector)
+    using Base = enoki::StaticArrayImpl<Type, Size, Approx, RoundingMode::Default,
+                                        Vector<Type, Size>>;
+
+    using ArrayType = Vector;
+    using MaskType = Mask<Type, Size, Approx, RoundingMode::Default>;
+
+    ENOKI_DECLARE_ARRAY(Base, Vector)
 
     /// Helper alias used to transition between vector types (used by enoki::vectorize)
-    template <typename T> using ReplaceType = Vector<T, Size_>;
+    template <typename T> using ReplaceType = Vector<T, Size>;
 };
 
 
 template <typename T> void test_bcast() {
-    using ArrayP = Array<T, 4>;
+    using Packet = enoki::Packet<T, 4>;
     using Vector4 = Vector<T, 4>;
-    using Vector4P = Vector<ArrayP, 4>;
+    using Vector4P = Vector<Packet, 4>;
 
     assert(hsum(Vector4P(Vector4(T(1), T(2), T(3), T(4)))) == Vector4(T(10), T(10), T(10), T(10)));
-    assert(hsum(Vector4P(ArrayP(T(1), T(2), T(3), T(4)))) == Vector4(T(4), T(8), T(12), T(16)));
+    assert(hsum(Vector4P(Packet(T(1), T(2), T(3), T(4)))) == Vector4(T(4), T(8), T(12), T(16)));
+
+    using Array4s = Array<size_t, 4>;
+    assert(count(mask_t<Vector4P>(Vector4(T(1), T(2), T(3), T(4)) < value_t<T>(3))) == Array4s(2u, 2u, 2u, 2u));
+    assert(count(mask_t<Vector4P>(Packet(T(1), T(2), T(3), T(4)) < value_t<T>(3))) == Array4s(4u, 4u, 0u, 0u));
 }
 
 ENOKI_TEST(array_float_04_bcast) { test_bcast<float>(); }

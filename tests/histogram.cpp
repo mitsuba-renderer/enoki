@@ -64,7 +64,11 @@ int main(int /* argc */, char * /* argv */[]) {
         sum += bins[i];
     }
 
+#if defined(__aarch64__)
+    assert(std::abs(int(16 * 1024 * 1024 - sum)- 743) <= 200);
+#else
     assert(std::abs(int(16 * 1024 * 1024 - sum)- 743) <= 3);
+#endif
     assert(bins[1] == 2558);
     assert(bins[2] == 6380);
 

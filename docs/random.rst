@@ -138,6 +138,11 @@ Methods
     Generate a uniformly distributed unsigned 32-bit random number (i.e.
     :math:`x`, where :math:`0\le x< 2^{32}`)
 
+.. cpp:function:: UInt64 next_uint64()
+
+    Generate a uniformly distributed unsigned 64-bit random number (i.e.
+    :math:`x`, where :math:`0\le x< 2^{64}`)
+
 .. cpp:function:: UInt32 next_uint32(uint32_t bound)
 
     Generate a uniformly distributed unsigned 32-bit random number less

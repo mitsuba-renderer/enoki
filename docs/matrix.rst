@@ -51,7 +51,7 @@ coordinate "look-at" camera matrix and its inverse:
         /* The following two statements efficiently compute
            the inverse. Alternatively, we could have written
 
-            Matrix4f inverse = invert(result);
+            Matrix4f inverse = inverse(result);
         */
         Matrix4f inverse = Matrix4f::from_rows(
             concat(left, 0.f),
@@ -84,7 +84,7 @@ following example shows how to compute the inverse of a matrix array.
     // Invert all matrices
     vectorize(
         [](auto &&m) {
-            m = invert(MatrixP(m));
+            m = inverse(MatrixP(m));
         },
         matrices
     );
@@ -202,7 +202,7 @@ Supported operations
 
 .. cpp:function:: template <typename T, size_t Size> Matrix<T, Size> inverse(Matrix<T, Size> m)
 
-    Computes the inverse of ``m`` using an efficient vectorized form of
+    Computes the inverse of ``m`` using an branchless vectorized form of
     Cramer's rule.
 
     .. warning::
@@ -213,7 +213,7 @@ Supported operations
 
 .. cpp:function:: template <typename T, size_t Size> Matrix<T, Size> inverse_transpose(Matrix<T, Size> m)
 
-    Computes the inverse transpose of ``m`` using an efficient vectorized form
+    Computes the inverse transpose of ``m`` using an branchless vectorized form
     of Cramer's rule. (This function is more efficient than ``transpose(inverse(m))``)
 
     .. warning::

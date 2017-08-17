@@ -50,7 +50,7 @@ ENOKI_INLINE int64x2_t vmvnq_s64(int64x2_t a) {
 template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
     StaticArrayImpl<float, 4, Approx, RoundingMode::Default, Derived>
     : StaticArrayBase<float, 4, Approx, RoundingMode::Default, Derived> {
-    ENOKI_NATIVE_ARRAY_CLASSIC(float, 4, Approx, float32x4_t)
+    ENOKI_NATIVE_ARRAY(float, 4, Approx, float32x4_t, RoundingMode::Default)
 
     // -----------------------------------------------------------------------
     //! @{ \name Value constructors
@@ -274,7 +274,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
 template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
     StaticArrayImpl<double, 2, Approx, RoundingMode::Default, Derived>
     : StaticArrayBase<double, 2, Approx, RoundingMode::Default, Derived> {
-    ENOKI_NATIVE_ARRAY_CLASSIC(double, 2, Approx, float64x2_t)
+    ENOKI_NATIVE_ARRAY(double, 2, Approx, float64x2_t, RoundingMode::Default)
 
     // -----------------------------------------------------------------------
     //! @{ \name Value constructors
@@ -460,7 +460,7 @@ template <typename Value_, typename Derived>
 struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
                                                    Derived, detail::is_int32_t<Value_>>
     : StaticArrayBase<Value_, 4, false, RoundingMode::Default, Derived> {
-    ENOKI_NATIVE_ARRAY_CLASSIC(Value_, 4, false, uint32x4_t)
+    ENOKI_NATIVE_ARRAY(Value_, 4, false, uint32x4_t, RoundingMode::Default)
 
     // -----------------------------------------------------------------------
     //! @{ \name Value constructors
@@ -779,7 +779,7 @@ template <typename Value_, typename Derived>
 struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMode::Default,
                                                    Derived, detail::is_int64_t<Value_>>
     : StaticArrayBase<Value_, 2, false, RoundingMode::Default, Derived> {
-    ENOKI_NATIVE_ARRAY_CLASSIC(Value_, 2, false, uint64x2_t)
+    ENOKI_NATIVE_ARRAY(Value_, 2, false, uint64x2_t, RoundingMode::Default)
 
     // -----------------------------------------------------------------------
     //! @{ \name Value constructors
@@ -1033,7 +1033,6 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
     StaticArrayImpl<float, 3, Approx, RoundingMode::Default, Derived>
     : StaticArrayImpl<float, 4, Approx, RoundingMode::Default, Derived> {
     using Base = StaticArrayImpl<float, 4, Approx, RoundingMode::Default, Derived>;
-    using Mask = detail::ArrayMask<float, 3, Approx, RoundingMode::Default>;
 
     using typename Base::Value;
     using Arg = const Base &;
@@ -1127,7 +1126,6 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
     StaticArrayImpl<Value_, 3, false, RoundingMode::Default, Derived,detail::is_int32_t<Value_>>
     : StaticArrayImpl<Value_, 4, false, RoundingMode::Default, Derived> {
     using Base = StaticArrayImpl<Value_, 4, false, RoundingMode::Default, Derived>;
-    using Mask = detail::ArrayMask<Value_, 3, false, RoundingMode::Default>;
 
     using typename Base::Value;
     using Arg = const Base &;

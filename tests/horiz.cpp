@@ -82,8 +82,8 @@ ENOKI_TEST_ALL(test05_all) {
         }
     );
 
-    assert(all(typename T::Mask(true)));
-    assert(!all(typename T::Mask(false)));
+    assert(all(mask_t<T>(true)));
+    assert(!all(mask_t<T>(false)));
 }
 
 ENOKI_TEST_ALL(test06_none) {
@@ -99,8 +99,8 @@ ENOKI_TEST_ALL(test06_none) {
         }
     );
 
-    assert(!none(typename T::Mask(true)));
-    assert(none(typename T::Mask(false)));
+    assert(!none(mask_t<T>(true)));
+    assert(none(mask_t<T>(false)));
 }
 
 ENOKI_TEST_ALL(test07_any) {
@@ -115,8 +115,8 @@ ENOKI_TEST_ALL(test07_any) {
             return Value(result ? 1 : 0);
         }
     );
-    assert(any(typename T::Mask(true)));
-    assert(!any(typename T::Mask(false)));
+    assert(any(mask_t<T>(true)));
+    assert(!any(mask_t<T>(false)));
 }
 
 ENOKI_TEST_ALL(test08_count) {
@@ -131,8 +131,8 @@ ENOKI_TEST_ALL(test08_count) {
             return Value(result);
         }
     );
-    assert(Size == count(typename T::Mask(true)));
-    assert(0 == count(typename T::Mask(false)));
+    assert(Size == count(mask_t<T>(true)));
+    assert(0 == count(mask_t<T>(false)));
 }
 
 

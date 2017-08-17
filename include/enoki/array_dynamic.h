@@ -75,7 +75,7 @@ template <typename T> struct struct_support<T, enable_if_static_array_t<T>> {
 
     template <typename Mem, typename T2, typename Mask, enable_if_not_array_t<Mem> = 0>
     static ENOKI_INLINE size_t compress(Mem &mem, const T2& value, const Mask &mask) {
-        return value.compress_(mem, mask);
+        return value.compress_(mem, reinterpret_array<mask_t<T2>>(mask));
     }
 
     template <typename T2, typename Mask>
@@ -159,7 +159,7 @@ struct DynamicArrayBase : ArrayBase<value_t<Packet_>, Derived_> {
 template <typename Packet>
 struct DynamicArrayReference : DynamicArrayBase<Packet, DynamicArrayReference<Packet>> {
     using Base = DynamicArrayBase<Packet, DynamicArrayReference<Packet>>;
-    using Mask = DynamicArrayReference<mask_t<Packet>>;
+    using MaskType = DynamicArrayReference<mask_t<Packet>>;
 
     DynamicArrayReference(Packet *packets) : m_packets(packets) { }
 
@@ -194,7 +194,7 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     using Base::PacketSize;
     using Base::IsMask;
 
-    using Mask = DynamicArray<mask_t<Packet_>>;
+    using MaskType = DynamicArray<mask_t<Packet_>>;
 
     //! @}
     // -----------------------------------------------------------------------
@@ -370,12 +370,12 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     ENOKI_UNARY_OPERATION(not, Derived, ~a);
     ENOKI_UNARY_OPERATION(neg, Derived, -a);
 
-    ENOKI_BINARY_OPERATION(eq,  Mask,  eq(a1, a2))
-    ENOKI_BINARY_OPERATION(neq, Mask, neq(a1, a2))
-    ENOKI_BINARY_OPERATION(gt,  Mask, a1 > a2)
-    ENOKI_BINARY_OPERATION(ge,  Mask, a1 >= a2)
-    ENOKI_BINARY_OPERATION(lt,  Mask, a1 < a2)
-    ENOKI_BINARY_OPERATION(le,  Mask, a1 <= a2)
+    ENOKI_BINARY_OPERATION(eq,  MaskType,  eq(a1, a2))
+    ENOKI_BINARY_OPERATION(neq, MaskType, neq(a1, a2))
+    ENOKI_BINARY_OPERATION(gt,  MaskType, a1 > a2)
+    ENOKI_BINARY_OPERATION(ge,  MaskType, a1 >= a2)
+    ENOKI_BINARY_OPERATION(lt,  MaskType, a1 < a2)
+    ENOKI_BINARY_OPERATION(le,  MaskType, a1 <= a2)
 
     ENOKI_TERNARY_OPERATION(fmadd,    Derived, fmadd(a1, a2, a3))
     ENOKI_TERNARY_OPERATION(fmsub,    Derived, fmsub(a1, a2, a3))
@@ -397,9 +397,9 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     ENOKI_UNARY_OPERATION(rsqrt, Derived, rsqrt(a));
     ENOKI_UNARY_OPERATION(rcp,   Derived, rcp(a));
 
-    ENOKI_UNARY_OPERATION(isnan,    Mask, isnan(a));
-    ENOKI_UNARY_OPERATION(isinf,    Mask, isinf(a));
-    ENOKI_UNARY_OPERATION(isfinite, Mask, isfinite(a));
+    ENOKI_UNARY_OPERATION(isnan,    MaskType, isnan(a));
+    ENOKI_UNARY_OPERATION(isinf,    MaskType, isinf(a));
+    ENOKI_UNARY_OPERATION(isfinite, MaskType, isfinite(a));
 
     ENOKI_UNARY_OPERATION(exp,   Derived, exp(a));
     ENOKI_UNARY_OPERATION(log,   Derived, log(a));
@@ -444,7 +444,7 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     #undef ENOKI_TERNARY_OPERATION
     #undef ENOKI_MASKED_OPERATION
 
-    static Derived select_(const Mask &mask, const Derived &t, const Derived &f) {
+    static Derived select_(const MaskType &mask, const Derived &t, const Derived &f) {
         Derived result;
         result.resize_(std::max(std::max(slices(mask), t.m_size), f.m_size));
         size_t i1_inc = slices(mask) == 1 ? 0 : 1,

@@ -112,10 +112,9 @@ to the ``Value`` type, and it works for both scalar and vector arguments.
     template <typename Value>
     Value distance(const GPSCoord2<Value> &r1, const GPSCoord2<Value> &r2) {
         using Scalar = scalar_t<Value>;
-
         const Value deg_to_rad = Scalar(M_PI / 180.0);
 
-        auto sin_diff_h = sin(deg_to_rad * Scalar(.5) * (r2.pos - r1.pos));
+        auto sin_diff_h = sin(deg_to_rad * .5f * (r2.pos - r1.pos));
         sin_diff_h *= sin_diff_h;
 
         Value a = sin_diff_h.x() + sin_diff_h.y() *
@@ -124,8 +123,8 @@ to the ``Value`` type, and it works for both scalar and vector arguments.
 
         return select(
             r1.reliable & r2.reliable,
-            Scalar(6371.0 * 2.0) * atan2(sqrt(a), sqrt(Scalar(1.0) - a)),
-            Value(std::numeric_limits<Scalar>::quiet_NaN())
+            (6371.f * 2.f) * atan2(sqrt(a), sqrt(1.f - a)),
+            std::numeric_limits<Scalar>::quiet_NaN()
         );
     }
 
@@ -142,15 +141,15 @@ Note how the overall structure is preserved. There are two noteworthy changes:
    .. code-block:: cpp
 
        if (ENOKI_UNLIKELY(none(r1.reliable & r2.reliable)))
-           return Value(std::numeric_limits<Scalar>::quiet_NaN())
+           return std::numeric_limits<Scalar>::quiet_NaN()
 
    The :c:macro:`ENOKI_UNLIKELY` macro signals that the branch is rarely taken,
    which can be used for improved code layout if supported by the compiler.
 
 2. The :cpp:type:`enoki::scalar_t` type alias on line 4 is used to extract the
    elementary arithmetic type underlying an Enoki array---this results in the
-   type ``float`` in our example, which is used to cast various constants to
-   the right precision.
+   type ``float`` in our example, which is used to cast a constant to the right
+   precision.
 
    It is sometimes useful to be able to work with a higher precision. Our
    templated ``distance`` function can nicely accommodate this need simply by simply
@@ -163,5 +162,5 @@ Note how the overall structure is preserved. There are two noteworthy changes:
        using GPSCoord2dP  = GPSCoord2<DoubleP>;
 
    The ``distance`` function requires no changes. When working with double
-   precision GPS records, all constants used in the algorithm automatically
-   adapt to the higher precision due to the casts to the ``Scalar`` type.
+   precision GPS records, the ``deg_to_rad`` constant algorithm automatically
+   adapts to the higher precision due to the cast to the ``Scalar`` type.

@@ -20,7 +20,7 @@ NAMESPACE_BEGIN(enoki)
 
 /// Evaluates a series of Chebyshev polynomials at argument x/2.
 template <typename T, typename T2, size_t Size,
-          typename Expr = expr_t<T>> Expr chbevl(T x, T2 (&coeffs)[Size]) {
+          typename Expr = expr_t<T>> Expr chbevl(const T &x, T2 (&coeffs)[Size]) {
     using Scalar = scalar_t<Expr>;
 
     Expr b0 = Scalar(coeffs[0]);
@@ -36,23 +36,20 @@ template <typename T, typename T2, size_t Size,
     return (b0 - b2) * Scalar(0.5f);
 }
 
-template <typename T, enable_if_not_array_t<T> = 0> T erf(T x) {
+template <typename T, enable_if_not_array_t<T> = 0> T erf(const T &x) {
     return std::erf(x);
 }
 
 
-template <typename T, enable_if_not_array_t<T> = 0> T erfc(T x) {
+template <typename T, enable_if_not_array_t<T> = 0> T erfc(const T &x) {
     return std::erfc(x);
 }
 
-template <typename T, bool Recurse = true, typename Expr = expr_t<T>, enable_if_array_t<T> = 0> Expr erfc(T x);
-template <typename T, bool Recurse = true, typename Expr = expr_t<T>, enable_if_array_t<T> = 0> Expr erf(T x);
+template <typename T, bool Recurse = true, typename Expr = expr_t<T>, enable_if_array_t<T> = 0> Expr erfc(const T &x);
+template <typename T, bool Recurse = true, typename Expr = expr_t<T>, enable_if_array_t<T> = 0> Expr erf(const T &x);
 
 template <typename T, bool Recurse, typename Expr, enable_if_array_t<T>>
-#if !defined(_MSC_VER)
-  ENOKI_INLINE
-#endif
-Expr erfc(T x) {
+Expr erfc(const T &x) {
     constexpr bool Single = std::is_same<scalar_t<T>, float>::value;
     using Scalar = scalar_t<T>;
 
@@ -128,10 +125,7 @@ Expr erfc(T x) {
 }
 
 template <typename T, bool Recurse, typename Expr, enable_if_array_t<T>>
-#if !defined(_MSC_VER)
-  ENOKI_INLINE
-#endif
-Expr erf(T x) {
+Expr erf(const T &x) {
     constexpr bool Single = std::is_same<scalar_t<T>, float>::value;
     using Scalar = scalar_t<T>;
 
@@ -168,7 +162,7 @@ Expr erf(T x) {
 
 // Inverse real error function approximation based on on "Approximating the
 // erfinv function" by Mark Giles
-template <typename T, typename Expr = expr_t<T>> Expr erfinv(T x_) {
+template <typename T, typename Expr = expr_t<T>> Expr erfinv(const T &x_) {
     using Scalar = scalar_t<T>;
 
     Expr x(x_);
@@ -195,7 +189,7 @@ template <typename T, typename Expr = expr_t<T>> Expr erfinv(T x_) {
 }
 
 /// Evaluates Dawson's integral (e^(-x^2) \int_0^x e^(y^2) dy)
-template <typename T, typename Expr = expr_t<T>> Expr dawson(T x) {
+template <typename T, typename Expr = expr_t<T>> Expr dawson(const T &x) {
     // Rational minimax approximation to Dawson's integral with relative
     // error < 1e-6 on the real number line. July 2017, Wenzel Jakob
 
@@ -214,14 +208,14 @@ template <typename T, typename Expr = expr_t<T>> Expr dawson(T x) {
 }
 
 /// Imaginary component of the error function
-template <typename T, typename Expr = expr_t<T>> Expr erfi(T x) {
+template <typename T, typename Expr = expr_t<T>> Expr erfi(const T &x) {
     using Scalar = scalar_t<T>;
 
     return Scalar(M_2_SQRTPI) * dawson(x) * exp(x*x);
 }
 
 /// Modified Bessel function of the first kind, order zero (exponentially scaled)
-template <typename T, typename Expr = expr_t<T>> Expr i0e(T x) {
+template <typename T, typename Expr = expr_t<T>> Expr i0e(const T &x_) {
     using Scalar = scalar_t<T>;
 
     /* Chebyshev coefficients for exp(-x) I0(x)
@@ -257,7 +251,7 @@ template <typename T, typename Expr = expr_t<T>> Expr i0e(T x) {
     };
 
 
-    x = abs(x);
+    Expr x = abs(x_);
 
     auto mask_big = x > Scalar(8);
 

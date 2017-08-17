@@ -17,7 +17,7 @@
 
 NAMESPACE_BEGIN(enoki)
 
-#if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) || defined(_M_IX86)
+#if defined(ENOKI_X86_64) || defined(ENOKI_X86_32)
 /// RAII wrapper that saves and restores the FP Control/Status Register
 template <RoundingMode Mode> struct set_rounding_mode {
     set_rounding_mode() : value(_mm_getcsr()) {

@@ -42,7 +42,18 @@ For instance, the snippet
     std::cout << x + y << std::endl;
 
 is valid because ``Array::operator+()`` can carry out the addition by invoking
-``std::string::operator+()`` (this would not compile if ``std::array`` was used).
+``std::string::operator+()`` (this would not compile if ``std::array`` was used,
+since it has no such semantics).
+
+Enoki arrays also have support for a convenient feature that is commonly known
+as *broadcasting*---in this simple example, broadcasting is triggered if we add
+a raw string corresponding to an array of dimension zero. Fancier applications
+of broadcasting are discussed later.
+
+.. code-block:: cpp
+
+    // Prints: "[Hello you,  How are you]"
+    std::cout << x + "you" << std::endl;
 
 The real use case of Enoki arrays, however, involves packed arrays of integer
 or floating point values, for which arithmetic operations can often be reduced
@@ -58,10 +69,10 @@ overloads for single precision arrays look as follows:
     :width: 500px
     :align: center
 
-Altogether, Enoki currently currently supports the SSE4.2, AVX, AVX2, and
-AVX512 instruction sets and vectorizes arithmetic involving single and double
-precision floating point values as well as signed and unsigned 32-bit and
-64-bit integers.
+Altogether, Enoki currently currently supports the ARM NEON, SSE4.2, AVX, AVX2,
+and AVX512 instruction sets and vectorizes arithmetic involving single and
+double precision floating point values as well as signed and unsigned 32-bit
+and 64-bit integers.
 
 It is worth pointing out that that :cpp:class:`enoki::Array` does *not* require
 ``Size`` to exactly match what is supported by the hardware to benefit from
@@ -94,11 +105,17 @@ define a new type named ``MyFloat``:
 
 Most of the parameters can be omitted: if ``Size`` is not specified, the
 implementation chooses the largest value that is natively supported by the
-target hardware. The ``Approx`` and ``Mode`` template parameters only make
-sense when dealing with floating point types. In that case, approximate math is
-activated by default. The default rounding mode :any:`RoundingMode::Default`
-means that the library won't interfere with the hardware's currently selected
-rounding mode.
+target hardware. The ``Approx`` parameter specifies whether Enoki's vectorized
+math library should be used for transcendental function evaluations such as
+``exp()``, ``cos()``, as opposed to serializing those evaluations through the
+standard C math library.
+
+The vectorized math library is slightly more approximate, though this is
+generally negligible (the average relative error is < 1 ULP for most
+functions---see the :ref:`reference <transcendental-accuracy>` for details.
+The default rounding mode :any:`RoundingMode::Default` means that the library
+won't interfere with the hardware's currently selected rounding mode. Note that
+the last two parameters only make sense when dealing with floating point types.
 
 Initializing, reading, and writing data
 ---------------------------------------
@@ -244,10 +261,11 @@ that they are independently applied to all array elements.
     /* Fused multiply-add/subtract */
     f1 = fmadd(f1, f2, f3); /* f1 * f2 + f3 */
     f1 = fmsub(f1, f2, f3); /* f1 * f2 - f3 */
+    f1 = fnmadd(f1, f2, f3); /* -f1 * f2 + f3 */
+    f1 = fnmsub(f1, f2, f3); /* -f1 * f2 - f3 */
 
     /* Efficient reciprocal and reciprocal square root */
-    f1 = rcp(f1);
-    f1 = rsqrt(f1);
+    f1 = rcp(f1); f1 = rsqrt(f1);
 
     /* Trigonometric and inverse trigonometric functions */
     f2 = sin(f1);   f2 = cos(f1);    f2 = tan(f1);
@@ -264,8 +282,6 @@ that they are independently applied to all array elements.
 
     /* Exponential function, natural logarithm, power function */
     f2 = exp(f1);   f2 = log(f1);   f2 = pow(f1, f2);
-
-    /* Error function and its inverse */
 
     /* Exponent/mantissa manipulation */
     f1 = ldexp(f1, f2);
@@ -385,7 +401,8 @@ with an array, which permits replacing the ``auto`` statement above.
 
     mask_t<MyFloat> mask = f1 > 1;
 
-As with floating point values, there are also horizontal operations for masks:
+A list of type traits is available in the :ref:`reference <type-traits>`. As
+with floating point values, there are also horizontal operations for masks:
 
 .. code-block:: cpp
 
@@ -403,11 +420,12 @@ As with floating point values, there are also horizontal operations for masks:
 
 .. note::
 
-    Following the principle of least surprise, :cpp:func:`enoki::operator==`
-    and :cpp:func:`enoki::operator!=` are horizontal operations that return a
-    boolean value; vertical alternatives named :cpp:func:`eq` and
-    :cpp:func:`neq()` are also available. The following pairs of operations are
-    equivalent:
+    *The special case of the equality and inequality comparison operators*:
+    following the principle of least surprise, :cpp:func:`enoki::operator==`
+    and :cpp:func:`enoki::operator!=` return a boolean value (i.e. they
+    internally perform a horizontal reduction). *Vertical* comparison operators
+    named :cpp:func:`eq` and :cpp:func:`neq()` are also available. The
+    following pairs of operations are equivalent:
 
     .. code-block:: cpp
 
@@ -449,9 +467,11 @@ Because information of dimension 3 occurs frequently (spatial coordinates,
 color information, ...) and generally also benefits very slightly from
 vectorization, Enoki represents 3-vectors in packed arrays of size 4, leaving
 the last component unused. Any vertical operations are applied to the entire
-array including the fourth component, while horizontal operations ignore the
-last component. An efficient cross product operation realized using shuffles is
-available for 3-vectors:
+array including the fourth component, while horizontal operations skip the
+last component.
+
+An efficient cross product operation realized using shuffles is available for
+3-vectors:
 
 .. code-block:: cpp
 

@@ -130,13 +130,13 @@ NAMESPACE_BEGIN(enoki)
     static constexpr bool has_sse42 = false;
 #endif
 
-#if ENOKI_X86_32
+#if defined(ENOKI_X86_32)
     static constexpr bool has_x86_32 = true;
 #else
     static constexpr bool has_x86_32 = false;
 #endif
 
-#if ENOKI_X86_64
+#if defined(ENOKI_X86_64)
     static constexpr bool has_x86_64 = true;
 #else
     static constexpr bool has_x86_64 = false;
@@ -170,9 +170,9 @@ template <typename... Args> struct expr;
 template <typename     Arg, typename SFINAE = int> struct value_;
 template <typename     Arg, typename SFINAE = int> struct scalar_;
 template <typename     Arg, typename SFINAE = int> struct mask_;
+template <typename     Arg, typename SFINAE = int> struct array_;
 template <typename     Arg, typename SFINAE = int> struct packet_;
 template <typename     Arg, typename SFINAE = int> struct array_shape_;
-struct KMaskBit;
 
 NAMESPACE_END(detail)
 
@@ -203,9 +203,7 @@ private:
 public:
     using T2 = std::decay_t<T>;
     using type = decltype(check((T2 *) nullptr));
-    static constexpr bool value = type::value ||
-        std::is_same<T2, bool>::value ||
-        std::is_same<T2, detail::KMaskBit>::value;
+    static constexpr bool value = type::value || std::is_same<T2, bool>::value;
 };
 
 /// SFINAE helper to test whether a class is a static array type
@@ -263,6 +261,7 @@ template <typename     Arg> using array_shape_t = typename detail::array_shape_<
 template <typename     Arg> using value_t       = typename detail::value_<Arg>::type;
 template <typename     Arg> using scalar_t      = typename detail::scalar_<Arg>::type;
 template <typename     Arg> using mask_t        = typename detail::mask_<Arg>::type;
+template <typename     Arg> using array_t       = typename detail::array_<Arg>::type;
 template <typename     Arg> using packet_t      = typename detail::packet_<Arg>::type;
 template <typename... Args> using expr_t        = typename detail::expr<Args...>::type;
 
@@ -317,7 +316,7 @@ private:
 public:
     using type = std::conditional_t<
         std::is_same<Entry, EntryExpr>::value,
-        Td, typename Td::template ReplaceType<EntryExpr>
+        Td, typename Td::Derived::template ReplaceType<EntryExpr>
     >;
 };
 
@@ -330,7 +329,7 @@ struct expr_n {
 private:
     using Value = expr_t<packet_t<Arg>, packet_t<Args>...>;
 public:
-    using type  = typename std::decay_t<Array>::template ReplaceType<Value>;
+    using type  = typename std::decay_t<Array>::Derived::template ReplaceType<Value>;
 };
 
 template <typename Arg, typename... Args>
@@ -352,7 +351,14 @@ template <typename Arg>     struct expr<Arg> : detail::expr_1<detail::extract_ar
 template <typename T, typename> struct mask_ { using type = bool; };
 
 template <typename T> struct mask_<T, enable_if_array_t<T>> {
-    using type = typename std::decay_t<T>::Mask;
+    using type = typename std::decay_t<T>::MaskType;
+};
+
+/// Value trait to access the array type underlying an array
+template <typename T, typename> struct array_ { /* Don't know */ };
+
+template <typename T> struct array_<T, enable_if_array_t<T>> {
+    using type = typename std::decay_t<T>::ArrayType;
 };
 
 /// Value trait to access the component type of an array
@@ -432,10 +438,10 @@ template <typename T, typename Value> struct like<T, Value, enable_if_not_array_
 
 template <typename T, typename Value> struct like<T, Value, enable_if_array_t<T>> {
 private:
-    using Array = typename std::decay_t<T>::Derived;
-    using Entry = like_t<packet_t<Array>, Value>;
+    using Td = typename std::decay_t<T>::Derived;
+    using Entry = like_t<packet_t<Td>, Value>;
 public:
-    using type = detail::copy_flags_t<T, typename Array::template ReplaceType<Entry>>;
+    using type = detail::copy_flags_t<T, typename Td::Derived::template ReplaceType<Entry>>;
 };
 
 /// Reinterpret the binary represesentation of a data type
@@ -612,7 +618,7 @@ ENOKI_INLINE uint32_t mulhi(uint32_t x, uint32_t y) {
 }
 
 ENOKI_INLINE uint64_t mulhi(uint64_t x, uint64_t y) {
-#if defined(_MSC_VER) && defined(_M_X64)
+#if defined(_MSC_VER) && defined(ENOKI_X86_64)
     return __umulh(x, y);
 #elif defined(__SIZEOF_INT128__)
     __uint128_t rl = (__uint128_t) x * (__uint128_t) y;
@@ -698,6 +704,7 @@ ENOKI_INLINE T xor_(T a, bool b) {
 }
 
 ENOKI_INLINE bool not_(bool a) { return !a; }
+ENOKI_INLINE bool andnot_(bool a, bool b) { return a & !b; }
 
 template <typename T1, typename T2, std::enable_if_t<supports_bit_op<T1, T2>::value, int> = 0>
 ENOKI_INLINE auto or_(const T1 &a, const T2 &b) { return a | b; }
@@ -840,7 +847,7 @@ ENOKI_INLINE __m128i mm256_cvtepi64_epi32(__m128i x0, __m128i x1) {
 }
 
 ENOKI_INLINE __m128i mm_cvtsi64_si128(long long a)  {
-    #if defined(__x86_64__) || defined(_M_X64)
+    #if defined(ENOKI_X86_64)
         return _mm_cvtsi64_si128(a);
     #else
         alignas(16) long long x[2] = { a, 0ll };
@@ -849,7 +856,7 @@ ENOKI_INLINE __m128i mm_cvtsi64_si128(long long a)  {
 }
 
 ENOKI_INLINE long long mm_cvtsi128_si64(__m128i m)  {
-    #if defined(__x86_64__) || defined(_M_X64)
+    #if defined(ENOKI_X86_64)
         return _mm_cvtsi128_si64(m);
     #else
         alignas(16) long long x[2];
@@ -860,7 +867,7 @@ ENOKI_INLINE long long mm_cvtsi128_si64(__m128i m)  {
 
 template <int Imm8>
 ENOKI_INLINE long long mm_extract_epi64(__m128i m)  {
-    #if defined(__x86_64__) || defined(_M_X64)
+    #if defined(ENOKI_X86_64)
         return _mm_extract_epi64(m, Imm8);
     #else
         alignas(16) long long x[2];
@@ -884,6 +891,11 @@ ENOKI_INLINE Array *alloca_helper(uint8_t *ptr, size_t size, bool clear) {
 }
 
 NAMESPACE_END(detail)
+
+template <typename Packet, typename Storage> struct call_support {
+    call_support(const Storage &) { }
+};
+
 
 // -----------------------------------------------------------------------
 //! @{ \name Memory allocation (stack)

@@ -28,14 +28,15 @@ template <typename T> using entry_t = typename std::decay_t<T>::Entry;
  * \remark Uses column-major storage order to permit efficient vectorization
  */
 template <typename Value_, size_t Size_, bool Approx_ = detail::approx_default<Value_>::value>
-struct Matrix
-    : StaticArrayImpl<Array<Value_, Size_, Approx_>, Size_, Approx_,
-                      RoundingMode::Default, Matrix<Value_, Size_, Approx_>> {
+struct Matrix : StaticArrayImpl<Array<Value_, Size_, Approx_>, Size_, Approx_,
+                                RoundingMode::Default, Matrix<Value_, Size_, Approx_>> {
 
     using Column = Array<Value_, Size_, Approx_>;
 
     using Base = StaticArrayImpl<Column, Size_, Approx_, RoundingMode::Default,
                                  Matrix<Value_, Size_, Approx_>>;
+    using ArrayType = Matrix;
+    using MaskType = Mask<Column, Size_, Approx_, RoundingMode::Default>;
 
     using typename Base::Value;
     using typename Base::Scalar;
@@ -47,7 +48,7 @@ struct Matrix
         detail::is_std_float<scalar_t<T>>::value ? T2::Approx
                                                  : detail::approx_default<T>::value>;
 
-    ENOKI_DECLARE_CUSTOM_ARRAY(Base, Matrix)
+    ENOKI_DECLARE_ARRAY(Base, Matrix)
 
     using Base::coeff;
     using Base::Size;
@@ -125,8 +126,6 @@ struct Matrix
 
     template <typename T>
     ENOKI_INLINE static Matrix fill_(const T &value) { return Array<Column, Size>::fill_(value); }
-
-    ENOKI_ALIGNED_OPERATOR_NEW()
 };
 
 

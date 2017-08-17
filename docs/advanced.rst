@@ -1,6 +1,9 @@
 Advanced topics
 ===============
 
+This section discusses a number of advanced operations and ways of extending
+Enoki.
+
 .. _compression:
 
 Compressing arrays
@@ -21,8 +24,8 @@ entries.
     Array<float, 16> input = ...;
     auto mask = input < 0;
 
-    float output[16];
-    size_t count = compress(output, input, mask);
+    float output[16], ptr = output;
+    size_t count = compress(ptr, input, mask);
     std::cout << count << " entries were written." << std::endl;
     ...
 
@@ -39,7 +42,7 @@ The :cpp:func:`slice_ptr` function is used to acquire a pointer to the
 beginning of the output array. It returns a value of type ``GPSRecord2<float
 *>``, which is composed of multiple pointers (one for each component). The
 following snippet illustrates how an arbitrarily long list of records can be
-decodeed:
+compressed:
 
 .. code-block:: cpp
 
@@ -250,40 +253,6 @@ computes :math:`\sum_{i=0}^{1000}i^2` using brute force addition (but with only
 
 The mask is necessary to communicate the fact that the last loop iteration has
 several disabled entries.
-
-.. _broadcasting:
-
-Broadcasting
-------------
-
-Enoki automatically performs broadcasting whenever an array is initialized from
-a lower-dimensional array, or when types of mixed dimension occur in an
-arithmetic expression.
-
-Given a broadcast from a lower-dimensional array ``L`` to a higher-dimensional
-array ``H``, the constructor proceeds recursively dimension by dimension. If
-the outermost sizes match, i.e. when ``H::Size == L::Size``, the components
-of ``H`` are initialized with the components of ``L``. Otherwise, the ``L``
-instance is copied to *all* components of ``H``. These steps trigger recursive
-constructor invocations. When the dimensions of the lower-dimensional array are
-finally exhausted (i.e. when ``L`` becomes a scalar), the remaining dimensions
-of ``H`` are filled with the current scalar value.
-
-For reference, the pseudocode for this broadcasting constructor roughly looks as follows:
-
-.. code-block:: cpp
-
-    Array::Array(const OtherArray &a) {
-        if (is_array<OtherArray>::value && Size == OtherArray::Size) {
-            /* Matched size on the outermost dimension: perform a component-by-component copy. */
-            for (size_t i = 0; i< Size; ++i)
-                (*this)[i] = a[i];
-        } else {
-            /* Mismatched size or scalar input -- broadcast to components */
-            for (size_t i = 0; i < Size; ++i)
-                (*this)[i] = a;
-        }
-    }
 
 .. _scatter-gather:
 
@@ -558,11 +527,17 @@ all regular Enoki operations.
                                             RoundingMode::Default,
                                             Spectrum<Value, Size>>;
 
-        /// Import constructors, assignment operators, etc.
-        ENOKI_DECLARE_CUSTOM_ARRAY(Base, Spectrum)
-
         /// Helper alias used to transition between vector types (used by enoki::vectorize)
         template <typename T> using ReplaceType = Spectrum<T, Size>;
+
+        /// Array type associated with this custom type (simply reference self)
+        using ArrayType = Spectrum;
+
+        /// Mask type associated with this custom type
+        using MaskType = enoki::Mask<Value, Size, true, RoundingMode::Default>;
+
+        /// Import constructors, assignment operators, etc.
+        ENOKI_DECLARE_ARRAY(Base, Spectrum)
     };
 
 The main reason for declaring custom arrays is to tag (and preserve) the type
@@ -574,78 +549,6 @@ following snippet is ``Spectrum<float, 8>`` rather than a generic
 
     Spectrum<float, 8> value = { ... };
     auto value2 = exp(-value);
-
-Custom array types also employ different broadcasting semantics: recall that the
-copy constructor of ordinary arrays detects input arrays with the same size at
-the outermost nesting level and performs a component-by-component copy in this
-case (see the section on :ref:`broadcasting rules <broadcasting>` for reference).
-For custom arrays, this behavior is disabled when the source array is an vanilla
-array type (i.e. ``enoki::Array<...>``).
-
-This is helpful when a custom array type size is vectorized with a SIMD base
-type of identical size, which can lead to certain ambiguous situations.
-Consider the following scalar code:
-
-.. code-block:: cpp
-    :emphasize-lines: 7
-
-    /// Spectrum with 4 samples
-    using Spectrum4f  = Spectrum<float, 4>;
-
-    float offset = /* ... */;
-    Spectrum4f spec = /* ... */;
-
-    spec += offset;
-
-There is no ambiguity: the addition operation shifts every component of
-``spec`` by ``offset``. Now, consider the vectorized version of the above code:
-
-.. code-block:: cpp
-    :emphasize-lines: 10
-
-    /// Packet type
-    using FloatP      = Array<float, 4>;
-
-    /// Vectorized spectrum with 4 samples and 4-wide SIMD
-    using Spectrum4fP = Spectrum<FloatP, 4>;
-
-    FloatP offset = /* ... */;
-    Spectrum4fP spec = /* ... */;
-
-    spec += offset; /// ???
-
-It is less clear what the addition operation should do, since the ``offset``
-array of shape ``[4]`` requires a broadcast to a ``[4,4]`` array to conform to
-``SpectrumP``.
-
-The default behavior of ``enoki::Array<...>`` would match up the single
-dimension of ``offset`` with the first dimension of ``spec``, which would
-effectively shift the :math:`i`-th spectral sample of all color spectra by
-``offset[i]``. However, for consistency with the scalar code, the addition
-should instead shift the :math:`i`-th spectrum by ``offset[i]``.
-
-Custom arrays override the broadcasting behavior so that the second case is
-triggered when mixing arrays of different "flavor":
-
-.. code-block:: cpp
-
-    auto s1 = Spectrum4fP(Spectrum4f(1, 2, 3, 4));
-    /* s1 contains 4 identical spectra with value [1, 2, 3, 4]
-
-        [1, 2, 3, 4]
-        [1, 2, 3, 4]
-        [1, 2, 3, 4]
-        [1, 2, 3, 4]
-    */
-
-    auto s2 = Spectrum4fP(FloatP(1, 2, 3, 4));
-    /* s2 contains 4 distinct spectra, which each have uniform sample values
-
-        [1, 1, 1, 1]
-        [2, 2, 2, 2]
-        [3, 3, 3, 3]
-        [4, 4, 4, 4]
-    */
 
 .. _platform-differences:
 
@@ -681,6 +584,9 @@ a partial list:
    On other platforms, this entails changing the rounding flags in the floating
    point control register, performing the operation, and reverting to the
    previous set of flags.
+
+5. Various operations that work with 64 bit registers aren't available
+   when Enoki is compiled on a 32-bit platform and must be emulated.
 
 Adding backends for new instruction sets
 ----------------------------------------

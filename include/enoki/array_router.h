@@ -332,42 +332,40 @@ ENOKI_INLINE auto select(const T1 &m, const T2 &t, const T3 &f) {
                   (detail::ref_cast_t<T3, Output>) f);
 }
 
-template <typename Target, typename Array,
-          std::enable_if_t<is_array<Target>::value &&
-                           !std::is_same<Array, Target>::value, int> = 0>
-ENOKI_INLINE Target reinterpret_array(const Array &a) {
-    return Target(a, detail::reinterpret_flag());
+template <typename Target, typename Source,
+          std::enable_if_t<std::is_same<Source, Target>::value, int> = 0>
+ENOKI_INLINE Target reinterpret_array(const Source &src) {
+    return src;
 }
 
-template <typename Target, typename Array,
-          std::enable_if_t<is_array<Target>::value &&
-                           std::is_same<Array, Target>::value, int> = 0>
-ENOKI_INLINE Target reinterpret_array(const Array &a) {
-    return a;
+template <typename Target, typename Source,
+          std::enable_if_t<!std::is_same<Source, Target>::value && is_array<Target>::value, int> = 0>
+ENOKI_INLINE Target reinterpret_array(const Source &src) {
+    return Target(src, detail::reinterpret_flag());
 }
 
-template <typename Target, typename Arg, enable_if_not_array_t<Target> = 0,
-          std::enable_if_t<sizeof(Arg) == sizeof(Target), int> = 0>
-ENOKI_INLINE Target reinterpret_array(const Arg &a) {
-    return memcpy_cast<Target>(a);
+template <typename Target, typename Source,
+          std::enable_if_t<!std::is_same<Source, Target>::value && !is_array<Target>::value &&
+                           sizeof(Source) != sizeof(Target) && !std::is_same<Target, bool>::value, int> = 0>
+ENOKI_INLINE Target reinterpret_array(const Source &src) {
+    using SrcInt = typename detail::type_chooser<sizeof(Source)>::Int;
+    using TrgInt = typename detail::type_chooser<sizeof(Target)>::Int;
+    return memcpy_cast<Target>(memcpy_cast<SrcInt>(src) != 0 ? TrgInt(-1) : TrgInt(0));
 }
 
-template <typename Target, typename Arg, enable_if_not_array_t<Target> = 0,
-          std::enable_if_t<sizeof(Arg) != sizeof(Target) &&
-                           std::is_same<Target, bool>::value, int> = 0>
-ENOKI_INLINE Target reinterpret_array(const Arg &a) {
-    using Int = typename detail::type_chooser<sizeof(Arg)>::Int;
-    return memcpy_cast<Int>(a) != 0;
+template <typename Target, typename Source,
+          std::enable_if_t<!std::is_same<Source, Target>::value && !is_array<Target>::value &&
+                           sizeof(Source) != sizeof(Target) && std::is_same<Target, bool>::value, int> = 0>
+ENOKI_INLINE Target reinterpret_array(const Source &src) {
+    using SrcInt = typename detail::type_chooser<sizeof(Source)>::Int;
+    return memcpy_cast<SrcInt>(src) != 0 ? true : false;
 }
 
-template <typename Target, typename Arg, enable_if_not_array_t<Target> = 0,
-          std::enable_if_t<sizeof(Arg) != sizeof(Target) &&
-          std::is_same<Arg, bool>::value, int> = 0>
-ENOKI_INLINE Target reinterpret_array(const Arg &a) {
-    using Scalar = scalar_t<Target>;
-    using Int = typename detail::type_chooser<sizeof(Scalar)>::Int;
-    Int value = a ? Int(-1) : Int(0);
-    return Target(memcpy_cast<Scalar>(value));
+template <typename Target, typename Source,
+          std::enable_if_t<!std::is_same<Source, Target>::value && !is_array<Target>::value &&
+                           sizeof(Source) == sizeof(Target), int> = 0>
+ENOKI_INLINE Target reinterpret_array(const Source &src) {
+    return memcpy_cast<Target>(src);
 }
 
 template <typename T1, typename T2,
@@ -806,7 +804,7 @@ ENOKI_INLINE T popcnt(T v) {
 #if defined(ENOKI_X86_SSE42)
     if (sizeof(T) <= 4)
         return (T) _mm_popcnt_u32((unsigned int) v);
-    #if defined(__x86_64__) || defined(_M_X64)
+    #if defined(ENOKI_X86_64)
         return (T) _mm_popcnt_u64((unsigned long long) v);
     #else
         unsigned long long v_ = (unsigned long long) v;
@@ -843,7 +841,7 @@ ENOKI_INLINE T lzcnt(T v) {
 #if defined(ENOKI_X86_AVX2)
     if (sizeof(T) <= 4)
         return (T) _lzcnt_u32((unsigned int) v);
-    #if defined(__x86_64__) || defined(_M_X64)
+    #if defined(ENOKI_X86_64)
         return (T) _lzcnt_u64((unsigned long long) v);
     #else
         unsigned long long v_ = (unsigned long long) v;
@@ -873,7 +871,7 @@ ENOKI_INLINE T tzcnt(T v) {
 #if defined(ENOKI_X86_AVX2)
     if (sizeof(T) <= 4)
         return (T) _tzcnt_u32((unsigned int) v);
-    #if defined(__x86_64__) || defined(_M_X64)
+    #if defined(ENOKI_X86_64)
         return (T) _tzcnt_u64((unsigned long long) v);
     #else
         unsigned long long v_ = (unsigned long long) v;

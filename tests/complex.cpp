@@ -116,7 +116,7 @@ ENOKI_TEST(test17_complex_asinh_acosh_atanh) {
     assert(abs(atanh(Cf(1, 2)) - Cf(0.173287, 1.1781)) < 1e-5);
 }
 
-using FloatP = Array<float>;
+using FloatP = Packet<float>;
 using FloatX = DynamicArray<FloatP>;
 using Quaternion4f = Quaternion<float>;
 using Quaternion4X = Quaternion<FloatX>;

@@ -28,7 +28,9 @@
 
 #include "array_idiv.h"
 
-#include "array_recursive.h"
+#if defined(ENOKI_ARM_NEON) || defined(ENOKI_X86_SSE42)
+#  include "array_recursive.h"
+#endif
 
 #if defined(ENOKI_ARM_NEON)
 #  include "array_neon.h"

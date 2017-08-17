@@ -146,6 +146,9 @@
 #  if defined(__AVX__)
 #    define ENOKI_X86_AVX 1
 #  endif
+#  if defined(__SSE4_2__)
+#    define ENOKI_X86_SSE42 1
+#  endif
 #  if defined(__ARM_NEON)
 #    define ENOKI_ARM_NEON
 #  endif
@@ -171,7 +174,6 @@
 #if defined(ENOKI_X86_AVX) && !defined(ENOKI_X86_SSE42)
 #  define ENOKI_X86_SSE42
 #endif
-
 
 /* The following macro is used by the test suite to detect
    unimplemented methods in vectorized backends */
@@ -269,13 +271,22 @@ template <typename Value> struct DynamicArray;
 
 struct half;
 
-/// Array type
-template <typename Value,
-          size_t Size = (max_packet_size / sizeof(Value) > 1)
-                       ? max_packet_size / sizeof(Value) : 1,
-          bool Approx = detail::approx_default<Value>::value,
-          RoundingMode Mode = RoundingMode::Default>
+template <typename Value_,
+          size_t Size_ = (max_packet_size / sizeof(Value_) > 1)
+                        ? max_packet_size / sizeof(Value_) : 1,
+          bool Approx_ = detail::approx_default<Value_>::value,
+          RoundingMode Mode_ = RoundingMode::Default>
 struct Array;
+
+template <typename Value_,
+          size_t Size_ = (max_packet_size / sizeof(Value_) > 1)
+                        ? max_packet_size / sizeof(Value_) : 1,
+          bool Approx_ = detail::approx_default<Value_>::value,
+          RoundingMode Mode_ = RoundingMode::Default>
+struct Packet;
+
+template <typename Value, size_t Size, bool Approx = false, RoundingMode Mode = RoundingMode::Default> struct Mask;
+template <typename Value, size_t Size, bool Approx = false, RoundingMode Mode = RoundingMode::Default> struct PacketMask;
 
 //! @}
 // -----------------------------------------------------------------------
