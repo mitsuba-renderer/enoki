@@ -70,10 +70,11 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
         : m(detail::concat(_mm512_cvt_roundepu64_ps(low(a).m, (int) Mode),
                            _mm512_cvt_roundepu64_ps(high(a).m, (int) Mode))) { }
 #elif defined(ENOKI_X86_AVX512CD)
-    ENOKI_CONVERT(uint64_t) {
-        /* Emulate uint64_t -> float conversion instead of falling
-           back to scalar operations. This is quite a bit faster. */
+    /* Emulate uint64_t -> float conversion instead of falling
+       back to scalar operations. This is quite a bit faster
+       (>6x for unsigned, >5x for signed). */
 
+    ENOKI_CONVERT(uint64_t) {
         auto lz = lzcnt(a);
         auto nzero = neq(a, uint64_t(0));
 
@@ -84,7 +85,26 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
         );
 
         auto exp = sli<23>(uint64_t(127 + 63) - lz);
-        auto comb = exp | (mant & 0b0'00000000'11111111111111111111111ull);
+        auto comb = exp | (mant & 0x7fffffull);
+
+        m = reinterpret_array<Derived>(Array<uint32_t, 16>(comb & nzero)).m;
+    }
+
+    ENOKI_CONVERT(int64_t) {
+        auto b = uint_array_t<Derived2>(abs(a));
+
+        auto lz = lzcnt(b);
+        auto nzero = neq(b, uint64_t(0));
+
+        auto mant = select(
+            lz >  uint64_t(63 - 24),
+            b << (uint64_t(23 - 63) + lz),
+            b >> (uint64_t(63 - 23) - lz)
+        );
+
+        auto sign = sri<32>(a) & 0x80000000ull;
+        auto exp = sli<23>(uint64_t(127 + 63) - lz);
+        auto comb = exp | (mant & 0x7fffffull) | sign;
 
         m = reinterpret_array<Derived>(Array<uint32_t, 16>(comb & nzero)).m;
     }
@@ -595,6 +615,45 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
 
     ENOKI_CONVERT(uint64_t)
         : m(_mm512_cvt_roundepu64_pd(a.derived().m, (int) Mode)) { }
+#elif defined(ENOKI_X86_AVX512CD)
+    /* Emulate uint64_t -> double conversion instead of falling
+       back to scalar operations. This is quite a bit faster
+       (>6x for unsigned, >5x for signed). */
+
+    ENOKI_CONVERT(uint64_t) {
+        auto lz = lzcnt(a);
+        auto nzero = neq(a, uint64_t(0));
+
+        auto mant = select(
+            lz >  uint64_t(63 - 53),
+            a << (uint64_t(52 - 63) + lz),
+            a >> (uint64_t(63 - 52) - lz)
+        );
+
+        auto exp = sli<52>(uint64_t(1023 + 63) - lz);
+        auto comb = exp | (mant & 0xfffffffffffffull);
+
+        m = reinterpret_array<Derived>(comb & nzero).m;
+    }
+
+    ENOKI_CONVERT(int64_t) {
+        auto b = uint_array_t<Derived2>(abs(a));
+
+        auto lz = lzcnt(b);
+        auto nzero = neq(b, uint64_t(0));
+
+        auto mant = select(
+            lz >  uint64_t(63 - 53),
+            b << (uint64_t(52 - 63) + lz),
+            b >> (uint64_t(63 - 52) - lz)
+        );
+
+        auto sign = a & 0x8000000000000000ull;
+        auto exp = sli<52>(uint64_t(1023 + 63) - lz);
+        auto comb = exp | (mant & 0xfffffffffffffull) | sign;
+
+        m = reinterpret_array<Derived>(comb & nzero).m;
+    }
 #endif
 
     //! @}

@@ -48,7 +48,7 @@ NAMESPACE_BEGIN(enoki)
               std::enable_if_t<is_array<T>::value &&                           \
                                std::is_same<expr_t<T>, T>::value, int> = 0>    \
     ENOKI_INLINE auto name(const T &a) {                                       \
-        return a.template func##_<Imm>();                                      \
+        return a.derived().template func##_<Imm>();                            \
     }                                                                          \
     /* Case 2: broadcast/evaluate input arrays and try again */                \
     template <size_t Imm, typename T,                                          \

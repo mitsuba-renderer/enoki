@@ -260,31 +260,32 @@ machine which supports the AVX512ER instruction set:
 .. code-block:: nasm
 
 Similar optimizations are used on other platforms---for instance, this is the
-ARMv8 NEON version for packets of width 4.
+ARMv8 NEON version for packets of width 4. Enoki uses the ``frsqrte`` and
+``frsqrts`` instructions for the reciprocal square root.
 
 .. code-block:: nasm
 
     ; Assembly for ARM NEON (armv8a) version
     __Z4test8Vector3fS_:
-        fmul	v6.4s, v2.4s, v3.4s
-        fmul	v7.4s, v0.4s, v4.4s
-        fmls	v6.4s, v0.4s, v5.4s
-        fmul	v16.4s, v1.4s, v5.4s
-        fmls	v7.4s, v1.4s, v3.4s
-        fmul	v0.4s, v6.4s, v6.4s
-        fmls	v16.4s, v2.4s, v4.4s
-        fmla	v0.4s, v7.4s, v7.4s
-        fmla	v0.4s, v16.4s, v16.4s
-        frsqrte	v1.4s, v0.4s
-        fmul	v2.4s, v1.4s, v1.4s
-        frsqrts	v2.4s, v2.4s, v0.4s
-        fmul	v1.4s, v1.4s, v2.4s
-        fmul	v2.4s, v1.4s, v1.4s
-        frsqrts	v0.4s, v2.4s, v0.4s
-        fmul	v2.4s, v1.4s, v0.4s
-        fmul	v0.4s, v6.4s, v2.4s
-        fmul	v1.4s, v7.4s, v2.4s
-        fmul	v2.4s, v16.4s, v2.4s
+        fmul    v6.4s, v2.4s, v3.4s
+        fmul    v7.4s, v0.4s, v4.4s
+        fmls    v6.4s, v0.4s, v5.4s
+        fmul    v16.4s, v1.4s, v5.4s
+        fmls    v7.4s, v1.4s, v3.4s
+        fmul    v0.4s, v6.4s, v6.4s
+        fmls    v16.4s, v2.4s, v4.4s
+        fmla    v0.4s, v7.4s, v7.4s
+        fmla    v0.4s, v16.4s, v16.4s
+        frsqrte v1.4s, v0.4s
+        fmul    v2.4s, v1.4s, v1.4s
+        frsqrts v2.4s, v2.4s, v0.4s
+        fmul    v1.4s, v1.4s, v2.4s
+        fmul    v2.4s, v1.4s, v1.4s
+        frsqrts v0.4s, v2.4s, v0.4s
+        fmul    v2.4s, v1.4s, v0.4s
+        fmul    v0.4s, v6.4s, v2.4s
+        fmul    v1.4s, v7.4s, v2.4s
+        fmul    v2.4s, v16.4s, v2.4s
 
 Unrolling the computation further
 ---------------------------------

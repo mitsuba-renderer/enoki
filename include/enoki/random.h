@@ -197,7 +197,7 @@ template <typename T> struct PCG32 {
         if (is_array<UInt64>::value)
             return next_uint64_bounded(bound, true);
 
-        const UInt64 threshold = (~bound + 1u) % bound;
+        const UInt64 threshold = (~bound + (uint64_t) 1) % bound;
 
         while (true) {
             UInt64 result = next_uint64();
@@ -216,7 +216,7 @@ template <typename T> struct PCG32 {
     UInt64 next_uint64_bounded(uint64_t bound, const UInt64Mask &mask_) {
         const divisor_ext<uint64_t> div(bound);
         UInt64Mask mask(mask_);
-        const UInt64 threshold = (~bound + 1ull) % div;
+        const UInt64 threshold = (~bound + (uint64_t) 1) % div;
 
         UInt64 result = zero<UInt64>();
         do {

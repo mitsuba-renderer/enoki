@@ -62,7 +62,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
             m = _mm256_cvtepu32_ps(a.derived().m);
         #else
             auto ai = reinterpret_array<Array<int32_t, 8>>(a);
-            auto result = Derived(ai & 0x7FFFFFFF) + (Derived(float(1u << 31)) &
+            auto result = Derived(ai & 0x7fffffff) + (Derived(float(1u << 31)) &
                           reinterpret_array<mask_t<Derived>>(ai >> 31));
             m = result.m;
         #endif
