@@ -108,7 +108,7 @@ It is trivial to add a second method that takes vector inputs, like so:
 .. code-block:: cpp
     :emphasize-lines: 9
 
-    using FloatP = Array<float, 8>;
+    using FloatP = Packet<float, 8>;
 
     class Sensor {
     public:
@@ -218,7 +218,7 @@ packet at once.
 
 .. code-block:: cpp
 
-    using UInt32P = Array<uint32_t, 8>;
+    using UInt32P = Packet<uint32_t, 8>;
 
     SensorP sensor = ...;
     UInt32P serial = sensor->serial_number();
@@ -267,8 +267,8 @@ For instance, consider the following example:
 .. code-block:: cpp
 
     /* Packet types */
-    using FloatP    = Array<float, 4>;
-    using UInt32P   = Array<uint32_t, 4>;
+    using FloatP    = Packet<float, 4>;
+    using UInt32P   = Packet<uint32_t, 4>;
 
     /* SoA and AoS 3x3 matrix types */
     using Matrix3f  = Matrix<float, 3>;
@@ -369,9 +369,9 @@ using :cpp:func:`enoki::divisor::operator()`, as shown in the following example:
 
 .. code-block:: cpp
 
-    using Int32 = enoki::Array<uint32_t, 8>;
+    using Int32P = enoki::Packet<uint32_t, 8>;
 
-    void divide(Int32 *a, int32_t b, size_t n) {
+    void divide(Int32P *a, int32_t b, size_t n) {
         /* Precompute magic constants */
         divisor<int32_t> prec_div = b;
 
@@ -424,8 +424,8 @@ have matching sizes and layouts.
 
 .. code-block:: cpp
 
-    using UInt32P = Array<uint32_t, 4>;
-    using FloatP = Array<float, 4>;
+    using UInt32P = Packet<uint32_t, 4>;
+    using FloatP = Packet<float, 4>;
 
     UInt32P source = 0x3f800000;
     FloatP target = reinterpret_array<FloatP>(source);
@@ -445,8 +445,8 @@ updates occur whenever the ``indices`` array contains an index multiple times:
 
 .. code-block:: cpp
 
-    using FloatP = Array<float, 16>;
-    using IndexP = Array<int32_t, 16>;
+    using FloatP = Packet<float, 16>;
+    using IndexP = Packet<int32_t, 16>;
 
     float hist[1000] = { 0.f }; /* Histogram entries */
 
@@ -494,7 +494,7 @@ new``  with an implementation that guarantees sufficient alignment.
         ENOKI_ALIGNED_OPERATOR_NEW()
 
     private:
-        enoki::Array<float> m_data;
+        enoki::Array<float, 16> m_data;
     };
 
 Note that issue was finally resolved in `C++17

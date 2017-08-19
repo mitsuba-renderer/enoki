@@ -19,8 +19,10 @@
 #include <enoki/random.h>
 #include <enoki/special.h>
 
+using namespace enoki;
+
 int main(int /* argc */, char * /* argv */[]) {
-    using UInt32      = Array<uint32_t>;
+    using UInt32      = Packet<uint32_t>;
     using UInt32Mask  = mask_t<UInt32>;
     using RNG         = PCG32<UInt32>;
     using Float32     = RNG::Float32;

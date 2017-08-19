@@ -45,7 +45,7 @@ entries.
 
         ENOKI_STRUCT_DYNAMIC(GPSCoord2, time, pos, reliable)
 
-        using FloatP       = Array<float, SIMD_WIDTH>;
+        using FloatP       = Packet<float, SIMD_WIDTH>;
         using FloatX       = DynamicArray<FloatP>;
         using GPSCoord2fX  = GPSCoord2<FloatX>;
         using GPSCoord2fP  = GPSCoord2<FloatP>;
@@ -60,7 +60,7 @@ entries.
 
             const Value deg_to_rad = Scalar(M_PI / 180.0);
 
-            auto sin_diff_h = sin(deg_to_rad * Scalar(.5) * (r2.pos - r1.pos));
+            auto sin_diff_h = sin(deg_to_rad * .5f * (r2.pos - r1.pos));
             sin_diff_h *= sin_diff_h;
 
             Value a = sin_diff_h.x() + sin_diff_h.y() *
@@ -69,7 +69,7 @@ entries.
 
             return select(
                 r1.reliable & r2.reliable,
-                Scalar(6371.0 * 2.0) * atan2(sqrt(a), sqrt(Scalar(1.0) - a)),
+                (6371.f * 2.f) * atan2(sqrt(a), sqrt(1.f - a)),
                 Value(std::numeric_limits<Scalar>::quiet_NaN())
             );
         }

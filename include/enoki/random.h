@@ -34,8 +34,9 @@
 #define PCG32_DEFAULT_STREAM 0xda3e39cb94b95bdbULL
 #define PCG32_MULT           0x5851f42d4c957f2dULL
 
-using namespace enoki;
+NAMESPACE_BEGIN(enoki)
 
+/// PCG32 pseudorandom number generator proposed by Melissa O'Neill
 template <typename T> struct PCG32 {
     static constexpr size_t Size = array_size<T>::value;
 
@@ -69,7 +70,7 @@ template <typename T> struct PCG32 {
     }
 
     /// Generate a uniformly distributed unsigned 32-bit random number
-    UInt32 next_uint32() {
+    ENOKI_INLINE UInt32 next_uint32() {
         UInt64 oldstate = state;
         state = oldstate * uint64_t(PCG32_MULT) + inc;
         UInt32 xorshifted = UInt32(sri<27>(sri<18>(oldstate) ^ oldstate));
@@ -77,16 +78,33 @@ template <typename T> struct PCG32 {
         return ror(xorshifted, rot_offset);
     }
 
+    /// Masked version of \ref next_uint32
+    ENOKI_INLINE UInt32 next_uint32(const UInt64Mask &mask) {
+        UInt64 oldstate = state;
+        masked(state, mask) = oldstate * uint64_t(PCG32_MULT) + inc;
+        UInt32 xorshifted = UInt32(sri<27>(sri<18>(oldstate) ^ oldstate));
+        UInt32 rot_offset = UInt32(sri<59>(oldstate));
+        return ror(xorshifted, rot_offset);
+    }
+
     /// Generate a uniformly distributed unsigned 64-bit random number
-    UInt64 next_uint64() {
-        UInt64 lo = UInt64(next_uint32());
-        UInt64 hi = sli<32>(UInt64(next_uint32()));
-        return lo + hi;
+    ENOKI_INLINE UInt64 next_uint64() {
+        return UInt64(next_uint32()) | sli<32>(UInt64(next_uint32()));
+    }
+
+    /// Masked version of \ref next_uint64
+    ENOKI_INLINE UInt64 next_uint64(const UInt64Mask &mask) {
+        return UInt64(next_uint32(mask)) | sli<32>(UInt64(next_uint32(mask)));
     }
 
     /// Generate a single precision floating point value on the interval [0, 1)
-    Float32 next_float32() {
+    ENOKI_INLINE Float32 next_float32() {
         return reinterpret_array<Float32>(sri<9>(next_uint32()) | 0x3f800000u) - 1.f;
+    }
+
+    /// Masked version of \ref next_float32
+    ENOKI_INLINE Float32 next_float32(const UInt64Mask &mask) {
+        return reinterpret_array<Float32>(sri<9>(next_uint32(mask)) | 0x3f800000u) - 1.f;
     }
 
     /**
@@ -96,60 +114,117 @@ template <typename T> struct PCG32 {
      * only the first 32 mantissa bits will be filled (however, the resolution is still
      * finer than in \ref next_float(), which only uses 23 mantissa bits)
      */
-    Float64 next_float64() {
+    ENOKI_INLINE Float64 next_float64() {
         /* Trick from MTGP: generate an uniformly distributed
            double precision number in [1,2) and subtract 1. */
         return reinterpret_array<Float64>(sli<20>(UInt64(next_uint32())) |
                                           0x3ff0000000000000ull) - 1.0;
     }
 
+    /**
+     * \brief Generate a double precision floating point value on the interval [0, 1)
+     *
+     * \remark Since the underlying random number generator produces 32 bit output,
+     * only the first 32 mantissa bits will be filled (however, the resolution is still
+     * finer than in \ref next_float(), which only uses 23 mantissa bits)
+     */
+    ENOKI_INLINE Float64 next_float64(const UInt64Mask &mask) {
+        /* Trick from MTGP: generate an uniformly distributed
+           double precision number in [1,2) and subtract 1. */
+        return reinterpret_array<Float64>(sli<20>(UInt64(next_uint32(mask))) |
+                                          0x3ff0000000000000ull) - 1.0;
+    }
+
     /// Generate a uniformly distributed number, r, where 0 <= r < bound
-    UInt32 next_uint32(uint32_t bound) {
+    UInt32 next_uint32_bounded(uint32_t bound) {
+        if (is_array<UInt32>::value)
+            return next_uint32_bounded(bound, true);
+
         // To avoid bias, we need to make the range of the RNG a multiple of
         // bound, which we do by dropping output less than a threshold.
         // A naive scheme to calculate the threshold would be to do
         //
-        //     UInt32 threshold = 0x100000000ull % bound;
+        //     UInt32 threshold = 0x1'0000'0000ull % bound;
         //
         // but 64-bit div/mod is slower than 32-bit div/mod (especially on
         // 32-bit platforms).  In essence, we do
         //
-        //     UInt32 threshold = (0x100000000ull-bound) % bound;
+        //     UInt32 threshold = (0x1'0000'0000ull-bound) % bound;
         //
         // because this version will calculate the same modulus, but the LHS
         // value is less than 2^32.
 
         const UInt32 threshold = (~bound + 1u) % bound;
-        UInt32 result;
 
-        if (!enoki::is_array<UInt32>::value) {
-            // Uniformity guarantees that this loop will terminate.  In practice, it
-            // should usually terminate quickly; on average (assuming all bounds are
-            // equally likely), 82.25% of the time, we can expect it to require just
-            // one iteration.  In the worst case, someone passes a bound of 2^31 + 1
-            // (i.e., 2147483649), which invalidates almost 50% of the range.  In
-            // practice, bounds are typically small and only a tiny amount of the range
-            // is eliminated.
+        // Uniformity guarantees that this loop will terminate.  In practice, it
+        // should usually terminate quickly; on average (assuming all bounds are
+        // equally likely), 82.25% of the time, we can expect it to require just
+        // one iteration.  In the worst case, someone passes a bound of 2^31 + 1
+        // (i.e., 2147483649), which invalidates almost 50% of the range.  In
+        // practice, bounds are typically small and only a tiny amount of the range
+        // is eliminated.
 
-            while (true) {
-                result = next_uint32();
+        while (true) {
+            UInt32 result = next_uint32();
 
-                if (all(result >= threshold))
-                    return result % bound;
-            }
-        } else {
-            // Vectorized version of the above code, which additionally keeps
-            // track of which SIMD lanes have already finished and stops
-            // advancing the associated PRNGs
-
-            UInt32Mask mask(true);
-            do {
-                result = select(mask, next_uint32_masked(mask), result);
-                mask &= result < threshold;
-            } while (any(mask));
+            if (all(result >= threshold))
+                return result % bound;
         }
+    }
 
-        return result % bound;
+    /**
+     * \brief Vectorized version of next_uint32_bounded
+     *
+     * This function keeps track of which SIMD lanes have already
+     * finished and stops advancing the associated PRNGs
+     */
+    UInt32 next_uint32_bounded(uint32_t bound, const UInt64Mask &mask_) {
+        const divisor_ext<uint32_t> div(bound);
+        UInt64Mask mask(mask_);
+        const UInt32 threshold = (~bound + 1u) % div;
+
+        UInt32 result = zero<UInt32>();
+        do {
+            masked(result, mask) = next_uint32(mask);
+            mask &= result < threshold;
+        } while (any(mask));
+
+        return result % div;
+    }
+
+    /// Generate a uniformly distributed number, r, where 0 <= r < bound
+    UInt64 next_uint64_bounded(uint64_t bound) {
+        if (is_array<UInt64>::value)
+            return next_uint64_bounded(bound, true);
+
+        const UInt64 threshold = (~bound + 1u) % bound;
+
+        while (true) {
+            UInt64 result = next_uint64();
+
+            if (all(result >= threshold))
+                return result % bound;
+        }
+    }
+
+    /**
+     * \brief Vectorized version of next_uint64_bounded
+     *
+     * This function keeps track of which SIMD lanes have already
+     * finished and stops advancing the associated PRNGs
+     */
+    UInt64 next_uint64_bounded(uint64_t bound, const UInt64Mask &mask_) {
+        const divisor_ext<uint64_t> div(bound);
+        UInt64Mask mask(mask_);
+        const UInt64 threshold = (~bound + 1ull) % div;
+
+        UInt64 result = zero<UInt64>();
+        do {
+            masked(result, mask) = next_uint64(mask);
+            mask &= result < threshold;
+        } while (any(mask));
+
+        return result % div;
     }
 
     /**
@@ -160,7 +235,7 @@ template <typename T> struct PCG32 {
      * Society (Nov. 1994). The algorithm is very similar to fast
      * exponentiation.
      */
-    void advance(Int64 delta_) {
+    void advance(const Int64 &delta_) {
         UInt64 cur_mult = PCG32_MULT,
                cur_plus = inc,
                acc_mult = 1ull,
@@ -207,7 +282,7 @@ template <typename T> struct PCG32 {
 
     /**
      * \brief Draw uniformly distributed permutation and permute the
-     * given STL container
+     * given container
      *
      * From: Knuth, TAoCP Vol. 2 (3rd 3d), Section 3.4.2
      */
@@ -215,7 +290,7 @@ template <typename T> struct PCG32 {
               std::enable_if_t<std::is_arithmetic<T2>::value, int> = 0>
     void shuffle(Iterator begin, Iterator end) {
         for (Iterator it = end - 1; it > begin; --it)
-            std::iter_swap(it, begin + next_uint32((uint32_t) (it - begin + 1)));
+            std::iter_swap(it, begin + next_uint32_bounded((uint32_t) (it - begin + 1)));
     }
 
     /// Equality operator
@@ -227,17 +302,7 @@ template <typename T> struct PCG32 {
     UInt64 state;  // RNG state.  All values are possible.
     UInt64 inc;    // Controls which RNG sequence (stream) is selected. Must *always* be odd.
 
-private:
-    /**
-     * \brief Generate a uniformly distributed unsigned 32-bit random number
-     * \remark Masked version: only activates some of the RNGs
-     */
-    UInt32 next_uint32_masked(UInt32Mask mask) {
-        UInt64 oldstate = state;
-        state = select(reinterpret_array<mask_t<UInt64>>(mask),
-                       oldstate * uint64_t(PCG32_MULT) + inc, oldstate);
-        UInt32 xorshifted = UInt32(sri<27>(sri<18>(oldstate) ^ oldstate));
-        UInt32 rot_offset = UInt32(sri<59>(oldstate));
-        return ror(xorshifted, rot_offset);
-    }
+    ENOKI_ALIGNED_OPERATOR_NEW()
 };
+
+NAMESPACE_END(enoki)

@@ -33,7 +33,7 @@ Extension module
     using namespace py::literals; // Enables the ""_a parameter tags used below
 
     /* Define a packet type used for vectorization */
-    using FloatP    = Array<float>;
+    using FloatP    = Packet<float>;
 
     /* Dynamic type for arbitrary-length arrays */
     using FloatX    = DynamicArray<FloatP>;

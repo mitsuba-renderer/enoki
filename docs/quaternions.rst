@@ -19,7 +19,7 @@ The following example shows how to define and perform basic arithmetic using
 .. code-block:: cpp
 
     /* Declare underlying packet type, could just be 'float' for scalar arithmetic */
-    using FloatP   = Array<float, 4>;
+    using FloatP   = Packet<float, 4>;
 
     /* Define vectorized quaternion type */
     using QuaternionP = Quaternion<FloatP>;

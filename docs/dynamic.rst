@@ -27,7 +27,7 @@ vectorizes using 4-wide SSE arithmetic.
 .. code-block:: cpp
 
     /* Static float array (the suffix "P" indicates that this is a fixed-size packet) */
-    using FloatP = Array<float, 4>;
+    using FloatP = Packet<float, 4>;
 
     /* Dynamic float array (vectorized via FloatP, the suffix "X" indicates arbitrary length) */
     using FloatX = DynamicArray<FloatP>;

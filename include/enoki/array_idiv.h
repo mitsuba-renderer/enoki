@@ -223,23 +223,24 @@ template <typename T> struct divisor<T, std::enable_if_t<std::is_signed<T>::valu
     }
 } ENOKI_PACK;
 
+/// Stores *both* the original divisor + magic number
+template <typename T> struct divisor_ext : divisor<T> {
+    T value;
+    ENOKI_INLINE divisor_ext(T value) : divisor<T>(value), value(value) { }
+} ENOKI_PACK;
+
 #if defined(_MSC_VER)
 #  pragma pack(pop)
 #endif
 
-template <typename Array,
-          std::enable_if_t<is_static_array<Array>::value &&
-                           std::is_integral<scalar_t<Array>>::value, int> = 0>
-ENOKI_INLINE auto operator/(const Array &a, divisor<scalar_t<Array>> div) {
-    return div(a.derived());
+template <typename Arg, std::enable_if_t<std::is_integral<scalar_t<Arg>>::value, int> = 0>
+ENOKI_INLINE auto operator/(const Arg &a, const divisor<scalar_t<Arg>> &div) {
+    return div(a);
 }
 
-template <typename Array,
-          std::enable_if_t<is_static_array<Array>::value &&
-                           std::is_integral<scalar_t<Array>>::value, int> = 0>
-ENOKI_INLINE auto operator%(const Array &a, scalar_t<Array> v) {
-    const auto div = divisor<scalar_t<Array>>(v);
-    return a - div(a.derived()) * v;
+template <typename Arg, std::enable_if_t<std::is_integral<scalar_t<Arg>>::value, int> = 0>
+ENOKI_INLINE auto operator%(const Arg &a, const divisor_ext<scalar_t<Arg>> &div) {
+    return a - div(a) * div.value;
 }
 
 //! @}

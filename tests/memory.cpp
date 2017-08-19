@@ -276,7 +276,7 @@ ENOKI_TEST_ALL(test14_extract) {
 template <typename T, std::enable_if_t<T::Size != 31, int> = 0>
 void test15_nested_gather_impl() {
     using Value = value_t<T>;
-    using UInt32P = uint32_array_t<T>;
+    using UInt32P = Packet<uint32_t, T::Size>;
     using Vector3 = Array<Value, 3>;
     using Matrix3 = Matrix<Value, 3>;
     using Matrix3P = Matrix<T, 3>;

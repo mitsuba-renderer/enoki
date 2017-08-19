@@ -255,6 +255,14 @@ Static arrays
     Pattern (CRTP). The latter provides the actual machinery that is needed to
     evaluate array expressions. See :ref:`custom-arrays` for details.
 
+.. cpp:class:: template <typename Value, size_t Size = max_packet_size / sizeof(Value), \
+                         bool Approx = detail::approx_default<Value>::value, \
+                         RoundingMode Mode = RoundingMode::Default> \
+               Packet : StaticArrayImpl<Value, Size, Approx, Mode, Array<Value, Size, Approx, Mode>>
+
+    The ``Packet`` type is identical to :cpp:class:`enoki::Array` except for
+    its :ref:`broadcasting behavior <broadcasting>`.
+
 .. cpp:class:: template <typename Value, size_t Size, bool Approx, \
                          RoundingMode Mode, typename Derived> StaticArrayImpl
 
@@ -647,6 +655,10 @@ Elementary Arithmetic Operators
 
     Binary logical AND operator. (identical to ``operator&``, as no
     short-circuiting is supported in operator overloads).
+
+.. cpp:function:: template <typename Array> Array andnot(Array x, Array y)
+
+    Binary logical AND NOT operator. (identical to ``x & ~y``).
 
 .. cpp:function:: template <typename Array> Array operator^(Array x, Array y)
 
@@ -1635,7 +1647,7 @@ Rearranging contents of arrays
 
     .. code-block:: cpp
 
-        using Vector4f  = Array<float, 4>;
+        using Vector4f = Array<float, 4>;
         using MyMatrix = Array<Vector4f, 4>;
         MyMatrix result = fill<MyMatrix>(10.f);
         std::cout << result << std::endl;

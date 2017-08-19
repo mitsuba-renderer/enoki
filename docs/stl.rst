@@ -46,7 +46,7 @@ arbitrarily large inputs.
     }
 
     /// Packet of floats
-    using FloatP  = Array<float>;
+    using FloatP  = Packet<float>;
 
     /// Arbitrarily large sequence of floats
     using FloatX  = DynamicArray<FloatP>;

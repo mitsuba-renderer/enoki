@@ -1092,6 +1092,7 @@ struct StaticMaskImpl : StaticArrayImpl<mask_t<Value_>, Size_, false, RoundingMo
 template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived_>
 struct StaticMaskImpl<Value_, Size_, Approx_, Mode_, Derived_,
                       std::enable_if_t<Array<Value_, Size_, Approx_, Mode_>::IsNative &&
+                                       std::is_arithmetic<Value_>::value &&
                                        sizeof(Value_) * Size_ * 8 != 512 /* AVX512 is handled specially */ >>
     : StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived_> {
     StaticMaskImpl() = default;
@@ -1121,6 +1122,15 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived_,
     ENOKI_INLINE Value& coeff(size_t i) { return (Value &) Base::coeff(i); }
 };
 
+template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived_>
+struct StaticMaskImpl<Value_, Size_, Approx_, Mode_, Derived_, std::enable_if_t<std::is_enum<Value_>::value>>
+    : StaticMaskImpl<std::underlying_type_t<Value_>, Size_, Approx_, Mode_, Derived_> {
+    StaticMaskImpl() = default;
+    using Base = StaticMaskImpl<std::underlying_type_t<Value_>, Size_, Approx_, Mode_, Derived_>;
+    using Base::Base;
+    using Base::operator=;
+};
+
 /// Pointer support
 template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived_>
 struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived_,
@@ -1145,6 +1155,16 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived_,
     call_support<Derived_, Derived_> operator->() const {
         return call_support<Derived_, Derived_>(derived());
     }
+};
+
+template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived_>
+struct StaticMaskImpl<Value_, Size_, Approx_, Mode_, Derived_,
+    std::enable_if_t<std::is_pointer<Value_>::value && !std::is_arithmetic<std::remove_pointer_t<Value_>>::value>>
+    : StaticMaskImpl<std::uintptr_t, Size_, Approx_, Mode_, Derived_> {
+    StaticMaskImpl() = default;
+    using Base = StaticMaskImpl<std::uintptr_t, Size_, Approx_, Mode_, Derived_>;
+    using Base::Base;
+    using Base::operator=;
 };
 
 template <typename Packet_, typename Storage_> struct call_support_base {
@@ -1193,7 +1213,7 @@ template <typename Packet_, typename Storage_> struct call_support_base {
     template <typename Func, typename InputMask, typename... Args,
               typename Result = decltype(std::declval<Func>()(
                   std::declval<Instance>(), std::declval<Args>()...)),
-              typename ResultArray = like_t<Mask, Result>,
+              typename ResultArray = array_t<like_t<Mask, Result>>,
               std::enable_if_t<!std::is_void<Result>::value, int> = 0>
     ENOKI_INLINE ResultArray dispatch_scalar_2(Func &&func, InputMask&& mask_, Args&&... args) {
         Mask mask(mask_);
