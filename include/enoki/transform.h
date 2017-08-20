@@ -179,7 +179,7 @@ template <typename T, bool Approx,
 Matrix4 transform_compose_inverse(const Matrix<T, 3, Approx> &S,
                                   const Quaternion<T, Approx> &q,
                                   const Vector3 &t) {
-    auto inv_m = inverse(S) * quat_to_matrix<Matrix3>(rcp(q));
+    auto inv_m = inverse(quat_to_matrix<Matrix3>(q) * S);
     Matrix4 result = Matrix4(inv_m);
     result.coeff(3) = concat(inv_m * -t, 1.f);
     return result;

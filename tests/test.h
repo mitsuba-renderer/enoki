@@ -544,6 +544,7 @@ int main(int argc, char** argv) {
     if (has_f16c)            std::cout << "f16c ";
     if (has_sse42)           std::cout << "sse4.2 ";
     if (has_x86_64)          std::cout << "x86_64 ";
+    if (has_x86_32)          std::cout << "x86_32 ";
     if (has_neon)            std::cout << "neon ";
     if (has_aarch64)         std::cout << "aarch64 ";
 

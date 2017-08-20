@@ -285,30 +285,33 @@ ENOKI_INLINE Quat matrix_to_quat(const Matrix<T, Size, Approx> &mat) {
     return q0123 * (rsqrt(t0123) * ch);
 }
 
-template <typename T0, typename T1, bool Approx0, bool Approx1, typename Float, typename T = expr_t<T0, T1>, typename Return = Quaternion<T, Approx0 && Approx1>>
-ENOKI_INLINE Return slerp(const Quaternion<T0, Approx0> &q0, const Quaternion<T1, Approx1> &q1_, Float t) {
-    using Base = Array<T, 4>;
-    using Scalar = scalar_t<T>;
+template <typename T0, typename T1, bool Approx0, bool Approx1, typename Float,
+          typename E      = expr_t<T0, T1>,
+          typename Return = Quaternion<E, Approx0 && Approx1>>
+ENOKI_INLINE Return slerp(const Quaternion<T0, Approx0> &q0,
+                          const Quaternion<T1, Approx1> &q1_, Float t) {
+    using Base = Array<E, 4>;
 
     auto cos_theta = dot(q0, q1_);
     Return q1 = mulsign(Base(q1_), cos_theta);
-    cos_theta = abs(cos_theta);
+    cos_theta = mulsign(cos_theta, cos_theta);
 
-    auto theta = safe_acos(cos_theta);
+    auto theta = acos(cos_theta);
     auto sc = sincos(theta * t);
-    Return qperp = normalize(q1 - q0 * cos_theta);
+    auto close_mask = cos_theta > 0.9995f;
 
-    return select(
-        cos_theta > Scalar(0.9995),
-        normalize(q0 * (Scalar(1.0) - t) + q1 * t),
-        q0 * sc.second + qperp * sc.first
-    );
+    Return qperp = normalize(q1 - q0 * cos_theta);
+    Return result = q0 * sc.second + qperp * sc.first;
+
+    if (ENOKI_UNLIKELY(any_nested(close_mask)))
+        masked(result, close_mask) = normalize(q0 * (1.f - t) + q1 * t);
+
+    return result;
 }
 
 template <typename Quat, typename Vector3, std::enable_if_t<Quat::IsQuaternion, int> = 0>
 ENOKI_INLINE Quat rotate(const Vector3 &axis, const value_t<Quat> &angle) {
-    using Scalar = scalar_t<Quat>;
-    auto sc = sincos(angle * Scalar(.5f));
+    auto sc = sincos(angle * .5f);
     return Quat(concat(axis * sc.first, sc.second));
 }
 
