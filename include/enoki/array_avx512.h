@@ -75,38 +75,33 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
        (>6x for unsigned, >5x for signed). */
 
     ENOKI_CONVERT(uint64_t) {
+        using Int64 = int64_array_t<Derived2>;
+        using Int32 = uint32_array_t<Derived2>;
+
         auto lz = lzcnt(a);
-        auto nzero = neq(a, uint64_t(0));
-
-        auto mant = select(
-            lz >  uint64_t(63 - 24),
-            a << (uint64_t(23 - 63) + lz),
-            a >> (uint64_t(63 - 23) - lz)
-        );
-
-        auto exp = sli<23>(uint64_t(127 + 63) - lz);
+        auto shift = (63 - 23) - Int64(lz);
+        auto abs_shift = abs(shift);
+        auto nzero_mask = neq(a, 0ull);
+        auto mant = select(shift > 0, a >> abs_shift, a << abs_shift);
+        auto exp = sli<23>(uint64_t(127 + 63) - lz) & nzero_mask;
         auto comb = exp | (mant & 0x7fffffull);
 
-        m = reinterpret_array<Derived>(Array<uint32_t, 16>(comb & nzero)).m;
+        m = reinterpret_array<Derived>(Int32(comb)).m;
     }
 
     ENOKI_CONVERT(int64_t) {
-        auto b = uint_array_t<Derived2>(abs(a));
+        using Int32 = uint32_array_t<Derived2>;
 
-        auto lz = lzcnt(b);
-        auto nzero = neq(b, uint64_t(0));
+        auto b = abs(a), lz = lzcnt(b);
+        auto shift = (63 - 23) - lz;
+        auto abs_shift = abs(shift);
+        auto nzero_mask = neq(a, 0ll);
+        auto mant = select(shift > 0, b >> abs_shift, b << abs_shift);
+        auto sign = sri<32>(a) & 0x80000000ll;
+        auto exp = sli<23>(int64_t(127 + 63) - lz) & nzero_mask;
+        auto comb = exp | (mant & 0x7fffffll) | sign;
 
-        auto mant = select(
-            lz >  uint64_t(63 - 24),
-            b << (uint64_t(23 - 63) + lz),
-            b >> (uint64_t(63 - 23) - lz)
-        );
-
-        auto sign = sri<32>(a) & 0x80000000ull;
-        auto exp = sli<23>(uint64_t(127 + 63) - lz);
-        auto comb = exp | (mant & 0x7fffffull) | sign;
-
-        m = reinterpret_array<Derived>(Array<uint32_t, 16>(comb & nzero)).m;
+        m = reinterpret_array<Derived>(Int32(comb)).m;
     }
 #endif
 
@@ -618,41 +613,33 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
 #elif defined(ENOKI_X86_AVX512CD)
     /* Emulate uint64_t -> double conversion instead of falling
        back to scalar operations. This is quite a bit faster
-       (>6x for unsigned, >5x for signed). */
+       (>5.5x for unsigned, > for signed). */
 
     ENOKI_CONVERT(uint64_t) {
+        using Int64 = int64_array_t<Derived2>;
+
         auto lz = lzcnt(a);
-        auto nzero = neq(a, uint64_t(0));
-
-        auto mant = select(
-            lz >  uint64_t(63 - 53),
-            a << (uint64_t(52 - 63) + lz),
-            a >> (uint64_t(63 - 52) - lz)
-        );
-
-        auto exp = sli<52>(uint64_t(1023 + 63) - lz);
+        auto shift = (63 - 52) - Int64(lz);
+        auto abs_shift = abs(shift);
+        auto nzero_mask = neq(a, 0ull);
+        auto mant = select(shift > 0, a >> abs_shift, a << abs_shift);
+        auto exp = sli<52>(uint64_t(1023 + 63) - lz) & nzero_mask;
         auto comb = exp | (mant & 0xfffffffffffffull);
 
-        m = reinterpret_array<Derived>(comb & nzero).m;
+        m = reinterpret_array<Derived>(comb).m;
     }
 
     ENOKI_CONVERT(int64_t) {
-        auto b = uint_array_t<Derived2>(abs(a));
-
-        auto lz = lzcnt(b);
-        auto nzero = neq(b, uint64_t(0));
-
-        auto mant = select(
-            lz >  uint64_t(63 - 53),
-            b << (uint64_t(52 - 63) + lz),
-            b >> (uint64_t(63 - 52) - lz)
-        );
-
+        auto b = abs(a), lz = lzcnt(b);
+        auto shift = (63 - 52) - lz;
+        auto abs_shift = abs(shift);
+        auto nzero_mask = neq(a, 0ll);
+        auto mant = select(shift > 0, b >> abs_shift, b << abs_shift);
         auto sign = a & 0x8000000000000000ull;
-        auto exp = sli<52>(uint64_t(1023 + 63) - lz);
+        auto exp = sli<52>(int64_t(1023 + 63) - lz) & nzero_mask;
         auto comb = exp | (mant & 0xfffffffffffffull) | sign;
 
-        m = reinterpret_array<Derived>(comb & nzero).m;
+        m = reinterpret_array<Derived>(comb).m;
     }
 #endif
 
@@ -1578,6 +1565,30 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
             m = _mm512_cvttps_epu64(a.derived().m);
         }
     }
+#else
+    /* Emulate float -> uint64 conversion instead of falling
+       back to scalar operations. This is quite a bit faster (~4x!) */
+
+    ENOKI_CONVERT(float) {
+        using Int32  = int_array_t<Derived2>;
+        using UInt32 = uint_array_t<Derived2>;
+        using UInt64 = uint64_array_t<Derived2>;
+
+        /* Shift out sign bit */
+        auto b = reinterpret_array<UInt32>(a);
+        b += b;
+
+        auto mant = UInt64((b & 0xffffffu) | 0x1000000u);
+        auto shift = (24 + 127) - Int32(sri<24>(b));
+        auto abs_shift = UInt64(abs(shift));
+
+        auto result = select(shift > 0, mant >> abs_shift, mant << abs_shift);
+
+        if (std::is_signed<Value>::value)
+            result[a < 0] = -result;
+
+        m = result.m;
+    }
 #endif
 
     ENOKI_CONVERT(int32_t)
@@ -1592,6 +1603,29 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
             m = _mm512_cvttpd_epi64(a.derived().m);
         else
             m = _mm512_cvttpd_epu64(a.derived().m);
+    }
+#else
+    /* Emulate double -> uint64 conversion instead of falling
+       back to scalar operations. This is quite a bit faster (>~11x!) */
+
+    ENOKI_CONVERT(double) {
+        using Int64  = int_array_t<Derived2>;
+        using UInt64 = uint_array_t<Derived2>;
+
+        /* Shift out sign bit */
+        auto b = reinterpret_array<UInt64>(a);
+        b += b;
+
+        auto mant = (b & 0x1fffffffffffffull) | 0x20000000000000ull;
+        auto shift = (53 + 1023) - Int64(sri<53>(b));
+        auto abs_shift = UInt64(abs(shift));
+
+        auto result = select(shift > 0, mant >> abs_shift, mant << abs_shift);
+
+        if (std::is_signed<Value>::value)
+            result[a < 0] = -result;
+
+        m = result.m;
     }
 #endif
 
@@ -2011,7 +2045,9 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
 /// Wrapper for AVX512 k0-k7 mask registers
 template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived_>
 struct StaticMaskImpl<Value_, Size_, Approx_, Mode_, Derived_,
-                      std::enable_if_t<Array<Value_, Size_, Approx_, Mode_>::IsNative && sizeof(Value_) * Size_ * 8 == 512>>
+                      std::enable_if_t<Array<Value_, Size_, Approx_, Mode_>::IsNative &&
+                                       sizeof(Value_) * Size_ * 8 == 512 &&
+                                       std::is_arithmetic<Value_>::value>>
     : StaticArrayBase<Value_, Size_, Approx_, Mode_, Derived_> {
     using Base = StaticArrayBase<Value_, Size_, Approx_, Mode_, Derived_>;
     using Base::Base;

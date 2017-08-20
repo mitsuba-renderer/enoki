@@ -1246,6 +1246,7 @@ template <typename Packet_, typename Storage_> struct call_support_base {
     template <typename Func, typename Tuple, size_t... Indices,
               std::enable_if_t<is_mask<detail::tuple_tail_t<Tuple>>::value, int> = 0>
     decltype(auto) dispatch_1(Func &&func, Tuple &&args, std::index_sequence<Indices...>) {
+        (void) args; /* Don't warn if the function takes no arguments */
         return dispatch_2(func, std::get<(Indices + sizeof...(Indices) - 1) %
                                   sizeof...(Indices)>(args)...);
     }
@@ -1253,12 +1254,14 @@ template <typename Packet_, typename Storage_> struct call_support_base {
     template <typename Func, typename Tuple, size_t... Indices,
               std::enable_if_t<!is_mask<detail::tuple_tail_t<Tuple>>::value, int> = 0>
     decltype(auto) dispatch_1(Func &&func, Tuple &&args, std::index_sequence<Indices...>) {
+        (void) args; /* Don't warn if the function takes no arguments */
         return dispatch_2(func, true, std::get<Indices>(args)...);
     }
 
     template <typename Func, typename Tuple, size_t... Indices,
               std::enable_if_t<is_mask<detail::tuple_tail_t<Tuple>>::value, int> = 0>
     decltype(auto) dispatch_scalar_1(Func &&func, Tuple &&args, std::index_sequence<Indices...>) {
+        (void) args; /* Don't warn if the function takes no arguments */
         return dispatch_scalar_2(func, std::get<(Indices + sizeof...(Indices) - 1) %
                                  sizeof...(Indices)>(args)...);
     }
@@ -1266,6 +1269,7 @@ template <typename Packet_, typename Storage_> struct call_support_base {
     template <typename Func, typename Tuple, size_t... Indices,
               std::enable_if_t<!is_mask<detail::tuple_tail_t<Tuple>>::value, int> = 0>
     decltype(auto) dispatch_scalar_1(Func &&func, Tuple &&args, std::index_sequence<Indices...>) {
+        (void) args; /* Don't warn if the function takes no arguments */
         return dispatch_scalar_2(func, true, std::get<Indices>(args)...);
     }
 };
