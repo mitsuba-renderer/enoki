@@ -1,5 +1,5 @@
 /*
-    enoki/homogeneous.h -- 3D homogeneous coordinate transformations
+    enoki/transform.h -- 3D homogeneous coordinate transformations
 
     Enoki is a C++ template library that enables transparent vectorization
     of numerical kernels using SIMD instruction sets available on current
@@ -148,8 +148,8 @@ std::tuple<Matrix3, Quat, Vector3> transform_decompose(const Matrix<T, 4, Approx
         Q = identity<Matrix3>();
 
     auto sign_q = det(Q);
-    Q = mulsign(Q, sign_q);
-    P = mulsign(P, sign_q);
+    Q = mulsign(Array<Vector3, 3>(Q), sign_q);
+    P = mulsign(Array<Vector3, 3>(P), sign_q);
 
     return std::make_tuple(
         P,
@@ -161,12 +161,27 @@ std::tuple<Matrix3, Quat, Vector3> transform_decompose(const Matrix<T, 4, Approx
 template <typename T, bool Approx,
           typename E = expr_t<T>,
           typename Matrix3 = Matrix<E, 3, Approx>,
-          typename Matrix4 = Matrix<E, 4, Approx>>
+          typename Matrix4 = Matrix<E, 4, Approx>,
+          typename Vector3>
 Matrix4 transform_compose(const Matrix<T, 3, Approx> &S,
                           const Quaternion<T, Approx> &q,
-                          const Array<T, 3, Approx> &t) {
+                          const Vector3 &t) {
     Matrix4 result = Matrix4(quat_to_matrix<Matrix3>(q) * S);
     result.coeff(3) = concat(t, 1.f);
+    return result;
+}
+
+template <typename T, bool Approx,
+          typename E = expr_t<T>,
+          typename Matrix3 = Matrix<E, 3, Approx>,
+          typename Matrix4 = Matrix<E, 4, Approx>,
+          typename Vector3>
+Matrix4 transform_compose_inverse(const Matrix<T, 3, Approx> &S,
+                                  const Quaternion<T, Approx> &q,
+                                  const Vector3 &t) {
+    auto inv_m = inverse(S) * quat_to_matrix<Matrix3>(rcp(q));
+    Matrix4 result = Matrix4(inv_m);
+    result.coeff(3) = concat(inv_m * -t, 1.f);
     return result;
 }
 

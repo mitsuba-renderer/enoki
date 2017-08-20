@@ -13,7 +13,8 @@
 
 #include "test.h"
 #include <enoki/matrix.h>
-#include <enoki/homogeneous.h>
+#include <enoki/transform.h>
+#include <enoki/random.h>
 
 template <typename T, std::enable_if_t<std::is_signed<typename T::Value>::value, int> = 0>
 void test01_dot_signed() {
@@ -219,6 +220,29 @@ ENOKI_TEST(transform_decompose) {
     assert(frob(A - result2) < 1e-6f);
 }
 
+ENOKI_TEST(transform_compose_inverse) {
+    using Matrix = enoki::Matrix<float, 4>;
+    auto rng = PCG32<float>();
+
+    for (int k = 0; k<10; ++k) {
+        Matrix m = zero<Matrix>();
+        for (size_t i=0; i<3; ++i)
+            for (size_t j=0; j<4; ++j)
+                m(i, j) = rng.next_float32();
+        m(3, 3) = 1.f;
+
+        auto x = enoki::transform_decompose(m);
+        auto m2 = enoki::transform_compose(std::get<0>(x), std::get<1>(x), std::get<2>(x));
+        auto m3 = enoki::transform_compose_inverse(std::get<0>(x), std::get<1>(x), std::get<2>(x));
+
+        auto diff1 = frob(m-m2)/frob(m);
+        auto diff2 = frob(inverse(m)-m3)/frob(inverse(m));
+
+        assert(diff1 < 1e-6f);
+        assert(diff2 < 1e-6f);
+    }
+}
+
 ENOKI_TEST(fill) {
     using Vector4f  = Array<float, 4>;
     using MyMatrix = Array<Vector4f, 4>;
@@ -232,3 +256,4 @@ ENOKI_TEST(fill) {
     Matrix<float, 4> result2 = fill<Matrix<float, 4>>(10.f);
     assert(to_string(result2) == "[[10, 10, 10, 10],\n [10, 10, 10, 10],\n [10, 10, 10, 10],\n [10, 10, 10, 10]]");
 }
+

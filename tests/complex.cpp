@@ -14,7 +14,7 @@
 #include "test.h"
 #include <enoki/complex.h>
 #include <enoki/quaternion.h>
-#include <enoki/homogeneous.h>
+#include <enoki/transform.h>
 
 using Cf = Complex<double>;
 using Qf = Quaternion<double>;

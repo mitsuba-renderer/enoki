@@ -9,22 +9,22 @@ transformation matrices, etc.). To use them, include the following header file:
 
 .. code-block:: cpp
 
-    #include <enoki/homogeneous.h>
+    #include <enoki/transform.h>
 
 Reference
 ---------
 
 .. cpp:function:: template <typename Matrix, typename Vector3> Matrix translate(Vector3 v)
 
-    Constructs a homogeneous transformation, which translates points by ``v``.
+    Constructs a homogeneous coordinate transformation, which translates points by ``v``.
 
 .. cpp:function:: template <typename Matrix, typename Vector3> Matrix scale(Vector3 v)
 
-    Constructs a homogeneous transformation, which scales points by ``v``.
+    Constructs a homogeneous coordinate transformation, which scales points by ``v``.
 
 .. cpp:function:: template <typename Matrix, typename Vector3, typename Float> Matrix rotate(Vector3 v, Float angle)
 
-    Constructs a homogeneous transformation, which rotates by ``angle`` radians
+    Constructs a homogeneous coordinate transformation, which rotates by ``angle`` radians
     around the axis ``v``. The function requires ``v`` to be normalized.
 
 .. cpp:function:: template <typename Matrix> auto transform_decompose(Matrix m)
@@ -47,12 +47,19 @@ Reference
 .. cpp:function:: template <typename Matrix3, typename Quaternion, typename Vector3> auto transform_compose(Matrix3 scale, Quaternion rotation, Vector3 translate)
 
     This function composes a 4x4 homogeneous coordinate transformation from the
-    given scale, rotation, and translation. It is the inverse of
+    given scale, rotation, and translation. It performs the reverse of
     ``transform_decompose``.
+
+.. cpp:function:: template <typename Matrix3, typename Quaternion, typename Vector3> auto transform_compose_inverse(Matrix3 scale, Quaternion rotation, Vector3 translate)
+
+    This function composes a 4x4 homogeneous *inverse* coordinate
+    transformation from the given scale, rotation, and translation. It is the
+    equivalent to (but more efficient than) the expression
+    ``inverse(transform_compose(...))``.
 
 .. cpp:function:: template <typename Matrix, typename Point3, typename Vector3> Matrix look_at(Point3 origin, Point3, target, Vector3 up)
 
-    Constructs an homogeneous transformation, which translates to
+    Constructs a homogeneous coordinate transformation, which translates to
     :math:`\mathrm{origin}`, maps the negative :math:`z` axis to
     :math:`\mathrm{target}-\mathrm{origin}` (normalized) and the positive
     :math:`y` axis to :math:`\mathrm{up}` (if orthogonal to

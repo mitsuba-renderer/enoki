@@ -1697,6 +1697,13 @@ ENOKI_INLINE Expr next_float(const Value &value) {
     return reinterpret_array<Expr>(select(is_special, j2, j1));
 }
 
+template <typename Mask> ENOKI_INLINE Mask disable_mask_if_scalar(const Mask &mask) {
+    if (std::is_same<Mask, bool>::value)
+        return Mask(true);
+    else
+        return mask;
+}
+
 //! @}
 // -----------------------------------------------------------------------
 

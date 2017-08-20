@@ -1694,6 +1694,15 @@ Rearranging contents of arrays
              [1, 2, 3, 4]]
         */
 
+.. cpp:function:: template <typename Mask> Mask disable_mask_if_scalar(const Mask &mask)
+
+    This function returns ``true`` if ``Mask`` is a boolean scalar. Otherwise, it
+    returns its input parameter unchanged. This function is convenient when a piece
+    of vectorization-aware template code uses masks that aren't really needed for
+    the scalar version. If all masks are passed through this function, the compiler
+    can inline ``disable_mask_if_scalar`` and use constant propagation to disable
+    masking in the scalar variant.
+
 Operations for dynamic arrays
 -----------------------------
 

@@ -30,7 +30,7 @@ Enoki — fast vectorized arithmetic on modern processors
    complex
    quaternions
    matrix
-   homogeneous
+   transform
    sh
    half
    stl
