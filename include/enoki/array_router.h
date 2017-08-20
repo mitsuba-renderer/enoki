@@ -332,38 +332,33 @@ ENOKI_INLINE auto select(const T1 &m, const T2 &t, const T3 &f) {
                   (detail::ref_cast_t<T3, Output>) f);
 }
 
-template <typename Target, typename Source,
-          std::enable_if_t<std::is_same<Source, Target>::value, int> = 0>
+template <typename Target, typename Source, std::enable_if_t<std::is_same<Source, Target>::value, int> = 0>
 ENOKI_INLINE Target reinterpret_array(const Source &src) {
     return src;
 }
 
 template <typename Target, typename Source,
-          std::enable_if_t<!std::is_same<Source, Target>::value && is_array<Target>::value, int> = 0>
+          std::enable_if_t<!std::is_same<Source, Target>::value &&
+                            std::is_constructible<Target, const Source &, detail::reinterpret_flag>::value, int> = 0>
 ENOKI_INLINE Target reinterpret_array(const Source &src) {
     return Target(src, detail::reinterpret_flag());
 }
 
 template <typename Target, typename Source,
-          std::enable_if_t<!std::is_same<Source, Target>::value && !is_array<Target>::value &&
-                           sizeof(Source) != sizeof(Target) && !std::is_same<Target, bool>::value, int> = 0>
+          std::enable_if_t<std::is_scalar<Source>::value && std::is_scalar<Target>::value &&
+                           sizeof(Source) != sizeof(Target), int> = 0>
 ENOKI_INLINE Target reinterpret_array(const Source &src) {
     using SrcInt = typename detail::type_chooser<sizeof(Source)>::Int;
     using TrgInt = typename detail::type_chooser<sizeof(Target)>::Int;
-    return memcpy_cast<Target>(memcpy_cast<SrcInt>(src) != 0 ? TrgInt(-1) : TrgInt(0));
+    if (std::is_same<Target, bool>::value)
+        return memcpy_cast<SrcInt>(src) != 0 ? Target(true) : Target(false);
+    else
+        return memcpy_cast<Target>(memcpy_cast<SrcInt>(src) != 0 ? TrgInt(-1) : TrgInt(0));
 }
 
 template <typename Target, typename Source,
-          std::enable_if_t<!std::is_same<Source, Target>::value && !is_array<Target>::value &&
-                           sizeof(Source) != sizeof(Target) && std::is_same<Target, bool>::value, int> = 0>
-ENOKI_INLINE Target reinterpret_array(const Source &src) {
-    using SrcInt = typename detail::type_chooser<sizeof(Source)>::Int;
-    return memcpy_cast<SrcInt>(src) != 0 ? true : false;
-}
-
-template <typename Target, typename Source,
-          std::enable_if_t<!std::is_same<Source, Target>::value && !is_array<Target>::value &&
-                           sizeof(Source) == sizeof(Target), int> = 0>
+          std::enable_if_t<std::is_scalar<Source>::value && std::is_scalar<Target>::value &&
+                           !std::is_same<Source, Target>::value && sizeof(Source) == sizeof(Target), int> = 0>
 ENOKI_INLINE Target reinterpret_array(const Source &src) {
     return memcpy_cast<Target>(src);
 }

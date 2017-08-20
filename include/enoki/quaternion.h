@@ -20,25 +20,24 @@ NAMESPACE_BEGIN(enoki)
 
 template <typename Value_, bool Approx_ = detail::approx_default<Value_>::value>
 struct Quaternion : StaticArrayImpl<Value_, 4, Approx_, RoundingMode::Default, Quaternion<Value_, Approx_>> {
-
     using Base = StaticArrayImpl<Value_, 4, Approx_, RoundingMode::Default, Quaternion<Value_, Approx_>>;
+    using MaskType = Mask<Value_, 4, Approx_, RoundingMode::Default>;
+
+    static constexpr bool CustomBroadcast = true; // This class provides a custom broadcast operator
+
     using typename Base::Value;
     using typename Base::Scalar;
-
-    using ArrayType = Quaternion;
-    using MaskType = Mask<Value_, 4, Approx_, RoundingMode::Default>;
 
     template <typename T, typename T2 = Quaternion>
     using ReplaceType = Quaternion<T,
         detail::is_std_float<scalar_t<T>>::value ? T2::Approx
                                                  : detail::approx_default<T>::value>;
 
-    ENOKI_DECLARE_ARRAY(Base, Quaternion)
-
-    ENOKI_INLINE Quaternion(const Value &f) : Base(zero<Value>(), zero<Value>(), zero<Value>(), f) { }
-
-    template <typename T = Value, std::enable_if_t<!std::is_same<T, Scalar>::value, int> = 0>
-    ENOKI_INLINE Quaternion(const Scalar &f) : Base(zero<Value>(), zero<Value>(), zero<Value>(), f) { }
+    template <typename T, typename T2 = Value_,
+              std::enable_if_t<broadcast<T>::value &&
+                               std::is_default_constructible<T2>::value &&
+                               std::is_constructible<T2, T>::value, int> = 0>
+    ENOKI_INLINE Quaternion(const T &f) : Base(zero<Value>(), zero<Value>(), zero<Value>(), f) { }
 
     template <typename Im, typename Re, std::enable_if_t<Im::Size == 3, int> = 0>
     ENOKI_INLINE Quaternion(const Im &im, const Re &re)
@@ -46,6 +45,8 @@ struct Quaternion : StaticArrayImpl<Value_, 4, Approx_, RoundingMode::Default, Q
 
     template <typename T>
     ENOKI_INLINE static Quaternion fill_(const T &value) { return Array<Value, 4>::fill_(value); }
+
+    ENOKI_DECLARE_ARRAY(Base, Quaternion)
 };
 
 template <typename Quat, std::enable_if_t<Quat::IsQuaternion, int> = 0> ENOKI_INLINE Quat identity() {
@@ -70,10 +71,15 @@ template <typename T, bool Approx> ENOKI_INLINE Quaternion<expr_t<T>, Approx> co
 }
 
 template <typename T, bool Approx> ENOKI_INLINE expr_t<T> squared_norm(const Quaternion<T, Approx> &q) {
-    return squared_norm(Array<expr_t<T>, 4>(q));
+    return enoki::squared_norm(Array<expr_t<T>, 4>(q));
 }
+
 template <typename T, bool Approx> ENOKI_INLINE expr_t<T> norm(const Quaternion<T, Approx> &q) {
-    return norm(Array<expr_t<T>, 4>(q));
+    return enoki::norm(Array<expr_t<T>, 4>(q));
+}
+
+template <typename T, bool Approx> ENOKI_INLINE Quaternion<expr_t<T>, Approx> normalize(const Quaternion<T, Approx> &q) {
+    return enoki::normalize(Array<expr_t<T>, 4>(q));
 }
 
 template <typename T, bool Approx> ENOKI_INLINE Quaternion<expr_t<T>, Approx> rcp(const Quaternion<T, Approx> &q) {

@@ -20,9 +20,9 @@ NAMESPACE_BEGIN(enoki)
 template <typename Value_, bool Approx_ = detail::approx_default<Value_>::value>
 struct Complex : StaticArrayImpl<Value_, 2, Approx_, RoundingMode::Default, Complex<Value_, Approx_>> {
     using Base = StaticArrayImpl<Value_, 2, Approx_, RoundingMode::Default, Complex<Value_, Approx_>>;
-
-    using ArrayType = Complex;
     using MaskType = Mask<Value_, 2, Approx_, RoundingMode::Default>;
+
+    static constexpr bool CustomBroadcast = true; // This class provides a custom broadcast operator
 
     using typename Base::Value;
     using typename Base::Scalar;
@@ -32,19 +32,32 @@ struct Complex : StaticArrayImpl<Value_, 2, Approx_, RoundingMode::Default, Comp
         detail::is_std_float<scalar_t<T>>::value ? T2::Approx
                                                  : detail::approx_default<T>::value>;
 
-    ENOKI_DECLARE_ARRAY(Base, Complex)
-
-    ENOKI_INLINE Complex(const Value &f) : Base(f, zero<Value>()) { }
-
-    template <typename T = Value, std::enable_if_t<!std::is_same<T, Scalar>::value, int> = 0>
-    ENOKI_INLINE Complex(const Scalar &f) : Base(f, zero<Value>()) { }
+    template <typename T, typename T2 = Value_,
+              std::enable_if_t<broadcast<T>::value &&
+                               std::is_default_constructible<T2>::value &&
+                               std::is_constructible<T2, T>::value, int> = 0>
+    ENOKI_INLINE Complex(const T &f) : Base(f, zero<Value>()) { }
 
     template <typename T>
     ENOKI_INLINE static Complex fill_(const T &value) { return Array<Value, 2>::fill_(value); }
+
+    ENOKI_DECLARE_ARRAY(Base, Complex)
 };
 
 template <typename T, bool Approx> ENOKI_INLINE expr_t<T> real(const Complex<T, Approx> &z) { return z.x(); }
 template <typename T, bool Approx> ENOKI_INLINE expr_t<T> imag(const Complex<T, Approx> &z) { return z.y(); }
+
+template <typename T, bool Approx> ENOKI_INLINE expr_t<T> squared_norm(const Complex<T, Approx> &z) {
+    return squared_norm(Array<expr_t<T>, 2>(z));
+}
+
+template <typename T, bool Approx> ENOKI_INLINE expr_t<T> norm(const Complex<T, Approx> &z) {
+    return norm(Array<expr_t<T>, 2>(z));
+}
+
+template <typename T, bool Approx> ENOKI_INLINE Complex<expr_t<T>, Approx> normalize(const Complex<T, Approx> &q) {
+    return enoki::normalize(Array<expr_t<T>, 2>(q));
+}
 
 template <typename T, bool Approx> ENOKI_INLINE Complex<expr_t<T>, Approx> rcp(const Complex<T, Approx> &z) {
     auto scale = rcp<Approx>(squared_norm(z));
@@ -110,14 +123,6 @@ ENOKI_INLINE Complex<expr_t<T0, T1>, Approx> operator/(const Complex<T0, Approx>
 template <typename T, bool Approx> ENOKI_INLINE Complex<expr_t<T>, Approx> conj(const Complex<T, Approx> &z) {
     const Complex<expr_t<T>> mask(0.f, -0.f);
     return z ^ mask;
-}
-
-template <typename T, bool Approx> ENOKI_INLINE expr_t<T> squared_norm(const Complex<T, Approx> &z) {
-    return squared_norm(Array<expr_t<T>, 2>(z));
-}
-
-template <typename T, bool Approx> ENOKI_INLINE expr_t<T> norm(const Complex<T, Approx> &z) {
-    return norm(Array<expr_t<T>, 2>(z));
 }
 
 template <typename T, bool Approx> ENOKI_INLINE expr_t<T> abs(const Complex<T, Approx> &z) { return norm(z); }
@@ -223,9 +228,8 @@ template <typename T, bool Approx> ENOKI_INLINE Complex<expr_t<T>, Approx> tanh(
     using R = Complex<expr_t<T>, Approx>;
     auto sc  = sincos(imag(z));
     auto sch = sincosh(real(z));
-    return
-        R(sch.first * sc.second, sch.second * sc.first) /
-        R(sch.second * sc.second, sch.first * sc.first);
+    return R(sch.first * sc.second, sch.second * sc.first) /
+           R(sch.second * sc.second, sch.first * sc.first);
 }
 
 template <typename T, bool Approx> ENOKI_INLINE Complex<expr_t<T>, Approx> asinh(const Complex<T, Approx> &z) {

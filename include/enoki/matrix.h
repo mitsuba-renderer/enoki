@@ -35,8 +35,9 @@ struct Matrix : StaticArrayImpl<Array<Value_, Size_, Approx_>, Size_, Approx_,
 
     using Base = StaticArrayImpl<Column, Size_, Approx_, RoundingMode::Default,
                                  Matrix<Value_, Size_, Approx_>>;
-    using ArrayType = Matrix;
     using MaskType = Mask<Column, Size_, Approx_, RoundingMode::Default>;
+
+    static constexpr bool CustomBroadcast = true; // This class provides a custom broadcast operator
 
     using typename Base::Value;
     using typename Base::Scalar;
@@ -47,8 +48,6 @@ struct Matrix : StaticArrayImpl<Array<Value_, Size_, Approx_>, Size_, Approx_,
         value_t<T>, Size_,
         detail::is_std_float<scalar_t<T>>::value ? T2::Approx
                                                  : detail::approx_default<T>::value>;
-
-    ENOKI_DECLARE_ARRAY(Base, Matrix)
 
     using Base::coeff;
     using Base::Size;
@@ -66,16 +65,15 @@ struct Matrix : StaticArrayImpl<Array<Value_, Size_, Approx_>, Size_, Approx_,
     }
 
     /// Create a diagonal matrix
-    ENOKI_INLINE Matrix(const Entry &f) : Base(zero<Entry>()) {
-        for (size_t i = 0; i < Matrix::Size; ++i)
-            operator()(i, i) = f;
-    }
-
-    /// Create a diagonal matrix
-    template <typename T = Entry, std::enable_if_t<!std::is_same<T, Scalar>::value, int> = 0>
-    ENOKI_INLINE Matrix(const Scalar &f) : Base(zero<Entry>()) {
-        for (size_t i = 0; i < Matrix::Size; ++i)
-            operator()(i, i) = f;
+    template <typename T, typename T2 = Entry,
+              std::enable_if_t<broadcast<T>::value &&
+                               std::is_default_constructible<T2>::value &&
+                               std::is_constructible<T2, T>::value, int> = 0>
+    ENOKI_INLINE Matrix(const T &a) {
+        for (size_t i = 0; i < Matrix::Size; ++i) {
+            coeff(i) = zero<Column>();
+            operator()(i, i) = a;
+        }
     }
 
     /// Initialize from a bigger matrix: retains the top left part
@@ -126,6 +124,8 @@ struct Matrix : StaticArrayImpl<Array<Value_, Size_, Approx_>, Size_, Approx_,
 
     template <typename T>
     ENOKI_INLINE static Matrix fill_(const T &value) { return Array<Column, Size>::fill_(value); }
+
+    ENOKI_DECLARE_ARRAY(Base, Matrix)
 };
 
 

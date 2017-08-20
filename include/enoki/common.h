@@ -228,6 +228,18 @@ public:
     static constexpr bool value = type::value;
 };
 
+/// SFINAE helper to test whether a initializing an array with a given type should broadcast if possible
+template <typename T> struct broadcast {
+private:
+    static constexpr std::true_type check(void *);
+    template <typename T2 = T>
+    static constexpr std::integral_constant<bool, T2::Derived::PrefersBroadcast> check(T2 *);
+public:
+    using T2 = std::decay_t<T>;
+    using type = decltype(check((T2 *) nullptr));
+    static constexpr bool value = type::value;
+};
+
 template <typename T> using enable_if_array_t         = std::enable_if_t<is_array<T>::value, int>;
 template <typename T> using enable_if_not_array_t     = std::enable_if_t<!is_array<T>::value, int>;
 template <typename T> using enable_if_mask_t          = std::enable_if_t<is_mask<T>::value, int>;
@@ -579,6 +591,12 @@ template <typename T, template<class> class Tester, typename = void> struct get_
 template <typename T, template<class> class Tester> struct get_flag<T, Tester, void_t<Tester<T>>> : Tester<T> { };
 
 NAMESPACE_END(detail)
+
+template <typename Target, typename Source> struct is_reinterpretable {
+    static constexpr bool value = std::is_same<Target, Source>::value ||
+                                  std::is_constructible<Target, const Source &, detail::reinterpret_flag>::value ||
+                                  (std::is_scalar<Source>::value && std::is_scalar<Target>::value);
+};
 
 /// Integer-based version of a given array class
 template <typename T>

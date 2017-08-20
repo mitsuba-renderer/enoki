@@ -149,13 +149,24 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
 
     /// Number of array entries
     static constexpr size_t Size = Size_;
+
+    /// Size and ActualSize can be different, e.g. when representing 3D vectors using 4-wide registers
     static constexpr size_t ActualSize = Size;
+
+    /// Use standard broadcasting behavior. Packet and PacketMask override this flag.
+    static constexpr bool PrefersBroadcast = false;
+
+    /// Does this type provide a custom broadcasting constructor? (e.g. to diagonal only for matrices)
+    static constexpr bool CustomBroadcast = false;
 
     /// Are arithmetic operations approximate?
     static constexpr bool Approx = Approx_;
 
     /// Rounding mode of arithmetic operations
     static constexpr RoundingMode Mode = Mode_;
+
+    /// Array<...> type associated with this array (overridden in Mask<...> types)
+    using ArrayType = Derived;
 
     static_assert(detail::is_std_float<Scalar>::value || !Approx,
                   "Approximate math library functions are only supported for "
@@ -2093,7 +2104,7 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
     return detail::print(os, a, shape(a.derived()));
 }
 
-/// Macro to initialize uninitialized floating point arrays with NaNs in debug mode
+/// Macro to initialize uninitialized floating point arrays with 1 bits (NaN/-1) in debug mode
 #if defined(NDEBUG)
 #define ENOKI_TRIVIAL_CONSTRUCTOR(Value_)                                       \
     template <typename T = Value_,                                              \
@@ -2102,13 +2113,12 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
 #else
 #define ENOKI_TRIVIAL_CONSTRUCTOR(Value_)                                       \
     template <typename T = Value_,                                              \
-         std::enable_if_t<std::is_floating_point<T>::value &&                   \
-                          std::is_default_constructible<T>::value, int> = 0>    \
+        std::enable_if_t<std::is_scalar<T>::value, int> = 0>                    \
     ENOKI_INLINE StaticArrayImpl()                                              \
-        : StaticArrayImpl(std::numeric_limits<scalar_t<T>>::quiet_NaN()) { }    \
-    template <typename T = Value_,                                              \
-         std::enable_if_t<!std::is_floating_point<T>::value &&                  \
-                          std::is_default_constructible<T>::value, int> = 0>    \
+        : StaticArrayImpl(Array<T, Derived::Size>(memcpy_cast<T>(int_array_t<T>(-1)))) { } \
+    template <typename T = Value_,                                             \
+         std::enable_if_t<!std::is_scalar<T>::value &&                         \
+                           std::is_default_constructible<T>::value, int> = 0>  \
     ENOKI_INLINE StaticArrayImpl() { }
 #endif
 

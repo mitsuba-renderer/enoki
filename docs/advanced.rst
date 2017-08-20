@@ -530,9 +530,6 @@ all regular Enoki operations.
         /// Helper alias used to transition between vector types (used by enoki::vectorize)
         template <typename T> using ReplaceType = Spectrum<T, Size>;
 
-        /// Array type associated with this custom type (simply reference self)
-        using ArrayType = Spectrum;
-
         /// Mask type associated with this custom type
         using MaskType = enoki::Mask<Value, Size, true, RoundingMode::Default>;
 

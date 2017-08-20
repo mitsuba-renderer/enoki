@@ -44,9 +44,10 @@ ENOKI_TEST(test01_alloc)  {
     assert( any(enoki::isnan(packet(y, 2))));
 
     y.coeff(2) = 2.f;
-    assert(to_string(y) == "[nan, 1, 2, nan, nan, nan, nan, nan, nan, nan]");
+    assert(to_string(y) == "[-nan, 1, 2, -nan, -nan, -nan, -nan, -nan, -nan, -nan]" ||
+           to_string(y) == "[nan, 1, 2, nan, nan, nan, nan, nan, nan, nan]");
     resize(y, {{ 3 }});
-    assert(to_string(y) == "[nan, 1, 2]");
+    assert(to_string(y) == "[-nan, 1, 2]" || to_string(y) == "[nan, 1, 2]");
 }
 
 ENOKI_TEST(test02_map)  {

@@ -759,7 +759,7 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
             m_size = size;
 
             if (scalar_flag && size > 1) {
-                /* Broadcast scalars to the entire array */
+                /* Broadcast to the entire array */
                 Packet p(scalar);
                 for (size_t i = 0; i < packets; ++i)
                     store(m_packets + i, p);

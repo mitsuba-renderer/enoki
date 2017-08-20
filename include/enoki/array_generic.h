@@ -80,10 +80,6 @@ struct StaticArrayImpl<
     /// Default move assignment operator
     StaticArrayImpl& operator=(StaticArrayImpl &&) = default;
 
-    /// Reinterpret an array (without any changes)
-    StaticArrayImpl(const StaticArrayImpl &a, detail::reinterpret_flag)
-        : StaticArrayImpl(a) { }
-
     //! @}
     // -----------------------------------------------------------------------
 
@@ -133,21 +129,15 @@ public:
               typename Derived2, typename T = Derived,
               std::enable_if_t<std::is_constructible<Value_, Value2 &>::value &&
                               !std::is_constructible<Value_, const Value2 &>::value &&
-                              Derived2::Size == T::Size, int> = 0>
+                              Derived2::Size == T::Size && !T::IsMask, int> = 0>
     ENOKI_INLINE StaticArrayImpl(
               StaticArrayBase<Value2, Size2, Approx2, Mode2, Derived2> &a)
         : StaticArrayImpl(a, std::make_index_sequence<Size>()) { }
 
-    /// Convert a compatible mask -- only used if this is an Array<bool, ...>
-    template <typename T, typename T2 = Value_,
-              std::enable_if_t<is_mask<T>::value && std::is_same<bool, T2>::value, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(const T &value)
-        : StaticArrayImpl(value, detail::reinterpret_flag()) { }
-
-    /// Reinterpret another array (non-recursive)
+    /// Reinterpret a compatible array (non-recursive)
     template <typename Value2, size_t Size2, bool Approx2, RoundingMode Mode2, typename Derived2,
-              typename T = Derived, std::enable_if_t<Derived2::Size == T::Size &&
-                                                    !Derived2::IsRecursive, int> = 0>
+              typename T = Derived, std::enable_if_t<Derived2::Size == T::Size && !Derived2::IsRecursive
+                  && is_reinterpretable<Value_, Value2>::value, int> = 0>
     ENOKI_INLINE StaticArrayImpl(
         const StaticArrayBase<Value2, Size2, Approx2, Mode2, Derived2> &a,
         detail::reinterpret_flag) {
@@ -157,13 +147,17 @@ public:
 
     /// Reinterpret another array (recursive)
     template <typename Value2, size_t Size2, bool Approx2, RoundingMode Mode2, typename Derived2,
-              typename T = Derived, std::enable_if_t<Derived2::Size == T::Size &&
-                                                     Derived2::IsRecursive, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(
-        const StaticArrayBase<Value2, Size2, Approx2, Mode2, Derived2> &a,
-        detail::reinterpret_flag)
+              typename T = Derived, std::enable_if_t<Derived2::Size == T::Size && Derived2::IsRecursive, int> = 0>
+    ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<Value2, Size2, Approx2, Mode2, Derived2> &a,
+                                 detail::reinterpret_flag)
         : StaticArrayImpl(reinterpret_array<Array1>(low(a)),
                           reinterpret_array<Array2>(high(a))) { }
+
+
+    /// Convert a compatible mask -- only used if this is an Array<bool, ...> or another kind of mask
+    template <typename T, typename T2 = Derived, std::enable_if_t<T2::IsMask, int> = 0>
+    ENOKI_INLINE StaticArrayImpl(const T &value)
+        : StaticArrayImpl(value, detail::reinterpret_flag()) { }
 
     //! @}
     // -----------------------------------------------------------------------
@@ -172,43 +166,24 @@ public:
     //! @{ \name Constructors that convert from incompatible representations
     // -----------------------------------------------------------------------
 
-    /// Broadcast a scalar
-    template <typename T = Value_, std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(const Scalar &a) {
+    /// Broadcast a scalar or packet type
+    template <typename T, typename T2 = Derived, typename T3 = Value_,
+              std::enable_if_t<broadcast<T>::value && !T2::IsMask && !T2::CustomBroadcast &&
+                               std::is_default_constructible<T3>::value &&
+                               std::is_constructible<T3, const T &>::value, int> = 0>
+    ENOKI_INLINE StaticArrayImpl(const T &a) {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             coeff(i) = Value(a);
     }
 
     /// Broadcast a scalar (reinterpret cast)
-    template <typename T = Value_, std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(const Scalar &a, detail::reinterpret_flag) {
+    template <typename T, typename T2 = Value_,
+              std::enable_if_t<broadcast<T>::value &&
+                               std::is_default_constructible<T2>::value &&
+                               is_reinterpretable<T2, T>::value, int> = 0>
+    ENOKI_INLINE StaticArrayImpl(const T &a, detail::reinterpret_flag) {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             coeff(i) = reinterpret_array<Value>(a);
-    }
-
-    template <typename T, typename T2 = Value_,
-              std::enable_if_t<!is_static_array<T>::value &&
-                                   std::is_default_constructible<T2>::value &&
-                                   std::is_constructible<Value, T>::value &&
-                                   !std::is_scalar<T>::value, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(const T &a) {
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i) coeff(i) = Value(a);
-    }
-
-    /// Broadcast a packet type
-    template <typename Value2, size_t Size2, bool Approx2, RoundingMode Mode2,
-              std::enable_if_t<std::is_constructible<Value_, const Packet<Value2, Size2, Approx2, Mode2> &>::value, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(const Packet<Value2, Size2, Approx2, Mode2> &a) {
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            coeff(i) = Value(a);
-    }
-
-    /// Broadcast a packet mask type
-    template <typename Value2, size_t Size2, bool Approx2, RoundingMode Mode2,
-              std::enable_if_t<std::is_constructible<Value_, const PacketMask<Value2, Size2, Approx2, Mode2> &>::value, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(const PacketMask<Value2, Size2, Approx2, Mode2> &a, detail::reinterpret_flag) {
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            coeff(i) = Value(a);
     }
 
     /// Broadcast an incompatible array type
@@ -223,7 +198,7 @@ public:
     /// Broadcast an incompatible array type (reinterpret cast)
     template <typename Value2, size_t Size2, bool Approx2, RoundingMode Mode2, typename Derived2,
               typename T = Derived, std::enable_if_t<Derived2::Size != T::Size &&
-                                                     std::is_constructible<Value_, const Derived2 &>::value, int> = 0>
+                                                     is_reinterpretable<Value_, Derived2>::value, int> = 0>
     ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<Value2, Size2, Approx2, Mode2, Derived2> &a, detail::reinterpret_flag) {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             coeff(i) = reinterpret_array<Value>(a.derived());
@@ -246,6 +221,7 @@ public:
     //! @{ \name Converting from/to half size vectors
     // -----------------------------------------------------------------------
 
+    template <size_t S = Size2, std::enable_if_t<S != 0, int> = 0>
     StaticArrayImpl(const Array1 &a1, const Array2 &a2)
         : StaticArrayImpl(a1, a2, std::make_index_sequence<Size1>(),
                                   std::make_index_sequence<Size2>()) { }
@@ -1167,11 +1143,11 @@ struct StaticMaskImpl<Value_, Size_, Approx_, Mode_, Derived_,
     using Base::operator=;
 };
 
-template <typename Packet_, typename Storage_> struct call_support_base {
-    using Packet = Packet_;
+template <typename PacketType_, typename Storage_> struct call_support_base {
+    using PacketType = PacketType_;
     using Storage = Storage_;
-    using Instance = value_t<Packet>;
-    using Mask = mask_t<Packet>;
+    using Instance = value_t<PacketType>;
+    using Mask = mask_t<PacketType>;
     call_support_base(const Storage &self) : self(self) { }
     const Storage &self;
 
@@ -1186,7 +1162,7 @@ template <typename Packet_, typename Storage_> struct call_support_base {
 
         while (any(mask)) {
             Instance value         = extract(self, mask);
-            Mask active            = mask & eq(self, Packet(value));
+            Mask active            = mask & eq(self, PacketType(value));
             mask                   = andnot(mask, active);
             masked(result, active) = func(value, args..., active);
         }
@@ -1204,7 +1180,7 @@ template <typename Packet_, typename Storage_> struct call_support_base {
 
         while (any(mask)) {
             Instance value = extract(self, mask);
-            Mask active    = mask & eq(self, Packet(value));
+            Mask active    = mask & eq(self, PacketType(value));
             mask           = andnot(mask, active);
             func(value, args..., active);
         }
@@ -1221,7 +1197,7 @@ template <typename Packet_, typename Storage_> struct call_support_base {
 
         while (any(mask)) {
             Instance value          = extract(self, mask);
-            Mask active             = mask & eq(self, Packet(value));
+            Mask active             = mask & eq(self, PacketType(value));
             mask                    = andnot(mask, active);
             masked(result, active)  = func(value, args...);
         }
@@ -1238,7 +1214,7 @@ template <typename Packet_, typename Storage_> struct call_support_base {
 
         while (any(mask)) {
             Instance value  = extract(self, mask);
-            mask           &= neq(self, Packet(value));
+            mask           &= neq(self, PacketType(value));
             func(value, args...);
         }
     }
@@ -1274,12 +1250,12 @@ template <typename Packet_, typename Storage_> struct call_support_base {
     }
 };
 
-#define ENOKI_CALL_SUPPORT_BEGIN(Packet)                                       \
+#define ENOKI_CALL_SUPPORT_BEGIN(PacketType)                                   \
     namespace enoki {                                                          \
     template <typename Storage>                                                \
-    struct call_support<Packet, Storage>                                       \
-        : call_support_base<Packet, Storage> {                                 \
-        using Base = call_support_base<Packet, Storage>;                       \
+    struct call_support<PacketType, Storage>                                   \
+        : call_support_base<PacketType, Storage> {                             \
+        using Base = call_support_base<PacketType, Storage>;                   \
         using Base::Base;                                                      \
         using Base::self;                                                      \
         using Instance = std::remove_pointer_t<typename Base::Instance>;       \
@@ -1308,7 +1284,7 @@ template <typename Packet_, typename Storage_> struct call_support_base {
 #define ENOKI_CALL_SUPPORT_SCALAR(name)                                        \
     ENOKI_CALL_SUPPORT_GENERIC(name, dispatch_scalar_1)
 
-#define ENOKI_CALL_SUPPORT_END(Packet)                                         \
+#define ENOKI_CALL_SUPPORT_END(PacketType)                                     \
         };                                                                     \
     }
 
@@ -1321,7 +1297,6 @@ struct Array : StaticArrayImpl<Value_, Size_, Approx_, Mode_,
 
     using Base = StaticArrayImpl<Value_, Size_, Approx_, Mode_,
                                  Array<Value_, Size_, Approx_, Mode_>>;
-    using ArrayType = Array;
     using MaskType = Mask<Value_, Size_, Approx_, Mode_>;
 
     /// Type alias for creating a similar-shaped array over a different type
@@ -1339,8 +1314,8 @@ struct Packet : StaticArrayImpl<Value_, Size_, Approx_, Mode_,
 
     using Base = StaticArrayImpl<Value_, Size_, Approx_, Mode_,
                                  Packet<Value_, Size_, Approx_, Mode_>>;
-    using ArrayType = Packet;
     using MaskType = PacketMask<Value_, Size_, Approx_, Mode_>;
+    static constexpr bool PrefersBroadcast = true;
 
     /// Type alias for creating a similar-shaped array over a different type
     template <typename T>
@@ -1358,7 +1333,7 @@ struct Mask : StaticMaskImpl<Value_, Size_, Approx_, Mode_, Mask<Value_, Size_, 
     using ArrayType = Array<Value_, Size_, Approx_, Mode_>;
     using MaskType = Mask;
     using typename Base::Scalar;
-    static constexpr bool IsBoolMask = std::is_same<bool, value_t<Base>>::value;
+    static constexpr bool BaseIsMask = Base::IsMask;
 
     /// Type alias for creating a similar-shaped array over a different type
     template <typename T> using ReplaceType = Mask<T, Size_>;
@@ -1369,14 +1344,19 @@ struct Mask : StaticMaskImpl<Value_, Size_, Approx_, Mode_, Mask<Value_, Size_, 
     /* Clang handles resolution order of imported constructors
        differently and doesn't require this extra check to avoid
        ambiguity errors */
-    , typename T2 = Mask, std::enable_if_t<!T2::IsBoolMask, int> = 0
+    , typename T2 = Mask, std::enable_if_t<!T2::BaseIsMask, int> = 0
 #endif
     >
     ENOKI_INLINE Mask(const T &value)
         : Mask(value, detail::reinterpret_flag()) { }
 
     /// Initialize mask with a uniform constant
-    template <typename T, std::enable_if_t<std::is_arithmetic<T>::value, int> = 0>
+    template <typename T, typename T2 = Mask,
+              std::enable_if_t<std::is_arithmetic<T>::value
+#if !defined(__clang__)
+        && !T2::BaseIsMask
+#endif
+    , int> = 0>
     ENOKI_INLINE Mask(const T &value, detail::reinterpret_flag, int = 0)
         : Base(reinterpret_array<Scalar>(value)) { }
 
@@ -1390,7 +1370,8 @@ struct PacketMask : StaticMaskImpl<Value_, Size_, Approx_, Mode_, PacketMask<Val
     using MaskType = PacketMask;
     using typename Base::Scalar;
     static constexpr bool IsMask = true;
-    static constexpr bool IsBoolMask = std::is_same<bool, value_t<Base>>::value;
+    static constexpr bool BaseIsMask = Base::IsMask;
+    static constexpr bool PrefersBroadcast = true;
 
     /// Type alias for creating a similar-shaped array over a different type
     template <typename T> using ReplaceType = PacketMask<T, Size_>;
@@ -1401,14 +1382,19 @@ struct PacketMask : StaticMaskImpl<Value_, Size_, Approx_, Mode_, PacketMask<Val
     /* Clang handles resolution order of imported constructors
        differently and doesn't require this extra check to avoid
        ambiguity errors */
-    , typename T2 = PacketMask, std::enable_if_t<!T2::IsBoolMask, int> = 0
+    , typename T2 = PacketMask, std::enable_if_t<!T2::BaseIsMask, int> = 0
 #endif
     >
-    ENOKI_INLINE PacketMask(const T &value, int = 0)
+    ENOKI_INLINE PacketMask(const T &value)
         : PacketMask(value, detail::reinterpret_flag()) { }
 
     /// Initialize mask with a uniform constant
-    template <typename T, std::enable_if_t<std::is_arithmetic<T>::value, int> = 0>
+    template <typename T, typename T2 = PacketMask,
+              std::enable_if_t<std::is_arithmetic<T>::value
+#if !defined(__clang__)
+        && !T2::BaseIsMask
+#endif
+    , int> = 0>
     ENOKI_INLINE PacketMask(const T &value, detail::reinterpret_flag, int = 0)
         : Base(reinterpret_array<Scalar>(value)) { }
 
