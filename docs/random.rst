@@ -101,8 +101,8 @@ Member variables
 Constructors
 ************
 
-.. cpp:function:: PCG32(UInt64 initstate = PCG32_DEFAULT_STATE, \
-                        UInt64 initseq = PCG32_DEFAULT_STREAM + index_sequence<UInt64>())
+.. cpp:function:: PCG32(const UInt64 &initstate = PCG32_DEFAULT_STATE, \
+                        const UInt64 &initseq = PCG32_DEFAULT_STREAM + index_sequence<UInt64>())
 
      Seeds the PCG32 with the default state. When ``T`` is an array, every
      entry by default uses a different stream index, which yields an
@@ -111,11 +111,11 @@ Constructors
 Methods
 *******
 
-.. cpp:function:: void seed(UInt64 initstate, UInt64 initseq)
+.. cpp:function:: void seed(const UInt64 &initstate, const UInt64 &initseq)
 
-    This function initializes (a.k.a. "seeds") the random number
-    generator, a required initialization step before the generator can be
-    used. The provided arguments are defined as follows:
+    This function initializes (a.k.a. "seeds") the random number generator, a
+    required initialization step before the generator can be used. The provided
+    arguments are defined as follows:
 
     - ``initstate`` is the starting state for the RNG. Any 64-bit value is
       permissible.
@@ -129,24 +129,36 @@ Methods
     The ``initstate`` argument specifies the location within the :math:`2^{64}`
     period.
 
-    Calling :cpp:func:`PCG32::seed` with the same arguments produces the
-    same output, allowing programs to use random number sequences
-    repeatably.
+    Calling :cpp:func:`PCG32::seed` with the same arguments produces the same
+    output, allowing programs to use random number sequences repeatably.
 
-.. cpp:function:: UInt32 next_uint32()
+.. cpp:function:: UInt32 next_uint32(const mask_t<UInt64> &mask = true)
 
     Generate a uniformly distributed unsigned 32-bit random number (i.e.
     :math:`x`, where :math:`0\le x< 2^{32}`)
 
-.. cpp:function:: UInt64 next_uint64()
+    If a mask parameter is provided, only the pseudorandom number generators
+    of active SIMD lanes are advanced.
+
+.. cpp:function:: UInt64 next_uint64(const mask_t<UInt64> &mask = true)
 
     Generate a uniformly distributed unsigned 64-bit random number (i.e.
     :math:`x`, where :math:`0\le x< 2^{64}`)
 
-.. cpp:function:: UInt32 next_uint32(uint32_t bound)
+    If a mask parameter is provided, only the pseudorandom number generators
+    of active SIMD lanes are advanced.
+
+    .. note::
+
+        This function performs two internal calls to :cpp:func:`next_uint32()`.
+
+.. cpp:function:: UInt32 next_uint32_bound(uint32_t bound, const mask_t<UInt64> &mask = true)
 
     Generate a uniformly distributed unsigned 32-bit random number less
     than ``bound`` (i.e. :math:`x`, where :math:`0\le x<` ``bound``)
+
+    If a mask parameter is provided, only the pseudorandom number generators
+    of active SIMD lanes are advanced.
 
     .. note::
 
@@ -155,13 +167,34 @@ Methods
         several steps. This is only relevant when using the
         :cpp:func:`advance()` or :cpp:func:`operator-()` method.
 
-.. cpp:function:: Float32 next_float32()
+.. cpp:function:: UInt64 next_uint64_bound(uint64_t bound, const mask_t<UInt64> &mask = true)
+
+    Generate a uniformly distributed unsigned 64-bit random number less
+    than ``bound`` (i.e. :math:`x`, where :math:`0\le x<` ``bound``)
+
+    If a mask parameter is provided, only the pseudorandom number generators of
+    active SIMD lanes are advanced.
+
+    .. note::
+
+        This may involve multiple internal calls to
+        :cpp:func:`next_uint64()`, in which case the RNG advances by
+        several steps. This is only relevant when using the
+        :cpp:func:`advance()` or :cpp:func:`operator-()` method.
+
+.. cpp:function:: Float32 next_float32(const mask_t<UInt64> &mask = true)
 
     Generate a single precision floating point value on the interval :math:`[0, 1)`
 
-.. cpp:function:: Float64 next_float64()
+    If a mask parameter is provided, only the pseudorandom number generators of
+    active SIMD lanes are advanced.
+
+.. cpp:function:: Float64 next_float64(const mask_t<UInt64> &mask = true)
 
     Generate a double precision floating point value on the interval :math:`[0, 1)`
+
+    If a mask parameter is provided, only the pseudorandom number generators of
+    active SIMD lanes are advanced.
 
     .. warning::
 
@@ -170,7 +203,7 @@ Methods
         the resolution is still finer than in :cpp:func:`next_float32`,
         which only uses 23 mantissa bits)
 
-.. cpp:function:: void advance(Int64 delta)
+.. cpp:function:: void advance(const Int64 &delta)
 
     This operation provides jump-ahead; it advances the RNG by ``delta`` steps,
     doing so in :math:`\log(\texttt{delta})` time. Because of the periodic

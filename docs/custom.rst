@@ -44,14 +44,14 @@ is deemed unreliable, it returns a *NaN* value to inform the caller about this.
         if (!r1.reliable || !r2.reliable)
             return std::numeric_limits<float>::quiet_NaN();
 
-        Vector2f sin_diff_h = sin(deg_to_rad * .5f * (r2.pos - r1.pos));
+        Vector2f sin_diff_h = std::sin(deg_to_rad * .5f * (r2.pos - r1.pos));
         sin_diff_h *= sin_diff_h;
 
         float a = sin_diff_h.x() + sin_diff_h.y() *
-                  cos(r1.pos.x() * deg_to_rad) *
-                  cos(r2.pos.x() * deg_to_rad);
+                  std::cos(r1.pos.x() * deg_to_rad) *
+                  std::cos(r2.pos.x() * deg_to_rad);
 
-        return 6371.f * 2.f * atan2(sqrt(a), sqrt(1.f - a));
+        return 6371.f * 2.f * std::atan2(std::sqrt(a), std::sqrt(1.f - a));
     }
 
 Suppose that we would like to add a second vectorized version of this function,
@@ -128,7 +128,7 @@ to the ``Value`` type, and it works for both scalar and vector arguments.
         );
     }
 
-Note how the overall structure is preserved. There are two noteworthy changes:
+Note how the overall structure is preserved. There are three noteworthy changes:
 
 1. Control flow such as ``if`` statements must be replaced by branchless code
    involving masks (see the :cpp:func:`enoki::select` statement on line 15).
@@ -146,7 +146,10 @@ Note how the overall structure is preserved. There are two noteworthy changes:
    The :c:macro:`ENOKI_UNLIKELY` macro signals that the branch is rarely taken,
    which can be used for improved code layout if supported by the compiler.
 
-2. The :cpp:type:`enoki::scalar_t` type alias on line 4 is used to extract the
+2. Standard mathematical functions such as ``std::sin`` are replaced by their
+   Enoki equivalents, which generalize to both array and non-array arguments.
+
+3. The :cpp:type:`enoki::scalar_t` type alias on line 4 is used to extract the
    elementary arithmetic type underlying an Enoki array---this results in the
    type ``float`` in our example, which is used to cast a constant to the right
    precision.
@@ -162,5 +165,5 @@ Note how the overall structure is preserved. There are two noteworthy changes:
        using GPSCoord2dP  = GPSCoord2<DoubleP>;
 
    The ``distance`` function requires no changes. When working with double
-   precision GPS records, the ``deg_to_rad`` constant algorithm automatically
-   adapts to the higher precision due to the cast to the ``Scalar`` type.
+   precision GPS records, the ``deg_to_rad`` constant automatically adapts to
+   the higher precision due to the cast to the ``Scalar`` type.

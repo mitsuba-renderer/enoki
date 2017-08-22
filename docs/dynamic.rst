@@ -21,7 +21,7 @@ underlying hardware.
 The class requires a single template argument, which can be any kind of
 :cpp:class:`enoki::Array`. This is the *packet type* that will be used to used
 to realize vectorized computations involving the array contents. The following
-code snippet illustrates the creation of a dynamic floating point that
+code snippet illustrates the creation of a dynamic floating point array that
 vectorizes using 4-wide SSE arithmetic.
 
 .. code-block:: cpp
@@ -212,11 +212,12 @@ time values
     }
 
 The ``packet()`` function is interesting because it returns an instance of a
-new type ``GPSRecord2<FloatP&>`` (note the ampersand) that was not discussed
-yet. Instead of directly storing data, all of its fields are references
-pointing to packets of data elsewhere in memory. In this case, overwriting a field of this
-structure of references will change the corresponding entry *of the dynamic
-array*. Conceptually, this looks as follows:
+new type ``GPSRecord2<FloatP&>`` that was not discussed yet (note the ampersand
+in the template argument). Instead of directly storing data, all of fields of a
+``GPSRecord2<FloatP&>`` are references pointing to packets of data elsewhere in
+memory. In this case, overwriting a field of this structure of references will
+change the corresponding entry *of the dynamic array*. Conceptually, this looks
+as follows:
 
 .. image:: dynamic-03.svg
     :width: 600px
@@ -241,7 +242,8 @@ Enoki provides a second way of indexing into dynamic arrays: the
 structure. Elements of a slice store references to *scalar*
 elements representing a vertical slice through the data structure.
 
-The following code iterates over all slices and initializes the time values to an increasing sequence:
+The following code iterates over all slices and initializes the time values to
+an increasing sequence:
 
 .. code-block:: cpp
 
@@ -252,7 +254,7 @@ The following code iterates over all slices and initializes the time values to a
     }
 
 Here, the :cpp:func:`enoki::slice()` function returns an instance
-of a new type ``GPSRecord2<float&>`` (note the ampersand),
+of a new type ``GPSRecord2<float&>`` (again, note the ampersand),
 Conceptually, this looks as follows:
 
 .. image:: dynamic-06.svg
@@ -274,7 +276,7 @@ and vice versa:
 Dynamic vectorization
 ---------------------
 
-Suppose that we'd like to compute the pairwise distance between records
+Now suppose that we'd like to compute the pairwise distance between records
 organized in two dynamically allocated lists. Direct application of the
 discussed ingredients leads to the following overall structure:
 

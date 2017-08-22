@@ -109,12 +109,12 @@ Simply rewriting this code using Enoki leads to considerable improvements:
         vmulps      xmm0, xmm0, xmm1
         ret
 
-Here, Enoki has organized the 3D vectors as 4D arrays that "waste" the last
-component, allowing for more compact sequence of SSE4.2 instructions with fewer
-shuffles. This is better but still not ideal: of the 12 instructions (a
-reduction by 50% compared to the previous example), 3 are vectorized, 2 are
-scalar, and 1 is a (slow) horizontal reduction. The remaining 6 are shuffle and
-move instructions.
+Here, Enoki has organized the 3D vectors as :ref:`4D arrays that "waste" the
+last component <3d-arrays>`, allowing for more compact sequence of SSE4.2
+instructions with fewer shuffles. This is better but still not ideal: of the 12
+instructions (a reduction by 50% compared to the previous example), 3 are
+vectorized, 2 are scalar, and 1 is a (slow) horizontal reduction. The remaining
+6 are shuffle and move instructions.
 
 A better solution
 -----------------
@@ -124,16 +124,17 @@ arrays, whose components are themselves arrays. This is known as SoA-style data
 organization. One group of multiple 3D vectors represented in this way is
 referred to as a *packet*.
 
+Since Enoki arrays support arbitrary nesting, it's straightforward to wrap an
+existing ``Array`` representing a packet of data into another array while
+preserving the semantics of an 3-dimensional vector at the top level.
+
 .. image:: nested-01.svg
     :width: 400px
     :align: center
 
-Since Enoki arrays support arbitrary nesting, it's straightforward to wrap an
-existing ``Array`` representing a packet of data into another array while
-preserving the semantics of an 3-dimensional vector at the top level. As
-before, all mathematical operations discussed so far are trivially supported
+As before, all mathematical operations discussed so far are trivially supported
 due to the fundamental behavior of an Enoki array: all operations are simply
-forwarded to the contained entries (which are themselves arrays now, so the
+forwarded to the contained entries (which are themselves arrays now: the
 procedure continues recursively). The following snippet demonstrates the basic
 usage of such an approach.
 
@@ -160,10 +161,10 @@ usage of such an approach.
     std::cout << vec << std::endl;
 
     /* Element access using operator[] and x()/y()/z()/w() now return size-4 packets.
-       Prints [1, 2, 3, 4]*/
+       The statement below prints "[1, 2, 3, 4]" */
     std::cout << vec.x() << std::endl;
 
-    /* Transcendental functions applied to all components */
+    /* Transcendental functions are applied to all (nested) components independently */
     Vector3fP vec2 = sin(vec);
 
 The behavior of horizontal operations changes as well--for instance, the dot
@@ -175,14 +176,15 @@ product
 
 now creates a size-4 packet of dot products: one for each pair of input 3D
 vectors. This is simply a consequence of applying the definition of the dot
-product to the components of the array (which are now arrays). This is a major
-performance improvement since it allows converting inefficient horizontal
-operations into a series of vertical operations that make better use of the
-processor's vector units.
+product to the components of the array (which are now arrays).
 
 .. image:: nested-02.svg
     :width: 600px
     :align: center
+
+Note how this is a major performance improvement since relatively inefficient
+horizontal operations have now turned into a series of vertical operations that
+make better use of the processor's vector units.
 
 With the above type aliases, the ``test()`` function now looks as
 follows:
@@ -239,6 +241,10 @@ machine which supports the AVX512ER instruction set:
         return normalize(cross(a, b));
     }
 
+In contrast to the previous assembly snippet, all instructions now operate on
+wide ``zmm`` registers, and the high-latency square root and division were
+replaced by a slightly approximate reciprocal square root instruction.
+
 .. code-block:: nasm
 
     ; Assembly for AVX512ER SoA-style version
@@ -256,8 +262,6 @@ machine which supports the AVX512ER instruction set:
         vmulps       zmm3, zmm6, zmm0
         vmulps       zmm2, zmm2, zmm0
         vmulps       zmm0, zmm1, zmm0
-
-.. code-block:: nasm
 
 Similar optimizations are used on other platforms---for instance, this is the
 ARMv8 NEON version for packets of width 4. Enoki uses the ``frsqrte`` and
@@ -296,22 +300,23 @@ the preceding instruction's result will be generally stall for at least that
 long.
 
 To alleviate the effects of latency, it can be advantageous to use an integer
-multiple of the system's SIMD width (e.g. :math:`2\times`) to further improve
-performance.
+multiple of the system's SIMD width (e.g. :math:`2\times`). This leads to
+longer instructions sequences with fewer interdependencies, which can improve
+performance noticeably.
 
 .. code-block:: cpp
 
     using FloatP = Array<float, 32>;
 
-With the above type definition, Enoki would then unroll every 32x-wide
-operation into a pair of 16x-wide AVX512 instructions.
-
+With the above type definition on an AVX512-capable machine, Enoki would e.g.
+unroll every 32-wide operation into a pair of 16-wide instructions.
 
 Nested horizontal operations
 ----------------------------
 
-It was mentioned earlier that horizontal operations involving nested arrays
-return arrays instead of scalars (the same is also true for horizontal mask
+Horizontal operations (e.g. :cpp:func:`hsum`) perform a reduction across the
+outermost dimension, which means that they return arrays instead of scalars
+when given an nested array as input (the same is also true for horizontal mask
 operations such as :cpp:func:`any`).
 
 Sometimes this is not desirable, and Enoki thus also provides nested versions
@@ -322,7 +327,7 @@ a packet of 3-vectors contains a *Not-a-Number* floating point value.
 
 .. code-block:: cpp
 
-    bool check(Vector3fP x) {
+    bool check(const Vector3fP &x) {
         return none_nested(isnan(x));
     }
 
@@ -416,19 +421,22 @@ the array contents should be replicated across the *second dimension*. This
 leads to a nonsensical operation that divides the :math:`i`-th coordinate (of
 all vectors) by the norm of the :math:`i`-th vector.
 
-Enoki provides the ``enoki::Packet<...>`` type to completely avoid such
+Enoki provides the ``enoki::Packet<...>`` type to resolve any such
 platform-dependent ambiguities. It is identical to the ``enoki::Array<...>``
-class except for its broadcasting behavior: the broadcasting rules for packets
-start from the other end -- that is, they try to copy the array to the trailing
-dimensions if possible.
+class except for its behavior in a broadcast: the rules for a packet operate in
+the reverse direction---that is, Enoki tries to copy the packet to the trailing
+dimensions instead of the leading dimensions if possible:
 
 .. image:: nested-04.svg
     :width: 600px
     :align: center
 
-Packet types such as ``FloatP`` should be defined using the ``enoki::Packet``
-type to benefit from this behavior. The difference in the broadcasting behavior
-is demonstrated below:
+.. note::
+
+    Generally, packet types such as ``FloatP`` should be defined using the
+    ``enoki::Packet`` type to benefit from this behavior.
+
+The difference in the broadcasting behavior is demonstrated below:
 
 .. code-block:: cpp
     :emphasize-lines: 2

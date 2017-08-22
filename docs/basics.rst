@@ -368,7 +368,7 @@ representation of a mask is an implementation detail that varies widely from
 architecture to architecture -- an overview is given in the section
 on :ref:`platform-differences`.
 
-Masks enable powerful branchless logic in comparison with a range of other
+Masks enable powerful branchless logic in combination with a range of other
 bit-level operations. The following snippets show some example usage of mask
 types:
 
@@ -376,7 +376,7 @@ types:
 
     auto mask = f1 > 1;
 
-    /* Bit-level and operation: Zero out entries where the comparison was false */
+    /* Bit-level AND operation: Zero out entries where the comparison was false */
     f1 &= mask;
 
 Masks can be combined in various ways
@@ -401,21 +401,23 @@ with an array, which permits replacing the ``auto`` statement above.
 
     mask_t<MyFloat> mask = f1 > 1;
 
-A list of type traits is available in the :ref:`reference <type-traits>`. As
-with floating point values, there are also horizontal operations for masks:
+A comprehensive list of type traits is available in the :ref:`reference
+<type-traits>`. Similar to the horizontal operations for addition and
+multiplication involving arithmetic arrays, mask arrays also provide a set of
+horizontal operations:
 
 .. code-block:: cpp
 
-    /* Do all entries have a mask value corresponding to 'true'? */
+    /* Do *all* entries have a mask value corresponding to 'true'? */
     bool mask_all_true  = all(mask);
 
-    /* Do some entries have a mask value corresponding to 'true'? */
+    /* Do *some* entries have a mask value corresponding to 'true'? */
     bool mask_some_true = any(mask);
 
-    /* Do none of the entries have a mask value corresponding to 'true'? */
+    /* Do *none* of the entries have a mask value corresponding to 'true'? */
     bool mask_none_true = none(mask);
 
-    /* Count how many entries have a mask value corresponding to 'true'? */
+    /* Count *how many* entries have a mask value corresponding to 'true'? */
     size_t true_count = count(mask);
 
 .. note::
@@ -428,6 +430,8 @@ with floating point values, there are also horizontal operations for masks:
     following pairs of operations are equivalent:
 
     .. code-block:: cpp
+
+        MyFloat f1 = ..., f2 = ...;
 
         bool b1 = (f1 == f2);
         bool b2 = all(eq(f1, f2));
@@ -458,7 +462,20 @@ of an array matching the given mask:
 
 Compared to ``select()``, a masked update may generate slightly more efficient
 code on some platforms. Apart from this, the two approaches can be used
-interchangeably.
+interchangeably. An alternative syntax involving the function
+:cpp:func:`enoki::masked` also exists:
+
+.. code-block:: cpp
+
+    masked(f1, f1 > 0.f) = f2;
+    masked(f1, f1 < 0.f) += 1.f;
+
+This is functionally equivalent to the previous example. The
+:cpp:func:`enoki::masked` syntax exists because it extends to cases where
+``f1`` is *scalar*, i.e. not an Enoki array. Using Enoki functions with scalar
+arguments will be discussed later.
+
+.. _3d-arrays:
 
 The special case of 3D arrays
 -----------------------------
