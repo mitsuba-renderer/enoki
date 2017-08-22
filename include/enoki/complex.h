@@ -95,12 +95,12 @@ ENOKI_INLINE auto operator*(const Complex<T0, Approx> &z0, const Complex<T0, App
     return detail::complex_mul(z0, z1);
 }
 
-template <typename T0, typename T1, bool Approx>
+template <typename T0, typename T1, bool Approx, std::enable_if_t<broadcast<T1>::value, int> = 0>
 ENOKI_INLINE Complex<expr_t<T0, T1>, Approx> operator*(const Complex<T0, Approx> &z, const T1 &s) {
     return Array<expr_t<T0>, 2>(z) * fill<Array<scalar_t<T1>, 2>>(s);
 }
 
-template <typename T0, typename T1, bool Approx>
+template <typename T0, typename T1, bool Approx, std::enable_if_t<broadcast<T0>::value, int> = 0>
 ENOKI_INLINE Complex<expr_t<T0, T1>, Approx> operator*(const T0 &s, const Complex<T1, Approx> &z) {
     return fill<Array<scalar_t<T0>, 2>>(s) * Array<expr_t<T1>, 2>(z);
 }
@@ -115,7 +115,7 @@ ENOKI_INLINE auto operator/(const Complex<T0, Approx> &z0, const Complex<T0, App
     return detail::complex_div(z0, z1);
 }
 
-template <typename T0, typename T1, bool Approx>
+template <typename T0, typename T1, bool Approx, std::enable_if_t<broadcast<T1>::value, int> = 0>
 ENOKI_INLINE Complex<expr_t<T0, T1>, Approx> operator/(const Complex<T0, Approx> &z, const T1 &s) {
     return Array<expr_t<T0>, 2>(z) / s;
 }

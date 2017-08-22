@@ -169,13 +169,13 @@ ENOKI_INLINE Return operator*(const Matrix<T0, Size, Approx> &m, const T1 &v) {
     return sum;
 }
 
-template <typename T0, typename T1, size_t Size, bool Approx, std::enable_if_t<array_size<T1>::value != Size, int> = 0>
+template <typename T0, typename T1, size_t Size, bool Approx, std::enable_if_t<broadcast<T1>::value, int> = 0>
 ENOKI_INLINE Matrix<expr_t<T0, T1>, Size, Approx> operator*(const Matrix<T0, Size, Approx> &m, const T1 &s) {
     return Array<Array<expr_t<T0>, Size>, Size>(m) *
            fill<Array<Array<scalar_t<T1>, Size>, Size>>(s);
 }
 
-template <typename T0, typename T1, size_t Size, bool Approx>
+template <typename T0, typename T1, size_t Size, bool Approx, std::enable_if_t<broadcast<T0>::value, int> = 0>
 ENOKI_INLINE Matrix<expr_t<T0, T1>, Size, Approx> operator*(const T0 &s, const Matrix<T1, Size, Approx> &m) {
     return fill<Array<Array<scalar_t<T0>, Size>, Size>>(s) *
            Array<Array<expr_t<T1>, Size>, Size>(m);

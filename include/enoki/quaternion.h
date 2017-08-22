@@ -122,12 +122,12 @@ ENOKI_INLINE auto operator*(const Quaternion<T0, Approx> &q0, const Quaternion<T
     return detail::quat_mul(q0, q1);
 }
 
-template <typename T0, typename T1, bool Approx>
+template <typename T0, typename T1, bool Approx, std::enable_if_t<broadcast<T1>::value, int> = 0>
 ENOKI_INLINE Quaternion<expr_t<T0, T1>> operator*(const Quaternion<T0, Approx> &q, const T1 &s) {
     return Array<expr_t<T0>, 4>(q) * fill<Array<scalar_t<T1>, 4>>(s);
 }
 
-template <typename T0, typename T1, bool Approx>
+template <typename T0, typename T1, bool Approx, std::enable_if_t<broadcast<T0>::value, int> = 0>
 ENOKI_INLINE Quaternion<expr_t<T0, T1>> operator*(const T0 &s, const Quaternion<T1, Approx> &q) {
     return fill<Array<scalar_t<T0>, 4>>(s) * Array<expr_t<T1>, 4>(q);
 }
@@ -142,7 +142,7 @@ ENOKI_INLINE auto operator/(const Quaternion<T0, Approx> &q0, const Quaternion<T
     return detail::quat_div(q0, q1);
 }
 
-template <typename T0, typename T1, bool Approx>
+template <typename T0, typename T1, bool Approx, std::enable_if_t<broadcast<T1>::value, int> = 0>
 ENOKI_INLINE Quaternion<expr_t<T0, T1>> operator/(const Quaternion<T0, Approx> &q, const T1 &s) {
     return Array<expr_t<T0>, 4>(q) / s;
 }
