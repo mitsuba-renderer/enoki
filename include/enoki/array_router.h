@@ -1288,31 +1288,29 @@ ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index, con
 
 NAMESPACE_BEGIN(detail)
 
-template <typename Array, size_t Multiplier = 1, typename = Array, typename Func, typename Index1, typename Index2,
+template <typename Array, typename = Array, typename Func, typename Index1, typename Index2,
           std::enable_if_t<array_depth<Index1>::value + array_depth<Index2>::value == array_depth<Array>::value, int> = 0>
 ENOKI_INLINE decltype(auto) do_recursive(const Func &func, const Index1 &offset1, const Index2 &offset2) {
     using CombinedIndex = like_t<Index2, Index1>;
 
     CombinedIndex combined_offset =
-        CombinedIndex(offset2) +
-        enoki::fill<Index2>(offset1 * scalar_t<Index1>(Multiplier));
+        CombinedIndex(offset2) + enoki::fill<Index2>(offset1);
 
     return func(combined_offset);
 }
 
-template <typename Array, size_t Multiplier = 1, typename = Array, typename Func, typename Index1, typename Index2, typename Mask,
+template <typename Array, typename = Array, typename Func, typename Index1, typename Index2, typename Mask,
           std::enable_if_t<array_depth<Index1>::value + array_depth<Index2>::value == array_depth<Array>::value, int> = 0>
 ENOKI_INLINE decltype(auto) do_recursive(const Func &func, const Index1 &offset1, const Index2 &offset2, const Mask &mask) {
     using CombinedIndex = like_t<Index2, Index1>;
 
     CombinedIndex combined_offset =
-        CombinedIndex(offset2) +
-        enoki::fill<Index2>(offset1 * scalar_t<Index1>(Multiplier));
+        CombinedIndex(offset2) + enoki::fill<Index2>(offset1);
 
     return func(combined_offset, enoki::fill<Index2>(mask));
 }
 
-template <typename Array, size_t Multiplier = 1, typename Guide = Array, typename Func, typename Index1, typename Index2,
+template <typename Array, typename Guide = Array, typename Func, typename Index1, typename Index2,
           std::enable_if_t<array_depth<Index1>::value + array_depth<Index2>::value != array_depth<Array>::value, int> = 0>
 ENOKI_INLINE decltype(auto) do_recursive(const Func &func, const Index1 &offset, const Index2 &offset2) {
     using NewIndex      = enoki::Array<scalar_t<Index1>, Guide::Size>;
@@ -1325,10 +1323,10 @@ ENOKI_INLINE decltype(auto) do_recursive(const Func &func, const Index1 &offset,
         CombinedIndex(offset2 * scalar_t<Index1>(Size)) +
         enoki::fill<Index2>(index_sequence<NewIndex>());
 
-    return do_recursive<Array, Multiplier * Size, value_t<Guide>>(func, offset, combined_offset);
+    return do_recursive<Array, value_t<Guide>>(func, offset, combined_offset);
 }
 
-template <typename Array, size_t Multiplier = 1, typename Guide = Array, typename Func, typename Index1, typename Index2, typename Mask,
+template <typename Array, typename Guide = Array, typename Func, typename Index1, typename Index2, typename Mask,
           std::enable_if_t<array_depth<Index1>::value + array_depth<Index2>::value != array_depth<Array>::value, int> = 0>
 ENOKI_INLINE decltype(auto) do_recursive(const Func &func, const Index1 &offset, const Index2 &offset2, const Mask &mask) {
     using NewIndex      = enoki::Array<scalar_t<Index1>, Guide::Size>;
@@ -1341,7 +1339,7 @@ ENOKI_INLINE decltype(auto) do_recursive(const Func &func, const Index1 &offset,
         CombinedIndex(offset2 * scalar_t<Index1>(Size)) +
         enoki::fill<Index2>(index_sequence<NewIndex>());
 
-    return do_recursive<Array, Multiplier * Size, value_t<Guide>>(func, offset, combined_offset, mask);
+    return do_recursive<Array, value_t<Guide>>(func, offset, combined_offset, mask);
 }
 
 NAMESPACE_END(detail)
