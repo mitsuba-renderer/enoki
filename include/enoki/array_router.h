@@ -1159,7 +1159,7 @@ ENOKI_INLINE void scatter(void *mem, const Arg &value, const Index &index, const
 }
 
 /// Prefetch operation (turn into scalar prefetch)
-template <typename Array, size_t Stride = sizeof(Array), bool Write = false, size_t Level = 2, typename Index,
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>), bool Write = false, size_t Level = 2, typename Index,
           enable_if_static_array_t<Array> = 0, enable_if_not_array_t<Index> = 0>
 ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
     static_assert(detail::is_std_int<Index>::value, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
@@ -1172,7 +1172,7 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
 }
 
 /// Gather operation (turn into load)
-template <typename Array, size_t Stride = sizeof(Array), typename Index,
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>), typename Index,
           enable_if_static_array_t<Array> = 0, enable_if_not_array_t<Index> = 0>
 ENOKI_INLINE Array gather(const void *mem, const Index &index) {
     static_assert(detail::is_std_int<Index>::value, "gather(): expected a signed 32/64-bit integer as 'index' argument!");
@@ -1189,7 +1189,7 @@ ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index) {
 }
 
 /// Masked prefetch operation (turn into scalar prefetch)
-template <typename Array, size_t Stride = sizeof(Array), bool Write = false, size_t Level = 2, typename Index, typename Mask,
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>), bool Write = false, size_t Level = 2, typename Index, typename Mask,
           enable_if_static_array_t<Array> = 0, enable_if_not_array_t<Index> = 0>
 ENOKI_INLINE void prefetch(const void *mem, const Index &index, const Mask &mask) {
     static_assert(detail::is_std_int<Index>::value, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
@@ -1205,7 +1205,7 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index, const Mask &mask
 }
 
 /// Masked gather operation (turn into load)
-template <typename Array, size_t Stride = sizeof(Array), typename Index, typename Mask,
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>), typename Index, typename Mask,
           enable_if_static_array_t<Array> = 0, enable_if_not_array_t<Index> = 0>
 ENOKI_INLINE Array gather(const void *mem, const Index &index, const Mask &mask) {
     static_assert(detail::is_std_int<Index>::value, "gather(): expected a signed 32/64-bit integer as 'index' argument!");
