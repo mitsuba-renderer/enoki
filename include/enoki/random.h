@@ -50,8 +50,8 @@ template <typename T> struct PCG32 {
     using UInt64Mask = mask_t<UInt64>;
 
     /// Initialize the pseudorandom number generator with the \ref seed() function
-    PCG32(UInt64 initstate = PCG32_DEFAULT_STATE,
-          UInt64 initseq = index_sequence<UInt64>() + PCG32_DEFAULT_STREAM) {
+    PCG32(const UInt64 &initstate = PCG32_DEFAULT_STATE,
+          const UInt64 &initseq = index_sequence<UInt64>() + PCG32_DEFAULT_STREAM) {
         seed(initstate, initseq);
     }
 
@@ -61,7 +61,7 @@ template <typename T> struct PCG32 {
      * Specified in two parts: a state initializer and a sequence selection
      * constant (a.k.a. stream id)
      */
-    void seed(UInt64 initstate, UInt64 initseq) {
+    void seed(const UInt64 &initstate, const UInt64 &initseq) {
         state = zero<UInt64>();
         inc = sli<1>(initseq) | 1u;
         next_uint32();
