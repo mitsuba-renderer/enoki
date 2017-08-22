@@ -501,6 +501,14 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
         return result;
     }
 
+    bool any_nested_() const { return any_(); }
+    bool none_nested_() const { return none_(); }
+    bool all_nested_() const { return all_(); }
+    Value hsum_nested_() const { return hsum_(); }
+    Value hprod_nested_() const { return hprod_(); }
+    Value hmin_nested_() const { return hmin_(); }
+    Value hmax_nested_() const { return hmax_(); }
+
     bool any_() const {
         Packet packet(false);
         size_t count = packets_();
