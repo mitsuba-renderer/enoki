@@ -558,18 +558,18 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     }
 
     /// Prefetch operation fallback implementation
-    template <size_t Stride, bool Write, size_t Level, typename Index>
+    template <bool Write, size_t Level, size_t Stride, typename Index>
     static ENOKI_INLINE void prefetch_(const void *mem, const Index &index) {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
-            prefetch<Value, Stride, Write, Level>(mem, index.coeff(i));
+            prefetch<Value, Write, Level, Stride>(mem, index.coeff(i));
     }
 
     /// Masked prefetch operation fallback implementation
-    template <size_t Stride, bool Write, size_t Level, typename Index, typename Mask>
+    template <bool Write, size_t Level, size_t Stride, typename Index, typename Mask>
     static ENOKI_INLINE void prefetch_(const void *mem, const Index &index,
                                        const Mask &mask) {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
-            prefetch<Value, Stride, Write, Level>(mem, index.coeff(i), mask.coeff(i));
+            prefetch<Value, Write, Level, Stride>(mem, index.coeff(i), mask.coeff(i));
     }
 
     /// Gather operation fallback implementation
@@ -2156,7 +2156,7 @@ ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os,
 
 /// SFINAE macro for strided operations (prefetch)
 #define ENOKI_REQUIRE_INDEX_PF(T, Index)                                        \
-    template <size_t Stride, bool Write, size_t Level, typename T,              \
+    template <bool Write, size_t Level, size_t Stride, typename T,              \
               typename Mask = void,                                             \
               std::enable_if_t<std::is_integral<typename T::Value>::value &&    \
                          sizeof(typename T::Value) == sizeof(Index), int> = 0>

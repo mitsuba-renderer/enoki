@@ -139,6 +139,10 @@ Global variable definitions
 
     Specifies whether AVX512ER instructions are available on the target architecture.
 
+.. cpp:var:: static constexpr bool has_avx512vpopcntdq
+
+    Specifies whether AVX512VPOPCNTDQ instructions are available on the target architecture.
+
 .. cpp:var:: static constexpr bool has_avx512f
 
     Specifies whether AVX512F instructions are available on the target architecture.
@@ -480,8 +484,8 @@ Memory operations
     ``mem`` uses a packed memory layout (i.e. a stride value of
     ``sizeof(Value)``); other values override this behavior.
 
-.. cpp:function:: template <typename Array, size_t Stride = sizeof(scalar_t<Array>), \
-                            bool Write = false, size_t Level = 2, typename Index> \
+.. cpp:function:: template <typename Array, bool Write = false, size_t Level = 2, \
+                            size_t Stride = sizeof(scalar_t<Array>), typename Index> \
                   void prefetch(const void *mem, Index index, mask_t<Array> mask = true)
 
     Pre-fetches an array of type ``Array`` into the L1 or L2 cache (as
@@ -1417,8 +1421,8 @@ Exponential, logarithm, and others
 
 .. cpp:function:: template <typename Array> Array exp(Array x)
 
-   Base-:math:`e` exponential function approximation based on the CEPHES
-   library. Relies on AVX512ER instructions if available.
+   Natural exponential function approximation based on the CEPHES library.
+   Relies on AVX512ER instructions if available.
 
 .. cpp:function:: template <typename Array> Array log(Array x)
 
@@ -1444,12 +1448,12 @@ Exponential, logarithm, and others
 .. cpp:function:: template <typename Array> Array safe_asin(Array x)
 
     Computes ``asin(min(Array(1), max(Array(-1), x)))`` to avoid issues with
-    negative inputs (e.g. due to roundoff error in a prior calculation).
+    out-of-range inputs (e.g. due to roundoff error in a prior calculation).
 
 .. cpp:function:: template <typename Array> Array safe_acos(Array x)
 
     Computes ``acos(min(Array(1), max(Array(-1), x)))`` to avoid issues with
-    negative inputs (e.g. due to roundoff error in a prior calculation).
+    out-of-range inputs (e.g. due to roundoff error in a prior calculation).
 
 Special functions
 -----------------
@@ -1498,7 +1502,7 @@ The following special functions require including the header
 
 .. cpp:function:: template <typename Array> Array dawson(Array x)
 
-    Evaluates dawson's integral defined as
+    Evaluates Dawson's integral defined as
 
     .. math::
 

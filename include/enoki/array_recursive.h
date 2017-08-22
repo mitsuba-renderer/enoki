@@ -442,16 +442,16 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
         return Derived(zero<Array1>(), zero<Array2>());
     }
 
-    template <size_t Stride, bool Write, size_t Level, typename Index>
+    template <bool Write, size_t Level, size_t Stride, typename Index>
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
-        prefetch<Array1, Stride, Write, Level>(ptr, low(index));
-        prefetch<Array2, Stride, Write, Level>(ptr, high(index));
+        prefetch<Array1, Write, Level, Stride>(ptr, low(index));
+        prefetch<Array2, Write, Level, Stride>(ptr, high(index));
     }
 
-    template <size_t Stride, bool Write, size_t Level, typename Index, typename Mask>
+    template <bool Write, size_t Level, size_t Stride, typename Index, typename Mask>
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index, const Mask &mask) {
-        prefetch<Array1, Stride, Write, Level>(ptr, low(index), low(mask));
-        prefetch<Array2, Stride, Write, Level>(ptr, high(index), high(mask));
+        prefetch<Array1, Write, Level, Stride>(ptr, low(index), low(mask));
+        prefetch<Array2, Write, Level, Stride>(ptr, high(index), high(mask));
     }
 
     template <size_t Stride, typename Index>

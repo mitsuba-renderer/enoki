@@ -293,6 +293,18 @@ hundred cycles before the actual usage).
     /* Prefetch into L2 cache for write access */
     prefetch<Matrix3fP, /* Write = */ true, /* Level = */ 2>(data, indices);
 
+Enoki is smart enough to realize that the non-vectorized form of gather and
+scatter statements can be reduced to standard loads and stores, e.g.
+
+.. code-block:: cpp
+
+    using Matrix3f  = Matrix<float, 3>;
+    float *ptr = ...;
+    int32_t index = ...;
+
+    /* The statement below reduces to load<Matrix3f>(ptr + index); */
+    Matrix3f mat = gather<Matrix3f>(ptr, index);
+
 Scatter and gather operations are also permitted for dynamic arrays, e.g.:
 
 .. code-block:: cpp
