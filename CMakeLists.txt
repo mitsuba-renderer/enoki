@@ -17,6 +17,7 @@ endif()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" ENOKI_U_CMAKE_BUILD_TYPE)
 
 set(ENOKI_CXXFLAGS_BACKUP ${CMAKE_CXX_FLAGS})
+set(ENOKI_NATIVE_FLAGS "")
 
 if (MSVC)
   set(ENOKI_ARCHFLAGS_FILE archflags_win32.cpp)
@@ -43,6 +44,7 @@ if (NOT ${ENOKI_ARCHFLAGS_COMPILE_RESULT})
       ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
      # Clang refuses -march=native on ARM machines
      set(ENOKI_ARCHFLAGS "-march=armv8-a+simd")
+     set(ENOKI_NATIVE_FLAGS "-march=armv8-a+simd")
    else()
      message(FATAL_ERROR "Failed to compile 'archflags' binary: ${ENOKI_ARCHFLAGS_MSG}")
    endif()
@@ -51,10 +53,11 @@ endif()
 set(CMAKE_CXX_FLAGS ${ENOKI_CXXFLAGS_BACKUP})
 
 # Optimize for current architecture
-set(ENOKI_NATIVE_FLAGS "")
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR
     CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-  set(ENOKI_NATIVE_FLAGS "-march=native")
+  if (NOT ENOKI_NATIVE_FLAGS)
+    set(ENOKI_NATIVE_FLAGS "-march=native")
+  endif()
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
   set(ENOKI_NATIVE_FLAGS "-xHost")
 elseif (MSVC)
