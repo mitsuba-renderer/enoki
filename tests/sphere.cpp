@@ -11,6 +11,10 @@
     license that can be found in the LICENSE file.
 */
 
+#if defined(_MSC_VER)
+#  pragma warning(disable: 4723) /// potential divide by 0
+#endif
+
 #include <fstream>
 #include "ray.h"
 #include <chrono>

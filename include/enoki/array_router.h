@@ -733,6 +733,16 @@ ENOKI_INLINE auto sign_mask(const Arg &a) {
     const Float mask = memcpy_cast<Float>(UInt(1) << (sizeof(UInt) * 8 - 1));
     return detail::and_(a, expr_t<Arg>(mask));
 }
+
+template <typename Array>
+constexpr size_t fix_stride(size_t Stride) {
+    if (has_avx2 && (Array::IsRecursive || Array::IsNative)) {
+       if (Stride % 8 == 0)      return 8;
+       else if (Stride % 4 == 0) return 4;
+       else                      return 1;
+    }
+    return Stride;
+}
 NAMESPACE_END(detail)
 
 template <typename Array, enable_if_static_array_t<Array> = 0, typename Expr = expr_t<Array>>
@@ -1229,18 +1239,10 @@ template <typename Array, bool Write = false, size_t Level = 2, size_t Stride = 
 ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
     static_assert(detail::is_std_int<scalar_t<Index>>::value, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
     static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Index>>::value, "prefetch(): output array and index shapes don't match!");
+    constexpr size_t Stride2 = detail::fix_stride<Array>(Stride);
 
-    constexpr size_t Stride2 = !Array::IsNative ? Stride
-                                : ((Stride == 1 || Stride == 4 || Stride == 8) ? Stride : 1);
-
-    if (Stride == Stride2)
-        Array::template prefetch_<Write, Level, Stride>(mem, index);
-    else if (Stride % 8 == 0)
-        Array::template prefetch_<Write, Level, 8>(mem, index * scalar_t<Index>(Stride / 8));
-    else if (Stride % 4 == 0)
-        Array::template prefetch_<Write, Level, 4>(mem, index * scalar_t<Index>(Stride / 4));
-    else
-        Array::template prefetch_<Write, Level, 1>(mem, index * scalar_t<Index>(Stride));
+    Array::template prefetch_<Write, Level, Stride2>(mem,
+        Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index);
 }
 
 /// Gather operation (forward to array implementation)
@@ -1249,18 +1251,9 @@ template <typename Array, size_t Stride = sizeof(scalar_t<Array>), typename Inde
 ENOKI_INLINE Array gather(const void *mem, const Index &index) {
     static_assert(detail::is_std_int<scalar_t<Index>>::value, "gather(): expected a signed 32/64-bit integer as 'index' argument!");
     static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Index>>::value, "gather(): output array and index shapes don't match!");
-
-    constexpr size_t Stride2 = !Array::IsNative ? Stride
-                                : ((Stride == 1 || Stride == 4 || Stride == 8) ? Stride : 1);
-
-    if (Stride == Stride2)
-        return Array::template gather_<Stride2>(mem, index);
-    else if (Stride % 8 == 0)
-        return Array::template gather_<8>(mem, index * scalar_t<Index>(Stride / 8));
-    else if (Stride % 4 == 0)
-        return Array::template gather_<4>(mem, index * scalar_t<Index>(Stride / 4));
-    else
-        return Array::template gather_<1>(mem, index * scalar_t<Index>(Stride));
+    constexpr size_t Stride2 = detail::fix_stride<Array>(Stride);
+    return Array::template gather_<Stride2>(mem,
+        Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index);
 }
 
 /// Scatter operation (forward to array implementation)
@@ -1270,17 +1263,9 @@ ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index) {
     static_assert(detail::is_std_int<scalar_t<Index>>::value, "scatter(): expected a signed 32/64-bit integer as 'index' argument!");
     static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Index>>::value, "scatter(): input array and index shapes don't match!");
     constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(scalar_t<Array>);
-    constexpr size_t Stride2 = !Array::IsNative ? Stride
-                                : ((Stride == 1 || Stride == 4 || Stride == 8) ? Stride : 1);
-
-    if (Stride == Stride2)
-        value.template scatter_<Stride2>(mem, index);
-    else if (Stride % 8 == 0)
-        value.template scatter_<8>(mem, index * scalar_t<Index>(Stride / 8));
-    else if (Stride % 4 == 0)
-        value.template scatter_<4>(mem, index * scalar_t<Index>(Stride / 4));
-    else
-        value.template scatter_<1>(mem, index * scalar_t<Index>(Stride));
+    constexpr size_t Stride2 = detail::fix_stride<Array>(Stride);
+    value.template scatter_<Stride2>(mem,
+        Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index);
 }
 
 /// Masked prefetch operation (forward to array implementation)
@@ -1290,19 +1275,10 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index, const Mask &mask
     static_assert(detail::is_std_int<scalar_t<Index>>::value, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
     static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Index>>::value, "prefetch(): output array and index shapes don't match!");
     static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Mask>>::value, "prefetch(): output array and mask shapes don't match!");
-    auto mask = reinterpret_array<mask_t<Array>>(mask_);
-
-    constexpr size_t Stride2 = !Array::IsNative ? Stride
-                                : ((Stride == 1 || Stride == 4 || Stride == 8) ? Stride : 1);
-
-    if (Stride == Stride2)
-        Array::template prefetch_<Write, Level, Stride2>(mem, index, mask);
-    else if (Stride % 8 == 0)
-        Array::template prefetch_<Write, Level, 8>(mem, index * scalar_t<Index>(Stride / 8), mask);
-    else if (Stride % 4 == 0)
-        Array::template prefetch_<Write, Level, 4>(mem, index * scalar_t<Index>(Stride / 4), mask);
-    else
-        Array::template prefetch_<Write, Level, 1>(mem, index * scalar_t<Index>(Stride), mask);
+    constexpr size_t Stride2 = detail::fix_stride<Array>(Stride);
+    Array::template prefetch_<Write, Level, Stride2>(mem,
+        Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index,
+        reinterpret_array<mask_t<Array>>(mask_));
 }
 
 /// Masked gather operation (forward to array implementation)
@@ -1312,19 +1288,10 @@ ENOKI_INLINE Array gather(const void *mem, const Index &index, const Mask &mask_
     static_assert(detail::is_std_int<scalar_t<Index>>::value, "gather(): expected a signed 32/64-bit integer as 'index' argument!");
     static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Index>>::value, "gather(): output array and index shapes don't match!");
     static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Mask>>::value, "gather(): output array and mask shapes don't match!");
-    auto mask = reinterpret_array<mask_t<Array>>(mask_);
-
-    constexpr size_t Stride2 = !Array::IsNative ? Stride
-                                : ((Stride == 1 || Stride == 4 || Stride == 8) ? Stride : 1);
-
-    if (Stride == Stride2)
-        return Array::template gather_<Stride2>(mem, index, mask);
-    else if (Stride % 8 == 0)
-        return Array::template gather_<8>(mem, index * scalar_t<Index>(Stride / 8), mask);
-    else if (Stride % 4 == 0)
-        return Array::template gather_<4>(mem, index * scalar_t<Index>(Stride / 4), mask);
-    else
-        return Array::template gather_<1>(mem, index * scalar_t<Index>(Stride), mask);
+    constexpr size_t Stride2 = detail::fix_stride<Array>(Stride);
+    return Array::template gather_<Stride2>(mem,
+        Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index,
+        reinterpret_array<mask_t<Array>>(mask_));
 }
 
 /// Masked scatter operation (forward to array implementation)
@@ -1335,18 +1302,10 @@ ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index, con
     static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Index>>::value, "scatter(): input array and index shapes don't match!");
     static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Mask>>::value, "scatter(): input array and mask shapes don't match!");
     constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(scalar_t<Array>);
-    auto mask = reinterpret_array<mask_t<Array>>(mask_);
-
-    constexpr size_t Stride2 = !Array::IsNative ? Stride
-                                : ((Stride == 1 || Stride == 4 || Stride == 8) ? Stride : 1);
-    if (Stride == Stride2)
-        value.template scatter_<Stride2>(mem, index, mask);
-    else if (Stride % 8 == 0)
-        value.template scatter_<8>(mem, index * scalar_t<Index>(Stride / 8), mask);
-    else if (Stride % 4 == 0)
-        value.template scatter_<4>(mem, index * scalar_t<Index>(Stride / 4), mask);
-    else
-        value.template scatter_<1>(mem, index * scalar_t<Index>(Stride), mask);
+    constexpr size_t Stride2 = detail::fix_stride<Array>(Stride);
+    value.template scatter_<Stride2>(mem,
+        Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index,
+        reinterpret_array<mask_t<Array>>(mask_));
 }
 
 // -------------------
