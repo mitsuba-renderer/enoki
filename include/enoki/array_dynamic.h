@@ -962,27 +962,32 @@ ENOKI_INLINE auto vectorize_safe(Func&& f, Args&&... args) {
     return detail::vectorize<true, true, Return>(std::forward<Func>(f), args...);
 }
 
-template <typename Array, size_t Stride = sizeof(scalar_t<Array>), enable_if_dynamic_nested_t<Array> = 0, typename Index>
+template <typename Array, size_t Stride = 0, enable_if_dynamic_nested_t<Array> = 0, typename Index>
 ENOKI_INLINE Array gather(const void *mem, const Index &index, const mask_t<Index> &mask = true) {
     using Packet = expr_t<decltype(packet(std::declval<Array>(), 0))>;
     if (slices(mask) == 1)
         set_slices(const_cast<mask_t<Index>&>(mask), enoki::slices(index));
     return vectorize(
         [mem](auto&& index2, auto&& mask2) ENOKI_INLINE_LAMBDA {
-            return gather<Packet, Stride>(mem, index2, mask2);
+            if (Stride == 0)
+                return gather<Packet>(mem, index2, mask2);
+            else
+                return gather<Packet, Stride>(mem, index2, mask2);
         },
         index, mask
     );
 }
 
-template <size_t Stride_ = 0, typename Array, enable_if_dynamic_nested_t<Array> = 0, typename Index>
+template <size_t Stride = 0, typename Array, enable_if_dynamic_nested_t<Array> = 0, typename Index>
 ENOKI_INLINE void scatter(void *mem, const Array &array, const Index &index, const mask_t<Index> &mask = true) {
     if (slices(mask) == 1)
         set_slices(const_cast<mask_t<Index>&>(mask), enoki::slices(index));
     vectorize(
         [mem](auto&& array2, auto&& index2, auto&& mask2) ENOKI_INLINE_LAMBDA {
-            constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(scalar_t<Array>);
-            scatter<Stride>(mem, array2, index2, mask2);
+            if (Stride == 0)
+                scatter(mem, array2, index2, mask2);
+            else
+                scatter<Stride>(mem, array2, index2, mask2);
         },
         array, index, mask
     );

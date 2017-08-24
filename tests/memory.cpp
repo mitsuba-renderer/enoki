@@ -299,19 +299,17 @@ void test15_nested_gather_impl() {
         assert(q == q2);
     }
 
-    uint32_t Stride = uint32_t(sizeof(Matrix3) / sizeof(Value));
-
     /* Variant 2 */
-    for (size_t i = 0; i<32; ++i)
+    for (size_t i = 0; i < 32; ++i)
         assert(gather<Matrix3>(x, i) == x[i]);
 
     /* Nested gather + slice */
-    auto q = gather<Matrix3P>(x, index_sequence<UInt32P>() * Stride);
+    auto q = gather<Matrix3P>(x, index_sequence<UInt32P>());
     for (size_t i = 0; i < T::Size; ++i)
         assert(slice(q, i) == x[i]);
 
     /* Masked nested gather */
-    q = gather<Matrix3P>(x, index_sequence<UInt32P>() * Stride, index_sequence<UInt32P>() < 2u);
+    q = gather<Matrix3P>(x, index_sequence<UInt32P>(), index_sequence<UInt32P>() < 2u);
     for (size_t i = 0; i < T::Size; ++i) {
         if (i < 2u)
             assert(slice(q, i) == x[i]);
@@ -320,9 +318,9 @@ void test15_nested_gather_impl() {
     }
 
     /* Nested scatter */
-    q = gather<Matrix3P>(x, index_sequence<UInt32P>() * Stride);
-    scatter(x, q + fill<Matrix3>(Value(1000)), index_sequence<UInt32P>() * Stride);
-    scatter(x, q + fill<Matrix3>(Value(2000)), index_sequence<UInt32P>() * Stride, index_sequence<UInt32P>() < 2u);
+    q = gather<Matrix3P>(x, index_sequence<UInt32P>());
+    scatter(x, q + fill<Matrix3>(Value(1000)), index_sequence<UInt32P>());
+    scatter(x, q + fill<Matrix3>(Value(2000)), index_sequence<UInt32P>(), index_sequence<UInt32P>() < 2u);
     for (size_t i = 0; i < T::Size; ++i) {
         if (i < 2u)
             assert(slice(q, i) + fill<Matrix3>(Value(2000)) == x[i]);
@@ -331,16 +329,16 @@ void test15_nested_gather_impl() {
     }
 
     /* Nested prefetch -- doesn't do anything here, let's just make sure it compiles */
-    prefetch<Matrix3P>(x, index_sequence<UInt32P>() * Stride);
-    prefetch<Matrix3P>(x, index_sequence<UInt32P>() * Stride, index_sequence<UInt32P>() < 2u);
+    prefetch<Matrix3P>(x, index_sequence<UInt32P>());
+    prefetch<Matrix3P>(x, index_sequence<UInt32P>(), index_sequence<UInt32P>() < 2u);
 
     /* Nested gather + slice for dynamic arrays */
     using UInt32X   = DynamicArray<UInt32P>;
     using TX        = DynamicArray<T>;
     using Matrix3X  = Matrix<TX, 3>;
-    auto q2 = gather<Matrix3X>(x, index_sequence<UInt32X>(2) * Stride);
+    auto q2 = gather<Matrix3X>(x, index_sequence<UInt32X>(2));
     q2 = q2 + fill<Matrix3>(Value(1000));
-    scatter(x, q2, index_sequence<UInt32X>(2) * Stride);
+    scatter(x, q2, index_sequence<UInt32X>(2));
 
     for (size_t i = 0; i < T::Size; ++i) {
         if (i < 2u)
