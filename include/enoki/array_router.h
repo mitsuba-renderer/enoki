@@ -1092,7 +1092,7 @@ ENOKI_INLINE like_t<Outer, Inner> fill(const Inner &inner) {
 }
 
 /// Prefetch operation (scalar fallback)
-template <typename Arg, bool Write = false, size_t Level = 2, size_t Stride = sizeof(Arg), 
+template <typename Arg, bool Write = false, size_t Level = 2, size_t Stride = sizeof(Arg),
           typename Index, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
     static_assert(detail::is_std_int<Index>::value, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
@@ -1122,7 +1122,7 @@ ENOKI_INLINE void scatter(void *mem, const Arg &value, const Index &index) {
 }
 
 /// Masked prefetch operation (scalar fallback)
-template <typename Arg, bool Write = false, size_t Level = 2, size_t Stride = sizeof(Arg), 
+template <typename Arg, bool Write = false, size_t Level = 2, size_t Stride = sizeof(Arg),
           typename Index, typename Mask, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE void prefetch(const void *mem, const Index &index, const Mask &mask) {
     static_assert(detail::is_std_int<Index>::value, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
@@ -1229,7 +1229,18 @@ template <typename Array, bool Write = false, size_t Level = 2, size_t Stride = 
 ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
     static_assert(detail::is_std_int<scalar_t<Index>>::value, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
     static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Index>>::value, "prefetch(): output array and index shapes don't match!");
-    Array::template prefetch_<Write, Level, Stride>(mem, index);
+
+    constexpr size_t Stride2 = !Array::IsNative ? Stride
+                                : ((Stride == 1 || Stride == 4 || Stride == 8) ? Stride : 1);
+
+    if (Stride == Stride2)
+        Array::template prefetch_<Write, Level, Stride>(mem, index);
+    else if (Stride % 8 == 0)
+        Array::template prefetch_<Write, Level, 8>(mem, index * scalar_t<Index>(Stride / 8));
+    else if (Stride % 4 == 0)
+        Array::template prefetch_<Write, Level, 4>(mem, index * scalar_t<Index>(Stride / 4));
+    else
+        Array::template prefetch_<Write, Level, 1>(mem, index * scalar_t<Index>(Stride));
 }
 
 /// Gather operation (forward to array implementation)
@@ -1238,7 +1249,18 @@ template <typename Array, size_t Stride = sizeof(scalar_t<Array>), typename Inde
 ENOKI_INLINE Array gather(const void *mem, const Index &index) {
     static_assert(detail::is_std_int<scalar_t<Index>>::value, "gather(): expected a signed 32/64-bit integer as 'index' argument!");
     static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Index>>::value, "gather(): output array and index shapes don't match!");
-    return Array::template gather_<Stride>(mem, index);
+
+    constexpr size_t Stride2 = !Array::IsNative ? Stride
+                                : ((Stride == 1 || Stride == 4 || Stride == 8) ? Stride : 1);
+
+    if (Stride == Stride2)
+        return Array::template gather_<Stride2>(mem, index);
+    else if (Stride % 8 == 0)
+        return Array::template gather_<8>(mem, index * scalar_t<Index>(Stride / 8));
+    else if (Stride % 4 == 0)
+        return Array::template gather_<4>(mem, index * scalar_t<Index>(Stride / 4));
+    else
+        return Array::template gather_<1>(mem, index * scalar_t<Index>(Stride));
 }
 
 /// Scatter operation (forward to array implementation)
@@ -1248,38 +1270,83 @@ ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index) {
     static_assert(detail::is_std_int<scalar_t<Index>>::value, "scatter(): expected a signed 32/64-bit integer as 'index' argument!");
     static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Index>>::value, "scatter(): input array and index shapes don't match!");
     constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(scalar_t<Array>);
-    value.template scatter_<Stride>(mem, index);
+    constexpr size_t Stride2 = !Array::IsNative ? Stride
+                                : ((Stride == 1 || Stride == 4 || Stride == 8) ? Stride : 1);
+
+    if (Stride == Stride2)
+        value.template scatter_<Stride2>(mem, index);
+    else if (Stride % 8 == 0)
+        value.template scatter_<8>(mem, index * scalar_t<Index>(Stride / 8));
+    else if (Stride % 4 == 0)
+        value.template scatter_<4>(mem, index * scalar_t<Index>(Stride / 4));
+    else
+        value.template scatter_<1>(mem, index * scalar_t<Index>(Stride));
 }
 
 /// Masked prefetch operation (forward to array implementation)
 template <typename Array, bool Write = false, size_t Level = 2, size_t Stride = sizeof(scalar_t<Array>), typename Index, typename Mask,
           std::enable_if_t<is_static_array<Array>::value && array_depth<Array>::value == array_depth<Index>::value, int> = 0>
-ENOKI_INLINE void prefetch(const void *mem, const Index &index, const Mask &mask) {
+ENOKI_INLINE void prefetch(const void *mem, const Index &index, const Mask &mask_) {
     static_assert(detail::is_std_int<scalar_t<Index>>::value, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
     static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Index>>::value, "prefetch(): output array and index shapes don't match!");
     static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Mask>>::value, "prefetch(): output array and mask shapes don't match!");
-    Array::template prefetch_<Write, Level, Stride>(mem, index, reinterpret_array<mask_t<Array>>(mask));
+    auto mask = reinterpret_array<mask_t<Array>>(mask_);
+
+    constexpr size_t Stride2 = !Array::IsNative ? Stride
+                                : ((Stride == 1 || Stride == 4 || Stride == 8) ? Stride : 1);
+
+    if (Stride == Stride2)
+        Array::template prefetch_<Write, Level, Stride2>(mem, index, mask);
+    else if (Stride % 8 == 0)
+        Array::template prefetch_<Write, Level, 8>(mem, index * scalar_t<Index>(Stride / 8), mask);
+    else if (Stride % 4 == 0)
+        Array::template prefetch_<Write, Level, 4>(mem, index * scalar_t<Index>(Stride / 4), mask);
+    else
+        Array::template prefetch_<Write, Level, 1>(mem, index * scalar_t<Index>(Stride), mask);
 }
 
 /// Masked gather operation (forward to array implementation)
 template <typename Array, size_t Stride = sizeof(scalar_t<Array>), typename Index, typename Mask,
           std::enable_if_t<is_static_array<Array>::value && array_depth<Array>::value == array_depth<Index>::value, int> = 0>
-ENOKI_INLINE Array gather(const void *mem, const Index &index, const Mask &mask) {
+ENOKI_INLINE Array gather(const void *mem, const Index &index, const Mask &mask_) {
     static_assert(detail::is_std_int<scalar_t<Index>>::value, "gather(): expected a signed 32/64-bit integer as 'index' argument!");
     static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Index>>::value, "gather(): output array and index shapes don't match!");
     static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Mask>>::value, "gather(): output array and mask shapes don't match!");
-    return Array::template gather_<Stride>(mem, index, reinterpret_array<mask_t<Array>>(mask));
+    auto mask = reinterpret_array<mask_t<Array>>(mask_);
+
+    constexpr size_t Stride2 = !Array::IsNative ? Stride
+                                : ((Stride == 1 || Stride == 4 || Stride == 8) ? Stride : 1);
+
+    if (Stride == Stride2)
+        return Array::template gather_<Stride2>(mem, index, mask);
+    else if (Stride % 8 == 0)
+        return Array::template gather_<8>(mem, index * scalar_t<Index>(Stride / 8), mask);
+    else if (Stride % 4 == 0)
+        return Array::template gather_<4>(mem, index * scalar_t<Index>(Stride / 4), mask);
+    else
+        return Array::template gather_<1>(mem, index * scalar_t<Index>(Stride), mask);
 }
 
 /// Masked scatter operation (forward to array implementation)
 template <size_t Stride_ = 0, typename Array, typename Index, typename Mask,
           std::enable_if_t<is_static_array<Array>::value && array_depth<Array>::value == array_depth<Index>::value, int> = 0>
-ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index, const Mask &mask) {
+ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index, const Mask &mask_) {
     static_assert(detail::is_std_int<scalar_t<Index>>::value, "scatter(): expected a signed 32/64-bit integer as 'index' argument!");
     static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Index>>::value, "scatter(): input array and index shapes don't match!");
     static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Mask>>::value, "scatter(): input array and mask shapes don't match!");
     constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(scalar_t<Array>);
-    value.template scatter_<Stride>(mem, index, reinterpret_array<mask_t<Array>>(mask));
+    auto mask = reinterpret_array<mask_t<Array>>(mask_);
+
+    constexpr size_t Stride2 = !Array::IsNative ? Stride
+                                : ((Stride == 1 || Stride == 4 || Stride == 8) ? Stride : 1);
+    if (Stride == Stride2)
+        value.template scatter_<Stride2>(mem, index, mask);
+    else if (Stride % 8 == 0)
+        value.template scatter_<8>(mem, index * scalar_t<Index>(Stride / 8), mask);
+    else if (Stride % 4 == 0)
+        value.template scatter_<4>(mem, index * scalar_t<Index>(Stride / 4), mask);
+    else
+        value.template scatter_<1>(mem, index * scalar_t<Index>(Stride), mask);
 }
 
 // -------------------
@@ -1370,7 +1437,7 @@ ENOKI_INLINE Array gather(const void *mem, const Index &offset) {
 }
 
 /// Nested scatter operation
-template <size_t Stride = 0, typename Array, typename Index, size_t ScalarStride = sizeof(scalar_t<Array>), 
+template <size_t Stride = 0, typename Array, typename Index, size_t ScalarStride = sizeof(scalar_t<Array>),
           std::enable_if_t<is_static_array<Index>::value && (array_depth<Array>::value > array_depth<Index>::value), int> = 0>
 ENOKI_INLINE void scatter(void *mem, const Array &array, const Index &offset) {
     static_assert(Stride % ScalarStride == 0, "Array size must be a multiple of the underlying scalar type");
@@ -1408,7 +1475,7 @@ ENOKI_INLINE Array gather(const void *mem, const Index &offset, const Mask &mask
 }
 
 /// Nested masked scatter operation
-template <size_t Stride = 0, typename Array, typename Index, typename Mask, size_t ScalarStride = sizeof(scalar_t<Array>), 
+template <size_t Stride = 0, typename Array, typename Index, typename Mask, size_t ScalarStride = sizeof(scalar_t<Array>),
           std::enable_if_t<is_static_array<Index>::value && (array_depth<Array>::value > array_depth<Index>::value), int> = 0>
 ENOKI_INLINE void scatter(void *mem, const Array &array, const Index &offset, const Mask &mask) {
     static_assert(std::is_same<array_shape_t<Index>, array_shape_t<Mask>>::value, "scatter(): mask and index have mismatched shapes!");
