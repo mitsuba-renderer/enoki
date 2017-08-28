@@ -20,9 +20,9 @@
 #  pragma warning(disable: 4554) // warning C4554: '>>': check operator precedence for possible error; use parentheses to clarify precedence
 #  pragma warning(disable: 4127) // warning C4127: conditional expression is constant
 #  pragma warning(disable: 4310) // warning C4310: cast truncates constant value
-#elif defined(__GNUG__)
-#  pragma GCC diagnostic push
-#  pragma GCC diagnostic ignored "-Wundefined-inline"
+#elif defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wundefined-inline"
 #endif
 
 #include "array_generic.h"
@@ -65,6 +65,6 @@
 
 #if defined(_MSC_VER)
 #  pragma warning(pop)
-#elif defined(__GNUG__)
-#  pragma GCC diagnostic pop
+#elif defined(__clang__)
+#  pragma clang diagnostic pop
 #endif

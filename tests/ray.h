@@ -28,7 +28,7 @@ template <typename Vector_> struct Ray {
     Vector d;
 
     /// Compute a position along a ray
-    Vector operator()(Value t) const { return o + t*d; }
+    Vector operator()(const Value &t) const { return o + t*d; }
 
     ENOKI_STRUCT(Ray, o, d)
 };

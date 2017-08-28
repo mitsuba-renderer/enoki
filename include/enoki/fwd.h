@@ -97,6 +97,8 @@
 
 #if defined(__aarch64__)
 #  define ENOKI_ARM_64 1
+#elif defined(__arm__)
+#  define ENOKI_ARM_32 1
 #endif
 
 #if (defined(_MSC_VER) && defined(ENOKI_X86_32)) && !defined(ENOKI_DISABLE_VECTORIZATION)
@@ -151,6 +153,9 @@
 #  endif
 #  if defined(__ARM_NEON)
 #    define ENOKI_ARM_NEON
+#  endif
+#  if defined(__ARM_FEATURE_FMA)
+#    define ENOKI_ARM_FMA
 #  endif
 #endif
 

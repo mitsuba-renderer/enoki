@@ -395,6 +395,14 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
         return result;
     }
 
+    /// sqrt() fallback implementation
+    ENOKI_INLINE auto sqrt_() const {
+        expr_t<Derived> result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
+            result.coeff(i) = sqrt(derived().coeff(i));
+        return result;
+    }
+
     /// round() fallback implementation
     ENOKI_INLINE auto round_() const {
         expr_t<Derived> result;

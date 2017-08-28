@@ -18,12 +18,22 @@ ENOKI_TEST_FLOAT(test01_div_fp) {
 
     test::validate_binary<T>(sample,
         [](const T &a, const T &b) -> T { return a / b; },
-        [](Value a, Value b) -> Value { return a / b; }
+        [](Value a, Value b) -> Value { return a / b; },
+#if !defined(ENOKI_ARM_32)
+        0.f
+#else
+        1e-6f
+#endif
     );
 
     test::validate_binary<T>(sample,
         [](const T &a, const T &b) -> T { T x(a); x /= b; return x; },
-        [](Value a, Value b) -> Value { return a / b; }
+        [](Value a, Value b) -> Value { return a / b; },
+#if !defined(ENOKI_ARM_32)
+        0.f
+#else
+        1e-6f
+#endif
     );
 
     test::validate_unary<T>(sample,
@@ -94,7 +104,12 @@ ENOKI_TEST_FLOAT(test05_sqrt) {
 
     test::validate_unary<T>(sample,
         [](const T &a) -> T { return sqrt(a); },
-        [](Value a) -> Value { return std::sqrt(a); }
+        [](Value a) -> Value { return std::sqrt(a); },
+#if !defined(ENOKI_ARM_32)
+        0.f
+#else
+        1e-6f
+#endif
     );
 
     Array<T, 4> x(3.4f); Array<T&, 4> y(x);
@@ -211,7 +226,7 @@ ENOKI_TEST(test13_half) {
     }
 }
 
-#if !defined(ENOKI_ARM_64) /* Can't change the rounding mode on ARM Neon */
+#if !defined(ENOKI_ARM_32) && !defined(ENOKI_ARM_64) /* Can't change the rounding mode on ARM Neon */
 
 ENOKI_TEST_FLOAT(test14_round) {
     using T1 = Array<Value, Size, T::Approx, RoundingMode::Up>;

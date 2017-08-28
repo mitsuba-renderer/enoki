@@ -31,23 +31,25 @@ else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
 endif()
 
-try_run(
-  ENOKI_ARCHFLAGS_RETVAL ENOKI_ARCHFLAGS_COMPILE_RESULT
-  ${CMAKE_BINARY_DIR}
-  ${CMAKE_CURRENT_SOURCE_DIR}/resources/${ENOKI_ARCHFLAGS_FILE}
-  COMPILE_OUTPUT_VARIABLE ENOKI_ARCHFLAGS_MSG
-  RUN_OUTPUT_VARIABLE ENOKI_ARCHFLAGS
-)
+# Clang refuses -march=native on ARM machines
+if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "armv7")
+  set(ENOKI_ARCHFLAGS -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -mfp16-format=ieee)
+  set(ENOKI_NATIVE_FLAGS ${ENOKI_ARCHFLAGS})
+elseif (${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
+  set(ENOKI_ARCHFLAGS -march=armv8-a+simd -mtune=cortex-a53 -mfloat-abi=hard)
+  set(ENOKI_NATIVE_FLAGS ${ENOKI_ARCHFLAGS})
+else()
+  try_run(
+    ENOKI_ARCHFLAGS_RETVAL ENOKI_ARCHFLAGS_COMPILE_RESULT
+    ${CMAKE_BINARY_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/resources/${ENOKI_ARCHFLAGS_FILE}
+    COMPILE_OUTPUT_VARIABLE ENOKI_ARCHFLAGS_MSG
+    RUN_OUTPUT_VARIABLE ENOKI_ARCHFLAGS
+  )
 
-if (NOT ${ENOKI_ARCHFLAGS_COMPILE_RESULT})
-  if (${ENOKI_ARCHFLAGS_MSG} MATCHES "the clang compiler does not support '-march=native'" AND
-      ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
-     # Clang refuses -march=native on ARM machines
-     set(ENOKI_ARCHFLAGS "-march=armv8-a+simd")
-     set(ENOKI_NATIVE_FLAGS "-march=armv8-a+simd")
-   else()
-     message(FATAL_ERROR "Failed to compile 'archflags' binary: ${ENOKI_ARCHFLAGS_MSG}")
-   endif()
+  if (NOT ${ENOKI_ARCHFLAGS_COMPILE_RESULT})
+    message(FATAL_ERROR "Failed to compile 'archflags' binary: ${ENOKI_ARCHFLAGS_MSG}")
+  endif()
 endif()
 
 set(CMAKE_CXX_FLAGS ${ENOKI_CXXFLAGS_BACKUP})
@@ -76,7 +78,7 @@ set(ENOKI_TEST_AVX OFF)
 set(ENOKI_TEST_AVX2 OFF)
 set(ENOKI_TEST_KNL OFF)
 set(ENOKI_TEST_SKX OFF)
-set(ENOKI_TEST_NEON OFF)
+set(ENOKI_TEST_ARM OFF)
 
 string(TOUPPER "${ENOKI_ARCHFLAGS}" ENOKI_ARCHFLAGS)
 
@@ -111,7 +113,7 @@ endif()
 
 if (ENOKI_ARCHFLAGS MATCHES "ARMV")
   set(ENOKI_HOST "ARM")
-  set(ENOKI_TEST_NEON ON)
+  set(ENOKI_TEST_ARM ON)
 endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/resources")
@@ -230,7 +232,12 @@ else()
     set(ENOKI_AVX512_KNL_FLAGS "-march=knl")
     set(ENOKI_AVX512_SKX_FLAGS "-march=skylake-avx512")
   endif()
-  set(ENOKI_NEON_FLAGS "-march=armv8-a+simd")
+  set(ENOKI_ARM_FLAGS "")
+  if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "armv7")
+    set(ENOKI_ARM_FLAGS "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -mfp16-format=ieee")
+  elseif (${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
+    set(ENOKI_ARM_FLAGS "-march=armv8-a+simd -mtune=cortex-a53 -mfloat-abi=hard")
+  endif()
 endif()
 
 function(enoki_test NAME)
@@ -286,12 +293,12 @@ function(enoki_test NAME)
   endif()
 
   if (ENOKI_HOST MATCHES "ARM")
-    add_executable(${NAME}_neon ${ARGN} ${ENOKI_HEADERS})
-    set_target_properties(${NAME}_neon PROPERTIES COMPILE_FLAGS ${ENOKI_NEON_FLAGS})
-    set_target_properties(${NAME}_neon PROPERTIES FOLDER ${NAME})
-    if (ENOKI_TEST_NEON)
-      add_test(${NAME}_neon_test ${NAME}_neon)
-      set_tests_properties(${NAME}_neon_test PROPERTIES LABELS "neon")
+    add_executable(${NAME}_arm ${ARGN} ${ENOKI_HEADERS})
+    set_target_properties(${NAME}_arm PROPERTIES COMPILE_FLAGS ${ENOKI_ARM_FLAGS})
+    set_target_properties(${NAME}_arm PROPERTIES FOLDER ${NAME})
+    if (ENOKI_TEST_ARM)
+      add_test(${NAME}_arm_test ${NAME}_arm)
+      set_tests_properties(${NAME}_arm_test PROPERTIES LABELS "arm")
     endif()
   endif()
 endfunction()

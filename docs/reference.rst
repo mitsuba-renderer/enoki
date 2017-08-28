@@ -179,9 +179,13 @@ Global variable definitions
 
     Specifies whether the target architecture is x86, 64 bit.
 
-.. cpp:var:: static constexpr bool has_aarch64
+.. cpp:var:: static constexpr bool has_arm_32
 
-    Specifies whether the target architecture is aarch64.
+    Specifies whether the target architecture is a 32-bit ARM processor (armv7).
+
+.. cpp:var:: static constexpr bool has_arm_64
+
+    Specifies whether the target architecture is aarch64 (armv8+).
 
 .. cpp:var:: static constexpr size_t max_packet_size
 

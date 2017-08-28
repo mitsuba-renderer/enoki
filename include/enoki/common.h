@@ -106,7 +106,7 @@ NAMESPACE_BEGIN(enoki)
     static constexpr bool has_avx2 = false;
 #endif
 
-#if defined(ENOKI_X86_FMA)
+#if defined(ENOKI_X86_FMA) || defined(ENOKI_ARM_FMA)
     static constexpr bool has_fma = true;
 #else
     static constexpr bool has_fma = false;
@@ -148,10 +148,16 @@ NAMESPACE_BEGIN(enoki)
     static constexpr bool has_neon = false;
 #endif
 
-#if defined(ENOKI_ARM_64)
-    static constexpr bool has_aarch64 = true;
+#if defined(ENOKI_ARM_32)
+    static constexpr bool has_arm_32 = true;
 #else
-    static constexpr bool has_aarch64 = false;
+    static constexpr bool has_arm_32 = false;
+#endif
+
+#if defined(ENOKI_ARM_64)
+    static constexpr bool has_arm_64 = true;
+#else
+    static constexpr bool has_arm_64 = false;
 #endif
 
 static constexpr bool has_vectorization = has_sse42 || has_neon;

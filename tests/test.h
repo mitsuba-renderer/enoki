@@ -461,7 +461,7 @@ NAMESPACE_END(test)
     ENOKI_TEST(array_##type##_04##_##name) { name<type, 4>();  }                \
     ENOKI_TEST(array_##type##_08##_##name) { name<type, 8>();  }                \
     ENOKI_TEST(array_##type##_16##_##name) { name<type, 16>(); }
-#elif defined(ENOKI_ARM_64)
+#elif defined(ENOKI_ARM_32) || defined(ENOKI_ARM_64)
 #define ENOKI_TEST_HELPER(name, type)                                           \
     ENOKI_TEST(array_##type##_01##_##name) { name<type, 1>();  }                \
     ENOKI_TEST(array_##type##_02##_##name) { name<type, 2>();  }                \
@@ -544,9 +544,10 @@ int main(int argc, char** argv) {
     if (has_f16c)            std::cout << "f16c ";
     if (has_sse42)           std::cout << "sse4.2 ";
     if (has_x86_64)          std::cout << "x86_64 ";
-    if (has_x86_32)          std::cout << "x86_32 ";
+    if (has_x86_32)          std::cout << "x86 ";
     if (has_neon)            std::cout << "neon ";
-    if (has_aarch64)         std::cout << "aarch64 ";
+    if (has_arm_32)          std::cout << "arm ";
+    if (has_arm_64)          std::cout << "aarch64 ";
 
     /* Turn on verbose mode if requested */
     if (argc == 2 && strcmp(argv[1], "-v") == 0)

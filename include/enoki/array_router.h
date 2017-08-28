@@ -501,7 +501,7 @@ ENOKI_INLINE Arg rcp(const Arg &a) {
         r = _mm_blendv_ps(r, ro, t1); /* mask bit is '1' iff t1 == nan */
 
         return Arg(_mm_cvtss_f32(r));
-#elif defined(ENOKI_ARM_NEON)
+#elif defined(ENOKI_ARM_NEON) && defined(ENOKI_ARM_64)
         float v = (float) a;
         float r = vrecpes_f32(v);
         r *= vrecpss_f32(r, v);
@@ -590,14 +590,12 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
         r = _mm_blendv_ps(r, ro, t1); /* mask bit is '1' iff t1 == nan */
 
         return Arg(_mm_cvtss_f32(r));
-#elif defined(ENOKI_ARM_NEON)
+#elif defined(ENOKI_ARM_NEON) && defined(ENOKI_ARM_64)
         float v = (float) a;
-        float r0 = vrsqrtes_f32(v), r = r0, tmp;
-        tmp = r*v;
-        bool is_nan = tmp != tmp;
-        r *= vrsqrtss_f32(tmp, r);
-        r *= vrsqrtss_f32(r*v, r);
-        return Arg(is_nan ? r0 : r);
+        float r = vrsqrtes_f32(v);
+        r *= vrsqrtss_f32(r*r, r);
+        r *= vrsqrtss_f32(r*r, v);
+        return r;
 #endif
 
     }
@@ -1517,7 +1515,11 @@ ENOKI_INLINE Arg extract(const Arg &value, const Mask &) {
 template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
           std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
 ENOKI_INLINE T fmadd(const T1 &t1, const T2 &t2, const T3 &t3) {
+#if defined(ENOKI_X86_FMA) || defined(ENOKI_ARM_FMA)
     return std::fma((T) t1, (T) t2, (T) t3);
+#else
+    return (T) t1 * (T) t2 + (T) t3;
+#endif
 }
 
 template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
@@ -1529,7 +1531,11 @@ ENOKI_INLINE T fmadd(const T1 &t1, const T2 &t2, const T3 &t3) {
 template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
           std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
 ENOKI_INLINE T fmsub(const T1 &t1, const T2 &t2, const T3 &t3) {
-    return std::fma((T) t1, (T) t2, -(T) t3);
+#if defined(ENOKI_X86_FMA) || defined(ENOKI_ARM_FMA)
+    return std::fma((T) t1, (T) t2, - (T) t3);
+#else
+    return (T) t1 * (T) t2 - (T) t3;
+#endif
 }
 
 template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
@@ -1541,7 +1547,11 @@ ENOKI_INLINE T fmsub(const T1 &t1, const T2 &t2, const T3 &t3) {
 template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
           std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
 ENOKI_INLINE T fnmadd(const T1 &t1, const T2 &t2, const T3 &t3) {
+#if defined(ENOKI_X86_FMA) || defined(ENOKI_ARM_FMA)
     return std::fma(-(T) t1, (T) t2, (T) t3);
+#else
+    return - (T) t1 * (T) t2 + (T) t3;
+#endif
 }
 
 template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
@@ -1553,7 +1563,11 @@ ENOKI_INLINE T fnmadd(const T1 &t1, const T2 &t2, const T3 &t3) {
 template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
           std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
 ENOKI_INLINE T fnmsub(const T1 &t1, const T2 &t2, const T3 &t3) {
-    return std::fma(-(T) t1, (T) t2, -(T) t3);
+#if defined(ENOKI_X86_FMA) || defined(ENOKI_ARM_FMA)
+    return std::fma(-(T) t1, (T) t2, - (T) t3);
+#else
+    return - (T) t1 * (T) t2 - (T) t3;
+#endif
 }
 
 template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
@@ -1634,7 +1648,7 @@ ENOKI_INLINE auto cross(const Array1 &v1, const Array2 &v2) {
     static_assert(Array1::Derived::Size == 3 && Array2::Derived::Size == 3,
                   "cross(): requires Size = 3");
 
-#if defined(ENOKI_ARM_NEON)
+#if defined(ENOKI_ARM_32) || defined(ENOKI_ARM_64)
     return fnmadd(
         shuffle<2, 0, 1>(v1), shuffle<1, 2, 0>(v2),
         shuffle<1, 2, 0>(v1) * shuffle<2, 0, 1>(v2)
