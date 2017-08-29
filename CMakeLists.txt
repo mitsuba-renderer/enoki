@@ -58,10 +58,10 @@ set(CMAKE_CXX_FLAGS ${ENOKI_CXXFLAGS_BACKUP})
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR
     CMAKE_CXX_COMPILER_ID MATCHES "GNU")
   if (NOT ENOKI_NATIVE_FLAGS)
-    set(ENOKI_NATIVE_FLAGS "-march=native")
+    set(ENOKI_NATIVE_FLAGS -march=native)
   endif()
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
-  set(ENOKI_NATIVE_FLAGS "-xHost")
+  set(ENOKI_NATIVE_FLAGS -xHost)
 elseif (MSVC)
   # MSVC doesn't have a flag equivalent to -march=native
   # The 'archflags' executable provides this functionality
@@ -133,6 +133,12 @@ endif()
 
 macro(enoki_set_native_flags)
   add_compile_options(${ENOKI_NATIVE_FLAGS})
+  string(REPLACE ";" " " ENOKI_NATIVE_FLAGS_STR "${ENOKI_NATIVE_FLAGS}")
+  # Some linkers want to know the architecture flags (for LTO)
+  if (NOT MSVC)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${ENOKI_NATIVE_FLAGS_STR}")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ENOKI_NATIVE_FLAGS_STR}")
+  endif()
 endmacro()
 
 macro(enoki_set_compile_flags)
@@ -140,14 +146,25 @@ macro(enoki_set_compile_flags)
       CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR
       CMAKE_CXX_COMPILER_ID MATCHES "Intel")
     string(TOUPPER "${CMAKE_BUILD_TYPE}" ENOKI_U_CMAKE_BUILD_TYPE)
-    if (NOT ${ENOKI_U_CMAKE_BUILD_TYPE} MATCHES DEBUG)
-      add_compile_options(-fno-stack-protector -fomit-frame-pointer -fno-math-errno)
+    if (NOT (${ENOKI_U_CMAKE_BUILD_TYPE} MATCHES "DEBUG"))
+      if (NOT (${CMAKE_CXX_FLAGS} MATCHES "fsanitize"))
+        # Don't use stack security features in release mode
+        add_compile_options(-fno-stack-protector)
+        # In release mode, don't keep the frame pointer in a dedicated register unless needed
+        add_compile_options(-fomit-frame-pointer)
+      endif()
+
+      # Never update the 'errno' variable due to arithmetic exceptions
+      add_compile_options(-fno-math-errno)
+
       if (NOT CMAKE_CXX_COMPILER_ID MATCHES "Intel")
+        # Look for opportunities to fuse additions & multiplications into FMA operations
         add_compile_options(-ffp-contract=fast)
       endif()
     endif()
   endif()
 
+  # Disable overly aggressive FP optimization in the Intel compiler
   if (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
     add_compile_options(-fp-model precise)
   endif()
@@ -160,12 +177,18 @@ macro(enoki_set_compile_flags)
 
   if (MSVC)
     # Disable buffer security check cookie
-    string(REPLACE "/GS" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    string(REPLACE "/Ob0" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+    set(Configurations RELEASE RELWITHDEBINFO MINSIZEREL)
+    foreach(Configuration ${Configurations})
+      string(REPLACE "/GS"  "" CMAKE_CXX_FLAGS_${Configuration} "${CMAKE_CXX_FLAGS_${Configuration}}")
+    endforeach()
+    string(REPLACE "/GS"  "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     add_compile_options("$<$<NOT:$<CONFIG:Debug>>:/GS->")
+
     # Enable intrinsic functions
     add_compile_options("$<$<CONFIG:Release>:/Oi>")
+
     # Honor __forceinline statements even in debug mode, needed to avoid internal compiler errors on MSVC
+    string(REPLACE "/Ob0" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
     add_compile_options("$<$<CONFIG:Debug>:/Ob1>")
   endif()
 endmacro()
