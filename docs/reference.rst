@@ -157,7 +157,8 @@ Global variable definitions
 
 .. cpp:var:: static constexpr bool has_fma
 
-    Specifies whether FMA instructions are available on the target architecture.
+    Specifies whether fused multiply-add instructions are available on the
+    target architecture (ARM & x86).
 
 .. cpp:var:: static constexpr bool has_f16c
 
@@ -167,10 +168,6 @@ Global variable definitions
 
     Specifies whether SSE 4.2 instructions are available on the target architecture.
 
-.. cpp:var:: static constexpr bool has_arm_neon
-
-    Specifies whether ARM NEON instructions are available on the target architecture.
-
 .. cpp:var:: static constexpr bool has_x86_32
 
     Specifies whether the target architecture is x86, 32 bit.
@@ -178,6 +175,10 @@ Global variable definitions
 .. cpp:var:: static constexpr bool has_x86_64
 
     Specifies whether the target architecture is x86, 64 bit.
+
+.. cpp:var:: static constexpr bool has_arm_neon
+
+    Specifies whether ARM NEON instructions are available on the target architecture.
 
 .. cpp:var:: static constexpr bool has_arm_32
 
@@ -191,7 +192,7 @@ Global variable definitions
 
    Denotes the maximal packet size (in bytes) that can be mapped to native
    vector registers. It is equal to 64 if AVX512 is present, 32 if AVX is
-   present, and 16 for machines with only SSE 4.2.
+   present, and 16 for machines with SSE 4.2 or ARM NEON.
 
 Rounding modes
 --------------
@@ -1441,22 +1442,22 @@ Exponential, logarithm, and others
 
 .. cpp:function:: template <typename Array> Array safe_sqrt(Array x)
 
-    Computes ``sqrt(max(Array(0), x))`` to avoid issues with negative inputs
+    Computes ``sqrt(max(0, x))`` to avoid issues with negative inputs
     (e.g. due to roundoff error in a prior calculation).
 
 .. cpp:function:: template <typename Array> Array safe_rsqrt(Array x)
 
-    Computes ``rsqrt(max(Array(0), x))`` to avoid issues with negative inputs
+    Computes ``rsqrt(max(0, x))`` to avoid issues with negative inputs
     (e.g. due to roundoff error in a prior calculation).
 
 .. cpp:function:: template <typename Array> Array safe_asin(Array x)
 
-    Computes ``asin(min(Array(1), max(Array(-1), x)))`` to avoid issues with
+    Computes ``asin(min(1, max(-1, x)))`` to avoid issues with
     out-of-range inputs (e.g. due to roundoff error in a prior calculation).
 
 .. cpp:function:: template <typename Array> Array safe_acos(Array x)
 
-    Computes ``acos(min(Array(1), max(Array(-1), x)))`` to avoid issues with
+    Computes ``acos(min(1, max(-1, x)))`` to avoid issues with
     out-of-range inputs (e.g. due to roundoff error in a prior calculation).
 
 Special functions
@@ -1593,6 +1594,14 @@ Miscellaneous operations
 .. cpp:function:: bool flush_denormals()
 
     Returns the denormals are flushed to zero (see :cpp:func:`set_flush_denormals`).
+
+.. cpp:function:: template <typename Array> auto unit_angle(const Array &a, const Array &b)
+
+    Numerically well-behaved routine for computing the angle between two unit
+    direction vectors. This should be used wherever one is tempted to compute
+    the arc cosine of a dot product, i.e. ``acos(dot(a, b))``.
+
+    Proposed by `Don Hatch <http://www.plunk.org/~hatch/rightway.php>`_.
 
 
 Rearranging contents of arrays

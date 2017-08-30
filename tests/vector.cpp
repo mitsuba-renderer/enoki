@@ -243,6 +243,20 @@ ENOKI_TEST(transform_compose_inverse) {
     }
 }
 
+ENOKI_TEST(test_unit_angle) {
+    using Vector3f = Array<float, 3>;
+    using Random = PCG32<Vector3f>;
+
+    Random rng;
+
+    for (int i = 0; i < 30; ++i) {
+        Vector3f a = normalize(rng.next_float32() * 2 - 1);
+        Vector3f b = normalize(rng.next_float32() * 2 - 1);
+
+        assert(std::abs(acos(dot(a, b)) - unit_angle(a, b)) < 1e-6f);
+    }
+}
+
 ENOKI_TEST(fill) {
     using Vector4f  = Array<float, 4>;
     using MyMatrix = Array<Vector4f, 4>;

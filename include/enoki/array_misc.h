@@ -238,4 +238,19 @@ static ENOKI_INLINE Return tail(const T &value) {
     return detail::extract<Return, T::Size - Size>(value, std::make_index_sequence<Size>());
 }
 
+/**
+ * \brief Numerically well-behaved routine for computing the angle
+ * between two unit direction vectors
+ *
+ * This should be used wherever one is tempted to compute the
+ * arc cosine of a dot product.
+ *
+ * Proposed by Don Hatch at http://www.plunk.org/~hatch/rightway.php
+ */
+template <typename Array, typename Expr = expr_t<value_t<Array>>> Expr unit_angle(const Array &a, const Array &b) {
+    Expr dot_uv = dot(a, b),
+         temp = 2.f * asin(.5f * norm(b - mulsign(a, dot_uv)));
+    return select(dot_uv >= 0, temp, scalar_t<Expr>(M_PI) - temp);
+}
+
 NAMESPACE_END(enoki)
