@@ -208,7 +208,7 @@ ENOKI_ROUTE_BINARY_SCALAR(max,   max,  (std::decay_t<decltype(a1+a2)>) std::max(
 ENOKI_ROUTE_BINARY_SCALAR(min,   min,  (std::decay_t<decltype(a1+a2)>) std::min((decltype(a1+a2)) a1, (decltype(a1+a2)) a2))
 ENOKI_ROUTE_BINARY_SCALAR(pow,   pow,   std::pow  ((decltype(a1+a2)) a1, (decltype(a1+a2)) a2))
 ENOKI_ROUTE_BINARY_SCALAR(atan2, atan2, std::atan2((decltype(a1+a2)) a1, (decltype(a1+a2)) a2))
-ENOKI_ROUTE_BINARY_SCALAR(ldexp, ldexp, std::ldexp((decltype(a1+a2)) a1, int(a2)))
+ENOKI_ROUTE_BINARY(ldexp, ldexp)
 ENOKI_ROUTE_BINARY_SCALAR(dot,   dot,   a1*a2)
 
 ENOKI_ROUTE_BINARY_SCALAR(andnot, andnot, a1 & ~a2)
@@ -287,9 +287,43 @@ ENOKI_ROUTE_UNARY_SCALAR(isfinite, isfinite, std::isfinite(a))
 /// Break floating-point number into normalized fraction and power of 2 (scalar fallback)
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE std::pair<Arg, Arg> frexp(const Arg &a) {
+#if defined(ENOKI_X86_AVX512F)
+    if (std::is_same<Arg, float>::value) {
+        __m128 v = _mm_set_ss((float) a);
+        return std::make_pair(
+            Arg(_mm_cvtss_f32(_mm_getmant_ss(v, v, _MM_MANT_NORM_p5_1, _MM_MANT_SIGN_src))),
+            Arg(_mm_cvtss_f32(_mm_getexp_ss(v, v))));
+    }
+    if (std::is_same<Arg, double>::value) {
+        __m128d v = _mm_set_sd((double) a);
+        return std::make_pair(
+            Arg(_mm_cvtsd_f64(_mm_getmant_sd(v, v, _MM_MANT_NORM_p5_1, _MM_MANT_SIGN_src))),
+            Arg(_mm_cvtsd_f64(_mm_getexp_sd(v, v))));
+    }
+#endif
+
     int tmp;
     Arg result = std::frexp(a, &tmp);
-    return std::make_pair(result, Arg(tmp));
+    return std::make_pair(result, Arg(tmp) - Arg(1));
+}
+
+template <typename Arg1, typename Arg2, enable_if_not_array_t<Arg1> = 0,
+          enable_if_not_array_t<Arg2> = 0>
+ENOKI_INLINE Arg1 ldexp(const Arg1 &a1, const Arg2 &a2) {
+#if defined(ENOKI_X86_AVX512F)
+    if (std::is_same<Arg1, float>::value) {
+        __m128 v1 = _mm_set_ss((float) a1),
+               v2 = _mm_set_ss((float) a2);
+        return Arg1(_mm_cvtss_f32(_mm_scalef_ss(v1, v2)));
+    }
+    if (std::is_same<Arg1, double>::value) {
+        __m128d v1 = _mm_set_sd((double) a1),
+                v2 = _mm_set_sd((double) a2);
+        return Arg1(_mm_cvtsd_f64(_mm_scalef_sd(v1, v2)));
+    }
+#endif
+
+    return std::ldexp(a1, int(a2));
 }
 
 ENOKI_ROUTE_UNARY(frexp, frexp)
@@ -1733,6 +1767,10 @@ ENOKI_INLINE Expr next_float(const Value &value) {
     Int j2 = select(is_neg_0, Int(1), i);
 
     return reinterpret_array<Expr>(select(is_special, j2, j1));
+}
+
+template <typename Arg> auto isdenormal(const Arg &a) {
+    return abs(a) < std::numeric_limits<scalar_t<Arg>>::min();
 }
 
 template <typename Mask> ENOKI_INLINE Mask disable_mask_if_scalar(const Mask &mask) {

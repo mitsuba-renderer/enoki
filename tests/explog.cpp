@@ -17,7 +17,6 @@ ENOKI_TEST_FLOAT(test01_ldexp) {
     assert(all(enoki::isnan(ldexp(T(nan), T(Value(2))))));
 }
 
-#if !defined(ENOKI_X86_AVX512F)
 // AVX512F frexp() uses slightly different conventions
 // It is used by log() where this is not a problem though
 ENOKI_TEST_FLOAT(test02_frexp) {
@@ -27,37 +26,41 @@ ENOKI_TEST_FLOAT(test02_frexp) {
     using Int = typename int_array_t::Value;
 
     for (int i = -10; i < 10; ++i) {
+        if (i == 0)
+            continue;
         int e;
         Value f = std::frexp(Value(i), &e);
         T e2, f2;
         std::tie(f2, e2) = frexp(T(Value(i)));
-        assert(T(Value(e)) == e2);
+        assert(T(Value(e)) == e2 + 1);
         assert(T(f) == f2);
     }
 
     T e, f;
 
     std::tie(f, e) = frexp(T(inf));
-    assert(e == T(0.f) || e == T(-1.f));
-    assert(f == T(inf));
+    assert((std::isinf(f[0]) && !std::isinf(e[0])) ||
+           (std::isinf(e[0]) && !std::isinf(f[0])));
+    assert(!std::isnan(f[0]) && !std::isnan(e[0]));
+    assert(f[0] > 0);
 
     std::tie(f, e) = frexp(T(-inf));
-    assert(e == T(0.f) || e == T(-1.f));
-    assert(f == T(-inf));
+    assert((std::isinf(f[0]) && !std::isinf(e[0])) ||
+           (std::isinf(e[0]) && !std::isinf(f[0])));
+    assert(!std::isnan(f[0]) && !std::isnan(e[0]));
+    assert(f[0] < 0);
 
-    std::tie(f, e) = frexp(T(+0.f));
-    assert(e == T(0.f));
-    assert((reinterpret_array<int_array_t>(f) == int_array_t(memcpy_cast<Int>(Value(+0.f)))));
+    if (!has_avx512f) {
+        std::tie(f, e) = frexp(T(+0.f));
+        assert((reinterpret_array<int_array_t>(f) == int_array_t(memcpy_cast<Int>(Value(+0.f)))));
 
-    std::tie(f, e) = frexp(T(-0.f));
-    assert(e == T(0.f));
-    assert((reinterpret_array<int_array_t>(f) == int_array_t(memcpy_cast<Int>(Value(-0.f)))));
+        std::tie(f, e) = frexp(T(-0.f));
+        assert((reinterpret_array<int_array_t>(f) == int_array_t(memcpy_cast<Int>(Value(-0.f)))));
+    }
 
     std::tie(f, e) = frexp(T(nan));
-    assert(e == T(0.f) || e == T(-1.f));
-    assert(all(enoki::isnan(f)));
+    assert(std::isnan(f[0]) || std::isnan(e[0]));
 }
-#endif
 
 ENOKI_TEST_FLOAT(test03_exp) {
     test::probe_accuracy<T>(

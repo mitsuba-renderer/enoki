@@ -901,7 +901,7 @@ public:
 
     auto ldexp_(const Derived &arg) const {
         expr_t<Derived> result;
-        if (std::is_arithmetic<Value>::value) {
+        if (std::is_arithmetic<Value>::value && !has_avx512f) {
             result = Base::ldexp_(arg);
         } else {
             ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
@@ -912,7 +912,7 @@ public:
 
     auto frexp_() const {
         std::pair<expr_t<Derived>, expr_t<Derived>> result;
-        if (std::is_arithmetic<Value>::value) {
+        if (std::is_arithmetic<Value>::value && !has_avx512f) {
             result = Base::frexp_();
         } else {
             ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)

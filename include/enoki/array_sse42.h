@@ -235,7 +235,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
     ENOKI_INLINE std::pair<Derived, Derived> frexp_() const {
         return std::make_pair<Derived, Derived>(
             _mm_getmant_ps(m, _MM_MANT_NORM_p5_1, _MM_MANT_SIGN_src),
-            _mm_add_ps(_mm_getexp_ps(m), _mm_set1_ps(1.f)));
+            _mm_getexp_ps(m));
     }
 #endif
 
@@ -645,7 +645,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
     ENOKI_INLINE std::pair<Derived, Derived> frexp_() const {
         return std::make_pair<Derived, Derived>(
             _mm_getmant_pd(m, _MM_MANT_NORM_p5_1, _MM_MANT_SIGN_src),
-            _mm_add_pd(_mm_getexp_pd(m), _mm_set1_pd(1.0)));
+            _mm_getexp_pd(m));
     }
 #endif
 

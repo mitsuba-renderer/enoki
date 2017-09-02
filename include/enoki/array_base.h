@@ -1330,22 +1330,28 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
             Expr x(derived());
 
             /* Catch negative and NaN values */
-            auto valid_mask = x >= Scalar(0);
+            auto valid_mask = x > Scalar(0);
 
-            /* Cut off denormalized values (our frexp does not handle them) */
-            if (std::is_same<Scalar, float>::value)
-                x = max(x, memcpy_cast<Scalar>(UInt(0x00800000u)));
-            else
-                x = max(x, memcpy_cast<Scalar>(UInt(0x0010000000000000ull)));
+            /* The frexp in array_base.h does not handle denormalized numbers,
+               cut them off. The AVX512 backend does support them, however. */
+            if (!has_avx512f) {
+                if (std::is_same<Scalar, float>::value)
+                    x = max(x, memcpy_cast<Scalar>(UInt(0x00800000u)));
+                else
+                    x = max(x, memcpy_cast<Scalar>(UInt(0x0010000000000000ull)));
+            }
 
             Expr e;
             std::tie(x, e) = frexp(x);
 
-            if (Single) {
-                auto lt_inv_sqrt2 = x < Scalar(0.707106781186547524);
+            const Scalar sqrt_half = Scalar(0.70710678118654752440);
+            auto mask_e_big = abs(e) > Scalar(2);
+            auto mask_ge_inv_sqrt2 = x >= sqrt_half;
 
-                e -= Expr(Scalar(1.f)) & lt_inv_sqrt2;
-                x += (x & lt_inv_sqrt2) - Scalar(1);
+            e[mask_ge_inv_sqrt2] += Scalar(1);
+
+            if (Single) {
+                x += (x & ~mask_ge_inv_sqrt2) - Scalar(1);
 
                 Expr z = x * x;
                 Expr y = poly8(x, 3.3333331174e-1, -2.4999993993e-1,
@@ -1360,24 +1366,16 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
                 z = fmadd(z, Scalar(-0.5), x + y);
                 r = fmadd(e, Scalar(0.693359375), z);
             } else {
-                const Scalar half = Scalar(0.5),
-                             sqrt_half = Scalar(0.70710678118654752440);
-
-                auto mask_big = abs(e) > Scalar(2);
-                auto mask1 = x < sqrt_half;
-
-                e[mask1] -= Scalar(1);
-
+                const Scalar half = Scalar(0.5);
                 Expr r_big, r_small;
 
-                if (any_nested(mask_big)) {
+                if (any_nested(mask_e_big)) {
                     /* logarithm using log(x) = z + z**3 P(z)/Q(z), where z = 2(x-1)/x+1) */
-
                     Expr z = x - half;
 
-                    z[~mask1] -= half;
+                    z[mask_ge_inv_sqrt2] -= half;
 
-                    Expr y = half * select(mask1, z, x) + half;
+                    Expr y = half * select(mask_ge_inv_sqrt2, x, z) + half;
                     Expr x2 = z / y;
 
                     z = x2 * x2;
@@ -1392,10 +1390,9 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
                     r_big = fnmadd(e, Scalar(2.121944400546905827679e-4), z) + x2;
                 }
 
-                if (!all_nested(mask_big)) {
+                if (!all_nested(mask_e_big)) {
                     /* logarithm using log(1+x) = x - .5x**2 + x**3 P(x)/Q(x) */
-
-                    Expr x2 = select(mask1, x + x, x) - Scalar(1);
+                    Expr x2 = select(mask_ge_inv_sqrt2, x, x + x) - Scalar(1);
 
                     Expr z = x2*x2;
                     Expr y = x2 * (z * poly5(x2, 7.70838733755885391666e0,
@@ -1416,7 +1413,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
                     r_small = x2 + fnmadd(half, z, y);
                 }
 
-                r = select(mask_big, r_big, r_small);
+                r = select(mask_e_big, r_big, r_small);
                 r = fmadd(e, Scalar(0.693359375), r);
             }
             r = select(eq(derived(), inf), inf, r | ~valid_mask);
@@ -1457,7 +1454,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
             const IntArray
                 exponent_mask(Int(Single ? 0x7f800000ull : 0x7ff0000000000000ull)),
                 mantissa_sign_mask(Int(Single ? ~0x7f800000ull : ~0x7ff0000000000000ull)),
-                bias_minus_1(Int(Single ? 0x7e : 0x3fe));
+                bias(Int(Single ? 0x7f : 0x3ff));
 
             IntArray x = reinterpret_array<IntArray>(derived());
             IntArray exponent_bits = x & exponent_mask;
@@ -1467,7 +1464,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
                 IntMask(neq(derived(), zero<Expr>())) &
                 neq(exponent_bits, exponent_mask);
 
-            IntArray exponent_i = (sri<Single ? 23 : 52>(exponent_bits)) - bias_minus_1;
+            IntArray exponent_i = (sri<Single ? 23 : 52>(exponent_bits)) - bias;
 
             IntArray mantissa = (x & mantissa_sign_mask) |
                                 IntArray(memcpy_cast<Int>(Scalar(.5f)));

@@ -327,7 +327,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
     ENOKI_INLINE std::pair<Derived, Derived> frexp_() const {
         return std::make_pair<Derived, Derived>(
             _mm512_getmant_ps(m, _MM_MANT_NORM_p5_1, _MM_MANT_SIGN_src),
-            _mm512_add_ps(_mm512_getexp_ps(m), _mm512_set1_ps(1.f)));
+            _mm512_getexp_ps(m));
     }
 
     // -----------------------------------------------------------------------
@@ -859,7 +859,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
     ENOKI_INLINE std::pair<Derived, Derived> frexp_() const {
         return std::make_pair<Derived, Derived>(
             _mm512_getmant_pd(m, _MM_MANT_NORM_p5_1, _MM_MANT_SIGN_src),
-            _mm512_add_pd(_mm512_getexp_pd(m), _mm512_set1_pd(1.f)));
+            _mm512_getexp_pd(m));
     }
 
     // -----------------------------------------------------------------------
