@@ -203,7 +203,11 @@ std::string print_float(double value) {
     return oss.str();
 }
 
+
 template <typename T>
+#if defined(__clang__) && (defined(ENOKI_ARM_64) || defined(ENOKI_ARM_32)) && !defined(ENOKI_ARM_NEON)
+[[clang::optnone]]
+#endif
 void probe_accuracy(T (*func)(const T &), double (*ref)(double),
                     typename T::Value min, typename T::Value max,
                     typename T::Value max_ulp_assert = 0,
