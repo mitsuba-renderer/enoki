@@ -627,11 +627,10 @@ ENOKI_INLINE Arg rsqrt(const Arg &a) {
 #elif defined(ENOKI_ARM_NEON) && defined(ENOKI_ARM_64)
         float v = (float) a;
         float r = vrsqrtes_f32(v);
-        r *= vrsqrtss_f32(r*r, r);
+        r *= vrsqrtss_f32(r*r, v);
         r *= vrsqrtss_f32(r*r, v);
         return r;
 #endif
-
     }
 
 #if defined(ENOKI_X86_AVX512F) || defined(ENOKI_X86_AVX512ER)

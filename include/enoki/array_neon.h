@@ -736,8 +736,8 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMod
             int64x2_t h = vmull_high_s32(vreinterpretq_s32_u32(m),
                                          vreinterpretq_s32_u32(a.m));
 
-            uint32x4_t ll = vreinterpretq_u32_s64(l);
-            uint32x4_t hh = vreinterpretq_u32_s64(l);
+            ll = vreinterpretq_u32_s64(l);
+            hh = vreinterpretq_u32_s64(h);
         } else {
             uint64x2_t l = vmull_u32(vget_low_u32(m),
                                      vget_low_u32(a.m));
@@ -745,7 +745,7 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMod
             uint64x2_t h = vmull_high_u32(m, a.m);
 
             ll = vreinterpretq_u32_u64(l);
-            hh = vreinterpretq_u32_u64(l);
+            hh = vreinterpretq_u32_u64(h);
         }
         return vuzp2q_u32(ll, hh);
     }
