@@ -1,3 +1,129 @@
+enoki_set_compile_flags()
+
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR
+    CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR
+    CMAKE_CXX_COMPILER_ID MATCHES "Intel")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+  if (NOT ${ENOKI_U_CMAKE_BUILD_TYPE} MATCHES DEBUG)
+    add_compile_options( -fvisibility=hidden)
+  endif()
+  add_compile_options(-Wall -Wextra -Wconversion)
+elseif(WIN32)
+  add_compile_options("/std:c++14")
+  add_compile_options("/bigobj")
+endif()
+
+include(CheckCXXSourceRuns)
+include(CheckCXXCompilerFlag)
+
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+  CHECK_CXX_COMPILER_FLAG(-faligned-new ALIGNED_NEW)
+  if (ALIGNED_NEW)
+    add_compile_options(-faligned-new)
+  endif()
+endif()
+
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+macro(CHECK_CXX_COMPILER_AND_LINKER_FLAGS _RESULT _CXX_FLAGS _LINKER_FLAGS)
+  set(CMAKE_REQUIRED_FLAGS ${_CXX_FLAGS})
+  set(CMAKE_REQUIRED_LIBRARIES ${_LINKER_FLAGS})
+  set(CMAKE_REQUIRED_QUIET TRUE)
+  check_cxx_source_runs("#include <iostream>\nint main(int argc, char **argv) { std::cout << \"test\"; return 0; }" ${_RESULT})
+  set(CMAKE_REQUIRED_FLAGS "")
+  set(CMAKE_REQUIRED_LIBRARIES "")
+endmacro()
+
+# Prefer libc++ in conjunction with Clang
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  if (CMAKE_CXX_FLAGS MATCHES "-stdlib=libc\\+\\+")
+    message(STATUS "Enoki: using libc++.")
+  else()
+    CHECK_CXX_COMPILER_AND_LINKER_FLAGS(HAS_LIBCPP "-stdlib=libc++" "-stdlib=libc++")
+    if (HAS_LIBCPP)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
+      set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -stdlib=libc++")
+      message(STATUS "Enoki: using libc++.")
+    else()
+      message(STATUS "Enoki: NOT using libc++.")
+    endif()
+  endif()
+endif()
+
+add_custom_target(check
+        ${CMAKE_COMMAND} -E echo CWD=${CMAKE_BINARY_DIR}
+        COMMAND ${CMAKE_COMMAND} -E echo CMD=${CMAKE_CTEST_COMMAND} -C $<CONFIG>
+        COMMAND ${CMAKE_COMMAND} -E echo ----------------------------------
+        COMMAND ${CMAKE_COMMAND} -E env CTEST_OUTPUT_ON_FAILURE=1
+            ${CMAKE_CTEST_COMMAND} -C $<CONFIG>
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    DEPENDS ALL_BUILD USES_TERMINAL
+)
+
+function(enoki_test NAME)
+  add_executable(${NAME}_none ${ARGN} ${ENOKI_HEADERS})
+  add_test(${NAME}_none_test ${NAME}_none)
+  set_tests_properties(${NAME}_none_test PROPERTIES LABELS "none")
+  set_target_properties(${NAME}_none PROPERTIES FOLDER ${NAME})
+  set_target_properties(${NAME}_none PROPERTIES COMPILE_FLAGS ${ENOKI_NONE_FLAGS})
+
+  if (ENOKI_HOST MATCHES "INTEL")
+    add_executable(${NAME}_sse42 ${ARGN} ${ENOKI_HEADERS})
+    set_target_properties(${NAME}_sse42 PROPERTIES COMPILE_FLAGS ${ENOKI_SSE42_FLAGS})
+    set_target_properties(${NAME}_sse42 PROPERTIES FOLDER ${NAME})
+    if (ENOKI_TEST_SSE42)
+      add_test(${NAME}_sse42_test ${NAME}_sse42)
+      set_tests_properties(${NAME}_sse42_test PROPERTIES LABELS "sse42")
+    endif()
+
+    add_executable(${NAME}_avx ${ARGN} ${ENOKI_HEADERS})
+    set_target_properties(${NAME}_avx PROPERTIES COMPILE_FLAGS ${ENOKI_AVX_FLAGS})
+    set_target_properties(${NAME}_avx PROPERTIES FOLDER ${NAME})
+    if (ENOKI_TEST_AVX)
+      add_test(${NAME}_avx_test ${NAME}_avx)
+      set_tests_properties(${NAME}_avx_test PROPERTIES LABELS "avx")
+    endif()
+
+    add_executable(${NAME}_avx2 ${ARGN} ${ENOKI_HEADERS})
+    set_target_properties(${NAME}_avx2 PROPERTIES COMPILE_FLAGS ${ENOKI_AVX2_FLAGS})
+    set_target_properties(${NAME}_avx2 PROPERTIES FOLDER ${NAME})
+    if (ENOKI_TEST_AVX2)
+      add_test(${NAME}_avx2_test ${NAME}_avx2)
+      set_tests_properties(${NAME}_avx2_test PROPERTIES LABELS "avx2")
+    endif()
+
+    if (NOT MSVC)
+      add_executable(${NAME}_avx512_knl ${ARGN} ${ENOKI_HEADERS})
+      set_target_properties(${NAME}_avx512_knl PROPERTIES COMPILE_FLAGS ${ENOKI_AVX512_KNL_FLAGS})
+      set_target_properties(${NAME}_avx512_knl PROPERTIES FOLDER ${NAME})
+      if (ENOKI_TEST_KNL)
+        add_test(${NAME}_avx512_knl_test ${NAME}_avx512_knl)
+        set_tests_properties(${NAME}_avx512_knl_test PROPERTIES LABELS "avx512_knl")
+      endif()
+
+      add_executable(${NAME}_avx512_skx ${ARGN} ${ENOKI_HEADERS})
+      set_target_properties(${NAME}_avx512_skx PROPERTIES COMPILE_FLAGS ${ENOKI_AVX512_SKX_FLAGS})
+      set_target_properties(${NAME}_avx512_skx PROPERTIES FOLDER ${NAME})
+
+      if (ENOKI_TEST_SKX)
+        add_test(${NAME}_avx512_skx_test ${NAME}_avx512_skx)
+        set_tests_properties(${NAME}_avx512_skx_test PROPERTIES LABELS "avx512_skx")
+      endif()
+    endif()
+  endif()
+
+  if (ENOKI_HOST MATCHES "ARM")
+    add_executable(${NAME}_neon ${ARGN} ${ENOKI_HEADERS})
+    set_target_properties(${NAME}_neon PROPERTIES COMPILE_FLAGS ${ENOKI_NEON_FLAGS})
+    set_target_properties(${NAME}_neon PROPERTIES FOLDER ${NAME})
+    if (ENOKI_TEST_ARM)
+      add_test(${NAME}_neon_test ${NAME}_neon)
+      set_tests_properties(${NAME}_neon_test PROPERTIES LABELS "neon")
+    endif()
+  endif()
+endfunction()
+
 enoki_test(basic basic.cpp)
 enoki_test(float float.cpp)
 enoki_test(integer integer.cpp)

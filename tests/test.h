@@ -205,14 +205,11 @@ std::string print_float(double value) {
 
 
 template <typename T>
-#if defined(__clang__) && (defined(ENOKI_ARM_64) || defined(ENOKI_ARM_32)) && !defined(ENOKI_ARM_NEON)
-[[clang::optnone]]
-#endif
 void probe_accuracy(T (*func)(const T &), double (*ref)(double),
-                    typename T::Value min, typename T::Value max,
-                    typename T::Value max_ulp_assert = 0,
+                    const value_t<T> &min, const value_t<T> &max,
+                    const value_t<T> &max_ulp_assert = 0,
                     bool check_special = true) {
-    using Value = typename T::Value;
+    using Value = value_t<T>;
 
     Value max_err = 0, avg_err = 0;
     Value max_err_rel = 0, avg_err_rel = 0;
@@ -311,15 +308,15 @@ void probe_accuracy(T (*func)(const T &), double (*ref)(double),
 }
 
 template <typename T>
-void validate_unary(const std::vector<typename T::Value> &args,
+void validate_unary(const std::vector<value_t<T>> &args,
                     T (*func)(const T &),
-                    typename T::Value (*ref)(typename T::Value),
-                    typename T::Value eps = 0) {
+                    value_t<T> (*ref)(value_t<T>),
+                    const value_t<T> &eps = 0) {
     T value, result_ref;
     size_t idx = 0;
 
     for (size_t i = 0; i < args.size(); ++i) {
-        typename T::Value arg_i = args[i];
+        value_t<T> arg_i = args[i];
         value[idx] = arg_i;
         result_ref[idx] = ref(arg_i);
         idx++;
@@ -341,12 +338,11 @@ void validate_unary(const std::vector<typename T::Value> &args,
 
 
 template <typename T>
-void validate_binary(const std::vector<typename T::Value> &args,
+void validate_binary(const std::vector<value_t<T>> &args,
                      T (*func)(const T &, const T &),
-                     typename T::Value (*ref)(typename T::Value,
-                                               typename T::Value),
-                     typename T::Value eps = 0) {
-    using Value = typename T::Value;
+                     value_t<T> (*ref)(value_t<T>, value_t<T>),
+                     value_t<T> eps = 0) {
+    using Value = value_t<T>;
     T value1, value2, result_ref;
     size_t idx = 0;
 
@@ -400,19 +396,19 @@ template <typename Value> std::vector<Value> sample_values(bool has_nan = true) 
 }
 
 template <typename T>
-void validate_ternary(const std::vector<typename T::Value> &args,
+void validate_ternary(const std::vector<value_t<T>> &args,
                       T (*func)(const T &, const T &, const T &),
-                      typename T::Value (*refFunc)(typename T::Value,
-                                                    typename T::Value,
-                                                    typename T::Value),
-                      typename T::Value eps = 0) {
+                      value_t<T> (*refFunc)(value_t<T>,
+                                                    value_t<T>,
+                                                    value_t<T>),
+                      const value_t<T> &eps = 0) {
     T value1, value2, value3, result_ref;
     size_t idx = 0;
 
     for (size_t i = 0; i < args.size(); ++i) {
         for (size_t j = 0; j < args.size(); ++j) {
             for (size_t k = 0; k < args.size(); ++k) {
-                typename T::Value arg_i = args[i], arg_j = args[j],
+                value_t<T> arg_i = args[i], arg_j = args[j],
                                    arg_k = args[k];
                 value1[idx] = arg_i;
                 value2[idx] = arg_j;
@@ -438,10 +434,10 @@ void validate_ternary(const std::vector<typename T::Value> &args,
 }
 
 template <typename T>
-void validate_horizontal(const std::vector<typename T::Value> &args,
-                         typename T::Value (*func)(const T &),
-                         typename T::Value (*refFunc)(const T &),
-                         typename T::Value eps = 0) {
+void validate_horizontal(const std::vector<value_t<T>> &args,
+                         value_t<T> (*func)(const T &),
+                         value_t<T> (*refFunc)(const T &),
+                         const value_t<T> &eps = 0) {
     std::mt19937 gen;
     std::uniform_int_distribution<> dis(0, (int) args.size()-1);
     T value;

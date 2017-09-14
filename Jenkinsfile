@@ -21,7 +21,7 @@ mkdir build-debug
 cd build-debug
 cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
 ninja
-ctest'''
+ctest .'''
                          }
                     },
                     'aarch64': {
@@ -33,7 +33,7 @@ mkdir build-debug
 cd build-debug
 cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
 ninja -j3
-ctest'''
+ctest .'''
                          }
                     }
                 )
@@ -50,7 +50,7 @@ mkdir build-release
 cd build-release
 cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
 ninja
-ctest'''
+ctest .'''
                          }
                     },
                     'aarch64': {
@@ -61,7 +61,7 @@ mkdir build-release
 cd build-release
 cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
 ninja -j3
-ctest'''
+ctest .'''
                          }
                     }
                 )
