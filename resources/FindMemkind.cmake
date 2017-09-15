@@ -10,7 +10,7 @@ find_library(MEMKIND_LIBRARY NAMES memkind)
 include(FindPackageHandleStandardArgs)
 # handle the QUIETLY and REQUIRED arguments and set MEMKIND_FOUND to TRUE
 # if all listed variables are TRUE
-find_package_handle_standard_args(memkind DEFAULT_MSG
+find_package_handle_standard_args(Memkind DEFAULT_MSG
                                   MEMKIND_LIBRARY MEMKIND_INCLUDE_DIR)
 
 mark_as_advanced(MEMKIND_INCLUDE_DIR MEMKIND_LIBRARY)

@@ -58,7 +58,7 @@ with the current vectorization landscape:
    <https://ispc.github.io>`_ address many of the above issues but assume that
    the main computation underlying an application can be condensed into a
    compact kernel that is implementable using the limited language subset of
-   the DSL.
+   the DSL (e.g. plain C in the case of ISPC).
 
    This is not the case for complex applications, where the "kernel" may be
    spread out over many separate modules involving high-level language features

@@ -146,21 +146,22 @@ macro(enoki_set_compile_flags)
       CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR
       CMAKE_CXX_COMPILER_ID MATCHES "Intel")
     string(TOUPPER "${CMAKE_BUILD_TYPE}" ENOKI_U_CMAKE_BUILD_TYPE)
-    if (NOT (${ENOKI_U_CMAKE_BUILD_TYPE} MATCHES "DEBUG"))
+    if (NOT (${ENOKI_U_CMAKE_BUILD_TYPE} MATCHES "DEB"))
       if (NOT (${CMAKE_CXX_FLAGS} MATCHES "fsanitize"))
         # Don't use stack security features in release mode
         add_compile_options(-fno-stack-protector)
+
         # In release mode, don't keep the frame pointer in a dedicated register unless needed
         add_compile_options(-fomit-frame-pointer)
       endif()
+    endif()
 
-      # Never update the 'errno' variable due to arithmetic exceptions
-      add_compile_options(-fno-math-errno)
+    # Never update the 'errno' variable due to arithmetic exceptions
+    add_compile_options(-fno-math-errno)
 
-      if (NOT CMAKE_CXX_COMPILER_ID MATCHES "Intel")
-        # Look for opportunities to fuse additions & multiplications into FMA operations
-        add_compile_options(-ffp-contract=fast)
-      endif()
+    if (NOT CMAKE_CXX_COMPILER_ID MATCHES "Intel")
+      # Look for opportunities to fuse additions & multiplications into FMA operations
+      add_compile_options(-ffp-contract=fast)
     endif()
   endif()
 
@@ -224,44 +225,6 @@ set(ENOKI_HEADERS
   ${PROJECT_SOURCE_DIR}/include/enoki/python.h
   ${PROJECT_SOURCE_DIR}/tests/test.h
 )
-
-
-if (MSVC)
-  set(ENOKI_NONE_FLAGS "/DENOKI_DISABLE_VECTORIZATION")
-  if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-    set(ENOKI_SSE42_FLAGS "/D__SSE4_2__")
-  else()
-    set(ENOKI_SSE42_FLAGS "/arch:SSE2 /D__SSE4_2__")
-  endif()
-  set(ENOKI_AVX_FLAGS "/arch:AVX")
-  set(ENOKI_AVX2_FLAGS "/arch:AVX2")
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-  add_compile_options(-wd11074 -wd11076)
-  set(ENOKI_NONE_FLAGS "-DENOKI_DISABLE_VECTORIZATION")
-  set(ENOKI_SSE42_FLAGS "-xSSE4.2")
-  set(ENOKI_AVX_FLAGS "-xCORE-AVX-I")
-  set(ENOKI_AVX2_FLAGS "-xCORE-AVX2")
-  set(ENOKI_AVX512_KNL_FLAGS "-xMIC-AVX512")
-  set(ENOKI_AVX512_SKX_FLAGS "-xCORE-AVX512")
-else()
-  set(ENOKI_NONE_FLAGS "-DENOKI_DISABLE_VECTORIZATION")
-  set(ENOKI_SSE42_FLAGS "-msse4.2")
-  set(ENOKI_AVX_FLAGS "-mavx")
-  set(ENOKI_AVX2_FLAGS "-mavx2 -mfma -mf16c -mbmi2 -mlzcnt")
-  if (APPLE AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    set(ENOKI_AVX512_KNL_FLAGS "-march=knl -Wa,-march=knl")
-    set(ENOKI_AVX512_SKX_FLAGS "-march=skylake-avx512 -Wa,-march=skx")
-  else()
-    set(ENOKI_AVX512_KNL_FLAGS "-march=knl")
-    set(ENOKI_AVX512_SKX_FLAGS "-march=skylake-avx512")
-  endif()
-  set(ENOKI_NEON_FLAGS "")
-  if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "armv7")
-    set(ENOKI_NEON_FLAGS "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -mfp16-format=ieee")
-  elseif (${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
-    set(ENOKI_NEON_FLAGS "-march=armv8-a+simd -mtune=cortex-a53 ")
-  endif()
-endif()
 
 if (ENOKI_TEST)
   enable_testing()
