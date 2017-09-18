@@ -465,3 +465,10 @@ The difference in the broadcasting behavior is demonstrated below:
         [3, 3, 3, 3]
         [4, 4, 4, 4]
     */
+
+    /* This operation now does the expected.. */
+    Vector4fP data = ...;
+    data /= norm(data);
+
+The remainder of this document will therefore use instantiatiations of the
+``Packet<..>`` template to define arithmetic types used for vectorization.
