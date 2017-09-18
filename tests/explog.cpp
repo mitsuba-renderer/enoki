@@ -32,7 +32,7 @@ ENOKI_TEST_FLOAT(test02_frexp) {
         Value f = std::frexp(Value(i), &e);
         T e2, f2;
         std::tie(f2, e2) = frexp(T(Value(i)));
-        assert(T(Value(e)) == e2 + 1);
+        assert(T(Value(e)) == e2 + 1.f);
         assert(T(f) == f2);
     }
 
