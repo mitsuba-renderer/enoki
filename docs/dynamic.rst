@@ -169,7 +169,7 @@ The two highlighted changes play the following roles:
 1. The macro on lines 10 and 11 declares copy and assignment constructors that
    are able to convert between different types of records.
 
-2. The macro on line 13 declares a partial template overload that makes Enoki
+2. The macro on line 14 declares a partial template overload that makes Enoki
    aware of ``GPSCoord2`` for the purposes of dynamic vectorization.
 
 It is possible but fairly tedious to write these declarations by hand, hence

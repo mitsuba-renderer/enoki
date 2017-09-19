@@ -169,7 +169,7 @@ accessed.
 
         f3 = MyFloat(mem[0], mem[1], mem[2], mem[3]);
 
-    which is technically equivalent---however, it is not guaranteed that the
+    which is functionally equivalent---however, it is not guaranteed that the
     compiler will be able to exploit the equivalence to generate optimal code
     in this case.
 
@@ -188,7 +188,7 @@ Scatter and gather operations are also supported:
     /* 32 and 64 bit integers are supported as indices for scatter/gather operations */
     Array<int, 4> idx(1, 2, 3, 4);
 
-    /* Gather f3 to mem -- this is equivalent to
+    /* Gather f3 from mem -- this is equivalent to
        setting f3[i] = mem[idx[i]] (i = 0, 1, ..) */
     f3 = gather<MyFloat>(mem, idx);
 
@@ -232,7 +232,9 @@ Components of a vector can be reordered using the following syntax:
 
 .. code-block:: cpp
 
-    f2 = shuffle<0, 2, 1, 4>(f1);
+    // f1: [0, 10, 20, 30]
+    f2 = shuffle<0, 2, 1, 3>(f1);
+    // f2: [0, 20, 10, 30]
 
 Finally, Enoki provides an overloaded ``operator<<(std::ostream&, ...)`` stream
 insertion operator to facilitate the inspection of array contents:
@@ -392,6 +394,11 @@ The following range tests also generate masks
     mask = isnan(f1);    /* Per-component NaN test */
     mask = isinf(f1);    /* Per-component +/- infinity test */
     mask = isfinite(f1); /* Per-component test for finite values */
+
+.. note::
+
+    Using the `-ffast-math` compiler option may break detection of NaN values, and
+    so is typically not recommended.
 
 Enoki provides a number of helpful trait classes to access array-related types.
 For instance, :cpp:type:`enoki::mask_t` determines the mask type associated

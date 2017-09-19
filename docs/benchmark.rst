@@ -119,7 +119,7 @@ entries.
             return 0;
         }
 
-The plots shows the measured speedup relative to a scalar baseline
+The plots show the measured speedup relative to a scalar baseline
 implementation. We consider two different microarchitectures:
 
 Knight's Landing microarchitecture (Xeon Phi 7210)
