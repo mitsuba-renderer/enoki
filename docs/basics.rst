@@ -395,6 +395,11 @@ The following range tests also generate masks
     mask = isinf(f1);    /* Per-component +/- infinity test */
     mask = isfinite(f1); /* Per-component test for finite values */
 
+.. note::
+
+    Using the `-ffast-math` compiler option may break detection of NaN values, and
+    so is typically not recommended.
+
 Enoki provides a number of helpful trait classes to access array-related types.
 For instance, :cpp:type:`enoki::mask_t` determines the mask type associated
 with an array, which permits replacing the ``auto`` statement above.

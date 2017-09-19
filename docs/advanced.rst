@@ -38,11 +38,12 @@ illustrated in the following figure:
     :width: 800px
     :align: center
 
-The :cpp:func:`slice_ptr` function is used to acquire a pointer to the
-beginning of the output array. It returns a value of type ``GPSRecord2<float
-*>``, which is composed of multiple pointers (one for each component). The
-following snippet illustrates how an arbitrarily long list of records can be
-compressed:
+The :cpp:func:`slice_ptr` function is used to acquire pointers to the
+beginning of the output arrays (there is one for each field of the
+data structure).
+It returns a value of type ``GPSRecord2<float *>``, which holds these
+pointers. The following snippet illustrates how an arbitrarily long list
+of records can be compressed:
 
 .. code-block:: cpp
 
@@ -183,7 +184,9 @@ Here is a hypothetical implementation of the ``Sensor`` interface:
             /// Keep track of invalid samples
             n_invalid += count(isnan(input) & mask_t<FloatP>(active));
 
-            /// Transform e.g. from log domain
+            /* Transform e.g. from log domain. Inactive entries are automatically
+               discarded from this return value by Enoki's support layer, so
+               there is no need to mask the result. */
             return log(input);
         }
 
