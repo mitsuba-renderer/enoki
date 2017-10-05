@@ -46,6 +46,10 @@ template<typename Value> struct type_caster<Value, std::enable_if_t<enoki::is_ar
     using Scalar = std::conditional_t<Value::IsMask, bool, enoki::scalar_t<Value>>;
 
     bool load(handle src, bool convert) {
+        if (src.is_none()) {
+            is_none = true;
+            return true;
+        }
         if (!convert && !isinstance<array_t<Scalar>>(src))
             return false;
 
@@ -74,6 +78,8 @@ template<typename Value> struct type_caster<Value, std::enable_if_t<enoki::is_ar
     }
 
     static handle cast(const Value *src, return_value_policy policy, handle parent) {
+        if (!src)
+            return pybind11::none();
         return cast(*src, policy, parent);
     }
 
@@ -107,8 +113,15 @@ template<typename Value> struct type_caster<Value, std::enable_if_t<enoki::is_ar
             array_shape_descr<Value>::name() + _(")]"));
     }
 
-    operator Value*() { return &value; }
-    operator Value&() { return value; }
+    operator Value*() { if (is_none) return nullptr; else return &value; }
+    operator Value&() {
+        #if !defined(NDEBUG)
+            if (is_none)
+                throw pybind11::cast_error("Cannot cast None or nullptr to an"
+                                           " Enoki array.");
+        #endif
+        return value;
+    }
 
 private:
     template <typename T, std::enable_if_t<!enoki::is_array<enoki::value_t<T>>::value && !T::IsMask, int> = 0>
@@ -164,6 +177,7 @@ private:
 
 private:
     Value value;
+    bool is_none = false;
 };
 
 NAMESPACE_END(detail)
