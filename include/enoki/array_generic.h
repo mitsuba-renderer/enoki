@@ -1350,6 +1350,9 @@ struct Mask : StaticMaskImpl<Value_, Size_, Approx_, Mode_, Mask<Value_, Size_, 
     ENOKI_INLINE Mask(const T &value)
         : Mask(value, detail::reinterpret_flag()) { }
 
+    ENOKI_INLINE Mask(const int &value)
+        : Mask((bool) value, detail::reinterpret_flag()) { }
+
     /// Initialize mask with a uniform constant
     template <typename T, typename T2 = Mask,
               std::enable_if_t<std::is_arithmetic<T>::value
@@ -1358,10 +1361,7 @@ struct Mask : StaticMaskImpl<Value_, Size_, Approx_, Mode_, Mask<Value_, Size_, 
 #endif
     , int> = 0>
     ENOKI_INLINE Mask(const T &value, detail::reinterpret_flag, int = 0)
-        : Mask(reinterpret_array<Scalar>(value)) { }
-
-    ENOKI_INLINE Mask(const int &value, detail::reinterpret_flag, int = 0)
-        : Base((bool) value, detail::reinterpret_flag()) { }
+        : Base(reinterpret_array<Scalar>(value)) { }
 
     auto eq_(const Mask &other) const {
         return ~(other ^ *this);
@@ -1399,6 +1399,9 @@ struct PacketMask : StaticMaskImpl<Value_, Size_, Approx_, Mode_, PacketMask<Val
     ENOKI_INLINE PacketMask(const T &value)
         : PacketMask(value, detail::reinterpret_flag()) { }
 
+    ENOKI_INLINE PacketMask(const int &value)
+        : PacketMask((bool) value, detail::reinterpret_flag()) { }
+
     /// Initialize mask with a uniform constant
     template <typename T, typename T2 = PacketMask,
               std::enable_if_t<std::is_arithmetic<T>::value
@@ -1408,9 +1411,6 @@ struct PacketMask : StaticMaskImpl<Value_, Size_, Approx_, Mode_, PacketMask<Val
     , int> = 0>
     ENOKI_INLINE PacketMask(const T &value, detail::reinterpret_flag, int = 0)
         : Base(reinterpret_array<Scalar>(value)) { }
-
-    ENOKI_INLINE PacketMask(const int &value, detail::reinterpret_flag, int = 0)
-        : Base((bool) value, detail::reinterpret_flag()) { }
 
     auto eq_(const PacketMask &other) const {
         return ~(other ^ *this);
