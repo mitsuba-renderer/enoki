@@ -478,15 +478,6 @@ ENOKI_TEST_ALL(test26_mask_op) {
     );
 }
 
-ENOKI_TEST_ALL(test27_mask_from_int) {
-    mask_t<T> m1(true), m2(true | true), m3(true & false);
-    assert(all_nested(m1) && all_nested(m2) && none_nested(m3));
-    assert(all_nested(eq(m1, m2)) && none_nested(eq(m2, m3)));
-    assert(all(eq(T(1.0f), select(m1, T(1.0f), T(0.0f)))));
-    assert(all(eq(T(1.0f), select(m2, T(1.0f), T(0.0f)))));
-    assert(all(eq(T(0.0f), select(m3, T(1.0f), T(0.0f)))));
-}
-
 #if defined(ENOKI_X86_SSE42)
 ENOKI_TEST(test27_flush_denormals) {
     bool prev = flush_denormals();
@@ -497,3 +488,12 @@ ENOKI_TEST(test27_flush_denormals) {
     set_flush_denormals(prev);
 }
 #endif
+
+ENOKI_TEST_ALL(test28_mask_from_int) {
+    mask_t<T> m1(true), m2(true | true), m3(true & false);
+    assert(all_nested(m1) && all_nested(m2) && none_nested(m3));
+    assert(all_nested(eq(m1, m2)) && none_nested(eq(m2, m3)));
+    assert(all(eq(T(1.0f), select(m1, T(1.0f), T(0.0f)))));
+    assert(all(eq(T(1.0f), select(m2, T(1.0f), T(0.0f)))));
+    assert(all(eq(T(0.0f), select(m3, T(1.0f), T(0.0f)))));
+}

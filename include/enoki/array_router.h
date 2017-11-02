@@ -366,7 +366,8 @@ ENOKI_INLINE auto select(const T1 &m, const T2 &t, const T3 &f) {
                   (detail::ref_cast_t<T3, Output>) f);
 }
 
-template <typename Target, typename Source, std::enable_if_t<std::is_same<Source, Target>::value, int> = 0>
+template <typename Target, typename Source,
+          std::enable_if_t<std::is_same<Source, Target>::value, int> = 0>
 ENOKI_INLINE Target reinterpret_array(const Source &src) {
     return src;
 }
@@ -385,16 +386,20 @@ ENOKI_INLINE Target reinterpret_array(const Source &src) {
     using SrcInt = typename detail::type_chooser<sizeof(Source)>::Int;
     using TrgInt = typename detail::type_chooser<sizeof(Target)>::Int;
     if (std::is_same<Target, bool>::value)
-        return memcpy_cast<SrcInt>(src) != 0 ? Target(true) : Target(false);
-    else
-        return memcpy_cast<Target>(memcpy_cast<SrcInt>(src) != 0 ? TrgInt(-1) : TrgInt(0));
+        return enoki::memcpy_cast<SrcInt>(src) != 0 ? Target(true) : Target(false);
+    else {
+        return enoki::memcpy_cast<Target>(
+            enoki::memcpy_cast<SrcInt>(src) != 0 ? TrgInt(-1) : TrgInt(0));
+    }
 }
 
 template <typename Target, typename Source,
-          std::enable_if_t<std::is_scalar<Source>::value && std::is_scalar<Target>::value &&
-                           !std::is_same<Source, Target>::value && sizeof(Source) == sizeof(Target), int> = 0>
+          std::enable_if_t<(std::is_scalar<Source>::value || std::is_pointer<Source>::value) &&
+                           (std::is_scalar<Target>::value || std::is_pointer<Target>::value) &&
+                           !std::is_same<Source, Target>::value &&
+                           sizeof(Source) == sizeof(Target), int> = 0>
 ENOKI_INLINE Target reinterpret_array(const Source &src) {
-    return memcpy_cast<Target>(src);
+    return enoki::memcpy_cast<Target>(src);
 }
 
 template <typename T1, typename T2,
