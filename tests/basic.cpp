@@ -245,6 +245,12 @@ ENOKI_TEST_ALL(test10_eq) {
     Array<T, 4> x((Value) 5); Array<T&, 4> y(x);
     assert(all_nested(eq(x, x)) && all_nested(eq(y, y)) && all_nested(eq(x, y)) &&
            all_nested(eq(y, x)) && all_nested(eq(y, Value(5))) && y == Value(5));
+
+    // Equality of mask values.
+    mask_t<Value> m1(true), m2(true | true), m3(false);
+    assert(all_nested(m1 & m2) && all_nested(eq(m1, m2)) && all_nested(eq(m2, m2)));
+    assert(all_nested(m1 | m2) && none_nested(m3 & m2)
+           && none_nested(eq(m3, m2)) && all_nested(eq(m3, m3)));
 }
 
 ENOKI_TEST_ALL(test11_neq) {
@@ -258,6 +264,11 @@ ENOKI_TEST_ALL(test11_neq) {
     Array<T, 4> x((Value) 5); Array<T&, 4> y(x);
     assert(none_nested(neq(x, x)) && none_nested(neq(y, y)) && none_nested(neq(x, y)) &&
            none_nested(neq(y, x)) && none_nested(neq(y, Value(5))) && y != Value(1));
+
+    // Equality of mask values.
+    mask_t<Value> m1(true), m2(true | true), m3(false);
+    assert(none_nested(neq(m1, m2)) && none_nested(neq(m2, m2))
+           && none_nested(m3 & m2)  && none_nested(eq(m3, m2)));
 }
 
 ENOKI_TEST_ALL(test12_min) {
@@ -465,6 +476,15 @@ ENOKI_TEST_ALL(test26_mask_op) {
         [](const T &a, const T &b) -> T { T result(1); result[a <= b] -= T(1); return result; },
         [](Value a, Value b) -> Value { return Value(a <= b ? 0 : 1); }
     );
+}
+
+ENOKI_TEST_ALL(test27_mask_from_int) {
+    mask_t<T> m1(true), m2(true | true), m3(true & false);
+    assert(all_nested(m1) && all_nested(m2) && none_nested(m3));
+    assert(all_nested(eq(m1, m2)) && none_nested(eq(m2, m3)));
+    assert(all(eq(T(1.0f), select(m1, T(1.0f), T(0.0f)))));
+    assert(all(eq(T(1.0f), select(m2, T(1.0f), T(0.0f)))));
+    assert(all(eq(T(0.0f), select(m3, T(1.0f), T(0.0f)))));
 }
 
 #if defined(ENOKI_X86_SSE42)
