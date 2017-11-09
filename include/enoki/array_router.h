@@ -120,6 +120,26 @@ NAMESPACE_BEGIN(enoki)
         return a1.derived().func##_(mask_t<expr_t<T1>>(a2));                   \
     }
 
+#define ENOKI_ROUTE_BINARY_NOPTR(name, func)                                   \
+    /* Case 1: use array-specific implementation of operation */               \
+    template <typename T,                                                      \
+              std::enable_if_t<is_array<T>::value &&                           \
+                              !std::is_pointer<scalar_t<T>>::value &&          \
+                               std::is_same<expr_t<T>, T>::value, int> = 0>    \
+    ENOKI_INLINE auto name(const T &a1, const T &a2) {                         \
+        return a1.derived().func##_(a2.derived());                             \
+    }                                                                          \
+    /* Case 2: broadcast/evaluate input arrays and try again */                \
+    template <typename T1, typename T2,                                        \
+              typename Array = detail::extract_array_t<T1, T2>,                \
+              std::enable_if_t<!std::is_void<Array>::value &&                  \
+                               !std::is_pointer<scalar_t<T1>>::value, int> = 0>\
+    ENOKI_INLINE auto name(const T1 &a1, const T2 &a2) {                       \
+        using Output = expr_t<T1, T2>;                                         \
+        return name((detail::ref_cast_t<T1, Output>) a1,                       \
+                    (detail::ref_cast_t<T2, Output>) a2);                      \
+    }
+
 #define ENOKI_ROUTE_SHIFT(name, func)                                          \
     /* Case 1: use array-specific implementation of operation */               \
     template <typename T,                                                      \
@@ -168,13 +188,12 @@ NAMESPACE_BEGIN(enoki)
 //! @{ \name Vertical and horizontal operations
 // -----------------------------------------------------------------------
 
-
 ENOKI_ROUTE_UNARY(operator-, neg)
 ENOKI_ROUTE_UNARY(operator~, not)
 ENOKI_ROUTE_UNARY(operator!, not)
 
-ENOKI_ROUTE_BINARY(operator+, add)
-ENOKI_ROUTE_BINARY(operator-, sub)
+ENOKI_ROUTE_BINARY_NOPTR(operator+, add)
+ENOKI_ROUTE_BINARY_NOPTR(operator-, sub)
 ENOKI_ROUTE_BINARY(operator*, mul)
 
 ENOKI_ROUTE_BINARY_BIT(operator&,  and)
@@ -935,6 +954,61 @@ ENOKI_INLINE T tzcnt(T v) {
 /// Fast implementation for computing the base 2 log of an integer.
 template <typename T> ENOKI_INLINE T log2i(T value) {
     return scalar_t<T>(sizeof(scalar_t<T>) * 8 - 1) - lzcnt(value);
+}
+
+//! @}
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+//! @{ \name Arithmetic operations for pointer arrays
+// -----------------------------------------------------------------------
+
+template <typename T1, typename T2,
+          typename Array = detail::extract_array_t<T1, T2>,
+          std::enable_if_t<!std::is_void<Array>::value &&
+                            std::is_pointer<scalar_t<T1>>::value, int> = 0>
+ENOKI_INLINE auto operator-(const T1 &a1_, const T2 &a2_) {
+    using Int = std::conditional_t<sizeof(void *) == 8, int64_t, int32_t>;
+    using T1i = replace_t<T1, Int>;
+    using T2i = replace_t<T2, Int>;
+    using Ti = expr_t<T1i, T2i>;
+    Ti a1 = Ti((T1i) a1_), a2 = Ti((T2i) a2_);
+    constexpr bool PointerArg = std::is_pointer<scalar_t<T2>>::value;
+    using Return = std::conditional_t<PointerArg, expr_t<T1i, T2i>, expr_t<T1, T2>>;
+
+    constexpr Int InstanceSize = sizeof(std::remove_pointer_t<scalar_t<T1>>);
+    constexpr Int LogInstanceSize = detail::clog2i(InstanceSize);
+    if ((1 << LogInstanceSize) == InstanceSize) {
+        if (PointerArg)
+            return Return(a1.sub_(a2).template sri_<LogInstanceSize>());
+        else
+            return Return(a1.sub_(a2.template sli_<LogInstanceSize>()));
+    } else {
+        if (PointerArg)
+            return Return(a1.sub_(a2) / InstanceSize);
+        else
+            return Return(a1.sub_(a2 * InstanceSize));
+    }
+}
+
+template <typename T1, typename T2,
+          typename Array = detail::extract_array_t<T1, T2>,
+          std::enable_if_t<!std::is_void<Array>::value &&
+                            std::is_pointer<scalar_t<T1>>::value, int> = 0>
+ENOKI_INLINE auto operator+(const T1 &a1_, const T2 &a2_) {
+    using Int = std::conditional_t<sizeof(void *) == 8, int64_t, int32_t>;
+    using T1i = replace_t<T1, Int>;
+    using T2i = replace_t<T2, Int>;
+    using Ti = expr_t<T1i, T2i>;
+    using Output = expr_t<T1, T2>;
+    Ti a1 = Ti((T1i) a1_), a2 = Ti((T2i) a2_);
+
+    constexpr Int InstanceSize = sizeof(std::remove_pointer_t<scalar_t<T1>>);
+    constexpr Int LogInstanceSize = detail::clog2i(InstanceSize);
+    if ((1 << LogInstanceSize) == InstanceSize)
+        return Output(a1.add_(a2.template sli_<LogInstanceSize>()));
+    else
+        return Output(a1.add_(a2 * InstanceSize));
 }
 
 //! @}

@@ -462,6 +462,24 @@ public:
     using type = detail::copy_flags_t<T, typename Td::Derived::template ReplaceType<Entry>>;
 };
 
+/// Replace the base scalar type of a (potentially nested) array -- does not copy any flags
+template <typename T, typename Value, typename = int>
+struct replace { };
+
+template <typename T, typename Value> using replace_t = typename replace<T, Value>::type;
+
+template <typename T, typename Value> struct replace<T, Value, enable_if_not_array_t<T>> {
+    using type = Value;
+};
+
+template <typename T, typename Value> struct replace<T, Value, enable_if_array_t<T>> {
+private:
+    using Td = typename std::decay_t<T>::Derived;
+    using Entry = replace_t<packet_t<Td>, Value>;
+public:
+    using type = typename Td::Derived::template ReplaceType<Entry>;
+};
+
 /// Reinterpret the binary represesentation of a data type
 template<typename T, typename U> ENOKI_INLINE T memcpy_cast(const U &val) {
     static_assert(sizeof(T) == sizeof(U), "memcpy_cast: sizes did not match!");
@@ -472,6 +490,11 @@ template<typename T, typename U> ENOKI_INLINE T memcpy_cast(const U &val) {
 
 /// Implementation details
 NAMESPACE_BEGIN(detail)
+
+/// Compile-time integer logarithm
+constexpr size_t clog2i(size_t value) {
+    return (value > 1) ? 1 + clog2i(value >> 1) : 0;
+}
 
 template <typename T>
 using is_int32_t = std::enable_if_t<sizeof(T) == 4 && std::is_integral<T>::value>;

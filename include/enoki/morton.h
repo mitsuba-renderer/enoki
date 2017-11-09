@@ -46,10 +46,6 @@ template <typename Value> constexpr Value morton_magic(size_t dim, size_t level)
     return value;
 }
 
-constexpr size_t clog2i(size_t value) {
-    return (value > 1) ? 1 + clog2i(value >> 1) : 0;
-}
-
 /// Bit scatter function. \c Dimension defines the final distance between two output bits
 template <size_t, typename Value, size_t Level,
           std::enable_if_t<Level == 0, int> = 0>

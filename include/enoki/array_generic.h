@@ -418,7 +418,7 @@ public:
     ENOKI_INLINE auto add_(const Derived &d) const {
         expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = coeff(i) + d.coeff(i);
+            (Value &) result.coeff(i) = (const Value &) coeff(i) + (const Value &) d.coeff(i);
         return result;
     }
 
@@ -426,7 +426,7 @@ public:
     ENOKI_INLINE auto sub_(const Derived &d) const {
         expr_t<Derived> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = coeff(i) - d.coeff(i);
+            (Value &) result.coeff(i) = (const Value &) coeff(i) - (const Value &) d.coeff(i);
         return result;
     }
 
