@@ -497,3 +497,48 @@ ENOKI_TEST(test27_flush_denormals) {
     set_flush_denormals(prev);
 }
 #endif
+
+ENOKI_TEST_ALL(test28_pointer_arithmetic) {
+    {
+        /* Power of two sized instance */
+        struct Class { uint32_t x;};
+        using ClassP = Packet<Class*, Size>;
+        using UInt32P = Packet<uint32_t, Size>;
+
+        Class *a = (Class *) 0x1234;
+        ClassP x(a), y(x);
+
+        assert(x-x == 0);
+        assert(a-x == 0);
+        y += 1;
+        assert(y == a + UInt32P(1));
+        assert(x != y);
+        assert(y-x == 1);
+        assert((uintptr_t) y.coeff(0) - (uintptr_t) x.coeff(0) == sizeof(Class));
+        y -= UInt32P(1);
+        assert(x == y);
+
+        Class z; z.x = 0; /* Quench warnings */
+    }
+    {
+        /* Non-power of two sized instance */
+        struct Class { uint32_t x[3];};
+        using ClassP = Packet<Class*, Size>;
+        using UInt32P = Packet<uint32_t, Size>;
+
+        Class *a = (Class *) 0x1234;
+        ClassP x(a), y(x);
+
+        assert(x-x == 0);
+        assert(a-x == 0);
+        y += 1;
+        assert(y == a + UInt32P(1));
+        assert(x != y);
+        assert(y-x == 1);
+        assert((uintptr_t) y.coeff(0) - (uintptr_t) x.coeff(0) == sizeof(Class));
+        y -= UInt32P(1);
+        assert(x == y);
+
+        Class z; z.x[0] =0; /* Quench warnings */
+    }
+}
