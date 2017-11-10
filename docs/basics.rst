@@ -397,7 +397,7 @@ The following range tests also generate masks
 
 .. note::
 
-    Using the `-ffast-math` compiler option may break detection of NaN values, and
+    Using the ``-ffast-math`` compiler option may break detection of NaN values, and
     so is typically not recommended.
 
 Enoki provides a number of helpful trait classes to access array-related types.

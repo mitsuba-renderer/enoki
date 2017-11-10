@@ -2029,6 +2029,22 @@ ENOKI_INLINE T poly8(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5, T2 c6, T2 c
                      fmadd(x2, fmadd(x, S(c3), S(c2)), fmadd(x, S(c1), S(c0)) + S(c8) * x8));
 }
 
+template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
+ENOKI_INLINE T poly9(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5, T2 c6, T2 c7, T2 c8, T2 c9) {
+    T x2 = x * x, x4 = x2 * x2, x8 = x4 * x4;
+    return fmadd(x8, fmadd(x, S(c9), S(c8)),
+                     fmadd(x4, fmadd(x2, fmadd(x, S(c7), S(c6)), fmadd(x, S(c5), S(c4))),
+                               fmadd(x2, fmadd(x, S(c3), S(c2)), fmadd(x, S(c1), S(c0)))));
+}
+
+template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
+ENOKI_INLINE T poly10(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5, T2 c6, T2 c7, T2 c8, T2 c9, T2 c10) {
+    T x2 = x * x, x4 = x2 * x2, x8 = x4 * x4;
+    return fmadd(x8, fmadd(x2, S(c10), fmadd(x, S(c9), S(c8))),
+                     fmadd(x4, fmadd(x2, fmadd(x, S(c7), S(c6)), fmadd(x, S(c5), S(c4))),
+                               fmadd(x2, fmadd(x, S(c3), S(c2)), fmadd(x, S(c1), S(c0)))));
+}
+
 //! @}
 // -----------------------------------------------------------------------
 

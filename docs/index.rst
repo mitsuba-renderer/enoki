@@ -32,6 +32,7 @@ Enoki — fast vectorized arithmetic on modern processors
    matrix
    transform
    sh
+   color
    half
    stl
    python
