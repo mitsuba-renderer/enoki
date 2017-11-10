@@ -15,9 +15,11 @@
 #include <enoki/stl.h>
 
 struct Test;
+struct TestChild;
 
 using Int32P = Array<int>;
 using TestP = Array<const Test*, Int32P::Size>;
+using ChildP = Array<const TestChild*, Int32P::Size>;
 
 using TestPMask = mask_t<TestP>;
 
@@ -42,14 +44,26 @@ struct Test {
     int32_t value;
 };
 
-/* Allow Enoki arrays containing pointers to transparently forward function
-   calls (with the appropriate masks) */
+struct TestChild : public Test {
+    TestChild()
+        : Test(42) { }
+
+    bool is_child() const { return value == 42; }
+};
+
+// Allow Enoki arrays containing pointers to transparently forward function
+// calls (with the appropriate masks).
 ENOKI_CALL_SUPPORT_BEGIN(TestP)
 ENOKI_CALL_SUPPORT(func1)
 ENOKI_CALL_SUPPORT(func2)
 ENOKI_CALL_SUPPORT_SCALAR(func3)
 ENOKI_CALL_SUPPORT(func4)
 ENOKI_CALL_SUPPORT_END(TestP)
+
+ENOKI_CALL_SUPPORT_BEGIN(ChildP)
+ENOKI_CALL_SUPPORT_SCALAR(is_child)
+ENOKI_CALL_SUPPORT_END(ChildP)
+
 
 ENOKI_TEST(test00_call) {
     size_t offset = std::min((size_t) 2, TestP::Size-1);
@@ -93,3 +107,20 @@ ENOKI_TEST(test00_call) {
     delete b;
 }
 
+
+ENOKI_TEST(test01_reinterpret_pointer_array) {
+    using Mask = mask_t<ChildP>;
+    Test *a = new Test(1);
+    Test *b = new TestChild();
+
+    TestP objects(b);
+    objects[std::min((size_t) 2, TestP::Size-1)] = a;
+
+    auto children = reinterpret_array<ChildP>(objects);
+    // is_child returns an Array of bools, need to cast to a mask type for the
+    // comparison to be correct.
+    assert(all(Mask(children->is_child()) == eq(objects, b)));
+
+    delete a;
+    delete b;
+}
