@@ -46,7 +46,7 @@ template <typename Value,
                        10.723011300050162, 1.);
         }
 
-        r[large_mask] = p / q;
+        masked(r, large_mask) = p / q;
     }
 
     return r * x;
@@ -80,7 +80,7 @@ template <typename Value,
                       -84.8098437770271, 1.);
         }
 
-        r[large_mask] = p / q;
+        masked(r, large_mask) = p / q;
     }
 
     return r * x;
