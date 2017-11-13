@@ -79,8 +79,8 @@ template <typename T> struct struct_support<T, enable_if_static_array_t<T>> {
     }
 
     template <typename T2, typename Mask>
-    static ENOKI_INLINE auto masked(T2 &value, const Mask mask) {
-        return detail::MaskedArray<T2>{ value, reinterpret_array<mask_t<T2>>(mask) };
+    static ENOKI_INLINE auto masked(T2 &value, const Mask &mask) {
+        return detail::MaskedArray<T2>{ value, mask_t<T2>(mask) };
     }
 
 private:
@@ -140,8 +140,8 @@ template <typename T> struct struct_support<T, enable_if_dynamic_array_t<T>> {
         return value.ref_wrap_();
     }
     template <typename T2, typename Mask>
-    static ENOKI_INLINE auto masked(T2 &value, const Mask mask) {
-        return detail::MaskedArray<T2>{ value, reinterpret_array<mask_t<T2>>(mask) };
+    static ENOKI_INLINE auto masked(T2 &value, const Mask &mask) {
+        return detail::MaskedArray<T2>{ value, mask_t<T2>(mask) };
     }
 };
 

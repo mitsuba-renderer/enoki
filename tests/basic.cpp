@@ -490,12 +490,25 @@ ENOKI_TEST(test27_flush_denormals) {
 #endif
 
 ENOKI_TEST_ALL(test28_mask_from_int) {
-    mask_t<T> m1(true), m2(true | true), m3(true & false);
+    using Mask = mask_t<T>;
+    // Mask construction, select
+    Mask m1(true), m2(true | true), m3(true & false);
     assert(all_nested(m1) && all_nested(m2) && none_nested(m3));
     assert(all_nested(eq(m1, m2)) && none_nested(eq(m2, m3)));
     assert(all(eq(T(1.0f), select(m1, T(1.0f), T(0.0f)))));
     assert(all(eq(T(1.0f), select(m2, T(1.0f), T(0.0f)))));
     assert(all(eq(T(0.0f), select(m3, T(1.0f), T(0.0f)))));
+    // Masked assignment
+    T zero(0);
+    T one(1);
+    T val                          = zero;
+    masked(val, true)              = one;    assert(all(eq(val, one)));
+    val                            = zero;
+    masked(val, Mask(true & true)) = one;    assert(all(eq(val, one)));
+    val                            = zero;
+    masked(val, true & true)       = one;    assert(all(eq(val, one)));
+    val                            = zero;
+    masked(val, true & false)      = one;    assert(all(eq(val, zero)));
 }
 
 ENOKI_TEST_ALL(test29_pointer_arithmetic) {
