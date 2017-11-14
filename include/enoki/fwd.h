@@ -293,6 +293,8 @@ struct Packet;
 template <typename Value, size_t Size, bool Approx = false, RoundingMode Mode = RoundingMode::Default> struct Mask;
 template <typename Value, size_t Size, bool Approx = false, RoundingMode Mode = RoundingMode::Default> struct PacketMask;
 
+template<typename T, typename U> T memcpy_cast(const U &);
+
 //! @}
 // -----------------------------------------------------------------------
 
