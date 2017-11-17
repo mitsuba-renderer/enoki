@@ -1561,7 +1561,7 @@ template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
               std::declval<Array &>(), std::declval<const Args &>()...))>
 ENOKI_INLINE void transform(void *mem, const Index &index, const Func &func,
                             const Args &... args) {
-    Array::template transform_<Stride>(mem, index, func, args...);
+    Array::template transform_<Stride>(mem, int_array_t<Array>(index), func, args...);
 }
 
 /// Combined gather-modify-scatter operation without conflicts
@@ -1577,7 +1577,7 @@ template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
 ENOKI_INLINE void transform(void *mem, const Index &index, const Mask &mask, const Func &func,
                             const Args &... args) {
     Array::template transform_masked_<Stride>(
-        mem, index, reinterpret_array<mask_t<Array>>(mask), func, args...);
+        mem, int_array_t<Array>(index), reinterpret_array<mask_t<Array>>(mask), func, args...);
 }
 
 /// Combined gather-modify-scatter operation without conflicts (scalar fallback)

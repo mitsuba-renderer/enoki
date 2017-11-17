@@ -536,6 +536,14 @@ Memory operations
     See the section on :ref:`the histogram problem and conflict detection
     <transform>` on how to use this function.
 
+    .. note::
+
+        To efficiently perform the transformation at the hardware level, the
+        ``Index`` and ``Array`` types should occupy the same size. The
+        implementation ensures that this is the case by performing an explicit
+        cast of the index parameter to ``int_array_t<Array>``.
+
+
 .. cpp:function:: template <typename Array, typename Index, typename Func, typename... Args> \
                   void transform(scalar_t<Array> *mem, Index index, Func func, Args&&... args)
 
