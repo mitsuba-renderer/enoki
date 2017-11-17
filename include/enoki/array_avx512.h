@@ -1477,7 +1477,6 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
         transform_masked_<Stride>(mem, index, mask_t<Derived>(true), func, args...);
     }
 
-
     ENOKI_REQUIRE_INDEX_TRANSFORM(Index, int32_t)
     static ENOKI_INLINE void transform_masked_(void *mem, Index index,
                                                Mask mask, const Func &func,
