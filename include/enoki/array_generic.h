@@ -1377,7 +1377,7 @@ struct Mask : StaticMaskImpl<Value_, Size_, Approx_, Mode_, Mask<Value_, Size_, 
 template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
 struct PacketMask : StaticMaskImpl<Value_, Size_, Approx_, Mode_, PacketMask<Value_, Size_, Approx_, Mode_>> {
     using Base = StaticMaskImpl<Value_, Size_, Approx_, Mode_, PacketMask<Value_, Size_, Approx_, Mode_>>;
-    using ArrayType = Array<Value_, Size_, Approx_, Mode_>;
+    using ArrayType = Packet<Value_, Size_, Approx_, Mode_>;
     using MaskType = PacketMask;
     using typename Base::Scalar;
     static constexpr bool IsMask = true;
