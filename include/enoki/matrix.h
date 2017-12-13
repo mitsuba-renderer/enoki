@@ -211,7 +211,7 @@ ENOKI_INLINE Matrix diag(const column_t<Matrix> &value) {
     return result;
 }
 
-template <typename Matrix>
+template <typename Matrix, std::enable_if_t<!column_t<Matrix>::IsMatrix, int> = 0>
 ENOKI_INLINE column_t<expr_t<Matrix>> diag(const Matrix &value) {
     column_t<expr_t<Matrix>> result;
     for (size_t i = 0; i < Matrix::Size; ++i)
