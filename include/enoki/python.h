@@ -20,24 +20,24 @@ NAMESPACE_BEGIN(pybind11)
 NAMESPACE_BEGIN(detail)
 
 template <typename T, typename = void> struct array_shape_descr {
-    static PYBIND11_DESCR name() { return _(""); }
-    static PYBIND11_DESCR name_cont() { return _(""); }
+    static constexpr auto name() { return _(""); }
+    static constexpr auto name_cont() { return _(""); }
 };
 
 template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_static_array<T>::value>> {
-    static PYBIND11_DESCR name() {
+    static constexpr auto name() {
         return array_shape_descr<enoki::value_t<T>>::name_cont() + _<T::Size>();
     }
-    static PYBIND11_DESCR name_cont() {
+    static constexpr auto name_cont() {
         return array_shape_descr<enoki::value_t<T>>::name_cont() + _<T::Size>() + _(", ");
     }
 };
 
 template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_dynamic_array<T>::value>> {
-    static PYBIND11_DESCR name() {
+    static constexpr auto name() {
         return array_shape_descr<enoki::value_t<T>>::name_cont() + _("n");
     }
-    static PYBIND11_DESCR name_cont() {
+    static constexpr auto name_cont() {
         return array_shape_descr<enoki::value_t<T>>::name_cont() + _("n, ");
     }
 };
@@ -106,12 +106,11 @@ template<typename Value> struct type_caster<Value, std::enable_if_t<enoki::is_ar
 
     template <typename _T> using cast_op_type = pybind11::detail::cast_op_type<_T>;
 
-    static PYBIND11_DESCR name() {
-        return pybind11::detail::type_descr(
+    static constexpr auto name =
+        pybind11::detail::type_descr(
             _("numpy.ndarray[dtype=") +
-            npy_format_descriptor<Scalar>::name() + _(", shape=(") +
+            npy_format_descriptor<Scalar>::name + _(", shape=(") +
             array_shape_descr<Value>::name() + _(")]"));
-    }
 
     operator Value*() { if (is_none) return nullptr; else return &value; }
     operator Value&() {
