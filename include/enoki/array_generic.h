@@ -1194,6 +1194,7 @@ template <typename PacketType_, typename Storage_> struct call_support_base {
     ENOKI_INLINE ResultArray dispatch_scalar_2(Func &&func, InputMask&& mask_, Args&&... args) {
         Mask mask(mask_);
         ResultArray result = zero<Result>();
+        mask &= neq(self, nullptr);
 
         while (any(mask)) {
             Instance value          = extract(self, mask);
@@ -1211,6 +1212,7 @@ template <typename PacketType_, typename Storage_> struct call_support_base {
               std::enable_if_t<std::is_void<Result>::value, int> = 0>
     ENOKI_INLINE void dispatch_scalar_2(Func &&func, InputMask&& mask_, Args&&... args) {
         Mask mask(mask_);
+        mask &= neq(self, nullptr);
 
         while (any(mask)) {
             Instance value  = extract(self, mask);

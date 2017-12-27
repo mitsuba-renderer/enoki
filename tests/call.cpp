@@ -103,6 +103,10 @@ ENOKI_TEST(test00_call) {
     auto mask = mask_t<TestP>(pointers->func3());
     assert(mask == eq(pointers, b));
 
+    /* The following should not crash */
+    pointers.coeff(0) = nullptr;
+    pointers->func3();
+
     delete a;
     delete b;
 }

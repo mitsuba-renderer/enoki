@@ -226,6 +226,11 @@ packet at once.
     SensorP sensor = ...;
     UInt32P serial = sensor->serial_number();
 
+It is legal if the ``sensor`` array contains ``nullptr``-valued entries. These
+are considered masked and will simply be ignored (however, this is only true
+for the `:c:macro:`ENOKI_CALL_SUPPORT_SCALAR()` macro. For regular packet
+method calls, an explicit mask must be provided in such a case).
+
 Vectorized for loops
 --------------------
 
