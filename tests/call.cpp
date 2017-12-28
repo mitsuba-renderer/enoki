@@ -12,6 +12,7 @@
 */
 
 #include "test.h"
+#include "ray.h"
 #include <enoki/stl.h>
 
 struct Test;
@@ -24,7 +25,12 @@ using ChildP = Array<const TestChild*, Int32P::Size>;
 using TestPMask = mask_t<TestP>;
 
 using Int32X = DynamicArray<Int32P>;
-using TestX = DynamicArray<TestP>;
+using TestX  = DynamicArray<TestP>;
+
+using FloatP    = Packet<float>;
+using Vector3f  = Array<float, 3>;
+using Vector3fP = Array<FloatP, 3>;
+using Ray3fP    = Ray<Vector3fP>;
 
 
 struct Test {
@@ -41,12 +47,13 @@ struct Test {
 
     std::pair<Int32P, Int32P> func4(TestPMask) const { return std::make_pair(value, value+1); }
 
+    Ray3fP make_ray(TestPMask) const { return Ray3fP(Vector3f(1, 1, 1), Vector3f(1, 2, 3));}
+
     int32_t value;
 };
 
 struct TestChild : public Test {
-    TestChild()
-        : Test(42) { }
+    TestChild() : Test(42) { }
 
     bool is_child() const { return value == 42; }
 };
@@ -58,6 +65,7 @@ ENOKI_CALL_SUPPORT(func1)
 ENOKI_CALL_SUPPORT(func2)
 ENOKI_CALL_SUPPORT_SCALAR(func3)
 ENOKI_CALL_SUPPORT(func4)
+ENOKI_CALL_SUPPORT(make_ray)
 ENOKI_CALL_SUPPORT_END(TestP)
 
 ENOKI_CALL_SUPPORT_BEGIN(ChildP)
@@ -65,7 +73,7 @@ ENOKI_CALL_SUPPORT_SCALAR(is_child)
 ENOKI_CALL_SUPPORT_END(ChildP)
 
 
-ENOKI_TEST(test00_call) {
+ENOKI_TEST(test01_call) {
     size_t offset = std::min((size_t) 2, TestP::Size-1);
     Test *a = new Test(10);
     Test *b = new Test(20);
@@ -112,7 +120,7 @@ ENOKI_TEST(test00_call) {
 }
 
 
-ENOKI_TEST(test01_reinterpret_pointer_array) {
+ENOKI_TEST(test02_reinterpret_pointer_array) {
     using Mask = mask_t<ChildP>;
     Test *a = new Test(1);
     Test *b = new TestChild();
@@ -127,4 +135,12 @@ ENOKI_TEST(test01_reinterpret_pointer_array) {
 
     delete a;
     delete b;
+}
+
+ENOKI_TEST(test03_call_with_structure) {
+    Test *a = new Test(1);
+    TestP objects(a);
+    Vector3fP t = objects->make_ray()(1);
+    assert(all_nested(eq(t, Vector3f(2, 3, 4))));
+    delete a;
 }

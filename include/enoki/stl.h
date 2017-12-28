@@ -70,6 +70,10 @@ template <typename Arg0, typename Arg1> struct struct_support<std::pair<Arg0, Ar
                          decltype(enoki::masked(value.second, mask))>(
             enoki::masked(value.first, mask), enoki::masked(value.second, mask));
     }
+
+    static ENOKI_INLINE Value zero(size_t size) {
+        return Value(enoki::zero<Arg0>(size), enoki::zero<Arg1>(size));
+    }
 };
 
 template <typename... Args> struct struct_support<std::tuple<Args...>> {
@@ -112,6 +116,10 @@ template <typename... Args> struct struct_support<std::tuple<Args...>> {
     template <typename T2, typename Mask>
     static ENOKI_INLINE auto masked(T2 &value, const Mask &mask) {
         return masked(std::forward<T2>(value), mask, std::make_index_sequence<sizeof...(Args)>());
+    }
+
+    static ENOKI_INLINE Value zero(size_t size) {
+        return Value(enoki::zero<Args>(size)...);
     }
 private:
     template <size_t... Index>

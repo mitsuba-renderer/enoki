@@ -83,6 +83,7 @@ template <typename T> struct struct_support<T, enable_if_static_array_t<T>> {
         return detail::MaskedArray<T2>{ value, mask_t<T2>(mask) };
     }
 
+    static ENOKI_INLINE T zero(size_t) { return T::zero_(); }
 private:
     template <typename T2, size_t... Index>
     static ENOKI_INLINE auto packet(T2&& value, size_t i, std::index_sequence<Index...>) {
@@ -139,10 +140,13 @@ template <typename T> struct struct_support<T, enable_if_dynamic_array_t<T>> {
     template <typename T2> static ENOKI_INLINE decltype(auto) ref_wrap(T2 &&value) {
         return value.ref_wrap_();
     }
+
     template <typename T2, typename Mask>
     static ENOKI_INLINE auto masked(T2 &value, const Mask &mask) {
         return detail::MaskedArray<T2>{ value, mask_t<T2>(mask) };
     }
+
+    static ENOKI_INLINE T zero(size_t size = 1) { return T::zero_(size); }
 };
 
 template <typename Packet_, typename Derived_>

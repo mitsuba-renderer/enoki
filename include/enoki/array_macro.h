@@ -96,6 +96,11 @@
 #define ENOKI_MAP_EXPR_F3_1(f, m, v, t, x, peek, ...) \
     f(m.x, v.x, t) ENOKI_MAP_EXPR_NEXT(peek, ENOKI_MAP_EXPR_F3_0)(f, m, v, t, peek, __VA_ARGS__)
 
+#define ENOKI_MAP_EXPR_T2_0(f, v, t, x, peek, ...) \
+    f<decltype(Value::x)>(t) ENOKI_MAP_EXPR_NEXT(peek, ENOKI_MAP_EXPR_T2_1)(f, v, t, peek, __VA_ARGS__)
+#define ENOKI_MAP_EXPR_T2_1(f, v, t, x, peek, ...) \
+    f<decltype(Value::x)>(t) ENOKI_MAP_EXPR_NEXT(peek, ENOKI_MAP_EXPR_T2_0)(f, v, t, peek, __VA_ARGS__)
+
 // ENOKI_MAP_EXPR_DECL(a1, a2, ...) expands to const decltype(a1) &a1, ...
 #define ENOKI_MAP_EXPR_DECL(...) \
     ENOKI_EVAL(ENOKI_MAP_EXPR_DECL_0(__VA_ARGS__, (), 0))
@@ -127,6 +132,10 @@
 // ENOKI_MAP_EXPR_F2(f, v, t, a1, a2, ...) expands to f(v.a1, t), f(v.a2, t), ...
 #define ENOKI_MAP_EXPR_F2(f, v, t, ...) \
     ENOKI_EVAL(ENOKI_MAP_EXPR_F2_0(f, v, t, __VA_ARGS__, (), 0))
+
+// ENOKI_MAP_EXPR_T2(f, v, t, a1, a2, ...) expands to f<decltype(Value::a1)>(t), f<decltype(Value::a2>>(t), ...
+#define ENOKI_MAP_EXPR_T2(f, v, t, ...) \
+    ENOKI_EVAL(ENOKI_MAP_EXPR_T2_0(f, v, t, __VA_ARGS__, (), 0))
 
 // ENOKI_MAP_EXPR_F3(f, m, v, t, a1, a2, ...) expands to f(m.a1, v.a1, t), f(m.a2, v.a2, t), ...
 #define ENOKI_MAP_EXPR_F3(f, v, t, ...) \
@@ -241,7 +250,11 @@
             using Value = Struct<decltype(enoki::masked(                       \
                         std::declval<Args &>(), mask))...>;                    \
             return Value{ ENOKI_MAP_EXPR_F2(enoki::masked,                     \
-                                           value, mask, __VA_ARGS__) };        \
+                                            value, mask, __VA_ARGS__) };       \
+        }                                                                      \
+        static ENOKI_INLINE auto zero(size_t size) {                           \
+            return Value{ ENOKI_MAP_EXPR_T2(enoki::zero,                       \
+                                            value, size, __VA_ARGS__) };       \
         }                                                                      \
     };                                                                         \
     NAMESPACE_END(enoki)

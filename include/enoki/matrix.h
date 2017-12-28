@@ -561,6 +561,10 @@ struct struct_support<Matrix<T, Size, Approx>,
         return ref_wrap(value, std::make_index_sequence<Size>());
     }
 
+    static ENOKI_INLINE Value zero(size_t size) {
+        return Value(enoki::zero<typename Value::Column>(size));
+    }
+
 private:
     template <typename T2, size_t... Index>
     static ENOKI_INLINE auto packet(T2&& value, size_t i, std::index_sequence<Index...>) {

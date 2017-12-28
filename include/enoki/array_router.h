@@ -1030,29 +1030,7 @@ ENOKI_INLINE Array linspace_(std::index_sequence<Args...>, Value offset, Value s
 }
 NAMESPACE_END(detail)
 
-/// Construct a zero-initialized array
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE Array zero() { return Array::zero_(); }
-
-/// Construct a zero-initialized array
-template <typename Array, enable_if_dynamic_array_t<Array> = 0>
-ENOKI_INLINE Array zero(size_t size = 1) { return Array::zero_(size); }
-
-/// Construct a zero-initialized array (scalar fallback)
-template <typename Arg, std::enable_if_t<std::is_arithmetic<Arg>::value ||
-                                         std::is_pointer<Arg>::value ||
-                                         std::is_enum<Arg>::value, int> = 0>
-ENOKI_INLINE Arg zero() {
-    return Arg(0);
-}
-
-template <typename Arg, size_t... Indices> auto zero(std::index_sequence<Indices...>) {
-    return Arg(zero<std::tuple_element_t<Indices, Arg>>()...);
-}
-
-template <typename Arg, size_t Size = std::tuple_size<Arg>::value> auto zero() {
-    return zero<Arg>(std::make_index_sequence<Size>());
-}
+template <typename Array> ENOKI_INLINE Array zero(size_t size = 1);
 
 /// Construct an index sequence, i.e. 0, 1, 2, ..
 template <typename Array, enable_if_static_array_t<Array> = 0>
@@ -1926,7 +1904,11 @@ struct struct_support {
     template <typename T2> static ENOKI_INLINE auto masked(T2 &value, bool mask) {
         return detail::MaskedScalar<T2>{value, mask};
     }
+    static ENOKI_INLINE T zero(size_t) { return T(0); }
 };
+
+template <typename T> ENOKI_INLINE T zero(size_t size)
+{ return struct_support<std::decay_t<T>>::zero(size); }
 
 template <typename T> ENOKI_INLINE size_t packets(const T &value) {
     return struct_support<std::decay_t<T>>::packets(value);
