@@ -1856,6 +1856,7 @@ template <typename T> struct MaskedArray : ArrayBase<value_t<T>, MaskedArray<T>>
     static constexpr bool Approx = T::Approx;
     using Mask = mask_t<T>;
     using Scalar = scalar_t<T>;
+    using MaskType = MaskedArray<mask_t<T>>;
 
     MaskedArray(T &d, const Mask &m) : d(d), m(m) { }
 

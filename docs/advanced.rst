@@ -147,6 +147,9 @@ Enoki provides a support layer that can handle such vectorized method calls. It
 performs as many method calls as there are unique instances in the ``sensor``
 array while using modern vector instruction sets to do so efficiently. A mask
 is forwarded to the callee indicating which SIMD lanes are currently active.
+Null pointers in the ``data`` array are legal are considered as masked entries.
+The return value of masked entries is always zero (or a zero-filled
+array/structure, depending on the method's return type).
 
 To support a vector method calls, the interface of the vectorized ``decode()``
 method must be changed to take a mask its as last input. The
@@ -226,10 +229,6 @@ packet at once.
     SensorP sensor = ...;
     UInt32P serial = sensor->serial_number();
 
-It is legal if the ``sensor`` array contains ``nullptr``-valued entries. These
-are considered masked and will simply be ignored (however, this is only true
-for the `:c:macro:`ENOKI_CALL_SUPPORT_SCALAR()` macro. For regular packet
-method calls, an explicit mask must be provided in such a case).
 
 Vectorized for loops
 --------------------

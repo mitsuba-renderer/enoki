@@ -78,9 +78,16 @@ template <typename T> struct struct_support<T, enable_if_static_array_t<T>> {
         return value.compress_(mem, reinterpret_array<mask_t<T2>>(mask));
     }
 
-    template <typename T2, typename Mask>
+    template <typename T2, typename Mask,
+              enable_if_not_array_t<value_t<T2>> = 0>
     static ENOKI_INLINE auto masked(T2 &value, const Mask &mask) {
         return detail::MaskedArray<T2>{ value, mask_t<T2>(mask) };
+    }
+
+    template <typename T2, typename Mask,
+              enable_if_array_t<value_t<T2>> = 0>
+    static ENOKI_INLINE auto masked(T2 &value, const Mask &mask) {
+        return masked_impl(value, mask, std::make_index_sequence<Size>());
     }
 
     static ENOKI_INLINE T zero(size_t) { return T::zero_(); }
@@ -111,6 +118,23 @@ private:
         using Entry = decltype(enoki::ref_wrap(value.coeff(0)));
         using Return = typename T::template ReplaceType<Entry>;
         return Return(enoki::ref_wrap(value.coeff(Index))...);
+    }
+
+    template <typename T2, typename Mask,
+             std::enable_if_t<array_size<T2>::value == array_size<Mask>::value, int> = 0,
+             size_t... Index>
+    static ENOKI_INLINE auto masked_impl(T2& value, const Mask &mask, std::index_sequence<Index...>) {
+        using Entry = decltype(enoki::masked(value.coeff(0), mask.coeff(0)));
+        using Return = typename T::template ReplaceType<Entry>;
+        return Return(enoki::masked(value.coeff(Index), mask.coeff(Index))...);
+    }
+    template <typename T2, typename Mask,
+              std::enable_if_t<array_size<T2>::value != array_size<Mask>::value, int> = 0,
+             size_t... Index>
+    static ENOKI_INLINE auto masked_impl(T2& value, const Mask &mask, std::index_sequence<Index...>) {
+        using Entry = decltype(enoki::masked(value.coeff(0), mask));
+        using Return = typename T::template ReplaceType<Entry>;
+        return Return(enoki::masked(value.coeff(Index), mask)...);
     }
 };
 
