@@ -107,10 +107,9 @@ template<typename Value> struct type_caster<Value, std::enable_if_t<enoki::is_ar
     template <typename _T> using cast_op_type = pybind11::detail::cast_op_type<_T>;
 
     static constexpr auto name =
-        pybind11::detail::type_descr(
             _("numpy.ndarray[dtype=") +
             npy_format_descriptor<Scalar>::name + _(", shape=(") +
-            array_shape_descr<Value>::name() + _(")]"));
+            array_shape_descr<Value>::name() + _(")]");
 
     operator Value*() { if (is_none) return nullptr; else return &value; }
     operator Value&() {
