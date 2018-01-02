@@ -2192,7 +2192,7 @@ struct StaticMaskImpl<Value_, Size_, Approx_, Mode_, Derived_,
             return Derived::from_k(_mm512_kor(_mm512_kand ((__mmask16) m.k, (__mmask16) t.k),
                                               _mm512_kandn((__mmask16) m.k, (__mmask16) f.k)));
         else
-            return Derived::from_k((m & t) | (~m & f));
+            return Derived::from_k((m.k & t.k) | (~m.k & f.k));
     }
 
     template <typename T>
