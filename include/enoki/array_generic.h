@@ -235,15 +235,15 @@ private:
                     (StorageType) a2.coeff(Index2)... } } { ENOKI_CHKSCALAR }
 
 public:
-    Array1 low_() const {
-        Array1 result;
+    auto low_() const {
+        expr_t<Array1> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size1; ++i)
             result.coeff(i) = coeff(i);
         return result;
     }
 
-    Array2 high_() const {
-        Array2 result;
+    auto high_() const {
+        expr_t<Array2> result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size2; ++i)
             result.coeff(i) = coeff(Size1 + i);
         return result;
