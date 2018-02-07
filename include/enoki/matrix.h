@@ -163,9 +163,9 @@ ENOKI_INLINE auto operator*(const Matrix<T0, Size, Approx> &m0, const Matrix<T0,
 template <typename T0, typename T1, size_t Size, bool Approx, std::enable_if_t<array_size<T1>::value == Size, int> = 0,
           typename Return = column_t<Matrix<expr_t<T0, value_t<T1>>, Size, Approx>>>
 ENOKI_INLINE Return operator*(const Matrix<T0, Size, Approx> &m, const T1 &v) {
-    Return sum = m.coeff(0) * v.derived().coeff(0);
+    Return sum = m.coeff(0) * Return(v.derived().coeff(0));
     for (size_t i = 1; i < Size; ++i)
-        sum = fmadd(m.coeff(i), v.derived().coeff(i), sum);
+        sum = fmadd(m.coeff(i), Return(v.derived().coeff(i)), sum);
     return sum;
 }
 
