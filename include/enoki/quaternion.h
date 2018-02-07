@@ -292,17 +292,17 @@ ENOKI_INLINE Quat matrix_to_quat(const Matrix<T, Size, Approx> &mat) {
 }
 
 template <typename T0, typename T1, bool Approx0, bool Approx1, typename Float,
-          typename E      = expr_t<T0, T1>,
-          typename Return = Quaternion<E, Approx0 && Approx1>>
+          typename Value  = expr_t<Float, T0, T1>,
+          typename Return = Quaternion<Value, Approx0 && Approx1>>
 ENOKI_INLINE Return slerp(const Quaternion<T0, Approx0> &q0,
                           const Quaternion<T1, Approx1> &q1_, Float t) {
-    using Base = Array<E, 4>;
+    using Base = Array<Value, 4>;
 
-    auto cos_theta = dot(q0, q1_);
+    Value cos_theta = dot(q0, q1_);
     Return q1 = mulsign(Base(q1_), cos_theta);
     cos_theta = mulsign(cos_theta, cos_theta);
 
-    auto theta = acos(cos_theta);
+    Value theta = acos(cos_theta);
     auto sc = sincos(theta * t);
     auto close_mask = cos_theta > 0.9995f;
 
@@ -310,7 +310,7 @@ ENOKI_INLINE Return slerp(const Quaternion<T0, Approx0> &q0,
     Return result = q0 * sc.second + qperp * sc.first;
 
     if (ENOKI_UNLIKELY(any_nested(close_mask)))
-        masked(result, close_mask) = normalize(q0 * (1.f - t) + q1 * t);
+        masked(result, mask_t<Base>(close_mask)) = Base(normalize(q0 * (1.f - t) + q1 * t));
 
     return result;
 }
