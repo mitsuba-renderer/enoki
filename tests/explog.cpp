@@ -95,4 +95,8 @@ ENOKI_TEST_FLOAT(test04_log) {
 ENOKI_TEST_FLOAT(test05_pow) {
     assert(T(abs(pow(T(Value(M_PI)), T(Value(-2))) -
                T(Value(0.101321183642338))))[0] < 1e-6f);
+    assert(T(abs(pow(T(Value(-1.0)), T(Value(2))) -
+               T(Value(1.0))))[0] < 1e-6f);
+    assert(T(abs(pow(T(Value(-M_PI)), T(Value(2))) -
+               T(Value(9.869604401))))[0] < 1e-6f);
 }
