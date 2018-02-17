@@ -206,6 +206,10 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
         return _mm_round_ps(m, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
     }
 
+    ENOKI_INLINE Derived trunc_() const {
+        return _mm_round_ps(m, _MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC);
+    }
+
     template <typename Mask>
     static ENOKI_INLINE Derived select_(const Mask &m, Arg t, Arg f) {
         return _mm_blendv_ps(f.m, t.m, m.m);
@@ -612,6 +616,10 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
 
     ENOKI_INLINE Derived round_() const {
         return _mm_round_pd(m, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
+    }
+
+    ENOKI_INLINE Derived trunc_() const {
+        return _mm_round_pd(m, _MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC);
     }
 
     template <typename Mask>

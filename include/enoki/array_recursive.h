@@ -92,6 +92,10 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
         return Derived(mulhi(a1, a.a1), mulhi(a2, a.a2));
     }
 
+    ENOKI_INLINE Derived fmod_(Arg a) const {
+        return Derived(fmod(a1, a.a1), fmod(a2, a.a2));
+    }
+
     ENOKI_INLINE auto lt_ (Arg a) const { return mask_t<Derived>(a1 <  a.a1, a2 <  a.a2); }
     ENOKI_INLINE auto gt_ (Arg a) const { return mask_t<Derived>(a1 >  a.a1, a2 >  a.a2); }
     ENOKI_INLINE auto le_ (Arg a) const { return mask_t<Derived>(a1 <= a.a1, a2 <= a.a2); }
@@ -106,6 +110,7 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
     ENOKI_INLINE Derived floor_() const { return Derived(floor(a1), floor(a2)); }
     ENOKI_INLINE Derived sqrt_() const { return Derived(sqrt(a1), sqrt(a2)); }
     ENOKI_INLINE Derived round_() const { return Derived(round(a1), round(a2)); }
+    ENOKI_INLINE Derived trunc_() const { return Derived(trunc(a1), trunc(a2)); }
     ENOKI_INLINE Derived rcp_() const { return Derived(rcp(a1), rcp(a2)); }
     ENOKI_INLINE Derived rsqrt_() const { return Derived(rsqrt(a1), rsqrt(a2)); }
 

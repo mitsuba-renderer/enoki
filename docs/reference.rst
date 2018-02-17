@@ -822,6 +822,14 @@ Elementary Arithmetic Functions
 
         This is analogous to ``std::rint``, not ``std::round``.
 
+.. cpp:function:: template <typename Array> Array trunc(Array x)
+
+    Rounds :math:`x` towards zero (analogous to ``std::trunc``).
+
+.. cpp:function:: template <typename Array> Array fmod(Array x, Array y)
+
+    Computes the floating-point remainder of the division operation ``x/y``
+
 .. cpp:function:: template <typename Array> Array fmadd(Array x, Array y, Array z)
 
     Performs a fused multiply-add operation if supported by the target

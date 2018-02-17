@@ -227,6 +227,7 @@ ENOKI_ROUTE_BINARY_SCALAR(max,   max,  (std::decay_t<decltype(a1+a2)>) std::max(
 ENOKI_ROUTE_BINARY_SCALAR(min,   min,  (std::decay_t<decltype(a1+a2)>) std::min((decltype(a1+a2)) a1, (decltype(a1+a2)) a2))
 ENOKI_ROUTE_BINARY_SCALAR(pow,   pow,   std::pow  ((decltype(a1+a2)) a1, (decltype(a1+a2)) a2))
 ENOKI_ROUTE_BINARY_SCALAR(atan2, atan2, std::atan2((decltype(a1+a2)) a1, (decltype(a1+a2)) a2))
+ENOKI_ROUTE_BINARY_SCALAR(fmod,  fmod,  std::fmod((decltype(a1+a2)) a1, (decltype(a1+a2)) a2))
 ENOKI_ROUTE_BINARY(ldexp, ldexp)
 ENOKI_ROUTE_BINARY_SCALAR(dot,   dot,   a1*a2)
 
@@ -272,6 +273,7 @@ ENOKI_ROUTE_UNARY_SCALAR(sqrt,  sqrt,  std::sqrt(a))
 ENOKI_ROUTE_UNARY_SCALAR(floor, floor, std::floor(a))
 ENOKI_ROUTE_UNARY_SCALAR(ceil,  ceil,  std::ceil(a))
 ENOKI_ROUTE_UNARY_SCALAR(round, round, std::rint(a))
+ENOKI_ROUTE_UNARY_SCALAR(trunc, trunc, std::trunc(a))
 
 ENOKI_ROUTE_UNARY_SCALAR(log,   log,   std::log(a))
 

@@ -99,7 +99,19 @@ ENOKI_TEST_FLOAT(test04_round) {
     assert(round(x) == round(y));
 }
 
-ENOKI_TEST_FLOAT(test05_sqrt) {
+ENOKI_TEST_FLOAT(test05_trunc) {
+    auto sample = test::sample_values<Value>();
+
+    test::validate_unary<T>(sample,
+        [](const T &a) -> T { return trunc(a); },
+        [](Value a) -> Value { return std::trunc(a); }
+    );
+
+    Array<T, 4> x(3.4f); Array<T&, 4> y(x);
+    assert(trunc(x) == trunc(y));
+}
+
+ENOKI_TEST_FLOAT(test06_sqrt) {
     auto sample = test::sample_values<Value>();
 
     test::validate_unary<T>(sample,
@@ -116,7 +128,7 @@ ENOKI_TEST_FLOAT(test05_sqrt) {
     assert(sqrt(x) == sqrt(y));
 }
 
-ENOKI_TEST_FLOAT(test06_rsqrt) {
+ENOKI_TEST_FLOAT(test07_rsqrt) {
     test::probe_accuracy<T>(
         [](const T &a) -> T { return rsqrt(a); },
         [](double a) { return 1 / std::sqrt(a); },
@@ -135,7 +147,7 @@ ENOKI_TEST_FLOAT(test06_rsqrt) {
     );
 }
 
-ENOKI_TEST_FLOAT(test07_rcp) {
+ENOKI_TEST_FLOAT(test08_rcp) {
     test::probe_accuracy<T>(
         [](const T &a) -> T { return rcp(a); },
         [](double a) { return 1 / a; },
@@ -154,7 +166,7 @@ ENOKI_TEST_FLOAT(test07_rcp) {
     );
 }
 
-ENOKI_TEST_FLOAT(test08_sign) {
+ENOKI_TEST_FLOAT(test09_sign) {
     auto sample = test::sample_values<Value>();
 
     test::validate_unary<T>(sample,
@@ -166,7 +178,7 @@ ENOKI_TEST_FLOAT(test08_sign) {
     assert(sign(x) == sign(y));
 }
 
-ENOKI_TEST_FLOAT(test09_isinf) {
+ENOKI_TEST_FLOAT(test10_isinf) {
     auto sample = test::sample_values<Value>();
 
     using enoki::isinf;
@@ -176,7 +188,7 @@ ENOKI_TEST_FLOAT(test09_isinf) {
     );
 }
 
-ENOKI_TEST_FLOAT(test10_isnan) {
+ENOKI_TEST_FLOAT(test11_isnan) {
     auto sample = test::sample_values<Value>();
 
     using enoki::isnan;
@@ -186,7 +198,7 @@ ENOKI_TEST_FLOAT(test10_isnan) {
     );
 }
 
-ENOKI_TEST_FLOAT(test11_isfinite) {
+ENOKI_TEST_FLOAT(test12_isfinite) {
     auto sample = test::sample_values<Value>();
 
     using enoki::isfinite;
@@ -196,13 +208,13 @@ ENOKI_TEST_FLOAT(test11_isfinite) {
     );
 }
 
-ENOKI_TEST_FLOAT(test12_nan_initialization) {
+ENOKI_TEST_FLOAT(test13_nan_initialization) {
     T x;
     for (size_t i = 0; i < Size; ++i)
         assert(std::isnan(x[i]));
 }
 
-ENOKI_TEST(test13_half) {
+ENOKI_TEST(test14_half) {
     using T = Array<float, 4>;
     using THalf = Array<half, 4>;
 
@@ -228,7 +240,7 @@ ENOKI_TEST(test13_half) {
 
 #if !defined(ENOKI_ARM_32) && !defined(ENOKI_ARM_64) /* Can't change the rounding mode on ARM Neon */
 
-ENOKI_TEST_FLOAT(test14_round) {
+ENOKI_TEST_FLOAT(test15_round) {
     using T1 = Array<Value, Size, T::Approx, RoundingMode::Up>;
     using T2 = Array<Value, Size, T::Approx, RoundingMode::Down>;
 
@@ -246,7 +258,7 @@ ENOKI_TEST_FLOAT(test14_round) {
 }
 #endif
 
-ENOKI_TEST_FLOAT(test15_hypot) {
+ENOKI_TEST_FLOAT(test16_hypot) {
     auto sample = test::sample_values<Value>();
 
     test::validate_binary<T>(sample,
@@ -264,7 +276,7 @@ ENOKI_TEST_FLOAT(test15_hypot) {
                              1e-6f);
 }
 
-ENOKI_TEST_FLOAT(test15_next_float) {
+ENOKI_TEST_FLOAT(test17_next_float) {
     Value inf = std::numeric_limits<Value>::infinity();
     Value nan = std::numeric_limits<Value>::quiet_NaN();
     Value zero = Value(0), one = Value(1.f);
@@ -284,4 +296,15 @@ ENOKI_TEST_FLOAT(test15_next_float) {
     assert(prev_float(T( inf))  == inf);
     assert(prev_float(T(-inf)) == -inf);
     assert(all(enoki::isnan(prev_float(T(nan)))));
+}
+
+ENOKI_TEST_FLOAT(test18_fmod) {
+    T a = Value(5.1);
+    T b = Value(3.0);
+    T c = Value(2.1);
+
+    assert(abs(enoki::fmod( a,  b) - c)[0] < 1e-12f);
+    assert(abs(enoki::fmod(-a,  b) + c)[0] < 1e-12f);
+    assert(abs(enoki::fmod( a, -b) - c)[0] < 1e-12f);
+    assert(abs(enoki::fmod(-a, -b) + c)[0] < 1e-12f);
 }

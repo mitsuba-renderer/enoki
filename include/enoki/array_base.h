@@ -411,6 +411,14 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
         return result;
     }
 
+    /// trunc() fallback implementation
+    ENOKI_INLINE auto trunc_() const {
+        expr_t<Derived> result;
+        ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
+            result.coeff(i) = trunc(derived().coeff(i));
+        return result;
+    }
+
     /// floor() fallback implementation
     ENOKI_INLINE auto floor_() const {
         expr_t<Derived> result;
@@ -513,6 +521,20 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
         ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
             result.coeff(i) = mulhi(derived().coeff(i), d.coeff(i));
         return result;
+    }
+
+    /// Floating point modulo operation
+    auto fmod_(const Derived &x) const {
+        using Expr = expr_t<Derived>;
+
+        Expr r;
+        if (Approx) {
+            r = fnmadd(trunc(derived() / x), x, derived());
+        } else {
+            ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
+                r.coeff(i) = fmod(derived().coeff(i), x.coeff(i));
+        }
+        return r;
     }
 
     /// zero() fallback implementation

@@ -233,6 +233,10 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
         return _mm512_roundscale_ps(m, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
     }
 
+    ENOKI_INLINE Derived trunc_() const {
+        return _mm512_roundscale_ps(m, _MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC);
+    }
+
     ENOKI_INLINE Derived fmadd_   (Arg b, Arg c) const { return _mm512_fmadd_round_ps   (m, b.m, c.m, (int) Mode); }
     ENOKI_INLINE Derived fmsub_   (Arg b, Arg c) const { return _mm512_fmsub_round_ps   (m, b.m, c.m, (int) Mode); }
     ENOKI_INLINE Derived fnmadd_  (Arg b, Arg c) const { return _mm512_fnmadd_round_ps  (m, b.m, c.m, (int) Mode); }
@@ -762,6 +766,10 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
 
     ENOKI_INLINE Derived round_() const {
         return _mm512_roundscale_pd(m, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
+    }
+
+    ENOKI_INLINE Derived trunc_() const {
+        return _mm512_roundscale_pd(m, _MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC);
     }
 
     ENOKI_INLINE Derived fmadd_   (Arg b, Arg c) const { return _mm512_fmadd_round_pd   (m, b.m, c.m, (int) Mode); }
