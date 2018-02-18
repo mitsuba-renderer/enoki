@@ -151,8 +151,7 @@ ENOKI_TEST(array_float_02_test07_matrix) {
     assert(to_string(M2f::from_rows(V2f(1, 2), V2f(3, 4))) == "[[1, 2],\n [3, 4]]");
     assert(to_string(M2f::from_cols(V2f(1, 2), V2f(3, 4))) == "[[1, 3],\n [2, 4]]");
 
-    {
-        /* Ensure that matrix-vector multiplication broadcasts compile */
+    /* Ensure that matrix-vector multiplication broadcasts compile */ {
         using Float = float;
 
         using FloatP = Packet<Float, 8>;
@@ -161,18 +160,19 @@ ENOKI_TEST(array_float_02_test07_matrix) {
         using Vector4fP = Array<FloatP, 4>;
 
         using Matrix4f = Matrix<Float, 4>;
-        using Matrix4fP = Matrix<FloatP, 4>;
 
-        {
+        /* Variant 1 */ {
             Matrix4f M;
             Vector4f x;
             Vector4f y = M * x;
+            (void) y;
         }
 
-        {
+        /* Variant 2 */ {
             Matrix4f M;
             Vector4fP x;
             Vector4fP y = M * x;
+            (void) y;
         }
     }
 }

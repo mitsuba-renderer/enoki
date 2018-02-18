@@ -512,8 +512,7 @@ ENOKI_TEST_ALL(test28_mask_from_int) {
 }
 
 ENOKI_TEST_ALL(test29_pointer_arithmetic) {
-    {
-        /* Power of two sized instance */
+    /* Power of two sized instance */ {
         struct Class { uint32_t x;};
         using ClassP = Packet<Class*, Size>;
         using UInt32P = Packet<uint32_t, Size>;
@@ -533,8 +532,8 @@ ENOKI_TEST_ALL(test29_pointer_arithmetic) {
 
         Class z; z.x = 0; /* Quench warnings */
     }
-    {
-        /* Non-power of two sized instance */
+
+    /* Non-power of two sized instance */ {
         struct Class { uint32_t x[3];};
         using ClassP = Packet<Class*, Size>;
         using UInt32P = Packet<uint32_t, Size>;

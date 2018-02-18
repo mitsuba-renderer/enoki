@@ -91,11 +91,11 @@ module boundaries. It has the following design goals:
    method or virtual method calls (e.g. ``instance->my_function(arg1, arg2,
    ...);`` when ``instance`` turns out to be a SIMD array of instances).
 
-5. **Transcendentals**: Enoki provides branch-free vectorized elementary and
-   transcendental functions, including *cos*, *sin*, *sincos*, *tan*, *csc*,
-   *sec*, *cot*, *acos*, *asin*, *atan*, *atan2*, *exp*, *log*, *pow*, *sinh*,
-   *cosh*, *sincosh*, *tanh*, *csch*, *sech*, *coth*, *asinh*, *acosh*,
-   *atanh*, *i0e*, *frexp*, *ldexp*, *erf*, *erfi*, and *erfinv*.
+5. **Transcendentals**: Enoki provides branch-free vectorized implementations
+   of classic elementary and transcendental functions including *cos*, *sin*,
+   *sincos*, *tan*, *csc*, *sec*, *cot*, *acos*, *asin*, *atan*, *atan2*,
+   *exp*, *log*, *pow*, *sinh*, *cosh*, *sincosh*, *tanh*, *csch*, *sech*,
+   *coth*, *asinh*, *acosh*, *atanh*, *frexp*, *ldexp*.
 
    .. image:: intro-03.png
        :width: 720px
@@ -106,7 +106,13 @@ module boundaries. It has the following design goals:
    relative error between 0.1 and 4 ULPs. The C math library can be used as a
    fallback when higher precision transcendental functions are needed.
 
-6. **Portability**: Enoki supports arbitrary array sizes that don't necessarily
+6. **Special functions**: In addition to the above, Enoki implements a steadily
+   growing number of special functions such as Bessel functions, elliptic
+   integrals, etc. Currently supported functions include: *erf*, *erfi*,
+   *erfinv*, *dawson*, *i0e*, *ellint_1*, *comp_ellint_1*, *ellint_2*,
+   *comp_ellint_2*, *ellint_3* and *comp_ellint_3*.
+
+7. **Portability**: Enoki supports arbitrary array sizes that don't necessarily
    match what is supported by the underlying hardware (e.g. 16 x single
    precision on a machine whose SSE vector only has hardware support for 4 x
    single precision operands). The library uses template metaprogramming
@@ -117,7 +123,7 @@ module boundaries. It has the following design goals:
    everything, thus programs will run even on unsupported architectures (albeit
    without the performance benefits of vectorization).
 
-7. **Modular architecture**: Enoki is split into two major components: the
+8. **Modular architecture**: Enoki is split into two major components: the
    front-end provides various high-level array operations, while the back-end
    provides the basic ingredients that are needed to realize these operations
    using the SIMD instruction set(s) supported by the target architecture.

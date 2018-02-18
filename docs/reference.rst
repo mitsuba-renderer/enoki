@@ -1529,6 +1529,55 @@ The following special functions require including the header
 
         D(x)=e^{-x^2}\int_0^x e^{t^2}\,\mathrm{d}t.
 
+.. cpp:function:: template <typename Array> Array ellint_1(Array phi, Array k)
+
+    Evaluates the incomplete elliptic integral of the first kind
+
+    .. math::
+
+        F(\phi, k)=\int_0^\phi (1-k^2\sin^2\theta)^{-\frac{1}{2}}\,\mathrm{d}\theta
+
+.. cpp:function:: template <typename Array> Array comp_ellint_1(Array k)
+
+    Evaluates the complete elliptic integral of the first kind
+
+    .. math::
+
+        F(k)=\int_0^\frac{\pi}{2} (1-k^2\sin^2\theta)^{-\frac{1}{2}}\,\mathrm{d}\theta
+
+.. cpp:function:: template <typename Array> Array ellint_2(Array phi, Array k)
+
+    Evaluates the incomplete elliptic integral of the second kind
+
+    .. math::
+
+        E(\phi, k)=\int_0^\phi (1-k^2\sin^2\theta)^{\frac{1}{2}}\,\mathrm{d}\theta
+
+.. cpp:function:: template <typename Array> Array comp_ellint_2(Array k)
+
+    Evaluates the complete elliptic integral of the second kind
+
+    .. math::
+
+        E(k)=\int_0^\frac{\pi}{2} (1-k^2\sin^2\theta)^{\frac{1}{2}}\,\mathrm{d}\theta
+
+.. cpp:function:: template <typename Array> Array ellint_3(Array phi, Array k, Array nu)
+
+    Evaluates the incomplete elliptic integral of the third kind
+
+    .. math::
+
+        \Pi(\phi, k, \nu)=\int_0^\phi (1+\nu\sin^2\theta)^{-1}(1-k^2\sin^2\theta)^{-\frac{1}{2}}\,\mathrm{d}\theta
+
+.. cpp:function:: template <typename Array> Array comp_ellint_3(Array k, Array nu)
+
+    Evaluates the complete elliptic integral of the third kind
+
+    .. math::
+
+        \Pi(k, \nu)=\int_0^\frac{\pi}{2} (1+\nu\sin^2\theta)^{-1}(1-k^2\sin^2\theta)^{-\frac{1}{2}}\,\mathrm{d}\theta
+
+
 Miscellaneous operations
 ------------------------
 

@@ -267,4 +267,368 @@ template <typename T, typename Expr = expr_t<T>> Expr i0e(const T &x_) {
     return select(mask_big, r_big, r_small);
 }
 
+/**
+ * Computes a Carlson integral of the form
+ *
+ * R_F(X, Y, Z) = 1/2 * \int_{0}^\infty ((t + x) (t + y) (t + z))^(-1/2) dt
+ *
+ * Based on
+ *
+ *   Computing elliptic integrals by duplication
+ *   B. C. Carlson
+ *   Numerische Mathematik, March 1979, Volume 33, Issue 1
+ */
+template <typename Vector3,
+          typename Value = value_t<Vector3>,
+          typename Scalar = scalar_t<Vector3>>
+Value carlson_rf(Vector3 xyz) {
+    static_assert(
+        Vector3::Size == 3,
+        "carlson_rf(): Expected a three-dimensional input vector (x, y, z)");
+    assert(all_nested(xyz.x() >= 0 && xyz.y() > 0 && xyz.z() > 0));
+
+    Vector3 XYZ;
+    Value mu_inv;
+    mask_t<Value> active = true;
+    int iterations = 0;
+
+    while (true) {
+        Vector3 sqrt_xyz = sqrt(xyz);
+        Value lambda = dot(shuffle<1, 2, 0>(sqrt_xyz), sqrt_xyz);
+        Value mu = hsum(xyz) * Scalar(1.0 / 3.0);
+        mu_inv = rcp(mu);
+        XYZ = fnmadd(xyz, mu_inv, 1);
+        Value eps = hmax(abs(XYZ));
+        active &= eps > Scalar(std::is_same<Scalar, double>::value
+                                   ? 0.0024608
+                                   : 0.070154); // eps ^ (1/6)
+
+        if (none(active) || ++iterations == 10)
+            break;
+
+        xyz[mask_t<Vector3>(active)] = (xyz + lambda) * Scalar(0.25f);
+    }
+
+    /* Use recurrences for cheaper polynomial evaluation. Based
+       on Numerical Recipes (3rd ed) by Press, Teukolsky,
+       Vetterling, and Flannery */
+
+    Value e2 = XYZ.x() * XYZ.y() - XYZ.z() * XYZ.z(),
+          e3 = hprod(XYZ),
+          er = (Scalar(1.0 / 24.0) * e2 - Scalar(1.0 / 10.0) -
+                Scalar(3.0 / 44.0) * e3) * e2 + Scalar(1.0 / 14.0) * e3;
+
+    return sqrt(mu_inv) * (Scalar(1) + er);
+}
+
+/**
+ * Computes a Carlson integral of the form
+ *
+ * R_D(x, y, z) = 3/2 * \int_{0}^\infty (t + x)^(-1/2) (t + y)^(-1/2) (t + z)^(-3/2) dt
+ *
+ * Based on
+ *
+ *   Computing elliptic integrals by duplication
+ *   B. C. Carlson
+ *   Numerische Mathematik, March 1979, Volume 33, Issue 1
+ */
+template <typename Vector3,
+          typename Value = value_t<Vector3>,
+          typename Scalar = scalar_t<Vector3>>
+Value carlson_rd(Vector3 xyz) {
+    static_assert(
+        Vector3::Size == 3,
+        "carlson_rd(): Expected a three-dimensional input vector (x, y, z)");
+    assert(all_nested(xyz.x() >= 0 && xyz.y() > 0 && xyz.z() > 0));
+
+    Vector3 XYZ;
+    Value mu_inv;
+    mask_t<Value> active = true;
+    int iterations = 0;
+    Value sum = 0;
+    Value num = 1;
+    const Vector3 W(Scalar(1.0 / 5.0), Scalar(1.0 / 5.0), Scalar(3.0 / 5.0));
+
+    while (true) {
+        Vector3 sqrt_xyz = sqrt(xyz);
+        Value lambda = dot(shuffle<1, 2, 0>(sqrt_xyz), sqrt_xyz);
+        Value mu = hsum(xyz * W);
+        mu_inv = rcp(mu);
+        XYZ = fnmadd(xyz, mu_inv, 1);
+        Value eps = hmax(abs(XYZ));
+        active &= eps > Scalar(std::is_same<Scalar, double>::value
+                                   ? (0.0024608 * 0.6)
+                                   : (0.070154 * 0.6)); // eps ^ (1/6) * 0.6
+
+        if (none(active) || ++iterations == 10)
+            break;
+
+        masked(sum, active) += num / (sqrt(xyz.z()) * (xyz.z() + lambda));
+        masked(num, active) *= Scalar(0.25f);
+        masked(xyz, mask_t<Vector3>(active)) = (xyz + lambda) * Scalar(0.25f);
+    }
+
+    /* Use recurrences for cheaper polynomial evaluation. Based
+       on Numerical Recipes (3rd ed) by Press, Teukolsky,
+       Vetterling, and Flannery */
+
+    Value z  = XYZ.z(),
+          ea = XYZ.x() * XYZ.y(),
+          eb = z * z,
+          ec = ea - eb,
+          ed = fnmadd(Scalar(6), eb, ea),
+          ee = fmadd(ec, Scalar(2), ed);
+
+    Value p = ed * (-Scalar(3.0 / 14.0) + Scalar(9.0 / 88.0) * ed -
+                    Scalar(1.0 / 4.0) * z * ee) +
+              z * (Scalar(1.0 / 6.0) * ee + z *
+                    (-Scalar(9.0 / 22.0) * ec + z * Scalar(3.0 / 26.0) * ea));
+
+    return 3 * sum + num * mu_inv * sqrt(mu_inv) * (Scalar(1.0) + p);
+}
+
+/**
+ * Computes a Carlson integral of the form
+ *
+ * R_C(x, y) = 1/2 * \int_{0}^\infty (t + x)^(-1/2) (t + y)^-1 dt
+ *
+ * Based on
+ *
+ *   Computing elliptic integrals by duplication
+ *   B. C. Carlson
+ *   Numerische Mathematik, March 1979, Volume 33, Issue 1
+ */
+template <typename Vector2,
+          typename Value = value_t<Vector2>,
+          typename Scalar = scalar_t<Vector2>>
+Value carlson_rc(Vector2 xy) {
+    static_assert(
+        Vector2::Size == 2,
+        "carlson_rc(): Expected a two-dimensional input vector (x, y)");
+    assert(all(xy.x() >= 0 && xy.y() > 0));
+
+    mask_t<Value> active = true;
+    Value inv_mu, s;
+    int iterations = 0;
+
+    while (true) {
+        Value lambda = hprod(sqrt(xy));
+        lambda += lambda + xy.y();
+        Value mu = fmadd(xy.x(), Scalar(1.0 / 3.0), xy.y() * Scalar(2.0 / 3.0));
+        inv_mu = rcp(mu);
+        s = (xy.y() - mu) * inv_mu;
+
+        active &= abs(s) > Scalar(std::is_same<Scalar, double>::value
+                                   ? (0.0024608 * 0.48)
+                                   : (0.070154 * 0.48)); // eps ^ (1/6) * 0.48
+
+        if (none(active) || ++iterations == 10)
+            break;
+
+        masked(xy, mask_t<Vector2>(active)) = (xy + lambda) * Scalar(0.25f);
+    }
+
+    /* Use recurrences for cheaper polynomial evaluation. Based
+       on Numerical Recipes (3rd ed) by Press, Teukolsky,
+       Vetterling, and Flannery */
+
+    return sqrt(inv_mu) * (Scalar(1) + s * s *
+              (Scalar(0.3) + s * (Scalar(1.0 / 7.0) +
+               s * (Scalar(0.375) + s * Scalar(9.0 / 22.0)))));
+}
+
+/**
+ * Computes a Carlson integral of the form
+ *
+ * R_J(x, y, z, rho) = 3/2 * \int_{0}^\infty ((t + x) (t + y) (t + z))^(-1/2) (t+rho)^(-1) dt
+ *
+ * Based on
+ *
+ *   Computing elliptic integrals by duplication
+ *   B. C. Carlson
+ *   Numerische Mathematik, March 1979, Volume 33, Issue 1
+ */
+template <typename Vector4,
+          typename Value = value_t<Vector4>,
+          typename Vector2 = Array<Value, 2>,
+          typename Scalar = scalar_t<Vector4>>
+Value carlson_rj(Vector4 xyzr) {
+    static_assert(
+        Vector4::Size == 4,
+        "carlson_rj(): Expected a four-dimensional input vector (x, y, z, rho)");
+    assert(all(xyzr.x() >= 0 && xyzr.y() > 0 && xyzr.z() > 0 && xyzr.w() > 0));
+
+    Vector4 XYZR;
+    Value mu_inv;
+    mask_t<Value> active = true;
+    int iterations = 0;
+    Value sum = 0;
+    Value num = 1;
+
+    while (true) {
+        auto xyz = head<3>(xyzr);
+        auto rho = xyzr.w();
+        auto sqrt_xyz = sqrt(xyz);
+        Value lambda = dot(shuffle<1, 2, 0>(sqrt_xyz), sqrt_xyz);
+
+        Value mu = (hsum(xyzr) + rho) * Scalar(1.0 / 5.0);
+        mu_inv = rcp(mu);
+        XYZR = fnmadd(xyzr, mu_inv, 1);
+        Value eps = hmax(abs(XYZR));
+        active &= eps > Scalar(std::is_same<Scalar, double>::value
+                                   ? (0.0024608 * 0.6)
+                                   : (0.070154 * 0.6)); // eps ^ (1/6) * 0.6
+
+        Value alpha = rho * hsum(sqrt(xyz)) + sqrt(hprod(xyz));
+        alpha *= alpha;
+        Value beta = rho * (rho + lambda) * (rho + lambda);
+
+        if (none(active) || ++iterations == 10)
+            break;
+
+        masked(sum, active) += num * carlson_rc(Vector2(alpha, beta));
+        masked(num, active) *= Scalar(0.25f);
+        masked(xyzr, mask_t<Vector4>(active)) = (xyzr + lambda) * Scalar(0.25f);
+    }
+
+    /* Use recurrences for cheaper polynomial evaluation. Based
+       on Numerical Recipes (3rd ed) by Press, Teukolsky,
+       Vetterling, and Flannery */
+
+    Value ea = XYZR.x() * (XYZR.y() + XYZR.z()) + XYZR.y() * XYZR.z(),
+          eb = XYZR.x() * XYZR.y() * XYZR.z(),
+          R  = XYZR.w(),
+          ec = R * R,
+          ed = ea - Scalar(3) * ec,
+          ee = eb + Scalar(2) * R * (ea - ec);
+
+    return Scalar(3) * sum +
+           num * mu_inv * sqrt(mu_inv) *
+               (Scalar(1) +
+                ed * (-Scalar(3.0 / 14.0) + Scalar(9.0 / 88.0) * ed -
+                      Scalar(9.0 / 52.0) * ee) +
+                eb * (Scalar(1.0 / 6.0) +
+                      R * (-Scalar(3.0 / 11.0) + R * Scalar(3.0 / 26.0))) +
+                R * ea * (Scalar(1.0 / 3.0) - R * Scalar(3.0 / 22.0)) -
+                Scalar(1.0 / 3.0) * R * ec);
+}
+
+// -----------------------------------------------------------------------
+//! @{ \name Complete and incomplete elliptic integrals
+//! Caution: the 'k' factor is squared in the elliptic integral, which
+//! differs from the convention of Mathematica's EllipticK etc.
+// -----------------------------------------------------------------------
+
+/// Complete elliptic integral of the first kind
+template <typename K, typename Value = expr_t<K>,
+          typename Scalar = scalar_t<Value>,
+          typename Vector3 = Array<Value, 3>>
+Value comp_ellint_1(K k) {
+    return carlson_rf(Vector3(Scalar(0), Scalar(1) - k * k, Scalar(1)));
+}
+
+
+/// Incomplete elliptic integral of the first kind
+template <typename Phi, typename K,
+          typename Value = expr_t<Phi, K>,
+          typename Scalar = scalar_t<Value>,
+          typename Vector3 = Array<Value, 3>>
+Value ellint_1(Phi phi_, K k) {
+    Value phi = phi_,
+          n = floor(fmadd(phi, Scalar(1.0 / M_PI), Scalar(.5f))),
+          result = 0,
+          sin_phi, cos_phi;
+
+    if (ENOKI_UNLIKELY(any(neq(n, 0)))) {
+        result = comp_ellint_1(k) * n * 2;
+        phi = fnmadd(n, Scalar(M_PI), phi);
+    }
+
+    std::tie(sin_phi, cos_phi) = sincos(phi);
+    Vector3 xyz(cos_phi * cos_phi, Scalar(1) - k * k * sin_phi * sin_phi,
+                Scalar(1));
+    result += sin_phi * carlson_rf(xyz);
+
+    return result;
+}
+
+/// Complete elliptic integral of the second kind
+template <typename K, typename Value = expr_t<K>,
+          typename Scalar = scalar_t<Value>,
+          typename Vector3 = Array<Value, 3>>
+Value comp_ellint_2(K k) {
+    auto k2 = k*k;
+    Vector3 xyz(Scalar(0), Scalar(1) - k2, Scalar(1));
+    return carlson_rf(xyz) - Scalar(1.0 / 3.0) * k2 * carlson_rd(xyz);
+}
+
+/// Incomplete elliptic integral of the second kind
+template <typename Phi, typename K,
+          typename Value = expr_t<Phi, K>,
+          typename Scalar = scalar_t<Value>,
+          typename Vector3 = Array<Value, 3>>
+Value ellint_2(Phi phi_, K k) {
+    Value phi = phi_,
+          k2 = k*k,
+          n = floor(fmadd(phi, Scalar(1.0 / M_PI), Scalar(.5f))),
+          result = 0,
+          sin_phi, cos_phi;
+
+    if (ENOKI_UNLIKELY(any(neq(n, 0)))) {
+        result = comp_ellint_2(k) * n * 2;
+        phi = fnmadd(n, Scalar(M_PI), phi);
+    }
+
+    std::tie(sin_phi, cos_phi) = sincos(phi);
+    auto sin_phi_k_2 = sin_phi * sin_phi * k2;
+    Vector3 xyz(cos_phi * cos_phi, Scalar(1) - sin_phi_k_2, Scalar(1));
+    result += sin_phi * (carlson_rf(xyz) -
+                         Scalar(1.0 / 3.0) * sin_phi_k_2 * carlson_rd(xyz));
+
+    return result;
+}
+
+/// Complete elliptic integral of the third kind
+template <typename K, typename Nu,
+          typename Value = expr_t<K, Nu>,
+          typename Scalar = scalar_t<Value>,
+          typename Vector4 = Array<Value, 4>>
+Value comp_ellint_3(K k, Nu nu) {
+    auto k2 = k*k;
+    Vector4 xyzr(Scalar(0), Scalar(1) - k2, Scalar(1), Scalar(1) + nu);
+    return carlson_rf(head<3>(xyzr)) -
+           Scalar(1.0 / 3.0) * nu * carlson_rj(xyzr);
+}
+
+/// Incomplete elliptic integral of the third kind
+template <typename Phi, typename K, typename Nu,
+          typename Value = expr_t<Phi, K, Nu>,
+          typename Scalar = scalar_t<Value>,
+          typename Vector4 = Array<Value, 4>>
+Value ellint_3(Phi phi_, K k, Nu nu) {
+    Value phi = phi_,
+          k2 = k*k,
+          n = floor(fmadd(phi, Scalar(1.0 / M_PI), Scalar(.5f))),
+          result = 0,
+          sin_phi, cos_phi;
+
+    if (ENOKI_UNLIKELY(any(neq(n, 0)))) {
+        result = comp_ellint_3(k, nu) * n * 2;
+        phi = fnmadd(n, Scalar(M_PI), phi);
+    }
+
+
+    std::tie(sin_phi, cos_phi) = sincos(phi);
+    auto sin_phi_2 = sin_phi * sin_phi;
+    Vector4 xyzr(cos_phi * cos_phi, Scalar(1) - k2 * sin_phi_2, Scalar(1),
+                 Scalar(1) + nu * sin_phi_2);
+    result += sin_phi * (carlson_rf(head<3>(xyzr)) -
+                         Scalar(1.0 / 3.0) * nu * sin_phi_2 * carlson_rj(xyzr));
+
+    return result;
+}
+
+//! @}
+// -----------------------------------------------------------------------
+
 NAMESPACE_END(enoki)
