@@ -565,6 +565,19 @@ struct struct_support<Matrix<T, Size, Approx>,
         return Value(enoki::zero<typename Value::Column>(size));
     }
 
+    template <typename T2, typename Mask,
+              std::enable_if_t<array_size<T2>::value == array_size<Mask>::value, int> = 0>
+    static ENOKI_INLINE auto masked(T2 &value, const Mask &mask) {
+        return detail::MaskedArray<T2>{ value, mask_t<T2>(mask) };
+    }
+
+    template <typename T2, typename Mask,
+              std::enable_if_t<array_size<T2>::value != array_size<Mask>::value, int> = 0>
+    static ENOKI_INLINE auto masked(T2 &value, const Mask &mask) {
+        using Arr = Array<Array<T, Size>, Size>;
+        return enoki::masked((Arr&) value, mask_t<Arr>(mask));
+    }
+
 private:
     template <typename T2, size_t... Index>
     static ENOKI_INLINE auto packet(T2&& value, size_t i, std::index_sequence<Index...>) {

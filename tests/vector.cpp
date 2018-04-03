@@ -296,3 +296,19 @@ ENOKI_TEST(fill) {
     assert(to_string(result2) == "[[10, 10, 10, 10],\n [10, 10, 10, 10],\n [10, 10, 10, 10],\n [10, 10, 10, 10]]");
 }
 
+ENOKI_TEST(masked_assignment) {
+    using FloatP = Packet<float>;
+    using Matrix4f = Matrix<float, 4>;
+    using Matrix4fP = Matrix<FloatP, 4>;
+
+    Matrix4fP z = identity<Matrix4f>();
+    masked(z, true) *= 2;
+    masked(z, z > 0) *= 2;
+    masked(z, eq(index_sequence<FloatP>(), 0.f)) *= 2;
+    assert(z.coeff(0, 0, 0) == 8);
+
+    if (FloatP::Size > 1) {
+        assert(z.coeff(0, 0, 1) == 4);
+        assert(z.coeff(1, 0, 1) == 0);
+    }
+}

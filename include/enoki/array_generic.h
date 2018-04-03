@@ -204,16 +204,6 @@ public:
             coeff(i) = reinterpret_array<Value>(a.derived());
     }
 
-    /// Construct an array of masked arrays from a masked array of arrays.. :)
-    template <typename T> ENOKI_INLINE StaticArrayImpl(detail::MaskedArray<T> &value)
-        : StaticArrayImpl(value, std::make_index_sequence<Size>()) { }
-
-    template <typename T, size_t... Index>
-    ENOKI_INLINE StaticArrayImpl(detail::MaskedArray<T> &value,
-                                 std::index_sequence<Index...>)
-        : m_data{ detail::MaskedArray<value_t<T>>(value.d.coeff(Index),
-                                                  value.m.coeff(Index))... } { }
-
     //! @}
     // -----------------------------------------------------------------------
 
@@ -1310,6 +1300,15 @@ struct Array : StaticArrayImpl<Value_, Size_, Approx_, Mode_,
           detail::is_std_float<scalar_t<T>>::value ? Mode_ : RoundingMode::Default>;
 
     ENOKI_DECLARE_ARRAY(Base, Array)
+};
+
+template <typename Value, size_t Size, bool Approx, RoundingMode Mode>
+struct Array<detail::MaskedArray<Value>, Size, Approx, Mode>
+    : detail::MaskedArray<Array<Value, Size, Approx, Mode>> {
+    using Base = detail::MaskedArray<Array<Value, Size, Approx, Mode>>;
+    using Base::Base;
+    Array(const Base &b) : Base(b) { }
+    using Base::operator=;
 };
 
 template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>

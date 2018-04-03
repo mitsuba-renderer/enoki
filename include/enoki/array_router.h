@@ -1838,8 +1838,8 @@ template <typename Mask> ENOKI_INLINE Mask disable_mask_if_scalar(const Mask &ma
 
 NAMESPACE_BEGIN(detail)
 
-template <typename T> struct MaskedScalar {
-    MaskedScalar(T &d, bool m) : d(d), m(m) { }
+template <typename T> struct MaskedValue {
+    MaskedValue(T &d, bool m) : d(d), m(m) { }
 
     template <typename T2> ENOKI_INLINE void operator =(const T2 &value) { if (m) d = value; }
     template <typename T2> ENOKI_INLINE void operator+=(const T2 &value) { if (m) d += value; }
@@ -1904,9 +1904,6 @@ struct struct_support {
         mem += count;
         return count;
     }
-    template <typename T2> static ENOKI_INLINE auto masked(T2 &value, bool mask) {
-        return detail::MaskedScalar<T2>{value, mask};
-    }
     static ENOKI_INLINE T zero(size_t) { return T(0); }
 };
 
@@ -1954,9 +1951,16 @@ template <typename T>
 using is_dynamic_nested =
     std::integral_constant<bool, struct_support<std::decay_t<T>>::is_dynamic_nested>;
 
-template <typename Array, typename Mask>
+template <typename Array, typename Mask, enable_if_array_t<Mask> = 0>
 ENOKI_INLINE auto masked(Array &array, const Mask &mask) {
     return struct_support<std::decay_t<Array>>::masked(array, mask);
+}
+
+template <typename Value, typename Mask, enable_if_not_array_t<Mask> = 0>
+ENOKI_INLINE auto masked(Value &value, const Mask &mask) {
+    static_assert(std::is_same<Mask, bool>::value ||
+                  std::is_same<Mask, int>::value, "mask(): expected boolean or array type as mask.");
+    return detail::MaskedValue<Value>{value, (bool) mask};
 }
 
 template <typename T>
