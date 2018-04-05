@@ -1307,8 +1307,8 @@ struct Array<detail::MaskedArray<Value>, Size, Approx, Mode>
     : detail::MaskedArray<Array<Value, Size, Approx, Mode>> {
     using Base = detail::MaskedArray<Array<Value, Size, Approx, Mode>>;
     using Base::Base;
-    Array(const Base &b) : Base(b) { }
     using Base::operator=;
+    Array(const Base &b) : Base(b) { }
 };
 
 template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>

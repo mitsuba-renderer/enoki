@@ -531,8 +531,7 @@ Enoki provides a mechanism for declaring custom array types using the
 <https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern>`_. The
 following snippet shows a declaration of a hypothetical type named ``Spectrum``
 representing a discretized color spectrum. ``Spectrum`` generally behaves the
-same way as :cpp:class:`Array` (one exception is discussed below) and supports
-all regular Enoki operations.
+same way as :cpp:class:`Array` and supports all regular Enoki operations.
 
 .. code-block:: cpp
 
@@ -565,6 +564,54 @@ following snippet is ``Spectrum<float, 8>`` rather than a generic
 
     Spectrum<float, 8> value = { ... };
     auto value2 = exp(-value);
+
+.. note::
+
+    A further declaration is needed in a rare corner case. This only applies
+
+    1. if you plan to use the new array type *within custom data structures*, and
+    2. if *masked assignments* to the custom data structure are used, and
+    3. if the custom data structure creates instances of the new array type
+       from its template parameters.
+
+    An example:
+
+    .. code-block:: cpp
+
+        // 1. Custom data structure
+        template <typename Value> struct PolarizedSpectrum {
+            // 3. Spectrum type constructed from template parameters
+            using Spectrum8 = Spectrum<Value, 8>;
+            Spectrum8 r_s;
+            Spectrum8 r_p;
+            ENOKI_STRUCT(PolarizedSpectrum, r_s, r_p)
+        };
+        ENOKI_STRUCT_DYNAMIC(PolarizedSpectrum, r_s, r_p)
+
+        using PolarizedSpectrumfP = PolarizedSpectrum<FloatP>;
+
+        PolarizedSpectrumfP some_function(FloatP theta) {
+            PolarizedSpectrumfP result = ...;
+            // 2. Masked assignment
+            masked(result, theta < 0.f) = zero<PolarizedSpectrumfP>();
+            return result;
+        }
+
+    In this case, the following declaration is needed:
+
+    .. code-block:: cpp
+
+        template <typename Value, size_t Size>
+        struct Spectrum<enoki::detail::MaskedArray<Value>, Size> : enoki::detail::MaskedArray<Spectrum<Value, Size>> {
+            using Base = enoki::detail::MaskedArray<Spectrum<Value, Size>>;
+            using Base::Base;
+            using Base::operator=;
+            Spectrum(const Base &b) : Base(b) { }
+        };
+
+    This partial overload has the purpose of propagating an internal Enoki
+    masking data structure to the top level (so that ``Spectrum<MaskedArray>``
+    becomes ``MaskedArray<Spectrum>``).
 
 .. _platform-differences:
 

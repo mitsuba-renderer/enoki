@@ -1856,11 +1856,14 @@ template <typename T> struct MaskedValue {
 
 template <typename T> struct MaskedArray : ArrayBase<value_t<T>, MaskedArray<T>> {
     static constexpr bool Approx = T::Approx;
-    using Mask = mask_t<T>;
-    using Scalar = scalar_t<T>;
+    using Scalar = MaskedValue<scalar_t<T>>;
     using MaskType = MaskedArray<mask_t<T>>;
+    using Value =
+        std::conditional_t<std::is_scalar<value_t<T>>::value,
+        MaskedValue<value_t<T>>,
+        MaskedArray<value_t<T>>>;
 
-    MaskedArray(T &d, const Mask &m) : d(d), m(m) { }
+    MaskedArray(T &d, const mask_t<T> &m) : d(d), m(m) { }
 
     template <typename T2> ENOKI_INLINE void operator =(const T2 &value) { d.massign_(value, m); }
     template <typename T2> ENOKI_INLINE void operator+=(const T2 &value) { d.madd_(value, m); }
@@ -1875,7 +1878,7 @@ template <typename T> struct MaskedArray : ArrayBase<value_t<T>, MaskedArray<T>>
     template <typename T2> using ReplaceType = MaskedArray<typename T::template ReplaceType<T2>>;
 
     T &d;
-    Mask m;
+    mask_t<T> m;
 };
 
 NAMESPACE_END(detail)

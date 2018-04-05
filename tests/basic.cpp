@@ -495,9 +495,9 @@ ENOKI_TEST_ALL(test28_mask_from_int) {
     Mask m1(true), m2(true | true), m3(true & false);
     assert(all_nested(m1) && all_nested(m2) && none_nested(m3));
     assert(all_nested(eq(m1, m2)) && none_nested(eq(m2, m3)));
-    assert(all(eq(T(1.0f), select(m1, T(1.0f), T(0.0f)))));
-    assert(all(eq(T(1.0f), select(m2, T(1.0f), T(0.0f)))));
-    assert(all(eq(T(0.0f), select(m3, T(1.0f), T(0.0f)))));
+    assert(all(eq(T(1), select(m1, T(1), T(0)))));
+    assert(all(eq(T(1), select(m2, T(1), T(0)))));
+    assert(all(eq(T(0), select(m3, T(1), T(0)))));
     // Masked assignment
     T zero(0);
     T one(1);
