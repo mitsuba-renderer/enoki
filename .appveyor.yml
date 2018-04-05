@@ -5,8 +5,6 @@ test: off
 skip_branch_with_pr: true
 platform:
 - x64
-build:
-  parallel: true
 matrix:
   fast_finish: true
 configuration:
@@ -41,5 +39,5 @@ build_script:
 - set preferredToolArchitecture=x64
 - cmake -G "Visual Studio 15 2017" -A "x64" -DCMAKE_SUPPRESS_REGENERATION=1 -DTEST_NAME=%TEST_NAME%
 - set MSBuildLogger="C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
-- cmake --build . --config %CONFIGURATION% -- /v:m /m /logger:%MSBuildLogger%
+- cmake --build . --config %CONFIGURATION% -- /v:m /logger:%MSBuildLogger%
 - ctest
