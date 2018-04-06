@@ -1302,10 +1302,10 @@ struct Array : StaticArrayImpl<Value_, Size_, Approx_, Mode_,
     ENOKI_DECLARE_ARRAY(Base, Array)
 };
 
-template <typename Value, size_t Size, bool Approx, RoundingMode Mode>
-struct Array<detail::MaskedArray<Value>, Size, Approx, Mode>
-    : detail::MaskedArray<Array<Value, Size, Approx, Mode>> {
-    using Base = detail::MaskedArray<Array<Value, Size, Approx, Mode>>;
+template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
+struct Array<detail::MaskedArray<Value_>, Size_, Approx_, Mode_>
+    : detail::MaskedArray<Array<Value_, Size_, Approx_, Mode_>> {
+    using Base = detail::MaskedArray<Array<Value_, Size_, Approx_, Mode_>>;
     using Base::Base;
     using Base::operator=;
     Array(const Base &b) : Base(b) { }
