@@ -91,9 +91,8 @@ ENOKI_TEST_FLOAT(test06_ellint_1) {
         14.28566868 };
 
     for (int i=-10; i<=10; ++i)
-        assert((ellint_1(i, T(.9f))[0] - result[i+10]) < 2e-6);
+        assert((ellint_1(scalar_t<T>(i), T(.9f))[0] - result[i+10]) < 2e-6);
 }
-
 
 ENOKI_TEST_FLOAT(test07_comp_ellint_1) {
     double result[] = { 1.570796327, 1.574745562, 1.586867847, 1.608048620,
@@ -112,7 +111,7 @@ ENOKI_TEST_FLOAT(test08_ellint_2) {
         7.580388582 };
 
     for (int i=-10; i<=10; ++i)
-        assert((ellint_2(i, T(.9f))[0] - result[i+10]) < 3e-6);
+        assert((ellint_2(scalar_t<T>(i), T(.9f))[0] - result[i+10]) < 3e-6);
 }
 
 ENOKI_TEST_FLOAT(test09_comp_ellint_2) {
