@@ -1862,6 +1862,7 @@ template <typename T> struct MaskedArray : ArrayBase<value_t<T>, MaskedArray<T>>
         std::conditional_t<std::is_scalar<value_t<T>>::value,
         MaskedValue<value_t<T>>,
         MaskedArray<value_t<T>>>;
+    using UnmaskedValue = value_t<T>;
 
     MaskedArray(T &d, const mask_t<T> &m) : d(d), m(m) { }
 

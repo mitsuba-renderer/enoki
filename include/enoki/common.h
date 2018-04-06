@@ -179,6 +179,7 @@ template <typename     Arg, typename SFINAE = int> struct mask_;
 template <typename     Arg, typename SFINAE = int> struct array_;
 template <typename     Arg, typename SFINAE = int> struct packet_;
 template <typename     Arg, typename SFINAE = int> struct array_shape_;
+template <typename T> struct MaskedArray;
 
 NAMESPACE_END(detail)
 
@@ -233,6 +234,18 @@ public:
     using type = decltype(check((std::decay_t<T> *) nullptr));
     static constexpr bool value = type::value;
 };
+
+/// SFINAE helper to test whether a class is a masked array type
+template <typename T> struct is_masked_array {
+private:
+    static constexpr std::false_type check(void *);
+    template <typename Value>
+    static constexpr std::true_type check(detail::MaskedArray<Value> *);
+public:
+    using type = decltype(check((std::decay_t<T> *) nullptr));
+    static constexpr bool value = type::value;
+};
+
 
 /// SFINAE helper to test whether a initializing an array with a given type should broadcast if possible
 template <typename T> struct broadcast {
@@ -396,8 +409,12 @@ template <typename T> struct scalar_<T, enable_if_array_t<T>> {
 /// Value trait to access the packet/component type of an array
 template <typename T, typename> struct packet_ { using type = T; };
 
-template <typename T> struct packet_<T, std::enable_if_t<is_array<T>::value && !is_dynamic_array<T>::value, int>> {
+template <typename T> struct packet_<T, std::enable_if_t<is_array<T>::value && !is_dynamic_array<T>::value && !is_masked_array<T>::value, int>> {
     using type = typename std::decay_t<T>::Value;
+};
+
+template <typename T> struct packet_<T, std::enable_if_t<is_array<T>::value && is_masked_array<T>::value, int>> {
+    using type = typename std::decay_t<T>::UnmaskedValue;
 };
 
 template <typename T> struct packet_<T, std::enable_if_t<is_array<T>::value && is_dynamic_array<T>::value, int>> {

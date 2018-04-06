@@ -33,16 +33,16 @@ template <typename Value_> struct Custom {
 ENOKI_STRUCT_DYNAMIC(Custom, o, d)
 
 ENOKI_TEST(test01_mask_slice_custom) {
-    using Float = float;
-    using FloatP = Packet<Float>;
-    using Vector3f = Array<Float, 3>;
-    using Custom3f = Custom<Float>;
+    using FloatP = Packet<float>;
+    using Vector3f = Array<float, 3>;
+    using Vector3d = Array<double, 3>;
+    using Custom3f = Custom<float>;
     using Custom3fP = Custom<FloatP>;
 
     Custom3fP x = zero<Custom3fP>();
     Custom3fP y;
     y.o = Vector3f(1, 2, 3);
-    y.d = Vector3f(4, 5, 6);
+    y.d = Vector3d(4, 5, 6);
     auto mask = index_sequence<FloatP>() > 0;
 
     masked(x, mask) = y;
