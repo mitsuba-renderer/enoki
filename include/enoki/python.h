@@ -14,6 +14,7 @@
 #pragma once
 
 #include "array.h"
+#include "complex.h"
 #include <pybind11/numpy.h>
 
 NAMESPACE_BEGIN(pybind11)
@@ -44,6 +45,7 @@ template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_dyn
 
 template<typename Value> struct type_caster<Value, std::enable_if_t<enoki::is_array<Value>::value>> {
     using Scalar = std::conditional_t<Value::IsMask, bool, enoki::scalar_t<Value>>;
+    static constexpr bool is_complex = enoki::is_complex<Value>::value;
 
     bool load(handle src, bool convert) {
         if (src.is_none()) {
@@ -52,13 +54,25 @@ template<typename Value> struct type_caster<Value, std::enable_if_t<enoki::is_ar
         }
         if (!convert && !isinstance<array_t<Scalar>>(src))
             return false;
+        constexpr size_t ndim = enoki::array_depth<Value>::value;
 
-        auto arr = array_t<Scalar, array::f_style | array::forcecast>::ensure(src);
+        array arr = reinterpret_borrow<array>(src);
+        if (is_complex) {
+            auto np = module::import("numpy");
+            try {
+                arr = np.attr("asarray")(arr, sizeof(Scalar) == 4 ? "c8" : "c16", "F");
+                arr = np.attr("expand_dims")(arr, -1).attr("view")(
+                    sizeof(Scalar) == 4 ? "f4" : "f8");
+            } catch (error_already_set) {
+                return false;
+            }
+        }
+
+        arr = array_t<Scalar, array::f_style | array::forcecast>::ensure(arr);
         if (!arr)
             return false;
 
-        constexpr size_t ndim = enoki::array_depth<Value>::value;
-        if (ndim != arr.ndim() && !(arr.ndim() == 0 && convert))
+        if (ndim != arr.ndim() && !((arr.ndim() == 0 || (arr.ndim() == 1 && is_complex)) && convert))
             return false;
 
         std::array<size_t, ndim> shape;
@@ -101,15 +115,29 @@ template<typename Value> struct type_caster<Value, std::enable_if_t<enoki::is_ar
 
         Scalar *buf = static_cast<Scalar *>(arr.mutable_data());
         write_buffer(buf, src);
+
+        if (is_complex) {
+            auto np = module::import("numpy");
+            arr = np.attr("asfortranarray")(np.attr("moveaxis")(arr, 0, -1)).attr("view")(
+                        sizeof(Scalar) == 4 ? "c8" : "c16").attr("squeeze")(0);
+        }
+
         return arr.release();
     }
 
     template <typename _T> using cast_op_type = pybind11::detail::cast_op_type<_T>;
 
-    static constexpr auto name =
+    static constexpr auto name_default =
             _("numpy.ndarray[dtype=") +
             npy_format_descriptor<Scalar>::name + _(", shape=(") +
             array_shape_descr<Value>::name() + _(")]");
+
+    static constexpr auto name_complex =
+            _("numpy.ndarray[dtype=Complex[") +
+            npy_format_descriptor<Scalar>::name + _("], shape=(") +
+            array_shape_descr<enoki::value_t<Value>>::name() + _(")]");
+
+    static constexpr auto name = _<is_complex>(name_complex, name_default);
 
     operator Value*() { if (is_none) return nullptr; else return &value; }
     operator Value&() {

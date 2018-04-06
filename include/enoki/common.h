@@ -183,6 +183,8 @@ template <typename T> struct MaskedArray;
 
 NAMESPACE_END(detail)
 
+template <typename Value, bool Approx> struct Complex;
+
 //! @}
 // -----------------------------------------------------------------------
 
@@ -246,6 +248,16 @@ public:
     static constexpr bool value = type::value;
 };
 
+/// SFINAE helper to test whether a class is a masked array type
+template <typename T> struct is_complex {
+private:
+    static constexpr std::false_type check(void *);
+    template <typename Value, bool Approx>
+    static constexpr std::true_type check(Complex<Value, Approx> *);
+public:
+    using type = decltype(check((std::decay_t<T> *) nullptr));
+    static constexpr bool value = type::value;
+};
 
 /// SFINAE helper to test whether a initializing an array with a given type should broadcast if possible
 template <typename T> struct broadcast {
