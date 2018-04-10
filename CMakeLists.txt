@@ -38,6 +38,8 @@ if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "armv7")
 elseif (${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
   set(ENOKI_ARCHFLAGS -march=armv8-a+simd -mtune=cortex-a53)
   set(ENOKI_NATIVE_FLAGS ${ENOKI_ARCHFLAGS})
+elseif (CMAKE_CXX_COMPILER MATCHES "/em\\+\\+(-[a-zA-Z0-9.])?$")
+  # Emscripten
 else()
   try_run(
     ENOKI_ARCHFLAGS_RETVAL ENOKI_ARCHFLAGS_COMPILE_RESULT

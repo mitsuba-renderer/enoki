@@ -780,7 +780,7 @@ ENOKI_INLINE T xor_(T a, bool b) {
 }
 
 ENOKI_INLINE bool not_(bool a) { return !a; }
-ENOKI_INLINE bool andnot_(bool a, bool b) { return a & !b; }
+ENOKI_INLINE bool andnot_(bool a, bool b) { return a && !b; }
 
 template <typename T1, typename T2, std::enable_if_t<supports_bit_op<T1, T2>::value, int> = 0>
 ENOKI_INLINE auto or_(const T1 &a, const T2 &b) { return a | b; }
