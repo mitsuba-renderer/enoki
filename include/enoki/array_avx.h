@@ -674,9 +674,13 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
             __m256d ro = r, t0, t1;
 
             /* Refine using 1-2 Newton-Raphson iterations */
-            ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
+            t0 = _mm256_add_pd(r, r);
+            t1 = _mm256_mul_pd(r, m);
+            r = _mm256_fnmadd_pd(t1, r, t0);
+
+            if (!has_avx512er) {
                 t0 = _mm256_add_pd(r, r);
-                t1 = _mm256_mul_pd(r, m);
+                __m256d t1 = _mm256_mul_pd(r, m);
                 r = _mm256_fnmadd_pd(t1, r, t0);
             }
 
@@ -706,9 +710,13 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(32)
             __m256d ro = r, t0, t1;
 
             /* Refine using 1-2 Newton-Raphson iterations */
-            ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
+            t0 = _mm256_mul_pd(r, c0);
+            t1 = _mm256_mul_pd(r, m);
+            r = _mm256_mul_pd(_mm256_fnmadd_pd(t1, r, c1), t0);
+
+            if (!has_avx512er) {
                 t0 = _mm256_mul_pd(r, c0);
-                t1 = _mm256_mul_pd(r, m);
+                __m256d t1 = _mm256_mul_pd(r, m);
                 r = _mm256_mul_pd(_mm256_fnmadd_pd(t1, r, c1), t0);
             }
 

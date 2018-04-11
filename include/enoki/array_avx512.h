@@ -383,7 +383,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
         constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_prefetch_i32scatter_ps(ptr, index.m, Stride, Hint);
+            _mm512_prefetch_i32scatter_ps((void *) ptr, index.m, Stride, Hint);
         else
             _mm512_prefetch_i32gather_ps(index.m, ptr, Stride, Hint);
     }
@@ -393,7 +393,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
                                        const Mask &mask) {
         constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_mask_prefetch_i32scatter_ps(ptr, mask.k, index.m, Stride, Hint);
+            _mm512_mask_prefetch_i32scatter_ps((void *) ptr, mask.k, index.m, Stride, Hint);
         else
             _mm512_mask_prefetch_i32gather_ps(index.m, mask.k, ptr, Stride, Hint);
     }
@@ -402,8 +402,8 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
         constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write) {
-            _mm512_prefetch_i64scatter_ps(ptr, low(index).m, Stride, Hint);
-            _mm512_prefetch_i64scatter_ps(ptr, high(index).m, Stride, Hint);
+            _mm512_prefetch_i64scatter_ps((void *) ptr, low(index).m, Stride, Hint);
+            _mm512_prefetch_i64scatter_ps((void *) ptr, high(index).m, Stride, Hint);
         } else {
             _mm512_prefetch_i64gather_ps(low(index).m, ptr, Stride, Hint);
             _mm512_prefetch_i64gather_ps(high(index).m, ptr, Stride, Hint);
@@ -415,8 +415,8 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
                                        const Mask &mask) {
         constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write) {
-            _mm512_mask_prefetch_i64scatter_ps(ptr, low(mask).k, low(index).m, Stride, Hint);
-            _mm512_mask_prefetch_i64scatter_ps(ptr, high(mask).k, high(index).m, Stride, Hint);
+            _mm512_mask_prefetch_i64scatter_ps((void *) ptr, low(mask).k, low(index).m, Stride, Hint);
+            _mm512_mask_prefetch_i64scatter_ps((void *) ptr, high(mask).k, high(index).m, Stride, Hint);
         } else {
             _mm512_mask_prefetch_i64gather_ps(low(index).m, low(mask).k, ptr, Stride, Hint);
             _mm512_mask_prefetch_i64gather_ps(high(index).m, high(mask).k, ptr, Stride, Hint);
@@ -919,7 +919,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
         constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_prefetch_i32scatter_pd(ptr, index.m, Stride, Hint);
+            _mm512_prefetch_i32scatter_pd((void *) ptr, index.m, Stride, Hint);
         else
             _mm512_prefetch_i32gather_pd(index.m, ptr, Stride, Hint);
     }
@@ -929,7 +929,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
                                        const Mask &mask) {
         constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_mask_prefetch_i32scatter_pd(ptr, mask.k, index.m, Stride, Hint);
+            _mm512_mask_prefetch_i32scatter_pd((void *) ptr, mask.k, index.m, Stride, Hint);
         else
             _mm512_mask_prefetch_i32gather_pd(index.m, mask.k, ptr, Stride, Hint);
     }
@@ -938,7 +938,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
         constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_prefetch_i64scatter_pd(ptr, index.m, Stride, Hint);
+            _mm512_prefetch_i64scatter_pd((void *) ptr, index.m, Stride, Hint);
         else
             _mm512_prefetch_i64gather_pd(index.m, ptr, Stride, Hint);
     }
@@ -948,7 +948,7 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
                                        const Mask &mask) {
         constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_mask_prefetch_i64scatter_pd(ptr, mask.k, index.m, Stride, Hint);
+            _mm512_mask_prefetch_i64scatter_pd((void *) ptr, mask.k, index.m, Stride, Hint);
         else
             _mm512_mask_prefetch_i64gather_pd(index.m, mask.k, ptr, Stride, Hint);
     }
@@ -1378,7 +1378,7 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
         constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_prefetch_i32scatter_ps(ptr, index.m, Stride, Hint);
+            _mm512_prefetch_i32scatter_ps((void *) ptr, index.m, Stride, Hint);
         else
             _mm512_prefetch_i32gather_ps(index.m, ptr, Stride, Hint);
     }
@@ -1387,7 +1387,7 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index, const Mask &mask) {
         constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_mask_prefetch_i32scatter_ps(ptr, mask.k, index.m, Stride, Hint);
+            _mm512_mask_prefetch_i32scatter_ps((void *) ptr, mask.k, index.m, Stride, Hint);
         else
             _mm512_mask_prefetch_i32gather_ps(index.m, mask.k, ptr, Stride, Hint);
     }
@@ -1396,8 +1396,8 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
         constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write) {
-            _mm512_prefetch_i64scatter_ps(ptr, low(index).m, Stride, Hint);
-            _mm512_prefetch_i64scatter_ps(ptr, high(index).m, Stride, Hint);
+            _mm512_prefetch_i64scatter_ps((void *) ptr, low(index).m, Stride, Hint);
+            _mm512_prefetch_i64scatter_ps((void *) ptr, high(index).m, Stride, Hint);
         } else {
             _mm512_prefetch_i64gather_ps(low(index).m, ptr, Stride, Hint);
             _mm512_prefetch_i64gather_ps(high(index).m, ptr, Stride, Hint);
@@ -1408,8 +1408,8 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index, const Mask &mask) {
         constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write) {
-            _mm512_mask_prefetch_i64scatter_ps(ptr, low(mask).k, low(index).m, Stride, Hint);
-            _mm512_mask_prefetch_i64scatter_ps(ptr, high(mask).k, high(index).m, Stride, Hint);
+            _mm512_mask_prefetch_i64scatter_ps((void *) ptr, low(mask).k, low(index).m, Stride, Hint);
+            _mm512_mask_prefetch_i64scatter_ps((void *) ptr, high(mask).k, high(index).m, Stride, Hint);
         } else {
             _mm512_mask_prefetch_i64gather_ps(low(index).m, low(mask).k, ptr, Stride, Hint);
             _mm512_mask_prefetch_i64gather_ps(high(index).m, high(mask).k, ptr, Stride, Hint);
@@ -1891,7 +1891,7 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
         constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_prefetch_i32scatter_pd(ptr, index.m, Stride, Hint);
+            _mm512_prefetch_i32scatter_pd((void *) ptr, index.m, Stride, Hint);
         else
             _mm512_prefetch_i32gather_pd(index.m, ptr, Stride, Hint);
     }
@@ -1900,7 +1900,7 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index, const Mask &mask) {
         constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_mask_prefetch_i32scatter_pd(ptr, mask.k, index.m, Stride, Hint);
+            _mm512_mask_prefetch_i32scatter_pd((void *) ptr, mask.k, index.m, Stride, Hint);
         else
             _mm512_mask_prefetch_i32gather_pd(index.m, mask.k, ptr, Stride, Hint);
     }
@@ -1909,7 +1909,7 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index) {
         constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_prefetch_i64scatter_pd(ptr, index.m, Stride, Hint);
+            _mm512_prefetch_i64scatter_pd((void *) ptr, index.m, Stride, Hint);
         else
             _mm512_prefetch_i64gather_pd(index.m, ptr, Stride, Hint);
     }
@@ -1918,7 +1918,7 @@ template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(64)
     static ENOKI_INLINE void prefetch_(const void *ptr, const Index &index, const Mask &mask) {
         constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if (Write)
-            _mm512_mask_prefetch_i64scatter_pd(ptr, mask.k, index.m, Stride, Hint);
+            _mm512_mask_prefetch_i64scatter_pd((void *) ptr, mask.k, index.m, Stride, Hint);
         else
             _mm512_mask_prefetch_i64gather_pd(index.m, mask.k, ptr, Stride, Hint);
     }

@@ -674,9 +674,13 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
             __m128d ro = r, t0, t1;
 
             /* Refine using 1-2 Newton-Raphson iterations */
-            ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
+            t0 = _mm_add_pd(r, r);
+            t1 = _mm_mul_pd(r, m);
+            r = _mm_fnmadd_pd(t1, r, t0);
+
+            if (!has_avx512er) {
                 t0 = _mm_add_pd(r, r);
-                t1 = _mm_mul_pd(r, m);
+                __m128d t1 = _mm_mul_pd(r, m);
                 r = _mm_fnmadd_pd(t1, r, t0);
             }
 
@@ -687,35 +691,45 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
     }
 
     ENOKI_INLINE Derived rsqrt_() const {
-        if (Approx) {
-            /* Use best reciprocal square root approximation available
-               on the current hardware and refine */
-            __m128d r;
-            #if defined(ENOKI_X86_AVX512ER)
-                /* rel err < 2^28 */
-                r = _mm512_castpd512_pd128(
-                    _mm512_rsqrt28_pd(_mm512_castpd128_pd512(m)));
-            #elif defined(ENOKI_X86_AVX512VL)
-                r = _mm_rsqrt14_pd(m); /* rel error < 2^-14 */
-            #endif
+        #if defined(ENOKI_X86_AVX512ER)
+            /* rel err < 2^28, use as is (even in non-approximate mode) */
+            return _mm512_castpd512_pd128(
+                _mm512_rsqrt28_pd(_mm512_castpd128_pd512(m)));
+        #else
+            if (Approx) {
+                /* Use best reciprocal square root approximation available
+                   on the current hardware and refine */
+                __m128d r;
+                #if defined(ENOKI_X86_AVX512VL)
+                    r = _mm_rsqrt14_pd(m); /* rel error < 2^-14 */
+                #else
+                    r = _mm_rsqrt_pd(m);   /* rel error < 1.5*2^-12 */
+                #endif
 
-            const __m128d c0 = _mm_set1_pd(0.5),
-                          c1 = _mm_set1_pd(3.0);
+                const __m128d c0 = _mm_set1_pd(0.5),
+                              c1 = _mm_set1_pd(3.0);
 
-            __m128d ro = r, t0, t1;
+                __m128d t0, t1, ro = r;
 
-            /* Refine using 1-2 Newton-Raphson iterations */
-            ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
+                /* Refine using one Newton-Raphson iteration */
                 t0 = _mm_mul_pd(r, c0);
                 t1 = _mm_mul_pd(r, m);
                 r = _mm_mul_pd(_mm_fnmadd_pd(t1, r, c1), t0);
-            }
 
-            return _mm_blendv_pd(r, ro, t1); /* mask bit is '1' iff t1 == nan */
-        } else {
-            return Base::rsqrt_();
-        }
+                if (!has_avx512er) {
+                    t0 = _mm_mul_pd(r, c0);
+                    __m128d t1 = _mm_mul_pd(r, m);
+                    r = _mm_mul_pd(_mm_fnmadd_pd(t1, r, c1), t0);
+                }
+
+                return _mm_blendv_pd(r, ro, t1); /* mask bit is '1' iff t1 == nan */
+            } else {
+                return Base::rsqrt_();
+            }
+        #endif
     }
+
+
 #endif
 
     //! @}

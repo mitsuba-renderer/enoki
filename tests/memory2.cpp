@@ -42,9 +42,8 @@ ENOKI_TEST_ALL(test03_transform) {
     transform<T>(tmp, index2, mask_t<T>(false), [](auto& value) { value += Value(1); });
 
     assert(tmp[0] == Size + 1);
-    for (size_t i = 1; i < Size; ++i) {
+    for (size_t i = 1; i < Size; ++i)
         assert(tmp[i] == 1);
-    }
 }
 
 #if defined(_MSC_VER)
