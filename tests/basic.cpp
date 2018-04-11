@@ -530,7 +530,7 @@ ENOKI_TEST_ALL(test29_pointer_arithmetic) {
         y -= UInt32P(1);
         assert(x == y);
 
-        Class z; z.x = 0; /* Quench warnings */
+        Class z; z.x = 0; (void) z; /* Quench warnings */
     }
 
     /* Non-power of two sized instance */ {
@@ -551,6 +551,6 @@ ENOKI_TEST_ALL(test29_pointer_arithmetic) {
         y -= UInt32P(1);
         assert(x == y);
 
-        Class z; z.x[0] =0; /* Quench warnings */
+        Class z; z.x[0] = 0; (void) z; /* Quench warnings */
     }
 }

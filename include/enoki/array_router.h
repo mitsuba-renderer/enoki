@@ -308,7 +308,8 @@ ENOKI_ROUTE_UNARY_SCALAR(isfinite, isfinite, std::isfinite(a))
 /// Break floating-point number into normalized fraction and power of 2 (scalar fallback)
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE std::pair<Arg, Arg> frexp(const Arg &a) {
-#if defined(ENOKI_X86_AVX512F)
+#if defined(ENOKI_X86_AVX512F) && (!defined(__GNUG__) || defined(__clang__))
+    /// GCC 7 seems to have some issues with these intrinsics
     if (std::is_same<Arg, float>::value) {
         __m128 v = _mm_set_ss((float) a);
         return std::make_pair(

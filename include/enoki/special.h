@@ -285,7 +285,7 @@ Value carlson_rf(Vector3 xyz) {
     static_assert(
         Vector3::Size == 3,
         "carlson_rf(): Expected a three-dimensional input vector (x, y, z)");
-    assert(all_nested(xyz.x() >= 0 && xyz.y() > 0 && xyz.z() > 0));
+    assert(all_nested(xyz.x() >= 0.f && xyz.y() > 0.f && xyz.z() > 0.f));
 
     Vector3 XYZ;
     Value mu_inv;
@@ -297,7 +297,7 @@ Value carlson_rf(Vector3 xyz) {
         Value lambda = dot(shuffle<1, 2, 0>(sqrt_xyz), sqrt_xyz);
         Value mu = hsum(xyz) * Scalar(1.0 / 3.0);
         mu_inv = rcp(mu);
-        XYZ = fnmadd(xyz, mu_inv, 1);
+        XYZ = fnmadd(xyz, mu_inv, Scalar(1));
         Value eps = hmax(abs(XYZ));
         active &= eps > Scalar(std::is_same<Scalar, double>::value
                                    ? 0.0024608
@@ -306,7 +306,7 @@ Value carlson_rf(Vector3 xyz) {
         if (none(active) || ++iterations == 10)
             break;
 
-        xyz[mask_t<Vector3>(active)] = (xyz + lambda) * Scalar(0.25f);
+        xyz[mask_t<Vector3>(active)] = (xyz + lambda) * Scalar(0.25);
     }
 
     /* Use recurrences for cheaper polynomial evaluation. Based
@@ -339,7 +339,7 @@ Value carlson_rd(Vector3 xyz) {
     static_assert(
         Vector3::Size == 3,
         "carlson_rd(): Expected a three-dimensional input vector (x, y, z)");
-    assert(all_nested(xyz.x() >= 0 && xyz.y() > 0 && xyz.z() > 0));
+    assert(all_nested(xyz.x() >= 0.f && xyz.y() > 0.f && xyz.z() > 0.f));
 
     Vector3 XYZ;
     Value mu_inv;
@@ -354,7 +354,7 @@ Value carlson_rd(Vector3 xyz) {
         Value lambda = dot(shuffle<1, 2, 0>(sqrt_xyz), sqrt_xyz);
         Value mu = hsum(xyz * W);
         mu_inv = rcp(mu);
-        XYZ = fnmadd(xyz, mu_inv, 1);
+        XYZ = fnmadd(xyz, mu_inv, Scalar(1));
         Value eps = hmax(abs(XYZ));
         active &= eps > Scalar(std::is_same<Scalar, double>::value
                                    ? (0.0024608 * 0.6)
@@ -384,7 +384,7 @@ Value carlson_rd(Vector3 xyz) {
               z * (Scalar(1.0 / 6.0) * ee + z *
                     (-Scalar(9.0 / 22.0) * ec + z * Scalar(3.0 / 26.0) * ea));
 
-    return 3 * sum + num * mu_inv * sqrt(mu_inv) * (Scalar(1.0) + p);
+    return Scalar(3) * sum + num * mu_inv * sqrt(mu_inv) * (Scalar(1.0) + p);
 }
 
 /**
@@ -405,7 +405,7 @@ Value carlson_rc(Vector2 xy) {
     static_assert(
         Vector2::Size == 2,
         "carlson_rc(): Expected a two-dimensional input vector (x, y)");
-    assert(all(xy.x() >= 0 && xy.y() > 0));
+    assert(all(xy.x() >= 0.f && xy.y() > 0.f));
 
     mask_t<Value> active = true;
     Value inv_mu, s;
@@ -456,7 +456,7 @@ Value carlson_rj(Vector4 xyzr) {
     static_assert(
         Vector4::Size == 4,
         "carlson_rj(): Expected a four-dimensional input vector (x, y, z, rho)");
-    assert(all(xyzr.x() >= 0 && xyzr.y() > 0 && xyzr.z() > 0 && xyzr.w() > 0));
+    assert(all(xyzr.x() >= 0.f && xyzr.y() > 0.f && xyzr.z() > 0.f && xyzr.w() > 0.f));
 
     Vector4 XYZR;
     Value mu_inv;
@@ -473,7 +473,7 @@ Value carlson_rj(Vector4 xyzr) {
 
         Value mu = (hsum(xyzr) + rho) * Scalar(1.0 / 5.0);
         mu_inv = rcp(mu);
-        XYZR = fnmadd(xyzr, mu_inv, 1);
+        XYZR = fnmadd(xyzr, mu_inv, Scalar(1));
         Value eps = hmax(abs(XYZR));
         active &= eps > Scalar(std::is_same<Scalar, double>::value
                                    ? (0.0024608 * 0.6)
@@ -539,8 +539,8 @@ Value ellint_1(Phi phi_, K k) {
           result = 0,
           sin_phi, cos_phi;
 
-    if (ENOKI_UNLIKELY(any(neq(n, 0)))) {
-        result = comp_ellint_1(k) * n * 2;
+    if (ENOKI_UNLIKELY(any(neq(n, Scalar(0))))) {
+        result = comp_ellint_1(k) * n * Scalar(2);
         phi = fnmadd(n, Scalar(M_PI), phi);
     }
 
@@ -574,8 +574,8 @@ Value ellint_2(Phi phi_, K k) {
           result = 0,
           sin_phi, cos_phi;
 
-    if (ENOKI_UNLIKELY(any(neq(n, 0)))) {
-        result = comp_ellint_2(k) * n * 2;
+    if (ENOKI_UNLIKELY(any(neq(n, Scalar(0))))) {
+        result = comp_ellint_2(k) * n * Scalar(2);
         phi = fnmadd(n, Scalar(M_PI), phi);
     }
 
@@ -612,8 +612,8 @@ Value ellint_3(Phi phi_, K k, Nu nu) {
           result = 0,
           sin_phi, cos_phi;
 
-    if (ENOKI_UNLIKELY(any(neq(n, 0)))) {
-        result = comp_ellint_3(k, nu) * n * 2;
+    if (ENOKI_UNLIKELY(any(neq(n, Scalar(0))))) {
+        result = comp_ellint_3(k, nu) * n * Scalar(2);
         phi = fnmadd(n, Scalar(M_PI), phi);
     }
 

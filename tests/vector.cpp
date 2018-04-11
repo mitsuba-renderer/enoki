@@ -275,8 +275,8 @@ ENOKI_TEST(test_unit_angle) {
     Random rng;
 
     for (int i = 0; i < 30; ++i) {
-        Vector3f a = normalize(rng.next_float32() * 2 - 1);
-        Vector3f b = normalize(rng.next_float32() * 2 - 1);
+        Vector3f a = normalize(rng.next_float32() * 2.f - 1.f);
+        Vector3f b = normalize(rng.next_float32() * 2.f - 1.f);
 
         assert(std::abs(acos(dot(a, b)) - unit_angle(a, b)) < 1e-6f);
     }
@@ -302,13 +302,13 @@ ENOKI_TEST(masked_assignment) {
     using Matrix4fP = Matrix<FloatP, 4>;
 
     Matrix4fP z = identity<Matrix4f>();
-    masked(z, true) *= 2;
-    masked(z, z > 0) *= 2;
-    masked(z, eq(index_sequence<FloatP>(), 0.f)) *= 2;
-    assert(z.coeff(0, 0, 0) == 8);
+    masked(z, true) *= 2.f;
+    masked(z, z > 0.f) *= 2.f;
+    masked(z, eq(index_sequence<FloatP>(), 0.f)) *= 2.f;
+    assert(z.coeff(0, 0, 0) == 8.f);
 
     if (FloatP::Size > 1) {
-        assert(z.coeff(0, 0, 1) == 4);
-        assert(z.coeff(1, 0, 1) == 0);
+        assert(z.coeff(0, 0, 1) == 4.f);
+        assert(z.coeff(1, 0, 1) == 0.f);
     }
 }

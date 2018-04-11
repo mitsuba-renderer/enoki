@@ -91,7 +91,7 @@ ENOKI_TEST_FLOAT(test06_ellint_1) {
         14.28566868 };
 
     for (int i=-10; i<=10; ++i)
-        assert((ellint_1(scalar_t<T>(i), T(.9f))[0] - result[i+10]) < 2e-6);
+        assert((ellint_1(T((float) i), T(.9f))[0] - result[i+10]) < 2e-6);
 }
 
 ENOKI_TEST_FLOAT(test07_comp_ellint_1) {
@@ -100,7 +100,7 @@ ENOKI_TEST_FLOAT(test07_comp_ellint_1) {
                         1.995302778, 2.280549138 };
 
     for (int i=0; i<10; ++i)
-        assert((comp_ellint_1(T(i/10.f))[0] - result[i]) < 1e-6);
+        assert((comp_ellint_1(T((float) i/10.f))[0] - result[i]) < 1e-6);
 }
 
 ENOKI_TEST_FLOAT(test08_ellint_2) {
@@ -120,7 +120,7 @@ ENOKI_TEST_FLOAT(test09_comp_ellint_2) {
                         1.276349943, 1.171697053 };
 
     for (int i=0; i<10; ++i)
-        assert((comp_ellint_2(T(i/10.f))[0] - result[i]) < 1e-6);
+        assert((comp_ellint_2(T((float) i/10.f))[0] - result[i]) < 1e-6);
 }
 
 ENOKI_TEST_FLOAT(test10_ellint_3) {
@@ -150,7 +150,7 @@ ENOKI_TEST_FLOAT(test10_ellint_3) {
     int k = 0;
     for (int j = 0; j < 10; ++j)
         for (int i = 0; i < 10; ++i)
-            assert(std::abs(ellint_3(1.0f, i / 10.f, T(j / 10.f))[0] - values[k++]) <
+            assert(std::abs(ellint_3(1.0f, (float) i / 10.f, T((float) j / 10.f))[0] - values[k++]) <
                    1e-6f);
 
     double values2[] = { -11.3057, -10.3096, -9.16461, -7.87078, -6.87262,
@@ -191,6 +191,6 @@ ENOKI_TEST_FLOAT(test11_comp_ellint_3) {
     int k = 0;
     for (int j = 0; j < 10; ++j)
         for (int i = 0; i < 10; ++i)
-            assert(std::abs(comp_ellint_3(i / 10.0, T(j / 10.f))[0] - values[k++]) <
+            assert(std::abs(comp_ellint_3((double) i / 10.0, T((float) j / 10.f))[0] - values[k++]) <
                    1e-6f);
 }

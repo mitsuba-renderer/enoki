@@ -11,6 +11,10 @@
     license that can be found in the LICENSE file.
 */
 
+#if defined(__GNUG__)
+#  pragma GCC diagnostic ignored "-Wconversion"
+#endif
+
 #include "test.h"
 
 template <typename T, typename Value2> void convtest() {
