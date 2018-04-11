@@ -840,6 +840,13 @@ struct DynamicArray : DynamicArrayImpl<Value_, DynamicArray<Value_>> {
     using Base::Base;
     using Base::operator=;
 
+#if defined(__GNUG__) && !defined(__clang__)
+    DynamicArray(const DynamicArray &) = default;
+    DynamicArray(DynamicArray &&) = default;
+    DynamicArray& operator=(const DynamicArray &) = default;
+    DynamicArray& operator=(DynamicArray &&) = default;
+#endif
+
     template <typename T>
     using ReplaceType = DynamicArray<T>;
 };

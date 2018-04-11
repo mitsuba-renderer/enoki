@@ -15,6 +15,7 @@
 
 #include "fwd.h"
 #include <cstdlib>
+#include <cstring>
 #include <new>
 
 #if defined(__linux__)

@@ -285,7 +285,7 @@ Value carlson_rf(Vector3 xyz) {
     static_assert(
         Vector3::Size == 3,
         "carlson_rf(): Expected a three-dimensional input vector (x, y, z)");
-    assert(all_nested(xyz.x() >= 0.f && xyz.y() > 0.f && xyz.z() > 0.f));
+    assert(all_nested(xyz.x() >= Scalar(0) && xyz.y() > Scalar(0) && xyz.z() > Scalar(0)));
 
     Vector3 XYZ;
     Value mu_inv;
@@ -339,7 +339,7 @@ Value carlson_rd(Vector3 xyz) {
     static_assert(
         Vector3::Size == 3,
         "carlson_rd(): Expected a three-dimensional input vector (x, y, z)");
-    assert(all_nested(xyz.x() >= 0.f && xyz.y() > 0.f && xyz.z() > 0.f));
+    assert(all_nested(xyz.x() >= Scalar(0) && xyz.y() > Scalar(0) && xyz.z() > Scalar(0)));
 
     Vector3 XYZ;
     Value mu_inv;
@@ -405,7 +405,7 @@ Value carlson_rc(Vector2 xy) {
     static_assert(
         Vector2::Size == 2,
         "carlson_rc(): Expected a two-dimensional input vector (x, y)");
-    assert(all(xy.x() >= 0.f && xy.y() > 0.f));
+    assert(all(xy.x() >= Scalar(0) && xy.y() > Scalar(0)));
 
     mask_t<Value> active = true;
     Value inv_mu, s;
@@ -456,7 +456,7 @@ Value carlson_rj(Vector4 xyzr) {
     static_assert(
         Vector4::Size == 4,
         "carlson_rj(): Expected a four-dimensional input vector (x, y, z, rho)");
-    assert(all(xyzr.x() >= 0.f && xyzr.y() > 0.f && xyzr.z() > 0.f && xyzr.w() > 0.f));
+    assert(all(xyzr.x() >= Scalar(0) && xyzr.y() > Scalar(0) && xyzr.z() > Scalar(0) && xyzr.w() > Scalar(0)));
 
     Vector4 XYZR;
     Value mu_inv;
