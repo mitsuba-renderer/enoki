@@ -1347,12 +1347,10 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
             */
             using UInt = scalar_t<int_array_t<Expr>>;
 
-            const Expr inf(std::numeric_limits<Scalar>::infinity());
-
             Expr x(derived());
 
             /* Catch negative and NaN values */
-            auto valid_mask = x > Scalar(0);
+            auto valid_mask = x >= Scalar(0);
 
             /* The frexp in array_base.h does not handle denormalized numbers,
                cut them off. The AVX512 backend does support them, however. */
@@ -1438,7 +1436,15 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
                 r = select(mask_e_big, r_big, r_small);
                 r = fmadd(e, Scalar(0.693359375), r);
             }
-            r = select(eq(derived(), inf), inf, r | ~valid_mask);
+
+            /* Handle a few special cases */
+            const Expr n_inf(-std::numeric_limits<Scalar>::infinity());
+            const Expr p_inf(std::numeric_limits<Scalar>::infinity());
+
+            r.massign_(p_inf, eq(derived(), p_inf));
+            r.massign_(n_inf, eq(derived(), 0.f));
+
+            return r | ~valid_mask;
         } else {
             ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
                 r.coeff(i) = log(derived().coeff(i));

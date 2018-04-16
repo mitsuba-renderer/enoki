@@ -290,8 +290,8 @@ template <typename Value_,
           RoundingMode Mode_ = RoundingMode::Default>
 struct Packet;
 
-template <typename Value, size_t Size, bool Approx = detail::approx_default<Value>::value, RoundingMode Mode = RoundingMode::Default> struct Mask;
-template <typename Value, size_t Size, bool Approx = detail::approx_default<Value>::value, RoundingMode Mode = RoundingMode::Default> struct PacketMask;
+template <typename Value_, size_t Size_, bool Approx_ = detail::approx_default<Value_>::value, RoundingMode Mode_ = RoundingMode::Default> struct Mask;
+template <typename Value_, size_t Size_, bool Approx_ = detail::approx_default<Value_>::value, RoundingMode Mode_ = RoundingMode::Default> struct PacketMask;
 
 template<typename T, typename U> T memcpy_cast(const U &);
 
