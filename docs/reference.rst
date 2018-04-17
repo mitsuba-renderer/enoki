@@ -797,6 +797,10 @@ Elementary Arithmetic Functions
 
     Efficiently multiplies ``x`` by the sign of ``y``.
 
+.. cpp:function:: template <typename Array> Array sqr(Array x)
+
+    Computes the square of :math:`x` (analogous to ``x*x``)
+
 .. cpp:function:: template <typename Array> Array sqrt(Array x)
 
     Computes the square root of :math:`x` (analogous to ``std::sqrt``).

@@ -768,6 +768,11 @@ ENOKI_INLINE Arg shuffle(const Arg &arg) {
     return arg;
 }
 
+//// Compute the square of the given value
+template <typename Arg, typename E = expr_t<Arg>> ENOKI_INLINE E sqr(const Arg &value) {
+    return value * value;
+}
+
 //// Convert radians to degrees
 template <typename Arg, typename E = expr_t<Arg>> ENOKI_INLINE E rad_to_deg(const Arg &value) {
     return scalar_t<E>(180 / M_PI) * value;
