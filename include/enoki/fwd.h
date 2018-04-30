@@ -205,6 +205,10 @@
 
 #define ENOKI_CHKSCALAR if (std::is_arithmetic<std::decay_t<Value>>::value) { ENOKI_TRACK_SCALAR }
 
+#if !defined(ENOKI_APPROX_DEFAULT)
+#  define ENOKI_APPROX_DEFAULT 1
+#endif
+
 NAMESPACE_BEGIN(enoki)
 
 using ssize_t = std::make_signed_t<size_t>;
@@ -251,7 +255,11 @@ using is_std_int =
 
 /// Value trait to determine if a type should be handled using approximate mode by default
 template <typename T, typename = int> struct approx_default {
+#if ENOKI_APPROX_DEFAULT == 1
     static constexpr bool value = is_std_float<std::decay_t<T>>::value;
+#else
+    static constexpr bool value = false;
+#endif
 };
 
 NAMESPACE_END(detail)
