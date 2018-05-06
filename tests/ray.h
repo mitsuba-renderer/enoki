@@ -33,5 +33,5 @@ template <typename Vector_> struct Ray {
     ENOKI_STRUCT(Ray, o, d)
 };
 
-ENOKI_STRUCT_DYNAMIC(Ray, o, d)
+ENOKI_STRUCT_SUPPORT(Ray, o, d)
 

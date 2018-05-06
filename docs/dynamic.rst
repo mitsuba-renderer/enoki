@@ -162,7 +162,7 @@ original type declaration:
                      time, pos, reliable  /* <- list of all attributes in layout order */)
     };
 
-    ENOKI_STRUCT_DYNAMIC(GPSCoord2, time, pos, reliable)
+    ENOKI_STRUCT_SUPPORT(GPSCoord2, time, pos, reliable)
 
 The two highlighted changes play the following roles:
 

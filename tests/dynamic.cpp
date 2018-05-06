@@ -163,7 +163,7 @@ template <typename Value> struct GPSCoord2 {
     ENOKI_STRUCT(GPSCoord2, time, pos, reliable)
 };
 
-ENOKI_STRUCT_DYNAMIC(GPSCoord2, time, pos, reliable)
+ENOKI_STRUCT_SUPPORT(GPSCoord2, time, pos, reliable)
 
 
 /// Calculate the distance in kilometers between 'r1' and 'r2' using the haversine formula
