@@ -116,6 +116,7 @@
 #define ENOKI_MAP_EXPR_T2_1(f, t, x, peek, ...) \
     f<decltype(Value::x)>(t) ENOKI_MAP_EXPR_NEXT(peek, ENOKI_MAP_EXPR_T2_0)(f, t, peek, __VA_ARGS__)
 
+
 // ENOKI_MAP_TEMPLATE_FWD(a1, a2, ...) expands to typename Ta1, typename Ta2, ...
 #define ENOKI_MAP_TEMPLATE_FWD(...) \
     ENOKI_EVAL(ENOKI_MAP_TEMPLATE_FWD_0(__VA_ARGS__, (), 0))
@@ -171,21 +172,21 @@
 #define ENOKI_STRUCT(Struct, ...)                                              \
     Struct() = default;                                                        \
     template <ENOKI_MAP_TEMPLATE_FWD(__VA_ARGS__)>                             \
-    Struct(ENOKI_MAP_EXPR_DECL_FWD(__VA_ARGS__))                               \
+    ENOKI_INLINE Struct(ENOKI_MAP_EXPR_DECL_FWD(__VA_ARGS__))                  \
         : ENOKI_MAP_EXPR_FWD(__VA_ARGS__) { }                                  \
     template <typename... Args>                                                \
-    Struct(const Struct<Args...> &value)                                       \
+    ENOKI_INLINE Struct(const Struct<Args...> &value)                          \
         : ENOKI_MAP_EXPR_COPY_V(value, __VA_ARGS__) { }                        \
     template <typename... Args>                                                \
-    Struct(Struct<Args...> &&value)                                            \
+    ENOKI_INLINE Struct(Struct<Args...> &&value)                               \
         : ENOKI_MAP_EXPR_MOVE_V(value, __VA_ARGS__) { }                        \
     template <typename... Args>                                                \
-    Struct &operator=(const Struct<Args...> &value) {                          \
+    ENOKI_INLINE Struct &operator=(const Struct<Args...> &value) {             \
         ENOKI_MAP_STMT_ASSIGN(value, __VA_ARGS__)                              \
         return *this;                                                          \
     }                                                                          \
     template <typename... Args>                                                \
-    Struct &operator=(Struct<Args...> &&value) {                               \
+    ENOKI_INLINE Struct &operator=(Struct<Args...> &&value) {                  \
         ENOKI_MAP_STMT_MOVE(value, __VA_ARGS__)                                \
         return *this;                                                          \
     }
@@ -197,25 +198,25 @@
     Struct() = default;                                                        \
     template <ENOKI_MAP_TEMPLATE_FWD(BaseFields),                              \
               ENOKI_MAP_TEMPLATE_FWD(StructFields)>                            \
-    Struct(ENOKI_MAP_EXPR_DECL_FWD(BaseFields),                                \
+    ENOKI_INLINE Struct(ENOKI_MAP_EXPR_DECL_FWD(BaseFields),                   \
            ENOKI_MAP_EXPR_DECL_FWD(StructFields))                              \
         : Base(ENOKI_MAP_EXPR_BASE_FWD(BaseFields)),                           \
           ENOKI_MAP_EXPR_FWD(StructFields) { }                                 \
     template <typename... Args>                                                \
-    Struct(const Struct<Args...> &value)                                       \
+    ENOKI_INLINE Struct(const Struct<Args...> &value)                          \
         : Base(value), ENOKI_MAP_EXPR_COPY_V(value, StructFields) { }          \
     template <typename... Args>                                                \
-    Struct(Struct<Args...> &&value)                                            \
+    ENOKI_INLINE Struct(Struct<Args...> &&value)                               \
         : Base(std::move(value)),                                              \
           ENOKI_MAP_EXPR_MOVE_V(value, StructFields) { }                       \
     template <typename... Args>                                                \
-    Struct &operator=(const Struct<Args...> &value) {                          \
+    ENOKI_INLINE Struct &operator=(const Struct<Args...> &value) {             \
         Base::operator=(value);                                                \
         ENOKI_MAP_STMT_ASSIGN(value, StructFields)                             \
         return *this;                                                          \
     }                                                                          \
-    template <typename... Args>                                                \
-    Struct &operator=(Struct<Args...> &&value) {                               \
+    template <typename... Args>                                   \
+    ENOKI_INLINE Struct &operator=(Struct<Args...> &&value) {                               \
         Base::operator=(std::move(value));                                     \
         ENOKI_MAP_STMT_MOVE(value, StructFields)                               \
         return *this;                                                          \
@@ -251,8 +252,8 @@
                 std::remove_reference_t<T>>::value;                            \
             using Value = Struct<decltype(enoki::slice(std::declval<           \
                 std::conditional_t<co_, const Args &, Args &>>(), index))...>; \
-            return Value{ ENOKI_MAP_EXPR_F2(enoki::slice, value, index,        \
-                                           __VA_ARGS__) };                     \
+            return Value(ENOKI_MAP_EXPR_F2(enoki::slice, value, index,         \
+                                           __VA_ARGS__));                      \
         }                                                                      \
         template <typename T>                                                  \
         static ENOKI_INLINE auto slice_ptr(T &&value, size_t index) {          \
@@ -260,8 +261,8 @@
                 std::remove_reference_t<T>>::value;                            \
             using Value = Struct<decltype(enoki::slice_ptr(std::declval<       \
                 std::conditional_t<co_, const Args &, Args &>>(), index))...>; \
-            return Value{ ENOKI_MAP_EXPR_F2(enoki::slice_ptr, value, index,    \
-                                           __VA_ARGS__) };                     \
+            return Value(ENOKI_MAP_EXPR_F2(enoki::slice_ptr, value, index,     \
+                                           __VA_ARGS__));                      \
         }                                                                      \
         template <typename T>                                                  \
         static ENOKI_INLINE auto packet(T &&value, size_t index) {             \
@@ -269,26 +270,27 @@
                 std::remove_reference_t<T>>::value;                            \
             using Value = Struct<decltype(enoki::packet(std::declval<          \
                 std::conditional_t<co_, const Args &, Args &>>(), index))...>; \
-            return Value{ ENOKI_MAP_EXPR_F2(enoki::packet, value, index,       \
-                                           __VA_ARGS__) };                     \
+            return Value(ENOKI_MAP_EXPR_F2(enoki::packet, value, index,        \
+                                           __VA_ARGS__));                     \
         }                                                                      \
         template <typename T> static ENOKI_INLINE auto ref_wrap(T &&value) {   \
             constexpr static bool co_ = std::is_const<                         \
                 std::remove_reference_t<T>>::value;                            \
             using Value = Struct<decltype(enoki::ref_wrap(std::declval<        \
                 std::conditional_t<co_, const Args &, Args &>>()))...>;        \
-            return Value{ ENOKI_MAP_EXPR_F1(enoki::ref_wrap, value,            \
-                                           __VA_ARGS__) };                     \
+            return Value(ENOKI_MAP_EXPR_F1(enoki::ref_wrap, value,             \
+                                           __VA_ARGS__));                      \
         }                                                                      \
         template <typename T, typename M> static ENOKI_INLINE                  \
         auto masked(T& value, const M & mask) {                                \
             using Value = Struct<decltype(enoki::masked(                       \
                         std::declval<Args &>(), mask))...>;                    \
-            return Value{ ENOKI_MAP_EXPR_F2(enoki::masked,                     \
-                                            value, mask, __VA_ARGS__) };       \
+            return Value(ENOKI_MAP_EXPR_F2(enoki::masked,                      \
+                                           value, mask, __VA_ARGS__) );        \
         }                                                                      \
         static ENOKI_INLINE auto zero(size_t size) {                           \
-            return Value{ ENOKI_MAP_EXPR_T2(enoki::zero, size, __VA_ARGS__) }; \
+            return Value(ENOKI_EVAL_0(                                         \
+                ENOKI_MAP_EXPR_T2(enoki::zero, size, __VA_ARGS__)));           \
         }                                                                      \
     };                                                                         \
     NAMESPACE_END(enoki)
