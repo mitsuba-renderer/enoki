@@ -680,7 +680,8 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     // -----------------------------------------------------------------------
 
     static Derived zero_(size_t size) {
-        Derived result(zero<Value>(), size);
+        using Underlying = std::conditional_t<IsMask, bool, Value>;
+        Derived result(zero<Underlying>(), size);
         return result;
     }
 
