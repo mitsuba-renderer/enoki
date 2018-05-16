@@ -188,7 +188,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     }
 
     using Base::operator[];
-    template <typename Mask, std::enable_if_t<Mask::Derived::IsMask, int> = 0>
+    template <typename Mask, enable_if_mask_t<Mask> = 0>
     ENOKI_INLINE auto operator[](const Mask &m) {
         return detail::MaskedArray<Derived>{ derived(), mask_t<Derived>(m) };
     }
