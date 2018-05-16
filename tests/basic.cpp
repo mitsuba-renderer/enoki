@@ -437,6 +437,11 @@ ENOKI_TEST_FLOAT(test22_copysign) {
         [](const T &a, const T &b) -> T { return enoki::copysign(a, b); },
         [](Value a, Value b) -> Value { return std::copysign(a, b); }
     );
+
+    test::validate_binary<T>(sample,
+        [](const T &a, const T &b) -> T { return enoki::copysign_neg(a, b); },
+        [](Value a, Value b) -> Value { return std::copysign(a, -b); }
+    );
 }
 
 ENOKI_TEST_FLOAT(test23_mulsign) {
@@ -445,6 +450,11 @@ ENOKI_TEST_FLOAT(test23_mulsign) {
     test::validate_binary<T>(sample,
         [](const T &a, const T &b) -> T { return enoki::mulsign(a, b); },
         [](Value a, Value b) -> Value { return a*std::copysign(Value(1), b); }
+    );
+
+    test::validate_binary<T>(sample,
+        [](const T &a, const T &b) -> T { return enoki::mulsign_neg(a, b); },
+        [](Value a, Value b) -> Value { return a*std::copysign(Value(1), -b); }
     );
 }
 

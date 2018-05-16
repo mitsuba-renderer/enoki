@@ -793,9 +793,17 @@ Elementary Arithmetic Functions
 
     Copies the sign of the array ``y`` to ``x`` (analogous to ``std::copysign``).
 
+.. cpp:function:: template <typename Array> Array copysign_neg(Array x, Array y)
+
+    Copies the sign of the array ``-y`` to ``x``.
+
 .. cpp:function:: template <typename Array> Array mulsign(Array x, Array y)
 
     Efficiently multiplies ``x`` by the sign of ``y``.
+
+.. cpp:function:: template <typename Array> Array mulsign_neg(Array x, Array y)
+
+    Efficiently multiplies ``x`` by the sign of ``-y``.
 
 .. cpp:function:: template <typename Array> Array sqr(Array x)
 
