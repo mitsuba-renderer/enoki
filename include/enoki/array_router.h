@@ -898,8 +898,18 @@ inline Arg copysign(const Arg &a, const Arg &b) {
 }
 
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
+inline Arg copysign_neg(const Arg &a, const Arg &b) {
+    return std::copysign(a, -b);
+}
+
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 inline Arg mulsign(const Arg &a, const Arg &b) {
     return a * std::copysign(Arg(1), b);
+}
+
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
+inline Arg mulsign_neg(const Arg &a, const Arg &b) {
+    return a * std::copysign(Arg(1), -b);
 }
 
 template <typename T, std::enable_if_t<std::is_integral<T>::value, int> = 0>
