@@ -605,9 +605,9 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     /// Gather operation fallback implementation
     template <size_t Stride, typename Index>
     static ENOKI_INLINE auto gather_(const void *mem, const Index &index) {
-        expr_t<Derived> result;
+        Derived result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
-            result.coeff(i) = gather<Value, Stride>(mem, index.coeff(i));
+            result.coeff(i) = (value_t<Derived>) gather<Value, Stride>(mem, index.coeff(i));
         return result;
     }
 
@@ -615,9 +615,9 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     template <size_t Stride, typename Index, typename Mask>
     static ENOKI_INLINE auto gather_(const void *mem, const Index &index,
                                      const Mask &mask) {
-        expr_t<Derived> result;
+        Derived result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
-            result.coeff(i) = gather<Value, Stride>(mem, index.coeff(i), mask.coeff(i));
+            result.coeff(i) = (value_t<Derived>) gather<Value, Stride>(mem, index.coeff(i), mask.coeff(i));
         return result;
     }
 
