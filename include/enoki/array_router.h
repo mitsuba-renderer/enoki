@@ -438,9 +438,14 @@ ENOKI_INLINE auto abs_dot(const Array1 &a1, const Array2 &a2) {
     return abs(dot(a1, a2));
 }
 
-template <typename Array>
+template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE auto mean(const Array &a) {
     return hsum(a) * (1.f / array_size<Array>::value);
+}
+
+template <typename Array, enable_if_dynamic_array_t<Array> = 0>
+ENOKI_INLINE auto mean(const Array &a) {
+    return hsum(a) * (1.f / a.size());
 }
 
 template <size_t Imm, typename Arg, enable_if_not_array_t<Arg> = 0>
