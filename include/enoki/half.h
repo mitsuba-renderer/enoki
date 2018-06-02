@@ -133,7 +133,7 @@ public:
 
     static float float16_to_float32(uint16_t value) {
         #if defined(ENOKI_X86_F16C)
-            return _mm_cvtss_f32(_mm_cvtph_ps(_mm_set1_epi16((int16_t) value)));
+            return _mm_cvtss_f32(_mm_cvtph_ps(_mm_cvtsi32_si128((int32_t) value)));
         #elif defined(ENOKI_ARM_NEON)
             return (float) memcpy_cast<__fp16>(value);
         #else
