@@ -143,7 +143,22 @@ ENOKI_TEST_ALL(test05_range) {
         mem[i] = 1;
     using Index = uint_array_t<T>;
     T sum = zero<T>();
-    for (auto pair : range<Index>(Size+1, (10*Size)/3))
+    for (auto pair : range<Index>((10*Size)/3))
         sum += gather<T>(mem, pair.first, pair.second);
-    assert((10*Size/3) - (Size + 1) == hsum(sum));
+    assert((10*Size/3) == hsum(sum));
+}
+
+ENOKI_TEST_ALL(test06_range_2d) {
+    alignas(alignof(T)) Value mem[4*5*6];
+    for (size_t i = 0; i < 4*5*6; ++i)
+        mem[i] = 0;
+    using Index3 = Array<uint_array_t<T>, 3>;
+    for (auto pair : range<Index3>(4u, 5u, 6u)) {
+        auto index = pair.first[0] +
+                     pair.first[1] * 4u + pair.first[2] * 20u;
+        scatter(mem, T(1), index, pair.second);
+    }
+    for (size_t i = 0; i < 4*5*6; ++i) {
+        assert(mem[i] == 1);
+    }
 }

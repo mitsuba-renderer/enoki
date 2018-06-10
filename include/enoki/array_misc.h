@@ -179,49 +179,76 @@ template <typename Array> Array sample_shifted(value_t<Array> sample) {
         sample, std::make_index_sequence<Array::Size>());
 }
 
-/// Vectorized 'range' iteratable with automatic mask computation
-template <typename T> struct range {
-    using Scalar = scalar_t<T>;
+/// Vectorized N-dimensional 'range' itrable with automatic mask computation
+template <typename Value> struct range {
+    static constexpr size_t Dimension = array_depth<Value>::value == 2 ?
+        array_size<Value>::value : 1;
+    static constexpr size_t PacketSize = array_depth<Value>::value == 2 ?
+        array_size<value_t<Value>>::value : array_size<Value>::value;
+
+    using Scalar = scalar_t<Value>;
+    using Packet = Array<Scalar, PacketSize>;
+    using Size   = Array<Scalar, Dimension>;
 
     struct iterator {
         iterator(size_t index) : index(index) { }
-        iterator(size_t index, T value, Scalar range_end)
-            : index(index), value(value), range_end(range_end) { }
+        iterator(size_t index, Size size)
+            : index(index), index_p(index_sequence<Packet>()), size(size) {
+            for (size_t i = 0; i < Dimension - 1; ++i)
+                divisor[i] = size[i];
+        }
 
         bool operator==(const iterator &it) const { return it.index == index; }
         bool operator!=(const iterator &it) const { return it.index != index; }
 
         iterator &operator++() {
             index += 1;
-            value += Scalar(T::Size);
+            index_p += Scalar(Packet::Size);
             return *this;
         }
 
-        std::pair<T, mask_t<T>> operator*() const {
-            return { value, value < Scalar(range_end) };
+        template <size_t D = array_depth<Value>::value, std::enable_if_t<D == 1, int> = 0>
+        std::pair<Value, mask_t<Packet>> operator*() const {
+            return { index_p, index_p < size[0] };
+        }
+
+        template <size_t D = array_depth<Value>::value, std::enable_if_t<D == 2, int> = 0>
+        std::pair<Value, mask_t<Packet>> operator*() const {
+            Value value;
+            value[0] = index_p;
+            ENOKI_UNROLL for (size_t i = 0; i < Dimension - 1; ++i)
+                value[i + 1] = divisor[i](value[i]);
+            Packet offset = zero<Packet>();
+            ENOKI_UNROLL for (size_t i = Dimension - 2; ; --i) {
+                offset = size[i] * (value[i + 1] + offset);
+                value[i] -= offset;
+                if (i == 0)
+                    break;
+            }
+
+            return { value, value[Dimension - 1] < size[Dimension - 1] };
         }
 
     private:
         size_t index;
-        T value, value_end;
-        Scalar range_end;
+        Packet index_p;
+        Size size;
+        divisor<Scalar> divisor[Dimension != 0 ? (Dimension - 1) : 1];
     };
 
-    range(size_t range_end) : range_begin(0), range_end(range_end) { }
-    range(size_t range_begin, size_t range_end)
-        : range_begin(range_begin), range_end(range_end) { }
+    template <typename... Args>
+    range(Args&&... args) : size(args...) { }
 
     iterator begin() {
-        return iterator{ 0, index_sequence<T>() + Scalar(range_begin),
-                         Scalar(range_end) };
+        return iterator(0, size);
     }
 
     iterator end() {
-        return iterator{ (range_end - range_begin + T::Size - 1) / T::Size };
+        return iterator((hprod(size) + Packet::Size - 1) / Packet::Size);
     }
 
 private:
-    size_t range_begin, range_end;
+    Size size;
 };
 
 

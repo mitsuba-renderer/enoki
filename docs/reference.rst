@@ -1645,15 +1645,15 @@ Miscellaneous operations
 
     Return the floor of the base-two logarithm (assumes that ``Array`` is an integer array).
 
-.. cpp:function:: template <typename Index> std::pair<Index, mask_t<Index>> range(scalar_t<Index> begin, scalar_t<Index> end)
+.. cpp:function:: template <typename Index> std::pair<Index, mask_t<Index>> range(scalar_t<Index> size)
 
     Returns an iterable, which generates linearly increasing index vectors from
-    ``begin`` to ``end-1``. This function is meant to be used with the C++11
+    ``0`` to ``size-1``. This function is meant to be used with the C++11
     range-based for loop:
 
     .. code-block:: cpp
 
-        for (auto pair : range<Index>(0, 1000)) {
+        for (auto pair : range<Index>(1000)) {
             Index index = pair.first;
             mask_t<Index> mask = pair.second;
 
@@ -1663,6 +1663,24 @@ Miscellaneous operations
     The mask specifies which index vector entries are active: unless the number
     of interations is exactly divisible by the packet size, the last loop
     iteration will generally have several disabled entries.
+
+    The implementation also supports iteration of multidimensional arrays
+
+    .. code-block:: cpp
+
+        using UInt32P = Packet<uint32_t>;
+        using Vector3uP = Array<UInt32P, 3>;
+
+        for (auto pair : range<Vector3uP>(10, 20, 30)) {
+            Vector3uP index = pair.first;
+            mask_t<Index> mask = pair.second;
+
+            // ...
+        }
+
+    which will generate indices `(0, 0, 0)`, `(0, 0, 1)`, etc. As before, the
+    last loop iteration will generally have several disabled entries.
+
 
 .. cpp:function:: void set_flush_denormals(bool value)
 
