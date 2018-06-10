@@ -30,7 +30,25 @@ inline bool flush_denormals() {
 
 #else
 inline void set_flush_denormals(bool) { }
+inline bool flush_denormals() { return false; }
 #endif
+
+struct scoped_flush_denormals {
+public:
+    scoped_flush_denormals(bool value) {
+        m_old_value = flush_denormals();
+        set_flush_denormals(value);
+
+    }
+
+    ~scoped_flush_denormals() {
+        set_flush_denormals(m_old_value);
+    }
+
+
+private:
+    bool m_old_value;
+};
 
 template <typename Value, size_t Size1, size_t Size2, bool Approx1, bool Approx2,
           RoundingMode Mode1, RoundingMode Mode2, typename Derived1,

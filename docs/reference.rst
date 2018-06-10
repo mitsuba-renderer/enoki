@@ -1664,13 +1664,16 @@ Miscellaneous operations
     of interations is exactly divisible by the packet size, the last loop
     iteration will generally have several disabled entries.
 
-.. cpp:function:: bool flush_denormals()
+.. cpp:function:: void set_flush_denormals(bool value)
 
     Arithmetic involving denormalized floating point numbers triggers a `slow
     microcode handler <https://en.wikipedia.org/wiki/Denormal_number#Performance_issues>`_
     on most current architectures, which leads to severe performance penalties.
     This function can be used to specify whether denormalized floating point
     values are simply flushed to zero, which sidesteps the performance issues.
+
+    Enoki also provides a tiny a RAII wrapper named `scoped_flush_denormals`
+    which sets (and later resets) this parameter.
 
 .. cpp:function:: bool flush_denormals()
 
