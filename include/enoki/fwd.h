@@ -36,6 +36,7 @@
 #  define ENOKI_PACK
 #  define ENOKI_LIKELY(x)              x
 #  define ENOKI_UNLIKELY(x)            x
+#  define ENOKI_REGCALL
 #else
 #  define ENOKI_NOINLINE               __attribute__ ((noinline))
 #  define ENOKI_INLINE                 __attribute__ ((always_inline)) inline
@@ -51,11 +52,13 @@
 #    define ENOKI_NOUNROLL             _Pragma("nounroll")
 #    define ENOKI_IVDEP
 #    define ENOKI_MAY_ALIAS            __attribute__ ((may_alias))
+#    define ENOKI_REGCALL              __attribute__ ((regcall))
 #  elif defined(__INTEL_COMPILER)
 #    define ENOKI_MAY_ALIAS
 #    define ENOKI_UNROLL               _Pragma("unroll")
 #    define ENOKI_NOUNROLL             _Pragma("nounroll")
 #    define ENOKI_IVDEP                _Pragma("ivdep")
+#    define ENOKI_REGCALL              __attribute__ ((regcall))
 #  else
 #    define ENOKI_MAY_ALIAS
 #    define ENOKI_UNROLL
@@ -65,6 +68,7 @@
 #    else
 #      define ENOKI_IVDEP
 #    endif
+#    define ENOKI_REGCALL
 #  endif
 #endif
 
