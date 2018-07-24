@@ -195,7 +195,7 @@ template <typename Value> struct range {
         iterator(size_t index, Size size)
             : index(index), index_p(index_sequence<Packet>()), size(size) {
             for (size_t i = 0; i < Dimension - 1; ++i)
-                divisor[i] = size[i];
+                div[i] = size[i];
         }
 
         bool operator==(const iterator &it) const { return it.index == index; }
@@ -217,7 +217,7 @@ template <typename Value> struct range {
             Value value;
             value[0] = index_p;
             ENOKI_UNROLL for (size_t i = 0; i < Dimension - 1; ++i)
-                value[i + 1] = divisor[i](value[i]);
+                value[i + 1] = div[i](value[i]);
             Packet offset = zero<Packet>();
             ENOKI_UNROLL for (size_t i = Dimension - 2; ; --i) {
                 offset = size[i] * (value[i + 1] + offset);
@@ -233,7 +233,7 @@ template <typename Value> struct range {
         size_t index;
         Packet index_p;
         Size size;
-        divisor<Scalar> divisor[Dimension != 0 ? (Dimension - 1) : 1];
+        divisor<Scalar> div[Dimension != 0 ? (Dimension - 1) : 1];
     };
 
     template <typename... Args>
