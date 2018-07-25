@@ -27,7 +27,7 @@ template <typename T> using entry_t = typename std::decay_t<T>::Entry;
  * \brief Dense square matrix data structure of static size
  * \remark Uses column-major storage order to permit efficient vectorization
  */
-template <typename Value_, size_t Size_, bool Approx_ = detail::approx_default<Value_>::value>
+template <typename Value_, size_t Size_, bool Approx_>
 struct Matrix : StaticArrayImpl<Array<Value_, Size_, Approx_>, Size_, Approx_,
                                 RoundingMode::Default, Matrix<Value_, Size_, Approx_>> {
 
