@@ -270,7 +270,7 @@ ENOKI_TEST(array_float_08_test07_compress) { test07_compress<8>();  }
 ENOKI_TEST(array_float_16_test07_compress) { test07_compress<16>(); }
 ENOKI_TEST(array_float_32_test07_compress) { test07_compress<32>(); }
 
-ENOKI_TEST(test07_realloc) {
+ENOKI_TEST(test08_realloc) {
     using FloatP = Array<uint32_t>;
     using FloatX = DynamicArray<FloatP>;
 
@@ -287,3 +287,48 @@ ENOKI_TEST(test07_realloc) {
     for (size_t j = 0; j < 1024 * 512; ++j)
         assert(slice(array, j) == j);
 }
+
+template <typename T, size_t PacketSize> void test09_packet_from_struct() {
+    using ValueX       = DynamicArray<Array<T, PacketSize>>;
+    using MaskX        = mask_t<ValueX>;
+    using GPSCoord2fX  = GPSCoord2<ValueX>;
+
+    size_t n   = 4 * PacketSize;
+    auto array = zero<ValueX>(n);      // Non-nested dynamic array
+    auto mask  = zero<MaskX>(n);       // Non-nested mask type for a dynamic array
+    auto gps   = zero<GPSCoord2fX>(n); // Structure of dynamic arrays
+
+    for (size_t i = 0; i < packets(array); ++i) {
+        auto &&a = packet(array, i);
+        auto &&m = packet(mask, i);
+        auto &&g = packet(gps, i);
+
+        a = T(i);
+        m = (a > 0);
+        g.time = i;
+        g.reliable = (i % 2) == 0;
+    }
+
+    for (size_t i = 0; i < packets(array); ++i) {
+        assert(all(eq(packet(array, i), T(i))));
+        if (i > 0)
+            assert(all(packet(mask, i)));
+        else
+            assert(none(packet(mask, i)));
+
+        auto &&g = packet(gps, i);
+        assert(all(eq(g.time, i)));
+        if ((i % 2) == 0)
+            assert(all(g.reliable));
+        else
+            assert(none(g.reliable));
+    }
+}
+ENOKI_TEST(array_int32_04_test09_mask_packet) { test09_packet_from_struct<int32_t, 4>();  }
+ENOKI_TEST(array_int32_08_test09_mask_packet) { test09_packet_from_struct<int32_t, 8>();  }
+ENOKI_TEST(array_int32_16_test09_mask_packet) { test09_packet_from_struct<int32_t, 16>(); }
+ENOKI_TEST(array_int32_32_test09_mask_packet) { test09_packet_from_struct<int32_t, 32>(); }
+ENOKI_TEST(array_float_04_test09_mask_packet) { test09_packet_from_struct<float,   4>();  }
+ENOKI_TEST(array_float_08_test09_mask_packet) { test09_packet_from_struct<float,   8>();  }
+ENOKI_TEST(array_float_16_test09_mask_packet) { test09_packet_from_struct<float,   16>();  }
+ENOKI_TEST(array_float_32_test09_mask_packet) { test09_packet_from_struct<float,   32>();  }
