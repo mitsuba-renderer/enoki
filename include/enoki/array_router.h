@@ -1736,6 +1736,11 @@ ENOKI_INLINE T fmsubadd(const T1 &t1, const T2 &t2, const T3 &t3) {
     return fmadd(t1, t2, t3);
 }
 
+template <typename Value1, typename Value2, typename Value3>
+auto lerp(const Value1 &a, const Value2 &b, const Value3 &t) {
+    return fmadd(a, scalar_t<Value3>(1) - t, t * b);
+}
+
 //! @}
 // -----------------------------------------------------------------------
 
