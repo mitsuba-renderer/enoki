@@ -1220,7 +1220,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
             t = select(abs_y > abs_x, Scalar(M_PI_2) - t, t);
             t = select(x < zero<Expr>(), Scalar(M_PI) - t, t);
             r = select(y < zero<Expr>(), -t, t);
-            r &= neq(min_val, 0.f);
+            r &= neq(max_val, 0.f);
         } else {
             ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
                 r.coeff(i) = atan2(derived().coeff(i), x.coeff(i));
