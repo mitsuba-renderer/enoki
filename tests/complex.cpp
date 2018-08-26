@@ -171,3 +171,13 @@ ENOKI_TEST(test19_rotation) {
     assert(norm(r1-r3) < 1e-6f);
     assert(norm(r1-r4) < 1e-6f);
 }
+
+ENOKI_TEST(test20_sincos_arg) {
+    auto result = sincos_arg_diff(Cf(-1.01264771f, 1.1261553f), Cf(-0.70017226f, 1.24072149f));
+    assert(abs(result.first - 0.2168644f) < 1e-6f);
+    assert(abs(result.second - 0.97620174f) < 1e-6f);
+
+    result = sincos_arg_diff(Cf(-0.08012004f, 0.86251237f), Cf(-1.22284338f, 0.86829703f));
+    assert(abs(result.first + 0.75831358f) < 1e-6f);
+    assert(abs(result.second - 0.65188996f) < 1e-6f);
+}
