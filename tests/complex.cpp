@@ -21,6 +21,7 @@ using Qf = Quaternion<double>;
 using V3 = Array<double, 3>;
 
 ENOKI_TEST(test00_complex_str) {
+    assert(to_string(Cf(1.0)) == "1 + 0i");
     assert(to_string(Cf(1.0, 2.0)) == "1 + 2i");
     assert(to_string(conj(Cf(1.0, 2.0))) == "1 - 2i");
 }

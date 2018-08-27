@@ -37,6 +37,7 @@ struct Complex : StaticArrayImpl<Value_, 2, Approx_, RoundingMode::Default, Comp
                                std::is_default_constructible<T2>::value &&
                                std::is_constructible<T2, T>::value, int> = 0>
     ENOKI_INLINE Complex(const T &f) : Base(f, zero<Value>()) { }
+    ENOKI_INLINE Complex(const scalar_t<Value_> &f) : Base(f, zero<Value>()) { }
 
     template <typename T>
     ENOKI_INLINE static Complex fill_(const T &value) { return Array<Value, 2>::fill_(value); }
