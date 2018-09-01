@@ -1683,7 +1683,7 @@ Miscellaneous operations
             // ...
         }
 
-    which will generate indices `(0, 0, 0)`, `(0, 0, 1)`, etc. As before, the
+    which will generate indices ``(0, 0, 0)``, ``(0, 0, 1)``, etc. As before, the
     last loop iteration will generally have several disabled entries.
 
 
