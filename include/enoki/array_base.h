@@ -147,6 +147,9 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     /// Does this array instantiate itself recursively? (see 'array_recursive.h')
     static constexpr bool IsRecursive = false;
 
+    /// Is this array a wrapper around PyTorch?
+    static constexpr bool IsTorch = is_torch_array<Value_>::value;
+
     /// Number of array entries
     static constexpr size_t Size = Size_;
 
@@ -435,6 +438,10 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
         return result;
     }
 
+    ENOKI_INLINE auto andnot_(const Derived &a) const {
+        return derived() & ~a;
+    }
+
     /// Dot product fallback implementation
     ENOKI_INLINE auto dot_(const Derived &a) const { return hsum(derived() * a); }
 
@@ -698,6 +705,29 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     template <typename T, typename T2 = Derived, std::enable_if_t<array_depth<T>::value == array_depth<T2>::value || array_depth<T>::value == 0, int> = 0>
     static auto fill_(const T &value) { return Derived(value); }
 
+    /// Construct an index sequence, i.e. 0, 1, 2, ..
+    static ENOKI_INLINE auto index_sequence_() {
+        return index_sequence_(std::make_index_sequence<Derived::Size>());
+    }
+
+    /// Construct an array that linearly interpolates from min..max
+    static ENOKI_INLINE auto linspace_(Scalar min, Scalar max) {
+        return linspace_(std::make_index_sequence<Derived::Size>(), min,
+            (max - min) / (Scalar) (Derived::Size - 1));
+    }
+
+private:
+    template <size_t... Args>
+    static ENOKI_INLINE auto linspace_(std::index_sequence<Args...>, Scalar offset, Scalar step) {
+        return Derived(((Scalar) Args * step + offset)...);
+    }
+
+    template <size_t... Args>
+    static ENOKI_INLINE auto index_sequence_(std::index_sequence<Args...>) {
+        return Derived(((Scalar) Args)...);
+    }
+
+public:
     //! @}
     // -----------------------------------------------------------------------
 

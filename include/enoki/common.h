@@ -226,6 +226,18 @@ public:
     static constexpr bool value = type::value;
 };
 
+/// SFINAE helper to test whether a class is a pytorch array type
+template <typename T> struct is_torch_array {
+private:
+    static constexpr std::false_type check(void *);
+    template <typename T2 = T>
+    static constexpr std::integral_constant<bool, T2::Derived::IsTorch> check(T2 *);
+public:
+    using T2 = std::decay_t<T>;
+    using type = decltype(check((T2 *) nullptr));
+    static constexpr bool value = type::value || std::is_same<T2, bool>::value;
+};
+
 /// SFINAE helper to test whether a class is a dynamic array type
 template <typename T> struct is_dynamic_array {
 private:
@@ -277,6 +289,7 @@ template <typename T> using enable_if_mask_t          = std::enable_if_t<is_mask
 template <typename T> using enable_if_not_mask_t      = std::enable_if_t<!is_mask<T>::value, int>;
 template <typename T> using enable_if_static_array_t  = std::enable_if_t<is_static_array<T>::value, int>;
 template <typename T> using enable_if_dynamic_array_t = std::enable_if_t<is_dynamic_array<T>::value, int>;
+template <typename T> using enable_if_torch_array_t   = std::enable_if_t<is_torch_array<T>::value, int>;
 
 /// Determine the nesting level of an array
 template <typename T, size_t Static = 1, size_t Dynamic = 1, typename = int> struct array_depth {

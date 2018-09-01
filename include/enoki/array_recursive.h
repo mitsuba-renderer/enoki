@@ -78,6 +78,10 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived,
         : a1(reinterpret_array<Array1>(low (a))),
           a2(reinterpret_array<Array2>(high(a))) { }
 
+    ENOKI_INLINE StaticArrayImpl(const TorchArray<Value_, Size_> &a) {
+        memcpy(a1.data(), a.data(), Size_ * sizeof(Value_));
+    }
+
     // -----------------------------------------------------------------------
     //! @{ \name Vertical operations
     // -----------------------------------------------------------------------
