@@ -148,7 +148,7 @@ template <typename T> struct divisor<T, std::enable_if_t<!std::is_signed<T>::val
 
     divisor() { }
 
-    divisor(T d) {
+    ENOKI_NOINLINE divisor(T d) {
         /* Division by 1 is not supported by the precomputation-based approach */
         assert(d != 1);
         shift = (uint8_t) log2i(d);
@@ -186,7 +186,7 @@ template <typename T> struct divisor<T, std::enable_if_t<std::is_signed<T>::valu
 
     divisor() { }
 
-    divisor(T d) {
+    ENOKI_NOINLINE divisor(T d) {
         /* Division by +/-1 is not supported by the precomputation-based approach */
         assert(d != 1 && d != -1);
 

@@ -37,6 +37,7 @@ struct Complex : StaticArrayImpl<Value_, 2, Approx_, RoundingMode::Default, Comp
                                std::is_default_constructible<T2>::value &&
                                std::is_constructible<T2, T>::value, int> = 0>
     ENOKI_INLINE Complex(const T &f) : Base(f, zero<Value>()) { }
+    ENOKI_INLINE Complex(const scalar_t<Value_> &f) : Base(f, zero<Value>()) { }
 
     template <typename T>
     ENOKI_INLINE static Complex fill_(const T &value) { return Array<Value, 2>::fill_(value); }
@@ -137,8 +138,15 @@ template <typename T, bool Approx> ENOKI_INLINE expr_t<T> arg(const Complex<T, A
     return atan2(imag(z), real(z));
 }
 
+template <typename T1, typename T2, typename Expr = expr_t<T1, T2>> std::pair<Expr, Expr>
+sincos_arg_diff(const Complex<T1> &z1, const Complex<T2> &z2) {
+    Expr normalization = rsqrt(squared_norm(z1) * squared_norm(z2));
+    Complex<Expr> value = z1 * conj(z2) * normalization;
+    return { imag(value), real(value) };
+}
+
 template <typename T, bool Approx> ENOKI_INLINE Complex<expr_t<T>, Approx> log(const Complex<T, Approx> &z) {
-    return Complex<expr_t<T>>(0.5f * log(squared_norm(z)), arg(z));
+    return Complex<expr_t<T>>(.5f * log(squared_norm(z)), arg(z));
 }
 
 template <typename T0, typename T1, bool Approx0, bool Approx1>
@@ -147,9 +155,17 @@ ENOKI_INLINE auto pow(const Complex<T0, Approx0> &z0, const Complex<T1, Approx1>
 }
 
 template <typename T, bool Approx> ENOKI_INLINE Complex<expr_t<T>, Approx> sqrt(const Complex<T, Approx> &z) {
-    auto sc = sincos(arg(z) * 0.5f);
+    auto sc = sincos(arg(z) * .5f);
     auto r = sqrt(abs(z));
     return Complex<expr_t<T>, Approx>(sc.second * r, sc.first * r);
+}
+
+template <typename T, bool Approx = detail::approx_default<T>::value>
+ENOKI_INLINE Complex<expr_t<T>, Approx> sqrtz(T x) {
+    auto r = sqrt(abs(x)), z = zero<T>();
+    auto is_real = x >= 0;
+    return Complex<expr_t<T>, Approx>(select(is_real, r, z),
+                                      select(is_real, z, r));
 }
 
 template <typename T, bool Approx> ENOKI_INLINE Complex<expr_t<T>, Approx> sin(const Complex<T, Approx> &z) {
@@ -184,13 +200,13 @@ template <typename T, bool Approx> ENOKI_INLINE Complex<expr_t<T>, Approx> tan(c
 
 template <typename T, bool Approx> ENOKI_INLINE Complex<expr_t<T>, Approx> asin(const Complex<T, Approx> &z) {
     using R = Complex<expr_t<T>, Approx>;
-    auto tmp = log(R(-imag(z), real(z)) + sqrt(1 - z*z));
+    auto tmp = log(R(-imag(z), real(z)) + sqrt(1.f - z*z));
     return R(imag(tmp), -real(tmp));
 }
 
 template <typename T, bool Approx> ENOKI_INLINE Complex<expr_t<T>, Approx> acos(const Complex<T, Approx> &z) {
     using R = Complex<expr_t<T>, Approx>;
-    auto tmp = sqrt(1 - z*z);
+    auto tmp = sqrt(1.f - z*z);
     tmp = log(z + R(-imag(tmp), real(tmp)));
     return R(imag(tmp), -real(tmp));
 }
@@ -199,7 +215,7 @@ template <typename T, bool Approx> ENOKI_INLINE Complex<expr_t<T>, Approx> atan(
     using R = Complex<expr_t<T>, Approx>;
     const R I(0.f, 1.f);
     auto tmp = log((I-z) / (I+z));
-    return R(imag(tmp) * 0.5f, -real(tmp) * 0.5f);
+    return R(imag(tmp) * .5f, -real(tmp) * .5f);
 }
 
 template <typename T, bool Approx> ENOKI_INLINE Complex<expr_t<T>, Approx> sinh(const Complex<T, Approx> &z) {
@@ -242,7 +258,7 @@ template <typename T, bool Approx> ENOKI_INLINE Complex<expr_t<T>, Approx> acosh
 
 template <typename T, bool Approx> ENOKI_INLINE Complex<expr_t<T>, Approx> atanh(const Complex<T, Approx> &z) {
     using R = Complex<expr_t<T>, Approx>;
-    return log((R(1.f) + z) / (R(1.f) - z)) * R(0.5f);
+    return log((R(1.f) + z) / (R(1.f) - z)) * R(.5f);
 }
 
 template <typename T, bool Approx, std::enable_if_t<!is_array<std::decay_t<T>>::value, int> = 0>

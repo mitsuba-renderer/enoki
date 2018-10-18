@@ -83,7 +83,18 @@ template <typename T> struct struct_support<T, enable_if_static_array_t<T>> {
         return detail::MaskedArray<T2>{ value, mask_t<T2>(mask) };
     }
 
-    static ENOKI_INLINE T zero(size_t) { return T::zero_(); }
+    template <typename T2 = Value, std::enable_if_t<enoki::is_dynamic_nested<T2>::value, int> = 0>
+    static ENOKI_INLINE T zero(size_t size) {
+        T result;
+        for (size_t i = 0; i<Size; ++i)
+            result[i] = enoki::zero<Value>(size);
+        return result;
+    }
+
+    template <typename T2 = Value, std::enable_if_t<!enoki::is_dynamic_nested<T2>::value, int> = 0>
+    static ENOKI_INLINE T zero(size_t) {
+        return T::zero_();
+    }
 private:
     template <typename T2, size_t... Index>
     static ENOKI_INLINE auto packet(T2&& value, size_t i, std::index_sequence<Index...>) {
@@ -669,7 +680,8 @@ struct DynamicArrayImpl : DynamicArrayBase<Packet_, Derived_> {
     // -----------------------------------------------------------------------
 
     static Derived zero_(size_t size) {
-        Derived result(zero<Value>(), size);
+        using Underlying = std::conditional_t<IsMask, bool, Value>;
+        Derived result(zero<Underlying>(), size);
         return result;
     }
 

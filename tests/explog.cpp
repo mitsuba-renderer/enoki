@@ -83,7 +83,7 @@ ENOKI_TEST_FLOAT(test04_log) {
     test::probe_accuracy<T>(
         [](const T &a) -> T { return log(a); },
         [](double a) { return std::log(a); },
-        Value(1e-20), Value(2e30),
+        Value(0), Value(2e30),
         2
     );
 

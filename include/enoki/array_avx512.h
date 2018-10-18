@@ -272,14 +272,12 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
 
                 /* Refine using one Newton-Raphson iteration */
                 __m512 t0 = _mm512_add_ps(r, r),
-                       t1 = _mm512_mul_ps(r, m),
-                       ro = r;
-
-                __mmask16 k = _mm512_cmp_ps_mask(t1, t1, _CMP_UNORD_Q);
+                       t1 = _mm512_mul_ps(r, m);
 
                 r = _mm512_fnmadd_ps(t1, r, t0);
 
-                return _mm512_mask_mov_ps(r, k, ro);
+                return _mm512_fixupimm_ps(r, m,
+                    _mm512_set1_epi32(0x0087A622), 0);
             } else {
                 return Base::rcp_();
             }
@@ -299,14 +297,12 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
                              c1 = _mm512_set1_ps(3.0f);
 
                 __m512 t0 = _mm512_mul_ps(r, c0),
-                       t1 = _mm512_mul_ps(r, m),
-                       ro = r;
+                       t1 = _mm512_mul_ps(r, m);
 
-                __mmask16 k = _mm512_cmp_ps_mask(t1, t1, _CMP_UNORD_Q);
+                r = _mm512_mul_ps(_mm512_fnmadd_ps(t1, r, c1), t0);
 
-                r = _mm512_mul_ps(_mm512_sub_ps(c1, _mm512_mul_ps(t1, r)), t0);
-
-                return _mm512_mask_mov_ps(r, k, ro);
+                return _mm512_fixupimm_ps(r, m,
+                    _mm512_set1_epi32(0x0383A622), 0);
             } else {
                 return Base::rsqrt_();
             }
@@ -805,21 +801,16 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
                 r = _mm512_rcp14_pd(m); /* rel error < 2^-14 */
             #endif
 
-            __m512d ro = r, t0, t1;
-            __mmask8 k;
-
             /* Refine using 1-2 Newton-Raphson iterations */
             ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
-                t0 = _mm512_add_pd(r, r);
-                t1 = _mm512_mul_pd(r, m);
-
-                if (i == 0)
-                    k = _mm512_cmp_pd_mask(t1, t1, _CMP_UNORD_Q);
+                __m512d t0 = _mm512_add_pd(r, r);
+                __m512d t1 = _mm512_mul_pd(r, m);
 
                 r = _mm512_fnmadd_pd(t1, r, t0);
             }
 
-            return _mm512_mask_mov_pd(r, k, ro);
+            return _mm512_fixupimm_pd(r, m,
+                _mm512_set1_epi32(0x0087A622), 0);
         } else {
             return Base::rcp_();
         }
@@ -839,21 +830,16 @@ template <bool Approx, RoundingMode Mode, typename Derived> struct ENOKI_MAY_ALI
             const __m512d c0 = _mm512_set1_pd(0.5),
                           c1 = _mm512_set1_pd(3.0);
 
-            __m512d ro = r, t0, t1;
-            __mmask8 k;
-
             /* Refine using 1-2 Newton-Raphson iterations */
             ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
-                t0 = _mm512_mul_pd(r, c0);
-                t1 = _mm512_mul_pd(r, m);
-
-                if (i == 0)
-                    k = _mm512_cmp_pd_mask(t1, t1, _CMP_UNORD_Q);
+                __m512d t0 = _mm512_mul_pd(r, c0);
+                __m512d t1 = _mm512_mul_pd(r, m);
 
                 r = _mm512_mul_pd(_mm512_fnmadd_pd(t1, r, c1), t0);
             }
 
-            return _mm512_mask_mov_pd(r, k, ro);
+            return _mm512_fixupimm_pd(r, m,
+                _mm512_set1_epi32(0x0383A622), 0);
         } else {
             return Base::rsqrt_();
         }

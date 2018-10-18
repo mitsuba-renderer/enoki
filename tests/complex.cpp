@@ -21,6 +21,7 @@ using Qf = Quaternion<double>;
 using V3 = Array<double, 3>;
 
 ENOKI_TEST(test00_complex_str) {
+    assert(to_string(Cf(1.0)) == "1 + 0i");
     assert(to_string(Cf(1.0, 2.0)) == "1 + 2i");
     assert(to_string(conj(Cf(1.0, 2.0))) == "1 - 2i");
 }
@@ -170,4 +171,14 @@ ENOKI_TEST(test19_rotation) {
     assert(norm(r1-r2) < 1e-6f);
     assert(norm(r1-r3) < 1e-6f);
     assert(norm(r1-r4) < 1e-6f);
+}
+
+ENOKI_TEST(test20_sincos_arg) {
+    auto result = sincos_arg_diff(Cf(-1.01264771f, 1.1261553f), Cf(-0.70017226f, 1.24072149f));
+    assert(abs(result.first - 0.2168644f) < 1e-6f);
+    assert(abs(result.second - 0.97620174f) < 1e-6f);
+
+    result = sincos_arg_diff(Cf(-0.08012004f, 0.86251237f), Cf(-1.22284338f, 0.86829703f));
+    assert(abs(result.first + 0.75831358f) < 1e-6f);
+    assert(abs(result.second - 0.65188996f) < 1e-6f);
 }

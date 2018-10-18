@@ -793,9 +793,21 @@ Elementary Arithmetic Functions
 
     Copies the sign of the array ``y`` to ``x`` (analogous to ``std::copysign``).
 
+.. cpp:function:: template <typename Array> Array copysign_neg(Array x, Array y)
+
+    Copies the sign of the array ``-y`` to ``x``.
+
 .. cpp:function:: template <typename Array> Array mulsign(Array x, Array y)
 
     Efficiently multiplies ``x`` by the sign of ``y``.
+
+.. cpp:function:: template <typename Array> Array mulsign_neg(Array x, Array y)
+
+    Efficiently multiplies ``x`` by the sign of ``-y``.
+
+.. cpp:function:: template <typename Array> Array sqr(Array x)
+
+    Computes the square of :math:`x` (analogous to ``x*x``)
 
 .. cpp:function:: template <typename Array> Array sqrt(Array x)
 
@@ -894,6 +906,11 @@ Elementary Arithmetic Functions
     Breaks the floating-point number :math:`x` into a normalized fraction and
     power of 2. Analogous to ``std::frexp`` except that both return values are
     floating point values.
+
+.. cpp:function:: template <typename Array> Ayray lerp(Array a, Array b, Array t)
+
+    Blends between the values :math:`a` and :math:`b` using the expression
+    :math:`a(1-t) + t*b`.
 
 Horizontal operations
 ---------------------
@@ -1633,15 +1650,15 @@ Miscellaneous operations
 
     Return the floor of the base-two logarithm (assumes that ``Array`` is an integer array).
 
-.. cpp:function:: template <typename Index> std::pair<Index, mask_t<Index>> range(scalar_t<Index> begin, scalar_t<Index> end)
+.. cpp:function:: template <typename Index> std::pair<Index, mask_t<Index>> range(scalar_t<Index> size)
 
     Returns an iterable, which generates linearly increasing index vectors from
-    ``begin`` to ``end-1``. This function is meant to be used with the C++11
+    ``0`` to ``size-1``. This function is meant to be used with the C++11
     range-based for loop:
 
     .. code-block:: cpp
 
-        for (auto pair : range<Index>(0, 1000)) {
+        for (auto pair : range<Index>(1000)) {
             Index index = pair.first;
             mask_t<Index> mask = pair.second;
 
@@ -1652,13 +1669,34 @@ Miscellaneous operations
     of interations is exactly divisible by the packet size, the last loop
     iteration will generally have several disabled entries.
 
-.. cpp:function:: bool flush_denormals()
+    The implementation also supports iteration of multidimensional arrays
+
+    .. code-block:: cpp
+
+        using UInt32P = Packet<uint32_t>;
+        using Vector3uP = Array<UInt32P, 3>;
+
+        for (auto pair : range<Vector3uP>(10, 20, 30)) {
+            Vector3uP index = pair.first;
+            mask_t<Index> mask = pair.second;
+
+            // ...
+        }
+
+    which will generate indices ``(0, 0, 0)``, ``(0, 0, 1)``, etc. As before, the
+    last loop iteration will generally have several disabled entries.
+
+
+.. cpp:function:: void set_flush_denormals(bool value)
 
     Arithmetic involving denormalized floating point numbers triggers a `slow
     microcode handler <https://en.wikipedia.org/wiki/Denormal_number#Performance_issues>`_
     on most current architectures, which leads to severe performance penalties.
     This function can be used to specify whether denormalized floating point
     values are simply flushed to zero, which sidesteps the performance issues.
+
+    Enoki also provides a tiny a RAII wrapper named `scoped_flush_denormals`
+    which sets (and later resets) this parameter.
 
 .. cpp:function:: bool flush_denormals()
 

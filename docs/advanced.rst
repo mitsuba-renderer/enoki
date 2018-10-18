@@ -586,7 +586,7 @@ following snippet is ``Spectrum<float, 8>`` rather than a generic
             Spectrum8 r_p;
             ENOKI_STRUCT(PolarizedSpectrum, r_s, r_p)
         };
-        ENOKI_STRUCT_DYNAMIC(PolarizedSpectrum, r_s, r_p)
+        ENOKI_STRUCT_SUPPORT(PolarizedSpectrum, r_s, r_p)
 
         using PolarizedSpectrumfP = PolarizedSpectrum<FloatP>;
 

@@ -38,6 +38,7 @@ struct Quaternion : StaticArrayImpl<Value_, 4, Approx_, RoundingMode::Default, Q
                                std::is_default_constructible<T2>::value &&
                                std::is_constructible<T2, T>::value, int> = 0>
     ENOKI_INLINE Quaternion(const T &f) : Base(zero<Value>(), zero<Value>(), zero<Value>(), f) { }
+    ENOKI_INLINE Quaternion(const scalar_t<Value_> &f) : Base(zero<Value>(), zero<Value>(), zero<Value>(), f) { }
 
     template <typename Im, typename Re, std::enable_if_t<Im::Size == 3, int> = 0>
     ENOKI_INLINE Quaternion(const Im &im, const Re &re)

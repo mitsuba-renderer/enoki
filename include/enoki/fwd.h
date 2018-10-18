@@ -36,6 +36,7 @@
 #  define ENOKI_PACK
 #  define ENOKI_LIKELY(x)              x
 #  define ENOKI_UNLIKELY(x)            x
+#  define ENOKI_REGCALL
 #else
 #  define ENOKI_NOINLINE               __attribute__ ((noinline))
 #  define ENOKI_INLINE                 __attribute__ ((always_inline)) inline
@@ -51,11 +52,13 @@
 #    define ENOKI_NOUNROLL             _Pragma("nounroll")
 #    define ENOKI_IVDEP
 #    define ENOKI_MAY_ALIAS            __attribute__ ((may_alias))
+#    define ENOKI_REGCALL              __attribute__ ((regcall))
 #  elif defined(__INTEL_COMPILER)
 #    define ENOKI_MAY_ALIAS
 #    define ENOKI_UNROLL               _Pragma("unroll")
 #    define ENOKI_NOUNROLL             _Pragma("nounroll")
 #    define ENOKI_IVDEP                _Pragma("ivdep")
+#    define ENOKI_REGCALL              __attribute__ ((regcall))
 #  else
 #    define ENOKI_MAY_ALIAS
 #    define ENOKI_UNROLL
@@ -65,6 +68,7 @@
 #    else
 #      define ENOKI_IVDEP
 #    endif
+#    define ENOKI_REGCALL
 #  endif
 #endif
 
@@ -205,6 +209,10 @@
 
 #define ENOKI_CHKSCALAR if (std::is_arithmetic<std::decay_t<Value>>::value) { ENOKI_TRACK_SCALAR }
 
+#if !defined(ENOKI_APPROX_DEFAULT)
+#  define ENOKI_APPROX_DEFAULT 1
+#endif
+
 NAMESPACE_BEGIN(enoki)
 
 using ssize_t = std::make_signed_t<size_t>;
@@ -251,7 +259,11 @@ using is_std_int =
 
 /// Value trait to determine if a type should be handled using approximate mode by default
 template <typename T, typename = int> struct approx_default {
+#if ENOKI_APPROX_DEFAULT == 1
     static constexpr bool value = is_std_float<std::decay_t<T>>::value;
+#else
+    static constexpr bool value = false;
+#endif
 };
 
 NAMESPACE_END(detail)
@@ -290,8 +302,22 @@ template <typename Value_,
           RoundingMode Mode_ = RoundingMode::Default>
 struct Packet;
 
-template <typename Value, size_t Size, bool Approx = detail::approx_default<Value>::value, RoundingMode Mode = RoundingMode::Default> struct Mask;
-template <typename Value, size_t Size, bool Approx = detail::approx_default<Value>::value, RoundingMode Mode = RoundingMode::Default> struct PacketMask;
+template <typename Value_, size_t Size_,
+          bool Approx_ = detail::approx_default<Value_>::value,
+          RoundingMode Mode_ = RoundingMode::Default>
+struct Mask;
+
+template <typename Value_, size_t Size_,
+          bool Approx_ = detail::approx_default<Value_>::value,
+          RoundingMode Mode_ = RoundingMode::Default>
+struct PacketMask;
+
+template <typename Value_, size_t Size_,
+          bool Approx_ = detail::approx_default<Value_>::value>
+struct Matrix;
+
+template <typename Value_, size_t Size_>
+struct TorchArray;
 
 template<typename T, typename U> T memcpy_cast(const U &);
 

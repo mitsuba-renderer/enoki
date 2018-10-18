@@ -30,7 +30,7 @@ template <typename Value_> struct Custom {
     ENOKI_STRUCT(Custom, o, d)
 };
 
-ENOKI_STRUCT_DYNAMIC(Custom, o, d)
+ENOKI_STRUCT_SUPPORT(Custom, o, d)
 
 ENOKI_TEST(test01_mask_slice_custom) {
     using FloatP = Packet<float>;

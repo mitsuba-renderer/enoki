@@ -147,6 +147,9 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     /// Does this array instantiate itself recursively? (see 'array_recursive.h')
     static constexpr bool IsRecursive = false;
 
+    /// Is this array a wrapper around PyTorch?
+    static constexpr bool IsTorch = is_torch_array<Value_>::value;
+
     /// Number of array entries
     static constexpr size_t Size = Size_;
 
@@ -188,7 +191,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     }
 
     using Base::operator[];
-    template <typename Mask, std::enable_if_t<Mask::Derived::IsMask, int> = 0>
+    template <typename Mask, enable_if_mask_t<Mask> = 0>
     ENOKI_INLINE auto operator[](const Mask &m) {
         return detail::MaskedArray<Derived>{ derived(), mask_t<Derived>(m) };
     }
@@ -435,6 +438,10 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
         return result;
     }
 
+    ENOKI_INLINE auto andnot_(const Derived &a) const {
+        return derived() & ~a;
+    }
+
     /// Dot product fallback implementation
     ENOKI_INLINE auto dot_(const Derived &a) const { return hsum(derived() * a); }
 
@@ -605,9 +612,9 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     /// Gather operation fallback implementation
     template <size_t Stride, typename Index>
     static ENOKI_INLINE auto gather_(const void *mem, const Index &index) {
-        expr_t<Derived> result;
+        Derived result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
-            result.coeff(i) = gather<Value, Stride>(mem, index.coeff(i));
+            result.coeff(i) = (value_t<Derived>) gather<Value, Stride>(mem, index.coeff(i));
         return result;
     }
 
@@ -615,9 +622,9 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     template <size_t Stride, typename Index, typename Mask>
     static ENOKI_INLINE auto gather_(const void *mem, const Index &index,
                                      const Mask &mask) {
-        expr_t<Derived> result;
+        Derived result;
         ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
-            result.coeff(i) = gather<Value, Stride>(mem, index.coeff(i), mask.coeff(i));
+            result.coeff(i) = (value_t<Derived>) gather<Value, Stride>(mem, index.coeff(i), mask.coeff(i));
         return result;
     }
 
@@ -698,6 +705,29 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     template <typename T, typename T2 = Derived, std::enable_if_t<array_depth<T>::value == array_depth<T2>::value || array_depth<T>::value == 0, int> = 0>
     static auto fill_(const T &value) { return Derived(value); }
 
+    /// Construct an index sequence, i.e. 0, 1, 2, ..
+    static ENOKI_INLINE auto index_sequence_() {
+        return index_sequence_(std::make_index_sequence<Derived::Size>());
+    }
+
+    /// Construct an array that linearly interpolates from min..max
+    static ENOKI_INLINE auto linspace_(Scalar min, Scalar max) {
+        return linspace_(std::make_index_sequence<Derived::Size>(), min,
+            (max - min) / (Scalar) (Derived::Size - 1));
+    }
+
+private:
+    template <size_t... Args>
+    static ENOKI_INLINE auto linspace_(std::index_sequence<Args...>, Scalar offset, Scalar step) {
+        return Derived(((Scalar) Args * step + offset)...);
+    }
+
+    template <size_t... Args>
+    static ENOKI_INLINE auto index_sequence_(std::index_sequence<Args...>) {
+        return Derived(((Scalar) Args)...);
+    }
+
+public:
     //! @}
     // -----------------------------------------------------------------------
 
@@ -1220,6 +1250,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
             t = select(abs_y > abs_x, Scalar(M_PI_2) - t, t);
             t = select(x < zero<Expr>(), Scalar(M_PI) - t, t);
             r = select(y < zero<Expr>(), -t, t);
+            r &= neq(max_val, 0.f);
         } else {
             ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
                 r.coeff(i) = atan2(derived().coeff(i), x.coeff(i));
@@ -1347,12 +1378,10 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
             */
             using UInt = scalar_t<int_array_t<Expr>>;
 
-            const Expr inf(std::numeric_limits<Scalar>::infinity());
-
             Expr x(derived());
 
             /* Catch negative and NaN values */
-            auto valid_mask = x > Scalar(0);
+            auto valid_mask = x >= Scalar(0);
 
             /* The frexp in array_base.h does not handle denormalized numbers,
                cut them off. The AVX512 backend does support them, however. */
@@ -1438,7 +1467,15 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
                 r = select(mask_e_big, r_big, r_small);
                 r = fmadd(e, Scalar(0.693359375), r);
             }
-            r = select(eq(derived(), inf), inf, r | ~valid_mask);
+
+            /* Handle a few special cases */
+            const Expr n_inf(-std::numeric_limits<Scalar>::infinity());
+            const Expr p_inf(std::numeric_limits<Scalar>::infinity());
+
+            r.massign_(p_inf, eq(derived(), p_inf));
+            r.massign_(n_inf, eq(derived(), 0.f));
+
+            return r | ~valid_mask;
         } else {
             ENOKI_CHKSCALAR for (size_t i = 0; i < Derived::Size; ++i)
                 r.coeff(i) = log(derived().coeff(i));

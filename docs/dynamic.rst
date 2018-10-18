@@ -162,7 +162,7 @@ original type declaration:
                      time, pos, reliable  /* <- list of all attributes in layout order */)
     };
 
-    ENOKI_STRUCT_DYNAMIC(GPSCoord2, time, pos, reliable)
+    ENOKI_STRUCT_SUPPORT(GPSCoord2, time, pos, reliable)
 
 The two highlighted changes play the following roles:
 
@@ -201,23 +201,23 @@ Accessing array packets
 The :cpp:func:`enoki::packet` function can be used to create a reference to the
 :math:`i`-th packet of a dynamic array or a custom dynamic data structure.
 For instance, the following code iterates over all packets and resets their
-time values
+time values:
 
 .. code-block:: cpp
 
     /* Reset the time value of all records */
     for (size_t i = 0; i < packets(coord); ++i) {
-        auto ref = packet(coord, n);
+        auto &&ref = packet(coord, n);
         ref.time = 0;
     }
 
-The ``packet()`` function is interesting because it returns an instance of a
-new type ``GPSRecord2<FloatP&>`` that was not discussed yet (note the ampersand
-in the template argument). Instead of directly storing data, all of fields of a
-``GPSRecord2<FloatP&>`` are references pointing to packets of data elsewhere in
-memory. In this case, overwriting a field of this structure of references will
-change the corresponding entry *of the dynamic array*. Conceptually, this looks
-as follows:
+When used with a dynamic data structure, ``packet()`` function is interesting
+because it returns an instance of a new type ``GPSRecord2<FloatP&>`` that was
+not discussed yet (note the ampersand in the template argument). Instead of
+directly storing data, all fields of a ``GPSRecord2<FloatP&>`` are references
+pointing to packets of data elsewhere in memory. In this case, assigning
+(writing) to a field of this structure of references will change the
+corresponding entry *of the dynamic array*. Conceptually, this looks as follows:
 
 .. image:: dynamic-03.svg
     :width: 600px
@@ -232,6 +232,21 @@ References can also be cast into their associated packet types and vice versa:
 
     /* Assign a GPSRecord2<FloatP> to a GPSRecord2<FloatP&> */
     packet(coord, n + 1) = cp;
+
+.. note::
+
+    For non-nested dynamic arrays such as ``FloatX = DynamicArray<FloatP>``,
+    calling ``packet()`` simply returns a reference to the right ``FloatP``
+    entry in that array of packets. Note this is a reference type
+    (``FloatP&``), not a structure (``GPSRecord2<FloatP&>``).
+    This is why we strongly encourage using universal references (``auto &&``)
+    to hold the result of ``packet()``:
+
+    .. code-block:: cpp
+
+        auto   ref = packet(coord, i);   // Only works for dynamic structures
+        auto  &ref = packet(numbers, i); // Only works for non-nested arrays
+        auto &&ref = packet(coord, i);   // Works for both
 
 Accessing array slices
 ----------------------

@@ -96,11 +96,11 @@ Elementary operations
 
     Evaluates the complex argument of ``z``.
 
-.. cpp:function:: template <typename T> T abs(Complex<T> z)
+.. cpp:function:: template <typename T> Complex<T> abs(Complex<T> z)
 
     Compute the absolute value of ``z``.
 
-.. cpp:function:: template <typename T> T sqrt(Complex<T> z)
+.. cpp:function:: template <typename T> Complex<T> sqrt(Complex<T> z)
 
     Compute the square root of ``z``.
 
@@ -134,6 +134,7 @@ Stream operators
 
     Sends the complex number ``z`` to the stream ``os`` using the format
     ``1 + 2i``.
+
 
 Exponential, logarithm, and power function
 ******************************************
@@ -211,3 +212,16 @@ Hyperbolic functions
 .. cpp:function:: template <typename T> Complex<T> atanh(Complex<T> z)
 
     Evaluates the complex hyperbolic arc tangent function for ``z``.
+
+Miscellaneous functions
+***********************
+
+.. cpp:function:: std::pair<T, T> sincos_arg_diff(const Complex<T> &z1, const Complex<T> &z2)
+
+   Efficiently evaluates ``sin(arg(z1) - arg(z2))`` and ``cos(arg(z1) - arg(z2))``.
+
+.. cpp:function:: template <typename T> Complex<T> sqrtz(T x)
+
+    Compute the complex square root of a real-valued argument ``x`` (which may
+    be negative). This is considerably more efficient than the general complex
+    square root above.

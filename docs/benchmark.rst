@@ -43,7 +43,7 @@ entries.
             ENOKI_STRUCT(GPSCoord2, time, pos, reliable)
         };
 
-        ENOKI_STRUCT_DYNAMIC(GPSCoord2, time, pos, reliable)
+        ENOKI_STRUCT_SUPPORT(GPSCoord2, time, pos, reliable)
 
         using FloatP       = Packet<float, SIMD_WIDTH>;
         using FloatX       = DynamicArray<FloatP>;

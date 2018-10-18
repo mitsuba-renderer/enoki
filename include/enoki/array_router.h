@@ -438,9 +438,14 @@ ENOKI_INLINE auto abs_dot(const Array1 &a1, const Array2 &a2) {
     return abs(dot(a1, a2));
 }
 
-template <typename Array>
+template <typename Array, enable_if_static_array_t<Array> = 0>
 ENOKI_INLINE auto mean(const Array &a) {
     return hsum(a) * (1.f / array_size<Array>::value);
+}
+
+template <typename Array, enable_if_dynamic_array_t<Array> = 0>
+ENOKI_INLINE auto mean(const Array &a) {
+    return hsum(a) * (1.f / a.size());
 }
 
 template <size_t Imm, typename Arg, enable_if_not_array_t<Arg> = 0>
@@ -768,6 +773,11 @@ ENOKI_INLINE Arg shuffle(const Arg &arg) {
     return arg;
 }
 
+//// Compute the square of the given value
+template <typename Arg, typename E = expr_t<Arg>> ENOKI_INLINE E sqr(const Arg &value) {
+    return value * value;
+}
+
 //// Convert radians to degrees
 template <typename Arg, typename E = expr_t<Arg>> ENOKI_INLINE E rad_to_deg(const Arg &value) {
     return scalar_t<E>(180 / M_PI) * value;
@@ -784,7 +794,15 @@ ENOKI_INLINE auto sign_mask(const Arg &a) {
     using UInt = scalar_t<uint_array_t<Arg>>;
     using Float = scalar_t<Arg>;
     const Float mask = memcpy_cast<Float>(UInt(1) << (sizeof(UInt) * 8 - 1));
-    return detail::and_(a, expr_t<Arg>(mask));
+    return detail::and_(expr_t<Arg>(mask), a);
+}
+
+template <typename Arg>
+ENOKI_INLINE auto sign_mask_neg(const Arg &a) {
+    using UInt = scalar_t<uint_array_t<Arg>>;
+    using Float = scalar_t<Arg>;
+    const Float mask = memcpy_cast<Float>(UInt(1) << (sizeof(UInt) * 8 - 1));
+    return detail::andnot_(expr_t<Arg>(mask), a);
 }
 
 template <typename Array>
@@ -804,10 +822,15 @@ ENOKI_INLINE Expr sign(const Array &a) {
 
     if (!std::is_signed<Scalar>::value)
         return Expr(Scalar(1));
-    else if (std::is_floating_point<Scalar>::value)
+    else if (std::is_floating_point<Scalar>::value && !is_torch_array<Expr>::value)
         return detail::sign_mask(a) | Expr(Scalar(1));
     else
         return select(a < Scalar(0), Expr(Scalar(-1)), Expr(Scalar(1)));
+}
+
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
+inline Arg sign(const Arg &a) {
+    return std::copysign(Arg(1), a);
 }
 
 template <typename Array1, typename Array2, typename Result = expr_t<Array1, Array2>,
@@ -818,10 +841,32 @@ ENOKI_INLINE Result copysign(const Array1 &a, const Array2 &b) {
     using Scalar = scalar_t<Result>;
 
     if (std::is_floating_point<scalar_t<Result>>::value) {
-        return abs(a) | detail::sign_mask(b);
+        if (!is_torch_array<Result>::value)
+            return abs(a) | detail::sign_mask(b);
+        else
+            return abs(a) * sign(b);
     } else {
         Result result(a);
         result[(a ^ b) < Scalar(0)] = -a;
+        return result;
+    }
+}
+
+template <typename Array1, typename Array2, typename Result = expr_t<Array1, Array2>,
+          enable_if_array_t<Result> = 0>
+ENOKI_INLINE Result copysign_neg(const Array1 &a, const Array2 &b) {
+    static_assert(std::is_same<scalar_t<Array1>, scalar_t<Array2>>::value, "Mismatched argument types!");
+    static_assert(std::is_signed<scalar_t<Array1>>::value, "copysign_neg() expects signed arguments!");
+    using Scalar = scalar_t<Result>;
+
+    if (std::is_floating_point<scalar_t<Result>>::value) {
+        if (!is_torch_array<Result>::value)
+            return abs(a) | detail::sign_mask_neg(b);
+        else
+            return abs(a) * -sign(b);
+    } else {
+        Result result(a);
+        result[(a ^ b) >= Scalar(0)] = -a;
         return result;
     }
 }
@@ -834,7 +879,10 @@ ENOKI_INLINE Result mulsign(const Array1 &a, const Array2 &b) {
     using Scalar = scalar_t<Result>;
 
     if (std::is_floating_point<scalar_t<Result>>::value) {
-        return a ^ detail::sign_mask(b);
+        if (!is_torch_array<Result>::value)
+            return a ^ detail::sign_mask(b);
+        else
+            return a * sign(b);
     } else {
         Result result(a);
         result[Result(b) < Scalar(0)] = -a;
@@ -842,9 +890,23 @@ ENOKI_INLINE Result mulsign(const Array1 &a, const Array2 &b) {
     }
 }
 
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-inline Arg sign(const Arg &a) {
-    return std::copysign(Arg(1), a);
+template <typename Array1, typename Array2, typename Result = expr_t<Array1, Array2>,
+          enable_if_array_t<Result> = 0>
+ENOKI_INLINE Result mulsign_neg(const Array1 &a, const Array2 &b) {
+    static_assert(std::is_same<scalar_t<Array1>, scalar_t<Array2>>::value, "Mismatched argument types!");
+    static_assert(std::is_signed<scalar_t<Array1>>::value, "mulsign_neg() expects signed arguments!");
+    using Scalar = scalar_t<Result>;
+
+    if (std::is_floating_point<scalar_t<Result>>::value) {
+        if (!is_torch_array<Result>::value)
+            return a ^ detail::sign_mask_neg(b);
+        else
+            return a * -sign(b);
+    } else {
+        Result result(a);
+        result[Result(b) >= Scalar(0)] = -a;
+        return result;
+    }
 }
 
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
@@ -853,8 +915,18 @@ inline Arg copysign(const Arg &a, const Arg &b) {
 }
 
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
+inline Arg copysign_neg(const Arg &a, const Arg &b) {
+    return std::copysign(a, -b);
+}
+
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
 inline Arg mulsign(const Arg &a, const Arg &b) {
     return a * std::copysign(Arg(1), b);
+}
+
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
+inline Arg mulsign_neg(const Arg &a, const Arg &b) {
+    return a * std::copysign(Arg(1), -b);
 }
 
 template <typename T, std::enable_if_t<std::is_integral<T>::value, int> = 0>
@@ -1021,26 +1093,7 @@ ENOKI_INLINE auto operator+(const T1 &a1_, const T2 &a2_) {
 //! @{ \name Initialization, loading/writing data
 // -----------------------------------------------------------------------
 
-NAMESPACE_BEGIN(detail)
-template <typename Array, size_t... Args>
-ENOKI_INLINE Array index_sequence_(std::index_sequence<Args...>) {
-    return Array(((value_t<Array>) Args)...);
-}
-
-template <typename Array, typename Value, size_t... Args>
-ENOKI_INLINE Array linspace_(std::index_sequence<Args...>, Value offset, Value step) {
-    return Array(((Value) Args * step + offset)...);
-}
-NAMESPACE_END(detail)
-
 template <typename Array> ENOKI_INLINE Array zero(size_t size = 1);
-
-/// Construct an index sequence, i.e. 0, 1, 2, ..
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE Array index_sequence() {
-    return detail::index_sequence_<Array>(
-        std::make_index_sequence<Array::Size>());
-}
 
 /// Construct an index sequence, i.e. 0, 1, 2, ..
 template <typename Array, enable_if_dynamic_array_t<Array> = 0>
@@ -1048,27 +1101,30 @@ ENOKI_INLINE Array index_sequence(size_t size) {
     return Array::index_sequence_(size);
 }
 
+template <typename Array, enable_if_static_array_t<Array> = 0>
+ENOKI_INLINE Array index_sequence() {
+    return Array::index_sequence_();
+}
+
+
 /// Construct an index sequence, i.e. 0, 1, 2, .. (scalar fallback)
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg index_sequence() {
     return Arg(0);
 }
 
-/// Construct an index sequence, i.e. 0, 1, 2, ..
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE Array linspace(scalar_t<Array> min, scalar_t<Array> max) {
-    return detail::linspace_<Array>(
-        std::make_index_sequence<Array::Size>(), min,
-        (max - min) / (scalar_t<Array>) (Array::Size - 1));
-}
-
-/// Construct an index sequence, i.e. 0, 1, 2, ..
+/// Construct an array that linearly interpolates from min..max
 template <typename Array, enable_if_dynamic_array_t<Array> = 0>
 ENOKI_INLINE Array linspace(size_t size, scalar_t<Array> min, scalar_t<Array> max) {
     return Array::linspace_(size, min, max);
 }
 
-/// Construct an index sequence, i.e. 0, 1, 2, .. (scalar fallback)
+template <typename Array, enable_if_static_array_t<Array> = 0>
+ENOKI_INLINE Array linspace(scalar_t<Array> min, scalar_t<Array> max) {
+    return Array::linspace_(min, max);
+}
+
+/// Construct an array that linearly interpolates from min..max (scalar fallback)
 template <typename Arg, enable_if_not_array_t<Arg> = 0>
 ENOKI_INLINE Arg linspace() {
     return Arg(0);
@@ -1674,6 +1730,11 @@ template <typename T1, typename T2, typename T3,
           typename T = expr_t<T1, T2, T3>, enable_if_not_array_t<T> = 0>
 ENOKI_INLINE T fmsubadd(const T1 &t1, const T2 &t2, const T3 &t3) {
     return fmadd(t1, t2, t3);
+}
+
+template <typename Value1, typename Value2, typename Value3>
+auto lerp(const Value1 &a, const Value2 &b, const Value3 &t) {
+    return fmadd(a, scalar_t<Value3>(1) - t, t * b);
 }
 
 //! @}

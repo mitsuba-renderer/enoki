@@ -18,20 +18,28 @@
 
 NAMESPACE_BEGIN(enoki)
 
-template <typename Matrix4, typename Vector3> ENOKI_INLINE Matrix4 translate(const Vector3 &v) {
-    Matrix4 trafo = identity<Matrix4>();
-    trafo.coeff(3) = concat(v, 1.f);
+template <typename Matrix, typename Vector> ENOKI_INLINE Matrix translate(const Vector &v) {
+    Matrix trafo = identity<Matrix>();
+    trafo.coeff(Matrix::Size - 1) = concat(v, 1.f);
     return trafo;
 }
 
-template <typename Matrix4, typename Vector3> ENOKI_INLINE Matrix4 scale(const Vector3 &v) {
-    return diag<Matrix4>(concat(v, 1.f));
+template <typename Matrix, typename Vector> ENOKI_INLINE Matrix scale(const Vector &v) {
+    return diag<Matrix>(concat(v, 1.f));
 }
 
-template <typename Matrix4, typename Vector3, std::enable_if_t<Matrix4::IsMatrix, int> = 0>
-ENOKI_INLINE Matrix4 rotate(const Vector3 &axis, const entry_t<Matrix4> &angle) {
-    using Float = entry_t<Matrix4>;
-    using Vector4 = column_t<Matrix4>;
+template <typename Matrix, std::enable_if_t<Matrix::IsMatrix && Matrix::Size == 3, int> = 0>
+ENOKI_INLINE Matrix rotate(const entry_t<Matrix> &angle) {
+    entry_t<Matrix> s, c, z(0.f), o(1.f);
+    std::tie(s, c) = sincos(angle);
+    return Matrix(c, -s, z, s, c, z, z, z, o);
+}
+
+template <typename Matrix, typename Vector3,
+          std::enable_if_t<Matrix::IsMatrix && Matrix::Size == 4, int> = 0>
+ENOKI_INLINE Matrix rotate(const Vector3 &axis, const entry_t<Matrix> &angle) {
+    using Float = entry_t<Matrix>;
+    using Vector4 = column_t<Matrix>;
 
     Float sin_theta, cos_theta;
     std::tie(sin_theta, cos_theta) = sincos(angle);
@@ -43,7 +51,7 @@ ENOKI_INLINE Matrix4 rotate(const Vector3 &axis, const entry_t<Matrix4> &angle) 
          tmp1  = axis * shuf1 * cos_theta_m + shuf2 * sin_theta,
          tmp2  = axis * shuf2 * cos_theta_m - shuf1 * sin_theta;
 
-    return Matrix4(
+    return Matrix(
         Vector4(tmp0.x(), tmp1.x(), tmp2.x(), 0.f),
         Vector4(tmp2.y(), tmp0.y(), tmp1.y(), 0.f),
         Vector4(tmp1.z(), tmp2.z(), tmp0.z(), 0.f),
@@ -51,15 +59,17 @@ ENOKI_INLINE Matrix4 rotate(const Vector3 &axis, const entry_t<Matrix4> &angle) 
     );
 }
 
-template <typename Matrix4>
-ENOKI_INLINE Matrix4 perspective(const entry_t<Matrix4> &fov,
-                                 const entry_t<Matrix4> &near,
-                                 const entry_t<Matrix4> &far) {
+template <typename Matrix>
+ENOKI_INLINE Matrix perspective(const entry_t<Matrix> &fov,
+                                const entry_t<Matrix> &near,
+                                const entry_t<Matrix> &far) {
+    static_assert(Matrix::Size == 4, "Matrix::perspective(): implementation assumes 4x4 matrix output");
+
     auto recip = rcp(near - far);
     auto c = cot(.5f * fov);
 
-    Matrix4 trafo = diag<Matrix4>(
-        column_t<Matrix4>(c, c, (near + far) * recip, 0.f));
+    Matrix trafo = diag<Matrix>(
+        column_t<Matrix>(c, c, (near + far) * recip, 0.f));
 
     trafo(2, 3) = 2.f * near * far * recip;
     trafo(3, 2) = -1.f;
@@ -67,19 +77,20 @@ ENOKI_INLINE Matrix4 perspective(const entry_t<Matrix4> &fov,
     return trafo;
 }
 
-template <typename Matrix4>
-ENOKI_INLINE Matrix4 frustum(entry_t<Matrix4> left,
-                             entry_t<Matrix4> right,
-                             entry_t<Matrix4> bottom,
-                             entry_t<Matrix4> top,
-                             entry_t<Matrix4> near,
-                             entry_t<Matrix4> far) {
+template <typename Matrix>
+ENOKI_INLINE Matrix frustum(entry_t<Matrix> left,
+                            entry_t<Matrix> right,
+                            entry_t<Matrix> bottom,
+                            entry_t<Matrix> top,
+                            entry_t<Matrix> near,
+                            entry_t<Matrix> far) {
+    static_assert(Matrix::Size == 4, "Matrix::frustum(): implementation assumes 4x4 matrix output");
 
     auto rl = rcp(right - left),
          tb = rcp(top - bottom),
          fn = rcp(far - near);
 
-    Matrix4 trafo = zero<Matrix4>();
+    Matrix trafo = zero<Matrix>();
     trafo(0, 0) = (2.f * near) * rl;
     trafo(1, 1) = (2.f * near) * tb;
     trafo(0, 2) = (right + left) * rl;
@@ -91,19 +102,20 @@ ENOKI_INLINE Matrix4 frustum(entry_t<Matrix4> left,
     return trafo;
 }
 
-template <typename Matrix4>
-ENOKI_INLINE Matrix4 ortho(const entry_t<Matrix4> &left,
-                           const entry_t<Matrix4> &right,
-                           const entry_t<Matrix4> &bottom,
-                           const entry_t<Matrix4> &top,
-                           const entry_t<Matrix4> &near,
-                           const entry_t<Matrix4> &far) {
+template <typename Matrix>
+ENOKI_INLINE Matrix ortho(const entry_t<Matrix> &left,
+                          const entry_t<Matrix> &right,
+                          const entry_t<Matrix> &bottom,
+                          const entry_t<Matrix> &top,
+                          const entry_t<Matrix> &near,
+                          const entry_t<Matrix> &far) {
+    static_assert(Matrix::Size == 4, "Matrix::ortho(): implementation assumes 4x4 matrix output");
 
     auto rl = rcp(right - left),
          tb = rcp(top - bottom),
          fn = rcp(far - near);
 
-    Matrix4 trafo = zero<Matrix4>();
+    Matrix trafo = zero<Matrix>();
 
     trafo(0, 0) = 2.f * rl;
     trafo(1, 1) = 2.f * tb;
@@ -116,17 +128,19 @@ ENOKI_INLINE Matrix4 ortho(const entry_t<Matrix4> &left,
     return trafo;
 }
 
-template <typename Matrix4, typename Point, typename Vector>
-Matrix4 look_at(const Point &origin, const Point &target, const Vector &up) {
+template <typename Matrix, typename Point, typename Vector>
+Matrix look_at(const Point &origin, const Point &target, const Vector &up) {
+    static_assert(Matrix::Size == 4, "Matrix::look_at(): implementation assumes 4x4 matrix output");
+
     auto dir = normalize(target - origin);
     auto left = normalize(cross(dir, up));
     auto new_up = cross(left, dir);
 
-    return Matrix4(
+    return Matrix(
         concat(left, 0.f),
         concat(new_up, 0.f),
         concat(-dir, 0.f),
-        column_t<Matrix4>(
+        column_t<Matrix>(
             -dot(left, origin),
             -dot(up, origin),
              dot(dir, origin),
