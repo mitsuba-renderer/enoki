@@ -770,7 +770,8 @@ template <typename T> ENOKI_INLINE void store_unaligned(void *mem, const T &valu
         *static_cast<T *>(mem) = value;
 }
 
-template <typename T1, typename T2> auto concat(const T1 &a1, const T2 &a2) {
+template <typename T1, typename T2,
+          enable_if_array_any_t<T1, T2> = 0> auto concat(const T1 &a1, const T2 &a2) {
     static_assert(std::is_same_v<value_t<T1>, value_t<T2>>,
                   "concat(): Value types must be identical");
 

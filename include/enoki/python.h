@@ -206,8 +206,7 @@ NAMESPACE_BEGIN(enoki)
 
 namespace detail {
     template <typename T, typename = void> struct reference_dynamic { using type = T; };
-    template <typename T>
-    struct reference_dynamic<T, std::enable_if_t<is_dynamic_nested_v<T>>> {
+    template <typename T> struct reference_dynamic<T, std::enable_if_t<is_dynamic_v<T>>> {
         using type = std::add_lvalue_reference_t<T>;
     };
     template <typename T>

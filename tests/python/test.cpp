@@ -1,5 +1,6 @@
 #include <enoki/python.h>
 #include <enoki/complex.h>
+#include <enoki/dynamic.h>
 
 using namespace enoki;
 
@@ -50,6 +51,11 @@ void c4(Complex<Packet<float>> value) {
     std::cout << value << std::endl;
 }
 
+template <typename Float> Float atan(Float x) {
+    return enoki::atan(x);
+
+}
+
 PYBIND11_MODULE(test, m) {
     /* Real */
     m.def("a1", &a1);
@@ -63,5 +69,8 @@ PYBIND11_MODULE(test, m) {
     m.def("c2_b", &c2_b);
     m.def("c3", &c3);
     m.def("c4", &c4);
+
+    using FloatP = Packet<float>;
+    m.def("atan", enoki::vectorize_wrapper(&atan<FloatP>));
 }
 
