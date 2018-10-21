@@ -20,6 +20,7 @@
 #endif
 
 #include <cstddef>
+#include <cstring>
 #include <type_traits>
 
 #if defined(_MSC_VER)
@@ -318,6 +319,15 @@ struct PacketMask;
 template <typename Packet_> struct DynamicArray;
 template <typename Packet_> struct DynamicMask;
 
+template <typename Value_, size_t Size_, bool Approx_ = array_approx_v<Value_>>
+struct Matrix;
+
+template <typename Value_, bool Approx_ = array_approx_v<Value_>>
+struct Complex;
+
+template <typename Value_, bool Approx_ = array_approx_v<Value_>>
+struct Quaternion;
+
 /// Helper class for custom data structures
 template <typename T, typename = int>
 struct struct_support;
@@ -327,6 +337,14 @@ struct half;
 
 namespace detail {
     struct reinterpret_flag { };
+}
+
+/// Reinterpret the binary represesentation of a data type
+template<typename T, typename U> ENOKI_INLINE T memcpy_cast(const U &val) {
+    static_assert(sizeof(T) == sizeof(U), "memcpy_cast: sizes did not match!");
+    T result;
+    std::memcpy(&result, &val, sizeof(T));
+    return result;
 }
 
 NAMESPACE_END(enoki)

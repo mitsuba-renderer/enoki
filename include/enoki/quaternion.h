@@ -24,7 +24,7 @@ template <typename T> constexpr bool is_quaternion_v = is_detected_v<is_quaterni
 template <typename T> using enable_if_quaternion_t = enable_if_t<is_quaternion_v<T>>;
 template <typename T> using enable_if_not_quaternion_t = enable_if_t<!is_quaternion_v<T>>;
 
-template <typename Value_, bool Approx_ = array_approx_v<Value_>>
+template <typename Value_, bool Approx_>
 struct Quaternion : StaticArrayImpl<Value_, 4, Approx_, RoundingMode::Default, false, Quaternion<Value_, Approx_>> {
     using Base = StaticArrayImpl<Value_, 4, Approx_, RoundingMode::Default, false, Quaternion<Value_, Approx_>>;
     using Base::Depth;

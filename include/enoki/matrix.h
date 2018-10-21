@@ -29,7 +29,7 @@ template <typename T> constexpr bool is_matrix_v = is_detected_v<is_matrix_helpe
 template <typename T> using enable_if_matrix_t = enable_if_t<is_matrix_v<T>>;
 template <typename T> using enable_if_not_matrix_t = enable_if_t<!is_matrix_v<T>>;
 
-template <typename Value_, size_t Size_, bool Approx_ = array_approx_v<Value_>>
+template <typename Value_, size_t Size_, bool Approx_>
 struct Matrix : StaticArrayImpl<Array<Value_, Size_, Approx_>, Size_, Approx_,
                                 RoundingMode::Default, false,
                                 Matrix<Value_, Size_, Approx_>> {

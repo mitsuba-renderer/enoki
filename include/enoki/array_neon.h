@@ -170,14 +170,14 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     ENOKI_INLINE auto le_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f32_u32(vcleq_f32(m, a.m))); }
     ENOKI_INLINE auto ge_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f32_u32(vcgeq_f32(m, a.m))); }
 
-    ENOKI_INLINE auto eq_ (Arg a) const { 
+    ENOKI_INLINE auto eq_ (Arg a) const {
         if constexpr (!IsMask_)
             return mask_t<Derived>(vreinterpretq_f32_u32(vceqq_f32(m, a.m)));
         else
             return mask_t<Derived>(vceqq_u32(vreinterpretq_f32_u32(m), vreinterpretq_f32_u32(a.m)));
     }
 
-    ENOKI_INLINE auto neq_ (Arg a) const { 
+    ENOKI_INLINE auto neq_ (Arg a) const {
         if constexpr (!IsMask_)
             return mask_t<Derived>(vreinterpretq_f32_u32(vmvnq_u32(vceqq_f32(m, a.m))));
         else
@@ -445,14 +445,14 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     ENOKI_INLINE auto le_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f64_u64(vcleq_f64(m, a.m))); }
     ENOKI_INLINE auto ge_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f64_u64(vcgeq_f64(m, a.m))); }
 
-    ENOKI_INLINE auto eq_ (Arg a) const { 
+    ENOKI_INLINE auto eq_ (Arg a) const {
         if constexpr (!IsMask_)
             return mask_t<Derived>(vreinterpretq_f64_u64(vceqq_f64(m, a.m)));
         else
             return mask_t<Derived>(vceqq_u64(vreinterpretq_f64_u64(m), vreinterpretq_f64_u64(a.m)));
     }
 
-    ENOKI_INLINE auto neq_ (Arg a) const { 
+    ENOKI_INLINE auto neq_ (Arg a) const {
         if constexpr (!IsMask_)
             return mask_t<Derived>(vreinterpretq_f64_u64(vmvnq_u64(vceqq_f64(m, a.m))));
         else

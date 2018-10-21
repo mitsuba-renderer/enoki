@@ -250,11 +250,24 @@ ENOKI_INLINE auto operator/(const T1 &a1, const T2 &a2) {
     if constexpr (std::is_same_v<T1, E> && std::is_same_v<T2, E>)
         return a1.derived().div_(a2.derived());
     else if constexpr (array_depth_v<T1> > array_depth_v<T2> && E::Approx)
-        return (const E &) a1 * // reciprocal approximation
+        return static_cast<const E &>(a1) * // reciprocal approximation
                rcp<E::Approx>((const T &) a2);
     else
-        return operator/((const E &) a1,
-                         (const E &) a2);
+        return operator/(static_cast<const E &>(a1),
+                         static_cast<const E &>(a2));
+}
+
+template <typename T1, typename T2, enable_if_array_any_t<T1, T2> = 0,
+          enable_if_t<!std::is_floating_point_v<scalar_t<expr_t<T1, T2>>> &&
+                       is_array_v<T2>> = 0>
+ENOKI_INLINE auto operator/(const T1 &a1, const T2 &a2) {
+    using E = expr_t<T1, T2>;
+
+    if constexpr (std::is_same_v<T1, E> && std::is_same_v<T2, E>)
+        return a1.derived().div_(a2.derived());
+    else
+        return operator/(static_cast<const E &>(a1),
+                         static_cast<const E &>(a2));
 }
 
 /// Shuffle the entries of an array

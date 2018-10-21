@@ -23,7 +23,7 @@ template <typename T> constexpr bool is_complex_v = is_detected_v<is_complex_hel
 template <typename T> using enable_if_complex_t = enable_if_t<is_complex_v<T>>;
 template <typename T> using enable_if_not_complex_t = enable_if_t<!is_complex_v<T>>;
 
-template <typename Value_, bool Approx_ = array_approx_v<Value_>>
+template <typename Value_, bool Approx_>
 struct Complex : StaticArrayImpl<Value_, 2, Approx_, RoundingMode::Default, false, Complex<Value_, Approx_>> {
     using Base = StaticArrayImpl<Value_, 2, Approx_, RoundingMode::Default, false, Complex<Value_, Approx_>>;
     using Base::Depth;

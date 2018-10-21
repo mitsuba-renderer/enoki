@@ -169,7 +169,7 @@ private:                                                                       \
                                                                                \
 public:                                                                        \
     template <typename... Args> auto func(Args&&... args) {                    \
-        auto lambda = [](InstancePtr instance, Mask mask,                      \
+        auto lambda = [](InstancePtr instance, const Mask &mask,               \
                          auto &&... a) ENOKI_INLINE_LAMBDA {                   \
             ENOKI_MARK_USED(mask);                                             \
             /* Does the method accept a mask argument? If so, provide. */      \
@@ -192,8 +192,12 @@ public:                                                                        \
         }                                                                      \
     }
 
-#define ENOKI_CALL_SUPPORT_GETTER(name, Return, field)                         \
-    Return name(mask_t<Return> mask = true) {                                  \
+#define ENOKI_CALL_SUPPORT_GETTER(name, field)                                 \
+    template <                                                                 \
+        typename Field = decltype(Class::field),                               \
+        typename Return = replace_scalar_t<Storage, Field, false>              \
+    >                                                                          \
+    Return name(const mask_t<Return> &mask = true) {                           \
         using IntType = replace_scalar_t<Storage, std::uintptr_t, false>;      \
         auto offset =                                                          \
             IntType(self) + (std::uintptr_t) &(((Class *) nullptr)->field);    \

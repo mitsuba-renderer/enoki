@@ -152,14 +152,6 @@ static constexpr bool has_vectorization = has_sse42 || has_neon;
 //! @}
 // -----------------------------------------------------------------------
 
-/// Reinterpret the binary represesentation of a data type
-template<typename T, typename U> ENOKI_INLINE T memcpy_cast(const U &val) {
-    static_assert(sizeof(T) == sizeof(U), "memcpy_cast: sizes did not match!");
-    T result;
-    std::memcpy(&result, &val, sizeof(T));
-    return result;
-}
-
 #if defined(ENOKI_X86_SSE42)
 /// Flush denormalized numbers to zero
 inline void set_flush_denormals(bool value) {
