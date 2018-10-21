@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "array.h"
+#include <enoki/array.h>
 
 #if defined(_MSC_VER)
 #  pragma warning (push)
@@ -47,13 +47,12 @@ template <typename Value> constexpr Value morton_magic(size_t dim, size_t level)
 }
 
 /// Bit scatter function. \c Dimension defines the final distance between two output bits
-template <size_t, typename Value, size_t Level,
-          std::enable_if_t<Level == 0, int> = 0>
+template <size_t, typename Value, size_t Level, enable_if_t<Level == 0> = 0>
 ENOKI_INLINE Value scatter_bits(Value x) { return x; }
 
 template <size_t Dimension, typename Value,
           size_t Level = clog2i(sizeof(Value) * 8),
-          std::enable_if_t<Level != 0 && (!(has_avx2 && has_x86_64) || !std::is_integral<Value>::value), int> = 0>
+          enable_if_t<Level != 0 && (!(has_avx2 && has_x86_64) || !std::is_integral_v<Value>)> = 0>
 ENOKI_INLINE Value scatter_bits(Value x) {
     using Scalar = scalar_t<Value>;
 
@@ -61,8 +60,8 @@ ENOKI_INLINE Value scatter_bits(Value x) {
     constexpr size_t shift_maybe = (1 << (Level - 1)) * (Dimension - 1);
     constexpr size_t shift = (shift_maybe < sizeof(Scalar) * 8) ? shift_maybe : 0;
 
-    if (shift)
-        x |= sli<shift>(x);
+    if constexpr (shift != 0)
+        x |= sl<shift>(x);
 
     x &= magic;
 
@@ -70,13 +69,13 @@ ENOKI_INLINE Value scatter_bits(Value x) {
 }
 
 template <size_t, typename Value, size_t Level,
-          std::enable_if_t<Level == 0, int> = 0>
+          enable_if_t<Level == 0> = 0>
 ENOKI_INLINE Value gather_bits(Value x) { return x; }
 
 /// Bit gather function. \c Dimension defines the final distance between two input bits
 template <size_t Dimension, typename Value,
           size_t Level = clog2i(sizeof(Value) * 8),
-          std::enable_if_t<Level != 0 && (!(has_avx2 && has_x86_64) || !std::is_integral<Value>::value), int> = 0>
+          enable_if_t<Level != 0 && (!(has_avx2 && has_x86_64) || !std::is_integral_v<Value>)> = 0>
 ENOKI_INLINE Value gather_bits(Value x) {
     using Scalar = scalar_t<Value>;
 
@@ -87,28 +86,28 @@ ENOKI_INLINE Value gather_bits(Value x) {
 
     x &= magic;
 
-    if (shift)
-        x |= sri<shift>(x);
+    if constexpr (shift != 0)
+        x |= sr<shift>(x);
 
     return gather_bits<Dimension, Value, Level - 1>(x);
 }
 
 #if defined(ENOKI_X86_AVX2) && defined(ENOKI_X86_64)
 template <size_t Dimension, typename Value,
-          std::enable_if_t<std::is_integral<Value>::value, int> = 0>
+          enable_if_t<std::is_integral_v<Value>> = 0>
 ENOKI_INLINE Value scatter_bits(Value x) {
     constexpr Value magic = detail::morton_magic<Value>(Dimension, 1);
-    if (sizeof(Value) <= 4)
+    if constexpr (sizeof(Value) <= 4)
         return Value(_pdep_u32((uint32_t) x, (uint32_t) magic));
     else
         return Value(_pdep_u64((uint64_t) x, (uint64_t) magic));
 }
 
 template <size_t Dimension, typename Value,
-          std::enable_if_t<std::is_integral<Value>::value, int> = 0>
+          enable_if_t<std::is_integral_v<Value>> = 0>
 ENOKI_INLINE Value gather_bits(Value x) {
     constexpr Value magic = detail::morton_magic<Value>(Dimension, 1);
-    if (sizeof(Value) <= 4)
+    if constexpr (sizeof(Value) <= 4)
         return Value(_pext_u32((uint32_t) x, (uint32_t) magic));
     else
         return Value(_pext_u64((uint64_t) x, (uint64_t) magic));
@@ -116,15 +115,15 @@ ENOKI_INLINE Value gather_bits(Value x) {
 #endif
 
 template <typename Array, size_t Index,
-          std::enable_if_t<Index == 0, int> = 0>
+          enable_if_t<Index == 0> = 0>
 ENOKI_INLINE void morton_decode_helper(value_t<Array> value, Array &out) {
     out.coeff(0) = gather_bits<Array::Size>(value);
 }
 
-template <typename Array, size_t Index = array_size<Array>::value - 1,
-          std::enable_if_t<Index != 0, int> = 0>
+template <typename Array, size_t Index = array_size_v<Array> - 1,
+          enable_if_t<Index != 0> = 0>
 ENOKI_INLINE void morton_decode_helper(value_t<Array> value, Array &out) {
-    out.coeff(Index) = gather_bits<Array::Size>(sri<Index>(value));
+    out.coeff(Index) = gather_bits<Array::Size>(sr<Index>(value));
     morton_decode_helper<Array, Index - 1>(value, out);
 }
 
@@ -132,24 +131,24 @@ NAMESPACE_END(detail)
 
 /// Convert a N-dimensional integer array into the Morton/Z-order curve encoding
 template <typename Array, size_t Index, typename Return = value_t<Array>,
-          std::enable_if_t<Index == 0, int> = 0>
+          enable_if_t<Index == 0> = 0>
 ENOKI_INLINE Return morton_encode(Array a) {
     return detail::scatter_bits<Array::Size>(a.coeff(0));
 }
 
 /// Convert a N-dimensional integer array into the Morton/Z-order curve encoding
-template <typename Array, size_t Index = array_size<Array>::value - 1,
-          typename Return = value_t<Array>, std::enable_if_t<Index != 0, int> = 0>
+template <typename Array, size_t Index = array_size_v<Array> - 1,
+          typename Return = value_t<Array>, enable_if_t<Index != 0> = 0>
 ENOKI_INLINE Return morton_encode(Array a) {
-    static_assert(std::is_unsigned<scalar_t<Array>>::value, "morton_encode() requires unsigned arguments");
-    return sli<Index>(detail::scatter_bits<Array::Size>(a.coeff(Index))) |
+    static_assert(std::is_unsigned_v<scalar_t<Array>>, "morton_encode() requires unsigned arguments");
+    return sl<Index>(detail::scatter_bits<Array::Size>(a.coeff(Index))) |
            morton_encode<Array, Index - 1>(a);
 }
 
 /// Convert Morton/Z-order curve encoding into a N-dimensional integer array
 template <typename Array, typename Value = value_t<Array>>
 ENOKI_INLINE Array morton_decode(Value value) {
-    static_assert(std::is_unsigned<scalar_t<Array>>::value, "morton_decode() requires unsigned arguments");
+    static_assert(std::is_unsigned_v<scalar_t<Array>>, "morton_decode() requires unsigned arguments");
     Array result;
     detail::morton_decode_helper(value, result);
     return result;

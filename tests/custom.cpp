@@ -43,7 +43,7 @@ ENOKI_TEST(test01_mask_slice_custom) {
     Custom3fP y;
     y.o = Vector3f(1, 2, 3);
     y.d = Vector3d(4, 5, 6);
-    auto mask = index_sequence<FloatP>() > 0.f;
+    auto mask = arange<FloatP>() > 0.f;
 
     masked(x, mask) = y;
 

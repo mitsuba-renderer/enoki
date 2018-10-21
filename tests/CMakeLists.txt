@@ -40,25 +40,18 @@ enoki_set_compile_flags()
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR
     CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR
     CMAKE_CXX_COMPILER_ID MATCHES "Intel")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
   if (NOT ${ENOKI_U_CMAKE_BUILD_TYPE} MATCHES DEBUG)
     add_compile_options( -fvisibility=hidden)
   endif()
   add_compile_options(-Wall -Wextra -Wconversion)
 elseif(WIN32)
-  add_compile_options("/std:c++14")
+  add_compile_options("/std:c++17")
   add_compile_options("/bigobj")
 endif()
 
 include(CheckCXXSourceRuns)
 include(CheckCXXCompilerFlag)
-
-if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-  CHECK_CXX_COMPILER_FLAG(-faligned-new ALIGNED_NEW)
-  if (ALIGNED_NEW)
-    add_compile_options(-faligned-new)
-  endif()
-endif()
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
@@ -189,3 +182,4 @@ enoki_test(call call.cpp)
 enoki_test(sh sh.cpp)
 enoki_test(color color.cpp)
 enoki_test(custom custom.cpp)
+#enoki_test(autodiff autodiff.cpp)

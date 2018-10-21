@@ -13,16 +13,17 @@
 
 #include "test.h"
 #include <enoki/matrix.h>
+#include <enoki/dynamic.h>
 
 ENOKI_TEST_ALL(test01_extract) {
-    auto idx = index_sequence<T>();
+    auto idx = arange<T>();
     for (size_t i = 0; i < Size; ++i)
         assert(extract(idx, eq(idx, Value(i))) == Value(i));
 }
 
 ENOKI_TEST_ALL(test02_compress) {
     alignas(alignof(T)) Value tmp[T::ActualSize];
-    auto value = index_sequence<T>();
+    auto value = arange<T>();
     Value *tmp2 = tmp;
     compress(tmp2, value, value >= Value(2));
     for (int i = 0; i < int(Size) - 2; ++i)
@@ -32,18 +33,30 @@ ENOKI_TEST_ALL(test02_compress) {
 
 ENOKI_TEST_ALL(test03_transform) {
     Value tmp[T::ActualSize] = { 0 };
-    auto index = index_sequence<uint_array_t<T>>();
+    auto index = arange<uint_array_t<T>>();
     auto index2 = uint_array_t<T>(0u);
 
-    transform<T>(tmp, index, [](auto& value) { value += Value(1); });
-    transform<T>(tmp, index, mask_t<T>(false), [](auto& value) { value += Value(1); });
+    transform<T>(tmp, index,
+                 [](auto &value, auto & /*mask*/) { value += Value(1); });
 
-    transform<T>(tmp, index2, [](auto& value) { value += Value(1); });
-    transform<T>(tmp, index2, mask_t<T>(false), [](auto& value) { value += Value(1); });
+    transform<T>(tmp, index,
+                 [](auto &value, auto & /* mask */) { value += Value(1); },
+                 mask_t<T>(false));
 
-    assert(tmp[0] == Size + 1);
-    for (size_t i = 1; i < Size; ++i)
+    transform<T>(
+        tmp, index2,
+        [](auto &value, auto &amount, auto & /* mask */) { value += amount; },
+        T(2));
+
+    transform<T>(
+        tmp, index2,
+        [](auto &value, auto &amount, auto & /* mask */) { value += amount; },
+        T(2), mask_t<T>(false));
+
+    assert(tmp[0] == 2*Size + 1);
+    for (size_t i = 1; i < Size; ++i) {
         assert(tmp[i] == 1);
+    }
 }
 
 #if defined(_MSC_VER)
@@ -81,12 +94,12 @@ void test04_nested_gather_impl() {
         assert(gather<Matrix3>(x, i) == x[i]);
 
     /* Nested gather + slice */
-    auto q = gather<Matrix3P>(x, index_sequence<UInt32P>());
+    auto q = gather<Matrix3P>(x, arange<UInt32P>());
     for (size_t i = 0; i < T::Size; ++i)
         assert(slice(q, i) == x[i]);
 
     /* Masked nested gather */
-    q = gather<Matrix3P>(x, index_sequence<UInt32P>(), index_sequence<UInt32P>() < 2u);
+    q = gather<Matrix3P>(x, arange<UInt32P>(), arange<UInt32P>() < 2u);
     for (size_t i = 0; i < T::Size; ++i) {
         if (i < 2u)
             assert(slice(q, i) == x[i]);
@@ -95,33 +108,33 @@ void test04_nested_gather_impl() {
     }
 
     /* Nested scatter */
-    q = gather<Matrix3P>(x, index_sequence<UInt32P>());
-    scatter(x, q + fill<Matrix3>(Value(1000)), index_sequence<UInt32P>());
-    scatter(x, q + fill<Matrix3>(Value(2000)), index_sequence<UInt32P>(), index_sequence<UInt32P>() < 2u);
+    q = gather<Matrix3P>(x, arange<UInt32P>());
+    scatter(x, q + full<Matrix3>(Value(1000)), arange<UInt32P>());
+    scatter(x, q + full<Matrix3>(Value(2000)), arange<UInt32P>(), arange<UInt32P>() < 2u);
     for (size_t i = 0; i < T::Size; ++i) {
         if (i < 2u)
-            assert(slice(q, i) + fill<Matrix3>(Value(2000)) == x[i]);
+            assert(slice(q, i) + full<Matrix3>(Value(2000)) == x[i]);
         else
-            assert(slice(q, i) + fill<Matrix3>(Value(1000)) == x[i]);
+            assert(slice(q, i) + full<Matrix3>(Value(1000)) == x[i]);
     }
 
     /* Nested prefetch -- doesn't do anything here, let's just make sure it compiles */
-    prefetch<Matrix3P>(x, index_sequence<UInt32P>());
-    prefetch<Matrix3P>(x, index_sequence<UInt32P>(), index_sequence<UInt32P>() < 2u);
+    prefetch<Matrix3P>(x, arange<UInt32P>());
+    prefetch<Matrix3P>(x, arange<UInt32P>(), arange<UInt32P>() < 2u);
 
     /* Nested gather + slice for dynamic arrays */
     using UInt32X   = DynamicArray<UInt32P>;
     using TX        = DynamicArray<T>;
     using Matrix3X  = Matrix<TX, 3>;
-    auto q2 = gather<Matrix3X>(x, index_sequence<UInt32X>(2));
-    q2 = q2 + fill<Matrix3>(Value(1000));
-    scatter(x, q2, index_sequence<UInt32X>(2));
+    auto q2 = gather<Matrix3X>(x, arange<UInt32X>(2));
+    q2 = q2 + full<Matrix3>(Value(1000));
+    scatter(x, q2, arange<UInt32X>(2));
 
     for (size_t i = 0; i < T::Size; ++i) {
         if (i < 2u)
-            assert(slice(q, i) + fill<Matrix3>(Value(3000)) == x[i]);
+            assert(slice(q, i) + full<Matrix3>(Value(3000)) == x[i]);
         else
-            assert(slice(q, i) + fill<Matrix3>(Value(1000)) == x[i]);
+            assert(slice(q, i) + full<Matrix3>(Value(1000)) == x[i]);
     }
 }
 

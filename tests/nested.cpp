@@ -21,7 +21,7 @@ ENOKI_TEST(test01_string) { /* Arrays can be instantiated for all sorts of types
     assert(to_string(v1) == "[Hello ,  How are ]");
     assert(to_string(v1 + v2) == "[Hello world!,  How are you?]");
     assert(hsum(v1 + v2) == "Hello world! How are you?");
-    assert(hsum(v1 + "you!") == "Hello you! How are you!");
+    assert(hsum(v1 + std::string("you!")) == "Hello you! How are you!");
 }
 
 ENOKI_TEST(test02_float_array) {
@@ -127,8 +127,8 @@ ENOKI_TEST(test06_nested_reductions) {
     auto my_count_nested = [](Vector3fP x) { return count_nested(x > 4.f); };
 
     auto data =
-        Vector3fP(index_sequence<FloatP>() + 0.f, index_sequence<FloatP>() + 1.f,
-                  index_sequence<FloatP>() + 2.f);
+        Vector3fP(arange<FloatP>() + 0.f, arange<FloatP>() + 1.f,
+                  arange<FloatP>() + 2.f);
 
     auto str = [](auto x) {
         return to_string(select(reinterpret_array<mask_t<IntP>>(x), IntP(1), IntP(0)));

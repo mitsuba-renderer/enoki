@@ -14,57 +14,167 @@
 
 #pragma once
 
-#if defined(_MSC_VER)
-#  pragma warning(push)
-#  pragma warning(disable: 4146) // warning C4146: unary minus operator applied to unsigned type, result still unsigned
-#  pragma warning(disable: 4554) // warning C4554: '>>': check operator precedence for possible error; use parentheses to clarify precedence
-#  pragma warning(disable: 4127) // warning C4127: conditional expression is constant
-#  pragma warning(disable: 4310) // warning C4310: cast truncates constant value
-#elif defined(__clang__)
-#  pragma clang diagnostic push
-#  pragma clang diagnostic ignored "-Wundefined-inline"
-#endif
+#include <enoki/array_generic.h>
 
-#include "array_generic.h"
+#include <enoki/array_round.h>
 
-#include "half.h"
-
-#include "array_idiv.h"
+#include <enoki/array_math.h>
 
 #if defined(ENOKI_ARM_NEON) || defined(ENOKI_X86_SSE42)
-#  include "array_recursive.h"
-#endif
-
-#if defined(ENOKI_ARM_NEON)
-#  include "array_neon.h"
-#endif
-
-#if defined(ENOKI_X86_SSE42)
-#  include "array_sse42.h"
-#endif
-
-#if defined(ENOKI_X86_AVX)
-#  include "array_avx.h"
-#endif
-
-#if defined(ENOKI_X86_AVX2)
-#  include "array_avx2.h"
+#  include <enoki/array_recursive.h>
 #endif
 
 #if defined(ENOKI_X86_AVX512F)
-#  include "array_avx512.h"
+#  include <enoki/array_kmask.h>
 #endif
 
-#include "array_round.h"
-
-#include "array_misc.h"
-
-#include "array_dynamic.h"
-
-#include "array_macro.h"
-
-#if defined(_MSC_VER)
-#  pragma warning(pop)
-#elif defined(__clang__)
-#  pragma clang diagnostic pop
+#if defined(ENOKI_X86_SSE42)
+#  include <enoki/array_sse42.h>
 #endif
+
+#if defined(ENOKI_X86_AVX)
+#  include <enoki/array_avx.h>
+#endif
+
+#if defined(ENOKI_X86_AVX2)
+#  include <enoki/array_avx2.h>
+#endif
+
+#if defined(ENOKI_X86_AVX512F)
+#  include <enoki/array_avx512.h>
+#endif
+
+#include <enoki/array_idiv.h>
+#include <enoki/array_call.h>
+#include <enoki/array_utils.h>
+#include <enoki/array_macro.h>
+
+#include <enoki/half.h>
+
+NAMESPACE_BEGIN(enoki)
+
+template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
+struct Array : StaticArrayImpl<Value_, Size_, Approx_, Mode_, false,
+                               Array<Value_, Size_, Approx_, Mode_>> {
+
+    using Base = StaticArrayImpl<Value_, Size_, Approx_, Mode_, false,
+                                 Array<Value_, Size_, Approx_, Mode_>>;
+
+    using ArrayType = Array;
+    using MaskType = Mask<Value_, Size_, Approx_, Mode_>;
+
+    /// Type alias for creating a similar-shaped array over a different type
+    template <typename T>
+    using ReplaceValue = Array<T, Size_,
+              is_std_float_v<scalar_t<T>> && is_std_float_v<scalar_t<Value_>>
+                  ? Approx_ : array_approx_v<scalar_t<T>>,
+              is_std_float_v<scalar_t<T>> && is_std_float_v<scalar_t<Value_>>
+                  ? Mode_ : RoundingMode::Default>;
+
+    ENOKI_ARRAY_IMPORT(Base, Array);
+};
+
+template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
+struct Mask : StaticArrayImpl<Value_, Size_, Approx_, Mode_, true,
+                              Mask<Value_, Size_, Approx_, Mode_>> {
+
+    using Base = StaticArrayImpl<Value_, Size_, Approx_, Mode_, true,
+                                 Mask<Value_, Size_, Approx_, Mode_>>;
+
+    using ArrayType = Array<Value_, Size_, Approx_, Mode_>;
+    using MaskType = Mask;
+    using Base::Size1;
+    using Base::Size2;
+
+    /// Type alias for creating a similar-shaped array over a different type
+    template <typename T> using ReplaceValue = Mask<T, Size_>;
+
+    Mask() = default;
+
+    template <typename T> Mask(T &&value)
+        : Base(std::forward<T>(value), detail::reinterpret_flag()) { }
+
+    template <typename T> Mask(T &&value, detail::reinterpret_flag)
+        : Base(std::forward<T>(value), detail::reinterpret_flag()) { }
+
+    /// Construct from sub-arrays
+    template <typename T1, typename T2, typename T = Mask, enable_if_t<
+              array_depth_v<T1> == array_depth_v<T> && array_size_v<T1> == Size1 &&
+              array_depth_v<T2> == array_depth_v<T> && array_size_v<T2> == Size2 &&
+              Size2 != 0> = 0>
+    Mask(const T1 &a1, const T2 &a2)
+        : Base(a1, a2) { }
+
+    template <typename... Ts,
+        enable_if_t<(sizeof...(Ts) == Base::Size || sizeof...(Ts) == Base::ActualSize) && Size_ != 1 &&
+                    std::conjunction_v<detail::is_not_reinterpret_flag<Ts>...>> = 0>
+    Mask(Ts&&... ts) : Base(std::forward<Ts>(ts)...) { }
+
+    ENOKI_ARRAY_IMPORT_BASIC(Base, Mask);
+};
+
+template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
+struct Packet : StaticArrayImpl<Value_, Size_, Approx_, Mode_, false,
+                                Packet<Value_, Size_, Approx_, Mode_>> {
+
+    using Base = StaticArrayImpl<Value_, Size_, Approx_, Mode_, false,
+                                 Packet<Value_, Size_, Approx_, Mode_>>;
+
+    using ArrayType = Packet;
+    using MaskType = PacketMask<Value_, Size_, Approx_, Mode_>;
+
+    static constexpr bool BroadcastPreferOuter = false;
+
+    /// Type alias for creating a similar-shaped array over a different type
+    template <typename T>
+    using ReplaceValue = Packet<T, Size_,
+              is_std_float_v<scalar_t<T>> && is_std_float_v<scalar_t<Value_>>
+                  ? Approx_ : array_approx_v<scalar_t<T>>,
+              is_std_float_v<scalar_t<T>> && is_std_float_v<scalar_t<Value_>>
+                  ? Mode_ : RoundingMode::Default>;
+
+    ENOKI_ARRAY_IMPORT(Base, Packet);
+};
+
+template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
+struct PacketMask : StaticArrayImpl<Value_, Size_, Approx_, Mode_, true,
+                              PacketMask<Value_, Size_, Approx_, Mode_>> {
+
+    using Base = StaticArrayImpl<Value_, Size_, Approx_, Mode_, true,
+                                 PacketMask<Value_, Size_, Approx_, Mode_>>;
+
+    static constexpr bool BroadcastPreferOuter = false;
+
+    using ArrayType = Packet<Value_, Size_, Approx_, Mode_>;
+    using MaskType = PacketMask;
+    using Base::Size1;
+    using Base::Size2;
+
+    /// Type alias for creating a similar-shaped array over a different type
+    template <typename T> using ReplaceValue = PacketMask<T, Size_>;
+
+    PacketMask() = default;
+
+    template <typename T> PacketMask(T &&value)
+        : Base(std::forward<T>(value), detail::reinterpret_flag()) { }
+
+    template <typename T> PacketMask(T &&value, detail::reinterpret_flag)
+        : Base(std::forward<T>(value), detail::reinterpret_flag()) { }
+
+    /// Construct from sub-arrays
+    template <typename T1, typename T2, typename T = PacketMask, enable_if_t<
+              array_depth_v<T1> == array_depth_v<T> && array_size_v<T1> == Size1 &&
+              array_depth_v<T2> == array_depth_v<T> && array_size_v<T2> == Size2 &&
+              Size2 != 0> = 0>
+    PacketMask(const T1 &a1, const T2 &a2)
+        : Base(a1, a2) { }
+
+    template <typename... Ts,
+        enable_if_t<(sizeof...(Ts) == Base::Size || sizeof...(Ts) == Base::ActualSize) && Size_ != 1 &&
+                    std::conjunction_v<detail::is_not_reinterpret_flag<Ts>...>> = 0>
+    PacketMask(Ts&&... ts) : Base(std::forward<Ts>(ts)...) { }
+
+    ENOKI_ARRAY_IMPORT_BASIC(Base, PacketMask);
+};
+
+NAMESPACE_END(enoki)

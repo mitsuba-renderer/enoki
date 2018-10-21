@@ -907,7 +907,7 @@ Elementary Arithmetic Functions
     power of 2. Analogous to ``std::frexp`` except that both return values are
     floating point values.
 
-.. cpp:function:: template <typename Array> Ayray lerp(Array a, Array b, Array t)
+.. cpp:function:: template <typename Array> Aray lerp(Array a, Array b, Array t)
 
     Blends between the values :math:`a` and :math:`b` using the expression
     :math:`a(1-t) + t*b`.

@@ -22,7 +22,7 @@
 NAMESPACE_BEGIN(enoki)
 
 template <typename Array>
-void sh_eval(const Array &d, size_t order, expr_t<value_t<Array>> *out) {
+void sh_eval(const Array &d, size_t order, value_t<expr_t<Array>> *out) {
     switch (order) {
         case 0: sh_eval_0(d, out); break;
         case 1: sh_eval_1(d, out); break;
@@ -39,26 +39,26 @@ void sh_eval(const Array &d, size_t order, expr_t<value_t<Array>> *out) {
 }
 
 template <typename Array>
-void sh_eval_0(const Array &, expr_t<value_t<Array>> *out) {
-    static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
+void sh_eval_0(const Array &, value_t<expr_t<Array>> *out) {
+    static_assert(array_size_v<Array> == 3, "The parameter 'd' should be a 3D vector.");
 
-    using Float = expr_t<value_t<Array>>;
-    using Scalar = scalar_t<Float>;
+    using Value = value_t<expr_t<Array>>;
+    using Scalar = scalar_t<Value>;
 
-    store(out + 0, Float(Scalar(0.28209479177387814)));
+    store(out + 0, Value(Scalar(0.28209479177387814)));
 }
 
 template <typename Array>
-void sh_eval_1(const Array &d, expr_t<value_t<Array>> *out) {
-    static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
+void sh_eval_1(const Array &d, value_t<expr_t<Array>> *out) {
+    static_assert(array_size_v<Array> == 3, "The parameter 'd' should be a 3D vector.");
 
-    using Float = expr_t<value_t<Array>>;
-    using Scalar = scalar_t<Float>;
+    using Value = value_t<expr_t<Array>>;
+    using Scalar = scalar_t<Value>;
 
-    Float x = d.x(), y = d.y(), z = d.z();
-    Float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
+    Value x = d.x(), y = d.y(), z = d.z();
+    Value c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
 
-    store(out + 0, Float(Scalar(0.28209479177387814)));
+    store(out + 0, Value(Scalar(0.28209479177387814)));
     store(out + 2, z * Scalar(0.488602511902919923));
     c0 = x;
     s0 = y;
@@ -69,16 +69,16 @@ void sh_eval_1(const Array &d, expr_t<value_t<Array>> *out) {
 }
 
 template <typename Array>
-void sh_eval_2(const Array &d, expr_t<value_t<Array>> *out) {
-    static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
+void sh_eval_2(const Array &d, value_t<expr_t<Array>> *out) {
+    static_assert(array_size_v<Array> == 3, "The parameter 'd' should be a 3D vector.");
 
-    using Float = expr_t<value_t<Array>>;
-    using Scalar = scalar_t<Float>;
+    using Value = value_t<expr_t<Array>>;
+    using Scalar = scalar_t<Value>;
 
-    Float x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
-    Float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
+    Value x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
+    Value c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
 
-    store(out + 0, Float(Scalar(0.28209479177387814)));
+    store(out + 0, Value(Scalar(0.28209479177387814)));
     store(out + 2, z * Scalar(0.488602511902919923));
     store(out + 6, fmadd(z2, Scalar(0.94617469575756008), Scalar(-0.315391565252520045)));
     c0 = x;
@@ -99,16 +99,16 @@ void sh_eval_2(const Array &d, expr_t<value_t<Array>> *out) {
 }
 
 template <typename Array>
-void sh_eval_3(const Array &d, expr_t<value_t<Array>> *out) {
-    static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
+void sh_eval_3(const Array &d, value_t<expr_t<Array>> *out) {
+    static_assert(array_size_v<Array> == 3, "The parameter 'd' should be a 3D vector.");
 
-    using Float = expr_t<value_t<Array>>;
-    using Scalar = scalar_t<Float>;
+    using Value = value_t<expr_t<Array>>;
+    using Scalar = scalar_t<Value>;
 
-    Float x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
-    Float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
+    Value x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
+    Value c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
 
-    store(out + 0, Float(Scalar(0.28209479177387814)));
+    store(out + 0, Value(Scalar(0.28209479177387814)));
     store(out + 2, z * Scalar(0.488602511902919923));
     store(out + 6, fmadd(z2, Scalar(0.94617469575756008), Scalar(-0.315391565252520045)));
     store(out + 12, z * fmadd(z2, Scalar(1.865881662950577), Scalar(-1.1195289977703462)));
@@ -142,20 +142,20 @@ void sh_eval_3(const Array &d, expr_t<value_t<Array>> *out) {
 }
 
 template <typename Array>
-void sh_eval_4(const Array &d, expr_t<value_t<Array>> *out) {
-    static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
+void sh_eval_4(const Array &d, value_t<expr_t<Array>> *out) {
+    static_assert(array_size_v<Array> == 3, "The parameter 'd' should be a 3D vector.");
 
-    using Float = expr_t<value_t<Array>>;
-    using Scalar = scalar_t<Float>;
+    using Value = value_t<expr_t<Array>>;
+    using Scalar = scalar_t<Value>;
 
-    Float x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
-    Float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
+    Value x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
+    Value c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
 
-    store(out + 0, Float(Scalar(0.28209479177387814)));
+    store(out + 0, Value(Scalar(0.28209479177387814)));
     store(out + 2, z * Scalar(0.488602511902919923));
     store(out + 6, fmadd(z2, Scalar(0.94617469575756008), Scalar(-0.315391565252520045)));
     store(out + 12, z * fmadd(z2, Scalar(1.865881662950577), Scalar(-1.1195289977703462)));
-    store(out + 20, fmadd(z * Scalar(1.98431348329844304), load<Float>(out + 12), load<Float>(out + 6) * Scalar(-1.00623058987490532)));
+    store(out + 20, fmadd(z * Scalar(1.98431348329844304), load<Value>(out + 12), load<Value>(out + 6) * Scalar(-1.00623058987490532)));
     c0 = x;
     s0 = y;
 
@@ -201,21 +201,21 @@ void sh_eval_4(const Array &d, expr_t<value_t<Array>> *out) {
 }
 
 template <typename Array>
-void sh_eval_5(const Array &d, expr_t<value_t<Array>> *out) {
-    static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
+void sh_eval_5(const Array &d, value_t<expr_t<Array>> *out) {
+    static_assert(array_size_v<Array> == 3, "The parameter 'd' should be a 3D vector.");
 
-    using Float = expr_t<value_t<Array>>;
-    using Scalar = scalar_t<Float>;
+    using Value = value_t<expr_t<Array>>;
+    using Scalar = scalar_t<Value>;
 
-    Float x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
-    Float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
+    Value x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
+    Value c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
 
-    store(out + 0, Float(Scalar(0.28209479177387814)));
+    store(out + 0, Value(Scalar(0.28209479177387814)));
     store(out + 2, z * Scalar(0.488602511902919923));
     store(out + 6, fmadd(z2, Scalar(0.94617469575756008), Scalar(-0.315391565252520045)));
     store(out + 12, z * fmadd(z2, Scalar(1.865881662950577), Scalar(-1.1195289977703462)));
-    store(out + 20, fmadd(z * Scalar(1.98431348329844304), load<Float>(out + 12), load<Float>(out + 6) * Scalar(-1.00623058987490532)));
-    store(out + 30, fmadd(z * Scalar(1.98997487421323993), load<Float>(out + 20), load<Float>(out + 12) * Scalar(-1.00285307284481395)));
+    store(out + 20, fmadd(z * Scalar(1.98431348329844304), load<Value>(out + 12), load<Value>(out + 6) * Scalar(-1.00623058987490532)));
+    store(out + 30, fmadd(z * Scalar(1.98997487421323993), load<Value>(out + 20), load<Value>(out + 12) * Scalar(-1.00285307284481395)));
     c0 = x;
     s0 = y;
 
@@ -279,22 +279,22 @@ void sh_eval_5(const Array &d, expr_t<value_t<Array>> *out) {
 }
 
 template <typename Array>
-void sh_eval_6(const Array &d, expr_t<value_t<Array>> *out) {
-    static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
+void sh_eval_6(const Array &d, value_t<expr_t<Array>> *out) {
+    static_assert(array_size_v<Array> == 3, "The parameter 'd' should be a 3D vector.");
 
-    using Float = expr_t<value_t<Array>>;
-    using Scalar = scalar_t<Float>;
+    using Value = value_t<expr_t<Array>>;
+    using Scalar = scalar_t<Value>;
 
-    Float x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
-    Float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
+    Value x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
+    Value c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
 
-    store(out + 0, Float(Scalar(0.28209479177387814)));
+    store(out + 0, Value(Scalar(0.28209479177387814)));
     store(out + 2, z * Scalar(0.488602511902919923));
     store(out + 6, fmadd(z2, Scalar(0.94617469575756008), Scalar(-0.315391565252520045)));
     store(out + 12, z * fmadd(z2, Scalar(1.865881662950577), Scalar(-1.1195289977703462)));
-    store(out + 20, fmadd(z * Scalar(1.98431348329844304), load<Float>(out + 12), load<Float>(out + 6) * Scalar(-1.00623058987490532)));
-    store(out + 30, fmadd(z * Scalar(1.98997487421323993), load<Float>(out + 20), load<Float>(out + 12) * Scalar(-1.00285307284481395)));
-    store(out + 42, fmadd(z * Scalar(1.99304345718356646), load<Float>(out + 30), load<Float>(out + 20) * Scalar(-1.00154202096221923)));
+    store(out + 20, fmadd(z * Scalar(1.98431348329844304), load<Value>(out + 12), load<Value>(out + 6) * Scalar(-1.00623058987490532)));
+    store(out + 30, fmadd(z * Scalar(1.98997487421323993), load<Value>(out + 20), load<Value>(out + 12) * Scalar(-1.00285307284481395)));
+    store(out + 42, fmadd(z * Scalar(1.99304345718356646), load<Value>(out + 30), load<Value>(out + 20) * Scalar(-1.00154202096221923)));
     c0 = x;
     s0 = y;
 
@@ -379,23 +379,23 @@ void sh_eval_6(const Array &d, expr_t<value_t<Array>> *out) {
 }
 
 template <typename Array>
-void sh_eval_7(const Array &d, expr_t<value_t<Array>> *out) {
-    static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
+void sh_eval_7(const Array &d, value_t<expr_t<Array>> *out) {
+    static_assert(array_size_v<Array> == 3, "The parameter 'd' should be a 3D vector.");
 
-    using Float = expr_t<value_t<Array>>;
-    using Scalar = scalar_t<Float>;
+    using Value = value_t<expr_t<Array>>;
+    using Scalar = scalar_t<Value>;
 
-    Float x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
-    Float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
+    Value x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
+    Value c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
 
-    store(out + 0, Float(Scalar(0.28209479177387814)));
+    store(out + 0, Value(Scalar(0.28209479177387814)));
     store(out + 2, z * Scalar(0.488602511902919923));
     store(out + 6, fmadd(z2, Scalar(0.94617469575756008), Scalar(-0.315391565252520045)));
     store(out + 12, z * fmadd(z2, Scalar(1.865881662950577), Scalar(-1.1195289977703462)));
-    store(out + 20, fmadd(z * Scalar(1.98431348329844304), load<Float>(out + 12), load<Float>(out + 6) * Scalar(-1.00623058987490532)));
-    store(out + 30, fmadd(z * Scalar(1.98997487421323993), load<Float>(out + 20), load<Float>(out + 12) * Scalar(-1.00285307284481395)));
-    store(out + 42, fmadd(z * Scalar(1.99304345718356646), load<Float>(out + 30), load<Float>(out + 20) * Scalar(-1.00154202096221923)));
-    store(out + 56, fmadd(z * Scalar(1.99489143482413467), load<Float>(out + 42), load<Float>(out + 30) * Scalar(-1.00092721392195827)));
+    store(out + 20, fmadd(z * Scalar(1.98431348329844304), load<Value>(out + 12), load<Value>(out + 6) * Scalar(-1.00623058987490532)));
+    store(out + 30, fmadd(z * Scalar(1.98997487421323993), load<Value>(out + 20), load<Value>(out + 12) * Scalar(-1.00285307284481395)));
+    store(out + 42, fmadd(z * Scalar(1.99304345718356646), load<Value>(out + 30), load<Value>(out + 20) * Scalar(-1.00154202096221923)));
+    store(out + 56, fmadd(z * Scalar(1.99489143482413467), load<Value>(out + 42), load<Value>(out + 30) * Scalar(-1.00092721392195827)));
     c0 = x;
     s0 = y;
 
@@ -504,24 +504,24 @@ void sh_eval_7(const Array &d, expr_t<value_t<Array>> *out) {
 }
 
 template <typename Array>
-void sh_eval_8(const Array &d, expr_t<value_t<Array>> *out) {
-    static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
+void sh_eval_8(const Array &d, value_t<expr_t<Array>> *out) {
+    static_assert(array_size_v<Array> == 3, "The parameter 'd' should be a 3D vector.");
 
-    using Float = expr_t<value_t<Array>>;
-    using Scalar = scalar_t<Float>;
+    using Value = value_t<expr_t<Array>>;
+    using Scalar = scalar_t<Value>;
 
-    Float x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
-    Float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
+    Value x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
+    Value c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
 
-    store(out + 0, Float(Scalar(0.28209479177387814)));
+    store(out + 0, Value(Scalar(0.28209479177387814)));
     store(out + 2, z * Scalar(0.488602511902919923));
     store(out + 6, fmadd(z2, Scalar(0.94617469575756008), Scalar(-0.315391565252520045)));
     store(out + 12, z * fmadd(z2, Scalar(1.865881662950577), Scalar(-1.1195289977703462)));
-    store(out + 20, fmadd(z * Scalar(1.98431348329844304), load<Float>(out + 12), load<Float>(out + 6) * Scalar(-1.00623058987490532)));
-    store(out + 30, fmadd(z * Scalar(1.98997487421323993), load<Float>(out + 20), load<Float>(out + 12) * Scalar(-1.00285307284481395)));
-    store(out + 42, fmadd(z * Scalar(1.99304345718356646), load<Float>(out + 30), load<Float>(out + 20) * Scalar(-1.00154202096221923)));
-    store(out + 56, fmadd(z * Scalar(1.99489143482413467), load<Float>(out + 42), load<Float>(out + 30) * Scalar(-1.00092721392195827)));
-    store(out + 72, fmadd(z * Scalar(1.9960899278339137), load<Float>(out + 56), load<Float>(out + 42) * Scalar(-1.00060078106951478)));
+    store(out + 20, fmadd(z * Scalar(1.98431348329844304), load<Value>(out + 12), load<Value>(out + 6) * Scalar(-1.00623058987490532)));
+    store(out + 30, fmadd(z * Scalar(1.98997487421323993), load<Value>(out + 20), load<Value>(out + 12) * Scalar(-1.00285307284481395)));
+    store(out + 42, fmadd(z * Scalar(1.99304345718356646), load<Value>(out + 30), load<Value>(out + 20) * Scalar(-1.00154202096221923)));
+    store(out + 56, fmadd(z * Scalar(1.99489143482413467), load<Value>(out + 42), load<Value>(out + 30) * Scalar(-1.00092721392195827)));
+    store(out + 72, fmadd(z * Scalar(1.9960899278339137), load<Value>(out + 56), load<Value>(out + 42) * Scalar(-1.00060078106951478)));
     c0 = x;
     s0 = y;
 
@@ -657,25 +657,25 @@ void sh_eval_8(const Array &d, expr_t<value_t<Array>> *out) {
 }
 
 template <typename Array>
-void sh_eval_9(const Array &d, expr_t<value_t<Array>> *out) {
-    static_assert(Array::Derived::Size == 3, "The parameter 'd' should be a 3D vector.");
+void sh_eval_9(const Array &d, value_t<expr_t<Array>> *out) {
+    static_assert(array_size_v<Array> == 3, "The parameter 'd' should be a 3D vector.");
 
-    using Float = expr_t<value_t<Array>>;
-    using Scalar = scalar_t<Float>;
+    using Value = value_t<expr_t<Array>>;
+    using Scalar = scalar_t<Value>;
 
-    Float x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
-    Float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
+    Value x = d.x(), y = d.y(), z = d.z(), z2 = z * z;
+    Value c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
 
-    store(out + 0, Float(Scalar(0.28209479177387814)));
+    store(out + 0, Value(Scalar(0.28209479177387814)));
     store(out + 2, z * Scalar(0.488602511902919923));
     store(out + 6, fmadd(z2, Scalar(0.94617469575756008), Scalar(-0.315391565252520045)));
     store(out + 12, z * fmadd(z2, Scalar(1.865881662950577), Scalar(-1.1195289977703462)));
-    store(out + 20, fmadd(z * Scalar(1.98431348329844304), load<Float>(out + 12), load<Float>(out + 6) * Scalar(-1.00623058987490532)));
-    store(out + 30, fmadd(z * Scalar(1.98997487421323993), load<Float>(out + 20), load<Float>(out + 12) * Scalar(-1.00285307284481395)));
-    store(out + 42, fmadd(z * Scalar(1.99304345718356646), load<Float>(out + 30), load<Float>(out + 20) * Scalar(-1.00154202096221923)));
-    store(out + 56, fmadd(z * Scalar(1.99489143482413467), load<Float>(out + 42), load<Float>(out + 30) * Scalar(-1.00092721392195827)));
-    store(out + 72, fmadd(z * Scalar(1.9960899278339137), load<Float>(out + 56), load<Float>(out + 42) * Scalar(-1.00060078106951478)));
-    store(out + 90, fmadd(z * Scalar(1.99691119506793657), load<Float>(out + 72), load<Float>(out + 56) * Scalar(-1.0004114379931337)));
+    store(out + 20, fmadd(z * Scalar(1.98431348329844304), load<Value>(out + 12), load<Value>(out + 6) * Scalar(-1.00623058987490532)));
+    store(out + 30, fmadd(z * Scalar(1.98997487421323993), load<Value>(out + 20), load<Value>(out + 12) * Scalar(-1.00285307284481395)));
+    store(out + 42, fmadd(z * Scalar(1.99304345718356646), load<Value>(out + 30), load<Value>(out + 20) * Scalar(-1.00154202096221923)));
+    store(out + 56, fmadd(z * Scalar(1.99489143482413467), load<Value>(out + 42), load<Value>(out + 30) * Scalar(-1.00092721392195827)));
+    store(out + 72, fmadd(z * Scalar(1.9960899278339137), load<Value>(out + 56), load<Value>(out + 42) * Scalar(-1.00060078106951478)));
+    store(out + 90, fmadd(z * Scalar(1.99691119506793657), load<Value>(out + 72), load<Value>(out + 56) * Scalar(-1.0004114379931337)));
     c0 = x;
     s0 = y;
 

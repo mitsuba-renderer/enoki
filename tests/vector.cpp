@@ -15,21 +15,20 @@
 #include <enoki/matrix.h>
 #include <enoki/transform.h>
 #include <enoki/random.h>
+#include <enoki/dynamic.h>
 
 template <typename T, std::enable_if_t<std::is_signed<typename T::Value>::value, int> = 0>
 void test01_dot_signed() {
-#if !defined(_MSC_VER) /// ICE in MSVC 2017 :-|
     using Value = typename T::Value;
     constexpr size_t Size = T::Size;
     Value expected1 = Value((Size * (2 * Size - 1) * (Size - 1)) / 6);
     Value expected2 = Value((Size * (Size - 1)) / 2);
-    T value = index_sequence<T>();
+    T value = arange<T>();
     T value2(Value(1));
     assert(dot(value, -value) == -expected1);
     assert(dot(value, -value2) == -expected2);
     assert(abs_dot(value, -value) == expected1);
     assert(abs_dot(value, -value2) == expected2);
-#endif
 }
 
 template <typename T, std::enable_if_t<!std::is_signed<typename T::Value>::value, int> = 0>
@@ -38,7 +37,7 @@ void test01_dot_signed() { }
 ENOKI_TEST_ALL(test01_dot) {
     Value expected1 = Value((Size * (2 * Size - 1) * (Size - 1)) / 6);
     Value expected2 = Value((Size * (Size - 1)) / 2);
-    T value = index_sequence<T>();
+    T value = arange<T>();
     T value2(Value(1));
     assert(dot(value, value)  == expected1);
     assert(dot(value, value2) == expected2);
@@ -120,9 +119,9 @@ ENOKI_TEST(array_float_05_outer_product) {
     using Vector4f = Array<float, 4>;
     using Vector3f = Array<float, 3>;
 
-    assert(to_string(fill<Vector3f>(Vector4f(1, 2, 3, 4)) * Vector3f(0, 1, 0)) == "[[0, 1, 0],\n [0, 2, 0],\n [0, 3, 0],\n [0, 4, 0]]");
-    assert(to_string(fill<float>(Vector4f(1, 2, 3, 4)) * 3.f) == "[3, 6, 9, 12]");
-    assert(to_string(fill<Vector3f>(3.f) * Vector3f(1, 2, 3)) == "[3, 6, 9]");
+    assert(to_string(full<Vector3f>(Vector4f(1, 2, 3, 4)) * Vector3f(0, 1, 0)) == "[[0, 1, 0],\n [0, 2, 0],\n [0, 3, 0],\n [0, 4, 0]]");
+    assert(to_string(full<float>(Vector4f(1, 2, 3, 4)) * 3.f) == "[3, 6, 9, 12]");
+    assert(to_string(full<Vector3f>(3.f) * Vector3f(1, 2, 3)) == "[3, 6, 9]");
 }
 
 ENOKI_TEST(array_float_06_head_tail) {
@@ -187,22 +186,19 @@ ENOKI_TEST(array_uint32_04_concat) { test_concat<uint32_t>(); }
 ENOKI_TEST(array_double_04_concat) { test_concat<double>(); }
 ENOKI_TEST(array_uint64_t_04_concat) { test_concat<uint64_t>(); }
 
-template <typename Type, size_t Size>
-struct Vector : enoki::StaticArrayImpl<Type, Size, detail::approx_default<Type>::value,
-                                       RoundingMode::Default, Vector<Type, Size>> {
+template <typename Type, size_t Size_, bool Approx = array_approx_v<Type>>
+struct Vector : enoki::StaticArrayImpl<Type, Size_, Approx,
+                                       RoundingMode::Default, false, Vector<Type, Size_>> {
 
-    static constexpr bool Approx = detail::approx_default<Type>::value;
-
-    using Base = enoki::StaticArrayImpl<Type, Size, Approx, RoundingMode::Default,
-                                        Vector<Type, Size>>;
+    using Base = enoki::StaticArrayImpl<Type, Size_, Approx, RoundingMode::Default,
+                                        false, Vector<Type, Size_>>;
+    ENOKI_ARRAY_IMPORT(Base, Vector)
 
     using ArrayType = Vector;
-    using MaskType = Mask<Type, Size, Approx, RoundingMode::Default>;
-
-    ENOKI_DECLARE_ARRAY(Base, Vector)
+    using MaskType = Mask<Type, Size_, Approx, RoundingMode::Default>;
 
     /// Helper alias used to transition between vector types (used by enoki::vectorize)
-    template <typename T> using ReplaceType = Vector<T, Size>;
+    template <typename T> using ReplaceValue = Vector<T, Size_>;
 };
 
 
@@ -282,17 +278,17 @@ ENOKI_TEST(test_unit_angle) {
     }
 }
 
-ENOKI_TEST(fill) {
+ENOKI_TEST(full) {
     using Vector4f  = Array<float, 4>;
     using MyMatrix = Array<Vector4f, 4>;
-    MyMatrix result = fill<MyMatrix>(10.f);
+    MyMatrix result = full<MyMatrix>(10.f);
     assert(to_string(result) == "[[10, 10, 10, 10],\n [10, 10, 10, 10],\n [10, 10, 10, 10],\n [10, 10, 10, 10]]");
-    result = fill<Vector4f>(Vector4f(1, 2, 3, 4));
+    result = full<Vector4f>(Vector4f(1, 2, 3, 4));
     assert(to_string(result) == "[[1, 1, 1, 1],\n [2, 2, 2, 2],\n [3, 3, 3, 3],\n [4, 4, 4, 4]]");
     result = MyMatrix(Vector4f(1, 2, 3, 4));
     assert(to_string(result) == "[[1, 2, 3, 4],\n [1, 2, 3, 4],\n [1, 2, 3, 4],\n [1, 2, 3, 4]]");
 
-    Matrix<float, 4> result2 = fill<Matrix<float, 4>>(10.f);
+    Matrix<float, 4> result2 = full<Matrix<float, 4>>(10.f);
     assert(to_string(result2) == "[[10, 10, 10, 10],\n [10, 10, 10, 10],\n [10, 10, 10, 10],\n [10, 10, 10, 10]]");
 }
 
@@ -304,7 +300,7 @@ ENOKI_TEST(masked_assignment) {
     Matrix4fP z = identity<Matrix4f>();
     masked(z, true) *= 2.f;
     masked(z, z > 0.f) *= 2.f;
-    masked(z, eq(index_sequence<FloatP>(), 0.f)) *= 2.f;
+    masked(z, eq(arange<FloatP>(), 0.f)) *= 2.f;
     assert(z.coeff(0, 0, 0) == 8.f);
 
     if (FloatP::Size > 1) {

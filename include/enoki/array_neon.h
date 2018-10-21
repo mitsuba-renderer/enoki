@@ -18,14 +18,14 @@
 NAMESPACE_BEGIN(enoki)
 NAMESPACE_BEGIN(detail)
 
-template <> struct is_native<float, 4> : std::true_type { };
+template <> struct is_native<float, 4> : std::true_type { } ;
 template <> struct is_native<float, 3> : std::true_type { };
-template <typename T> struct is_native<T, 3, is_int32_t<T>> : std::true_type { };
-template <typename T> struct is_native<T, 4, is_int32_t<T>> : std::true_type { };
+template <typename Value>    struct is_native<Value, 4, RoundingMode::Default, enable_if_int32_t<Value>> : std::true_type { };
+template <typename Value>    struct is_native<Value, 3, RoundingMode::Default, enable_if_int32_t<Value>> : std::true_type { };
 
 #if defined(ENOKI_ARM_64)
-  template <typename T> struct is_native<T, 2, is_int64_t<T>> : std::true_type { };
-  template <> struct is_native<double, 2> : std::true_type { };
+    template <> struct is_native<double, 2> : std::true_type { };
+    template <typename Value>    struct is_native<Value, 2, RoundingMode::Default, enable_if_int64_t<Value>> : std::true_type { };
 #endif
 
 static constexpr uint64_t arm_shuffle_helper_(int i) {
@@ -50,16 +50,16 @@ ENOKI_INLINE int64x2_t vmvnq_s64(int64x2_t a) {
 }
 
 /// Partial overload of StaticArrayImpl using ARM NEON intrinsics (single precision)
-template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
-    StaticArrayImpl<float, 4, Approx, RoundingMode::Default, Derived>
-    : StaticArrayBase<float, 4, Approx, RoundingMode::Default, Derived> {
-    ENOKI_NATIVE_ARRAY(float, 4, Approx, float32x4_t, RoundingMode::Default)
+template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(16)
+    StaticArrayImpl<float, 4, Approx_, RoundingMode::Default, IsMask_, Derived_>
+  : StaticArrayBase<float, 4, Approx_, RoundingMode::Default, IsMask_, Derived_> {
+    ENOKI_NATIVE_ARRAY(float, 4, Approx_, float32x4_t, RoundingMode::Default)
 
     // -----------------------------------------------------------------------
     //! @{ \name Value constructors
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE StaticArrayImpl(const Value &value) : m(vdupq_n_f32(value)) { }
+    ENOKI_INLINE StaticArrayImpl(Value value) : m(vdupq_n_f32(value)) { }
     ENOKI_INLINE StaticArrayImpl(Value v0, Value v1, Value v2, Value v3)
         : m{v0, v1, v2, v3} { }
 
@@ -141,7 +141,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
         #if defined(ENOKI_ARM_64)
             return vdivq_f32(m, a.m);
         #else
-            if (Approx)
+            if constexpr (Approx_)
                 return *this * rcp(a);
             else
                 return Base::div_(a);
@@ -169,8 +169,20 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
     ENOKI_INLINE auto gt_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f32_u32(vcgtq_f32(m, a.m))); }
     ENOKI_INLINE auto le_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f32_u32(vcleq_f32(m, a.m))); }
     ENOKI_INLINE auto ge_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f32_u32(vcgeq_f32(m, a.m))); }
-    ENOKI_INLINE auto eq_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f32_u32(vceqq_f32(m, a.m))); }
-    ENOKI_INLINE auto neq_(Arg a) const { return mask_t<Derived>(vreinterpretq_f32_u32(vmvnq_u32(vceqq_f32(m, a.m)))); }
+
+    ENOKI_INLINE auto eq_ (Arg a) const { 
+        if constexpr (!IsMask_)
+            return mask_t<Derived>(vreinterpretq_f32_u32(vceqq_f32(m, a.m)));
+        else
+            return mask_t<Derived>(vceqq_u32(vreinterpretq_f32_u32(m), vreinterpretq_f32_u32(a.m)));
+    }
+
+    ENOKI_INLINE auto neq_ (Arg a) const { 
+        if constexpr (!IsMask_)
+            return mask_t<Derived>(vreinterpretq_f32_u32(vmvnq_u32(vceqq_f32(m, a.m))));
+        else
+            return mask_t<Derived>(vmvnq_u32(vceqq_u32(vreinterpretq_f32_u32(m), vreinterpretq_f32_u32(a.m))));
+    }
 
     ENOKI_INLINE Derived abs_()      const { return vabsq_f32(m); }
     ENOKI_INLINE Derived neg_()      const { return vnegq_f32(m); }
@@ -189,7 +201,7 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
         #if defined(ENOKI_ARM_64)
             return vsqrtq_f32(m);
         #else
-            if (Approx) {
+            if constexpr (Approx_) {
                 const float32x4_t inf = vdupq_n_f32(std::numeric_limits<float>::infinity());
                 float32x4_t r = vrsqrteq_f32(m);
                 uint32x4_t inf_or_zero = vorrq_u32(vceqq_f32(r, inf), vceqq_f32(m, inf));
@@ -204,24 +216,24 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
     }
 
     ENOKI_INLINE Derived rcp_() const {
-        if (Approx) {
+        if constexpr (Approx_) {
             float32x4_t r = vrecpeq_f32(m);
             r = vmulq_f32(r, vrecpsq_f32(r, m));
             r = vmulq_f32(r, vrecpsq_f32(r, m));
             return r;
         } else {
-            return Base::rcp_();
+            return 1.0 / derived();
         }
     }
 
     ENOKI_INLINE Derived rsqrt_() const {
-        if (Approx) {
+        if constexpr (Approx_) {
             float32x4_t r = vrsqrteq_f32(m);
             r = vmulq_f32(r, vrsqrtsq_f32(vmulq_f32(r, r), m));
             r = vmulq_f32(r, vrsqrtsq_f32(vmulq_f32(r, r), m));
             return r;
         } else {
-            return Base::rsqrt_();
+            return 1.0 / sqrt(derived());
         }
     }
 
@@ -329,16 +341,16 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
 
 #if defined(ENOKI_ARM_64)
 /// Partial overload of StaticArrayImpl using ARM NEON intrinsics (double precision)
-template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
-    StaticArrayImpl<double, 2, Approx, RoundingMode::Default, Derived>
-    : StaticArrayBase<double, 2, Approx, RoundingMode::Default, Derived> {
-    ENOKI_NATIVE_ARRAY(double, 2, Approx, float64x2_t, RoundingMode::Default)
+template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(16)
+    StaticArrayImpl<double, 2, Approx_, RoundingMode::Default, IsMask_, Derived_>
+  : StaticArrayBase<double, 2, Approx_, RoundingMode::Default, IsMask_, Derived_> {
+    ENOKI_NATIVE_ARRAY(double, 2, Approx_, float64x2_t, RoundingMode::Default)
 
     // -----------------------------------------------------------------------
     //! @{ \name Value constructors
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE StaticArrayImpl(const Value &value) : m(vdupq_n_f64(value)) { }
+    ENOKI_INLINE StaticArrayImpl(Value value) : m(vdupq_n_f64(value)) { }
     ENOKI_INLINE StaticArrayImpl(Value v0, Value v1) : m{v0, v1} { }
 
     //! @}
@@ -432,8 +444,20 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
     ENOKI_INLINE auto gt_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f64_u64(vcgtq_f64(m, a.m))); }
     ENOKI_INLINE auto le_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f64_u64(vcleq_f64(m, a.m))); }
     ENOKI_INLINE auto ge_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f64_u64(vcgeq_f64(m, a.m))); }
-    ENOKI_INLINE auto eq_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f64_u64(vceqq_f64(m, a.m))); }
-    ENOKI_INLINE auto neq_(Arg a) const { return mask_t<Derived>(vreinterpretq_f64_u64(vmvnq_u64(vceqq_f64(m, a.m)))); }
+
+    ENOKI_INLINE auto eq_ (Arg a) const { 
+        if constexpr (!IsMask_)
+            return mask_t<Derived>(vreinterpretq_f64_u64(vceqq_f64(m, a.m)));
+        else
+            return mask_t<Derived>(vceqq_u64(vreinterpretq_f64_u64(m), vreinterpretq_f64_u64(a.m)));
+    }
+
+    ENOKI_INLINE auto neq_ (Arg a) const { 
+        if constexpr (!IsMask_)
+            return mask_t<Derived>(vreinterpretq_f64_u64(vmvnq_u64(vceqq_f64(m, a.m))));
+        else
+            return mask_t<Derived>(vmvnq_u64(vceqq_u64(vreinterpretq_f64_u64(m), vreinterpretq_f64_u64(a.m))));
+    }
 
     ENOKI_INLINE Derived abs_()      const { return vabsq_f64(m); }
     ENOKI_INLINE Derived neg_()      const { return vnegq_f64(m); }
@@ -450,26 +474,26 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
 #endif
 
     ENOKI_INLINE Derived rcp_() const {
-        if (Approx) {
+        if constexpr (Approx_) {
             float64x2_t r = vrecpeq_f64(m);
             r = vmulq_f64(r, vrecpsq_f64(r, m));
             r = vmulq_f64(r, vrecpsq_f64(r, m));
             r = vmulq_f64(r, vrecpsq_f64(r, m));
             return r;
         } else {
-            return Base::rcp_();
+            return 1.0 / derived();
         }
     }
 
     ENOKI_INLINE Derived rsqrt_() const {
-        if (Approx) {
+        if constexpr (Approx_) {
             float64x2_t r = vrsqrteq_f64(m);
             r = vmulq_f64(r, vrsqrtsq_f64(vmulq_f64(r, r), m));
             r = vmulq_f64(r, vrsqrtsq_f64(vmulq_f64(r, r), m));
             r = vmulq_f64(r, vrsqrtsq_f64(vmulq_f64(r, r), m));
             return r;
         } else {
-            return Base::rcp_();
+            return 1.0 / sqrt(derived());
         }
     }
 
@@ -523,17 +547,16 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
 #endif
 
 /// Partial overload of StaticArrayImpl using ARM NEON intrinsics (32-bit integers)
-template <typename Value_, typename Derived>
-struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMode::Default,
-                                                   Derived, detail::is_int32_t<Value_>>
-    : StaticArrayBase<Value_, 4, false, RoundingMode::Default, Derived> {
+template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(16)
+    StaticArrayImpl<Value_, 4, false, RoundingMode::Default, IsMask_, Derived_, enable_if_int32_t<Value_>>
+  : StaticArrayBase<Value_, 4, false, RoundingMode::Default, IsMask_, Derived_> {
     ENOKI_NATIVE_ARRAY(Value_, 4, false, uint32x4_t, RoundingMode::Default)
 
     // -----------------------------------------------------------------------
     //! @{ \name Value constructors
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE StaticArrayImpl(const Value &value) : m(vdupq_n_u32((uint32_t) value)) { }
+    ENOKI_INLINE StaticArrayImpl(Value value) : m(vdupq_n_u32((uint32_t) value)) { }
     ENOKI_INLINE StaticArrayImpl(Value v0, Value v1, Value v2, Value v3)
         : m{(uint32_t) v0, (uint32_t) v1, (uint32_t) v2, (uint32_t) v3} { }
 
@@ -546,7 +569,7 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMod
 
     ENOKI_CONVERT(int32_t) : m(a.derived().m) { }
     ENOKI_CONVERT(uint32_t) : m(a.derived().m) { }
-    ENOKI_CONVERT(float) : m(std::is_signed<Value>::value ?
+    ENOKI_CONVERT(float) : m(std::is_signed_v<Value> ?
           vreinterpretq_u32_s32(vcvtq_s32_f32(a.derived().m))
         : vcvtq_u32_f32(a.derived().m)) { }
 #if defined(ENOKI_ARM_64)
@@ -620,28 +643,28 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMod
     ENOKI_INLINE Derived xor_(Arg a) const { return veorq_u32(m, a.m); }
 
     ENOKI_INLINE auto lt_(Arg a) const {
-        if (std::is_signed<Value>::value)
+        if constexpr (std::is_signed_v<Value>)
             return mask_t<Derived>(vcltq_s32(vreinterpretq_s32_u32(m), vreinterpretq_s32_u32(a.m)));
         else
             return mask_t<Derived>(vcltq_u32(m, a.m));
     }
 
     ENOKI_INLINE auto gt_(Arg a) const {
-        if (std::is_signed<Value>::value)
+        if constexpr (std::is_signed_v<Value>)
             return mask_t<Derived>(vcgtq_s32(vreinterpretq_s32_u32(m), vreinterpretq_s32_u32(a.m)));
         else
             return mask_t<Derived>(vcgtq_u32(m, a.m));
     }
 
     ENOKI_INLINE auto le_(Arg a) const {
-        if (std::is_signed<Value>::value)
+        if constexpr (std::is_signed_v<Value>)
             return mask_t<Derived>(vcleq_s32(vreinterpretq_s32_u32(m), vreinterpretq_s32_u32(a.m)));
         else
             return mask_t<Derived>(vcleq_u32(m, a.m));
     }
 
     ENOKI_INLINE auto ge_(Arg a) const {
-        if (std::is_signed<Value>::value)
+        if constexpr (std::is_signed_v<Value>)
             return mask_t<Derived>(vcgeq_s32(vreinterpretq_s32_u32(m), vreinterpretq_s32_u32(a.m)));
         else
             return mask_t<Derived>(vcgeq_u32(m, a.m));
@@ -663,14 +686,14 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMod
     ENOKI_INLINE Derived not_()      const { return vmvnq_u32(m); }
 
     ENOKI_INLINE Derived max_(Arg b) const {
-        if (std::is_signed<Value>::value)
+        if constexpr (std::is_signed_v<Value>)
             return vreinterpretq_u32_s32(vmaxq_s32(vreinterpretq_s32_u32(b.m), vreinterpretq_s32_u32(m)));
         else
             return vmaxq_u32(b.m, m);
     }
 
     ENOKI_INLINE Derived min_(Arg b) const {
-        if (std::is_signed<Value>::value)
+        if constexpr (std::is_signed_v<Value>)
             return vreinterpretq_u32_s32(vminq_s32(vreinterpretq_s32_u32(b.m), vreinterpretq_s32_u32(m)));
         else
             return vminq_u32(b.m, m);
@@ -681,28 +704,27 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMod
         return vbslq_u32(m.m, t.m, f.m);
     }
 
-    template <size_t Imm, std::enable_if_t<Imm == 0, int> = 0> ENOKI_INLINE Derived sri_() const {
-        return derived();
+    template <size_t Imm> ENOKI_INLINE Derived sr_() const {
+        if constexpr (Imm == 0) {
+            return derived();
+        } else {
+            if constexpr (std::is_signed_v<Value>)
+                return vreinterpretq_u32_s32(
+                    vshrq_n_s32(vreinterpretq_s32_u32(m), (int) Imm));
+            else
+                return vshrq_n_u32(m, (int) Imm);
+        }
     }
 
-    template <size_t Imm, std::enable_if_t<Imm != 0, int> = 0> ENOKI_INLINE Derived sri_() const {
-        if (std::is_signed<Value>::value)
-            return vreinterpretq_u32_s32(
-                vshrq_n_s32(vreinterpretq_s32_u32(m), (int) Imm));
+    template <size_t Imm> ENOKI_INLINE Derived sl_() const {
+        if constexpr (Imm == 0)
+            return derived();
         else
-            return vshrq_n_u32(m, (int) Imm);
-    }
-
-    template <size_t Imm, std::enable_if_t<Imm == 0, int> = 0> ENOKI_INLINE Derived sli_() const {
-        return derived();
-    }
-
-    template <size_t Imm, std::enable_if_t<Imm != 0, int> = 0> ENOKI_INLINE Derived sli_() const {
-        return vshlq_n_u32(m, (int) Imm);
+            return vshlq_n_u32(m, (int) Imm);
     }
 
     ENOKI_INLINE Derived sr_(size_t k) const {
-        if (std::is_signed<Value>::value)
+        if constexpr (std::is_signed_v<Value>)
             return vreinterpretq_u32_s32(
                 vshlq_s32(vreinterpretq_s32_u32(m), vdupq_n_s32(-(int) k)));
         else
@@ -714,7 +736,7 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMod
     }
 
     ENOKI_INLINE Derived srv_(Arg a) const {
-        if (std::is_signed<Value>::value)
+        if constexpr (std::is_signed_v<Value>)
             return vreinterpretq_u32_s32(
                 vshlq_s32(vreinterpretq_s32_u32(m),
                           vnegq_s32(vreinterpretq_s32_u32(a.m))));
@@ -729,7 +751,7 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMod
 #if defined(ENOKI_ARM_64)
     ENOKI_INLINE Derived mulhi_(Arg a) const {
     uint32x4_t ll, hh;
-        if (std::is_signed<Value>::value) {
+        if constexpr (std::is_signed_v<Value>) {
             int64x2_t l = vmull_s32(vreinterpret_s32_u32(vget_low_u32(m)),
                                     vreinterpret_s32_u32(vget_low_u32(a.m)));
 
@@ -816,14 +838,14 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMod
 
 #if defined(ENOKI_ARM_64)
     ENOKI_INLINE Value hmax_() const {
-        if (std::is_signed<Value>::value)
+        if constexpr (std::is_signed_v<Value>)
             return Value(vmaxvq_s32(vreinterpretq_s32_u32(m)));
         else
             return Value(vmaxvq_u32(m));
     }
 
     ENOKI_INLINE Value hmin_() const {
-        if (std::is_signed<Value>::value)
+        if constexpr (std::is_signed_v<Value>)
             return Value(vminvq_s32(vreinterpretq_s32_u32(m)));
         else
             return Value(vminvq_u32(m));
@@ -866,17 +888,16 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 4, false, RoundingMod
 
 #if defined(ENOKI_ARM_64)
 /// Partial overload of StaticArrayImpl using ARM NEON intrinsics (64-bit integers)
-template <typename Value_, typename Derived>
-struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMode::Default,
-                                                   Derived, detail::is_int64_t<Value_>>
-    : StaticArrayBase<Value_, 2, false, RoundingMode::Default, Derived> {
+template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(16)
+    StaticArrayImpl<Value_, 2, false, RoundingMode::Default, IsMask_, Derived_, enable_if_int64_t<Value_>>
+  : StaticArrayBase<Value_, 2, false, RoundingMode::Default, IsMask_, Derived_> {
     ENOKI_NATIVE_ARRAY(Value_, 2, false, uint64x2_t, RoundingMode::Default)
 
     // -----------------------------------------------------------------------
     //! @{ \name Value constructors
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE StaticArrayImpl(const Value &value) : m(vdupq_n_u64((uint64_t) value)) { }
+    ENOKI_INLINE StaticArrayImpl(Value value) : m(vdupq_n_u64((uint64_t) value)) { }
     ENOKI_INLINE StaticArrayImpl(Value v0, Value v1) : m{(uint64_t) v0, (uint64_t) v1} { }
 
     //! @}
@@ -888,7 +909,7 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMod
 
     ENOKI_CONVERT(int64_t) : m(a.derived().m) { }
     ENOKI_CONVERT(uint64_t) : m(a.derived().m) { }
-    ENOKI_CONVERT(double) : m(std::is_signed<Value>::value ?
+    ENOKI_CONVERT(double) : m(std::is_signed_v<Value> ?
           vreinterpretq_u64_s64(vcvtq_s64_f64(a.derived().m))
         : vcvtq_u64_f64(a.derived().m)) { }
 
@@ -981,28 +1002,28 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMod
     ENOKI_INLINE Derived xor_(Arg a) const { return veorq_u64(m, a.m); }
 
     ENOKI_INLINE auto lt_(Arg a) const {
-        if (std::is_signed<Value>::value)
+        if constexpr (std::is_signed_v<Value>)
             return mask_t<Derived>(vcltq_s64(vreinterpretq_s64_u64(m), vreinterpretq_s64_u64(a.m)));
         else
             return mask_t<Derived>(vcltq_u64(m, a.m));
     }
 
     ENOKI_INLINE auto gt_(Arg a) const {
-        if (std::is_signed<Value>::value)
+        if constexpr (std::is_signed_v<Value>)
             return mask_t<Derived>(vcgtq_s64(vreinterpretq_s64_u64(m), vreinterpretq_s64_u64(a.m)));
         else
             return mask_t<Derived>(vcgtq_u64(m, a.m));
     }
 
     ENOKI_INLINE auto le_(Arg a) const {
-        if (std::is_signed<Value>::value)
+        if constexpr (std::is_signed_v<Value>)
             return mask_t<Derived>(vcleq_s64(vreinterpretq_s64_u64(m), vreinterpretq_s64_u64(a.m)));
         else
             return mask_t<Derived>(vcleq_u64(m, a.m));
     }
 
     ENOKI_INLINE auto ge_(Arg a) const {
-        if (std::is_signed<Value>::value)
+        if constexpr (std::is_signed_v<Value>)
             return mask_t<Derived>(vcgeq_s64(vreinterpretq_s64_u64(m), vreinterpretq_s64_u64(a.m)));
         else
             return mask_t<Derived>(vcgeq_u64(m, a.m));
@@ -1031,28 +1052,27 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMod
         return vbslq_u64(m.m, t.m, f.m);
     }
 
-    template <size_t Imm, std::enable_if_t<Imm == 0, int> = 0> ENOKI_INLINE Derived sri_() const {
-        return derived();
+    template <size_t Imm> ENOKI_INLINE Derived sr_() const {
+        if constexpr (Imm == 0) {
+            return derived();
+        } else {
+            if constexpr (std::is_signed_v<Value>)
+                return vreinterpretq_u64_s64(
+                    vshrq_n_s64(vreinterpretq_s64_u64(m), (int) Imm));
+            else
+                return vshrq_n_u64(m, (int) Imm);
+        }
     }
 
-    template <size_t Imm, std::enable_if_t<Imm != 0, int> = 0> ENOKI_INLINE Derived sri_() const {
-        if (std::is_signed<Value>::value)
-            return vreinterpretq_u64_s64(
-                vshrq_n_s64(vreinterpretq_s64_u64(m), (int) Imm));
+    template <size_t Imm> ENOKI_INLINE Derived sl_() const {
+        if constexpr (Imm == 0)
+            return derived();
         else
-            return vshrq_n_u64(m, (int) Imm);
-    }
-
-    template <size_t Imm, std::enable_if_t<Imm == 0, int> = 0> ENOKI_INLINE Derived sli_() const {
-        return derived();
-    }
-
-    template <size_t Imm, std::enable_if_t<Imm != 0, int> = 0> ENOKI_INLINE Derived sli_() const {
-        return vshlq_n_u64(m, (int) Imm);
+            return vshlq_n_u64(m, (int) Imm);
     }
 
     ENOKI_INLINE Derived sr_(size_t k) const {
-        if (std::is_signed<Value>::value)
+        if constexpr (std::is_signed_v<Value>)
             return vreinterpretq_u64_s64(
                 vshlq_s64(vreinterpretq_s64_u64(m), vdupq_n_s64(-(int) k)));
         else
@@ -1064,7 +1084,7 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMod
     }
 
     ENOKI_INLINE Derived srv_(Arg a) const {
-        if (std::is_signed<Value>::value)
+        if constexpr (std::is_signed_v<Value>)
             return vreinterpretq_u64_s64(
                 vshlq_s64(vreinterpretq_s64_u64(m),
                           vnegq_s64(vreinterpretq_s64_u64(a.m))));
@@ -1076,7 +1096,10 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMod
         return vshlq_u64(m, vreinterpretq_s64_u64(a.m));
     }
 
-    ENOKI_INLINE Derived popcnt_() const { return vpaddlq_u32(vpaddlq_u16(vpaddlq_u8(vcntq_u8(vreinterpretq_u8_u64(m))))); }
+    ENOKI_INLINE Derived popcnt_() const {
+        return vpaddlq_u32(
+            vpaddlq_u16(vpaddlq_u8(vcntq_u8(vreinterpretq_u8_u64(m)))));
+    }
 
     //! @}
     // -----------------------------------------------------------------------
@@ -1121,42 +1144,12 @@ struct ENOKI_MAY_ALIAS alignas(16) StaticArrayImpl<Value_, 2, false, RoundingMod
 #endif
 
 /// Partial overload of StaticArrayImpl for the n=3 case (single precision)
-template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
-    StaticArrayImpl<float, 3, Approx, RoundingMode::Default, Derived>
-    : StaticArrayImpl<float, 4, Approx, RoundingMode::Default, Derived> {
-    using Base = StaticArrayImpl<float, 4, Approx, RoundingMode::Default, Derived>;
+template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(16)
+    StaticArrayImpl<float, 3, Approx_, RoundingMode::Default, IsMask_, Derived_>
+  : StaticArrayImpl<float, 4, Approx_, RoundingMode::Default, IsMask_, Derived_> {
+    using Base = StaticArrayImpl<float, 4, Approx_, RoundingMode::Default, IsMask_, Derived_>;
 
-    using typename Base::Value;
-    using Arg = const Base &;
-    using Base::Base;
-    using Base::m;
-    using Base::operator=;
-    using Base::coeff;
-    using Base::derived;
-    static constexpr size_t Size = 3;
-
-    ENOKI_INLINE StaticArrayImpl(Value f0, Value f1, Value f2) : Base(f0, f1, f2, Value(0)) { }
-    ENOKI_INLINE StaticArrayImpl() : Base() { }
-
-    ENOKI_REINTERPRET(bool) {
-        m = vreinterpretq_f32_u32(uint32x4_t {
-            reinterpret_array<uint32_t>(a.derived().coeff(0)),
-            reinterpret_array<uint32_t>(a.derived().coeff(1)),
-            reinterpret_array<uint32_t>(a.derived().coeff(2)),
-            0u
-        });
-    }
-
-    StaticArrayImpl(const StaticArrayImpl &) = default;
-    StaticArrayImpl &operator=(const StaticArrayImpl &) = default;
-
-    template <
-        typename Value2, bool Approx2, RoundingMode Mode2, typename Derived2>
-    ENOKI_INLINE StaticArrayImpl(
-        const StaticArrayBase<Value2, 3, Approx2, Mode2, Derived2> &a) {
-        ENOKI_TRACK_SCALAR for (size_t i = 0; i < 3; ++i)
-            coeff(i) = Value(a.derived().coeff(i));
-    }
+    ENOKI_DECLARE_3D_ARRAY(StaticArrayImpl)
 
     template <bool Approx2, RoundingMode Mode2, typename Derived2>
     ENOKI_INLINE StaticArrayImpl(
@@ -1214,42 +1207,12 @@ template <bool Approx, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
 };
 
 /// Partial overload of StaticArrayImpl for the n=3 case (32 bit integers)
-template <typename Value_, typename Derived> struct ENOKI_MAY_ALIAS alignas(16)
-    StaticArrayImpl<Value_, 3, false, RoundingMode::Default, Derived,detail::is_int32_t<Value_>>
-    : StaticArrayImpl<Value_, 4, false, RoundingMode::Default, Derived> {
-    using Base = StaticArrayImpl<Value_, 4, false, RoundingMode::Default, Derived>;
+template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(16)
+    StaticArrayImpl<Value_, 3, false, RoundingMode::Default, IsMask_, Derived_, enable_if_int32_t<Value_>>
+  : StaticArrayImpl<Value_, 4, false, RoundingMode::Default, IsMask_, Derived_> {
+    using Base = StaticArrayImpl<Value_, 4, false, RoundingMode::Default, IsMask_, Derived_>;
 
-    using typename Base::Value;
-    using Arg = const Base &;
-    using Base::Base;
-    using Base::m;
-    using Base::operator=;
-    using Base::coeff;
-    using Base::derived;
-    static constexpr size_t Size = 3;
-
-    ENOKI_INLINE StaticArrayImpl(Value f0, Value f1, Value f2) : Base(f0, f1, f2, Value(0)) { }
-    ENOKI_INLINE StaticArrayImpl() : Base() { }
-
-    StaticArrayImpl(const StaticArrayImpl &) = default;
-    StaticArrayImpl &operator=(const StaticArrayImpl &) = default;
-
-    template <
-        typename Value2, bool Approx2, RoundingMode Mode2, typename Derived2>
-    ENOKI_INLINE StaticArrayImpl(
-        const StaticArrayBase<Value2, 3, Approx2, Mode2, Derived2> &a) {
-        ENOKI_TRACK_SCALAR for (size_t i = 0; i < 3; ++i)
-            coeff(i) = Value(a.derived().coeff(i));
-    }
-
-    ENOKI_REINTERPRET(bool) {
-        m = uint32x4_t {
-            reinterpret_array<uint32_t>(a.derived().coeff(0)),
-            reinterpret_array<uint32_t>(a.derived().coeff(1)),
-            reinterpret_array<uint32_t>(a.derived().coeff(2)),
-            0u
-        };
-    }
+    ENOKI_DECLARE_3D_ARRAY(StaticArrayImpl)
 
     template <int I0, int I1, int I2>
     ENOKI_INLINE Derived shuffle_() const {

@@ -15,6 +15,7 @@
 #include <enoki/complex.h>
 #include <enoki/quaternion.h>
 #include <enoki/transform.h>
+#include <enoki/dynamic.h>
 
 using Cf = Complex<double>;
 using Qf = Quaternion<double>;

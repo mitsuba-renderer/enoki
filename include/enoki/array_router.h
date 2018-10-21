@@ -12,168 +12,134 @@
     license that can be found in the LICENSE file.
 */
 
-#include "common.h"
-#include <iostream>
+#pragma once
+
+#include "array_traits.h"
+#include "array_fallbacks.h"
 
 NAMESPACE_BEGIN(enoki)
 
+/// Define an unary operation
 #define ENOKI_ROUTE_UNARY(name, func)                                          \
-    /* Case 1: use array-specific implementation of operation */               \
-    template <typename T,                                                      \
-              std::enable_if_t<is_array<T>::value &&                           \
-                               std::is_same<expr_t<T>, T>::value, int> = 0>    \
+    template <typename T, enable_if_array_t<T> = 0>                            \
     ENOKI_INLINE auto name(const T &a) {                                       \
-        return a.derived().func##_();                                          \
-    }                                                                          \
-    /* Case 2: broadcast/evaluate input arrays and try again */                \
-    template <typename T,                                                      \
-              std::enable_if_t<is_array<T>::value &&                           \
-                               !std::is_same<expr_t<T>, T>::value, int> = 0>   \
-    ENOKI_INLINE auto name(const T &a) {                                       \
-        return name((expr_t<T>) a);                                            \
+        return eval(a).func##_();                                              \
     }
 
-#define ENOKI_ROUTE_UNARY_SCALAR(name, func, expr)                             \
-    /* Case 3: scalar input */                                                 \
-    template <typename T, enable_if_not_array_t<T> = 0>                        \
-    ENOKI_INLINE auto name(const T &a) {                                       \
-        return expr;                                                           \
-    }                                                                          \
-    ENOKI_ROUTE_UNARY(name, func)
-
-
+/// Define an unary operation with an immediate argument (e.g. sr<5>(...))
 #define ENOKI_ROUTE_UNARY_IMM(name, func)                                      \
-    /* Case 1: use array-specific implementation of operation */               \
-    template <size_t Imm, typename T,                                          \
-              std::enable_if_t<is_array<T>::value &&                           \
-                               std::is_same<expr_t<T>, T>::value, int> = 0>    \
+    template <size_t Imm, typename T, enable_if_array_t<T> = 0>                \
     ENOKI_INLINE auto name(const T &a) {                                       \
-        return a.derived().template func##_<Imm>();                            \
-    }                                                                          \
-    /* Case 2: broadcast/evaluate input arrays and try again */                \
-    template <size_t Imm, typename T,                                          \
-              std::enable_if_t<is_array<T>::value &&                           \
-                               !std::is_same<expr_t<T>, T>::value, int> = 0>   \
-    ENOKI_INLINE auto name(const T &a) {                                       \
-        return name<Imm>((expr_t<T>) a);                                       \
+        return eval(a).template func##_<Imm>(); /* Forward to array */         \
     }
 
+/// Define an unary operation with a fallback expression for scalar arguments
+#define ENOKI_ROUTE_UNARY_SCALAR(name, func, expr)                             \
+    template <bool Approx = false, typename T>                                 \
+    ENOKI_INLINE auto name(const T &a) {                                       \
+        if constexpr (!is_array_v<T>)                                          \
+            return expr; /* Scalar fallback implementation */                  \
+        else                                                                   \
+            return eval(a).func##_(); /* Forward to array */                   \
+    }
+
+/// Define an unary operation with an immediate argument and a scalar fallback
 #define ENOKI_ROUTE_UNARY_SCALAR_IMM(name, func, expr)                         \
-    /* Case 3: scalar input */                                                 \
-    template <size_t Imm, typename T, enable_if_not_array_t<T> = 0>            \
-    ENOKI_INLINE auto name(const T &a) {                                       \
-        return expr;                                                           \
-    }                                                                          \
-    ENOKI_ROUTE_UNARY_IMM(name, func)
+    template <size_t Imm, typename T> ENOKI_INLINE auto name(const T &a) {     \
+        if constexpr (!is_array_v<T>)                                          \
+            return expr; /* Scalar fallback implementation */                  \
+        else                                                                   \
+            return eval(a).template func##_<Imm>(); /* Forward to array */     \
+    }
 
+/// Define a binary operation
 #define ENOKI_ROUTE_BINARY(name, func)                                         \
-    /* Case 1: use array-specific implementation of operation */               \
-    template <typename T,                                                      \
-              std::enable_if_t<is_array<T>::value &&                           \
-                               std::is_same<expr_t<T>, T>::value, int> = 0>    \
-    ENOKI_INLINE auto name(const T &a1, const T &a2) {                         \
-        return a1.derived().func##_(a2.derived());                             \
-    }                                                                          \
-    /* Case 2: broadcast/evaluate input arrays and try again */                \
-    template <typename T1, typename T2,                                        \
-              typename Array = detail::extract_array_t<T1, T2>,                \
-              std::enable_if_t<!std::is_void<Array>::value, int> = 0>          \
+    template <typename T1, typename T2, enable_if_array_any_t<T1, T2> = 0>     \
     ENOKI_INLINE auto name(const T1 &a1, const T2 &a2) {                       \
-        using Output = expr_t<T1, T2>;                                         \
-        return name((detail::ref_cast_t<T1, Output>) a1,                       \
-                    (detail::ref_cast_t<T2, Output>) a2);                      \
+        using E = expr_t<T1, T2>;                                              \
+        if constexpr (std::is_same_v<T1, E> && std::is_same_v<T2, E>)          \
+            return a1.derived().func##_(a2.derived());                         \
+        else                                                                   \
+            return name(static_cast<const E &>(a1),                            \
+                        static_cast<const E &>(a2));                           \
     }
 
+/// Define a binary operation for bit operations
+#define ENOKI_ROUTE_BINARY_BITOP(name, func)                                   \
+    template <typename T1, typename T2, enable_if_array_any_t<T1, T2> = 0>     \
+    ENOKI_INLINE auto name(const T1 &a1, const T2 &a2) {                       \
+        using E = expr_t<T1, T2>;                                              \
+        if constexpr (std::is_same_v<T1, E> && std::is_same_v<T2, E>)          \
+            return a1.derived().func##_(a2.derived());                         \
+        else if constexpr (is_mask_v<T2>)                                      \
+            return a1.derived().func##_((const mask_t<T1> &) a2.derived());    \
+        else                                                                   \
+            return name(static_cast<const E &>(a1),                            \
+                        static_cast<const E &>(a2));                           \
+    }
+
+/// Define a binary operation (but only restrict to cases where 'cond' is true)
+#define ENOKI_ROUTE_BINARY_COND(name, func, cond)                              \
+    template <typename T1, typename T2,                                        \
+              enable_if_t<cond> = 0,                                           \
+              enable_if_array_any_t<T1, T2> = 0>                               \
+    ENOKI_INLINE auto name(const T1 &a1, const T2 &a2) {                       \
+        using E = expr_t<T1, T2>;                                              \
+        if constexpr (std::is_same_v<T1, E> && std::is_same_v<T2, E>)          \
+            return a1.derived().func##_(a2.derived());                         \
+        else                                                                   \
+            return name(static_cast<const E &>(a1),                            \
+                        static_cast<const E &>(a2));                           \
+    }
+
+#define ENOKI_ROUTE_BINARY_SHIFT(name, func)                                   \
+    template <typename T1, typename T2,                                        \
+              enable_if_t<std::is_arithmetic_v<scalar_t<T1>>> = 0,             \
+              enable_if_array_any_t<T1, T2> = 0>                               \
+    ENOKI_INLINE auto name(const T1 &a1, const T2 &a2) {                       \
+        using E = expr_t<T1, T2>;                                              \
+        if constexpr (std::is_integral_v<T2>)                                  \
+            return eval(a1).func##_((size_t) a2);                              \
+        else if constexpr (std::is_same_v<T1, E> && std::is_same_v<T2, E>)     \
+            return a1.derived().func##_(a2.derived());                         \
+        else                                                                   \
+            return name(static_cast<const E &>(a1),                            \
+                        static_cast<const E &>(a2));                           \
+    }
+
+/// Define a binary operation with a fallback expression for scalar arguments
 #define ENOKI_ROUTE_BINARY_SCALAR(name, func, expr)                            \
-    /* Case 3: scalar input */                                                 \
-    template <typename T1, typename T2,                                        \
-              typename Void = detail::extract_array_t<T1, T2>,                 \
-              std::enable_if_t<std::is_void<Void>::value, int> = 0>            \
-    ENOKI_INLINE auto name(const T1 &a1, const T2 &a2) -> decltype(expr) {     \
-        return expr;                                                           \
-    }                                                                          \
-    ENOKI_ROUTE_BINARY(name, func)
-
-#define ENOKI_ROUTE_BINARY_BIT(name, func)                                     \
-    /* Case 1: use array-specific implementation of operation */               \
-    template <typename T,                                                      \
-              std::enable_if_t<is_array<T>::value &&                           \
-                               std::is_same<expr_t<T>, T>::value, int> = 0>    \
-    ENOKI_INLINE auto name(const T &a1, const T &a2) {                         \
-        return a1.derived().func##_(a2.derived());                             \
-    }                                                                          \
-    /* Case 2: broadcast/evaluate input arrays and try again */                \
-    template <typename T1, typename T2,                                        \
-              typename Array = detail::extract_array_t<T1, T2>,                \
-              std::enable_if_t<!std::is_void<Array>::value &&                  \
-                               !is_mask<T2>::value, int> = 0>                  \
+    template <typename T1, typename T2>                                        \
     ENOKI_INLINE auto name(const T1 &a1, const T2 &a2) {                       \
-        using Output = expr_t<T1, T2>;                                         \
-        return name((detail::ref_cast_t<T1, Output>) a1,                       \
-                    (detail::ref_cast_t<T2, Output>) a2);                      \
-    }                                                                          \
-    /* Case 2: broadcast/evaluate input arrays and try again */                \
-    template <typename T1, typename T2,                                        \
-              std::enable_if_t<is_array<T1>::value &&                          \
-                               is_mask<T2>::value, int> = 0>                   \
-    ENOKI_INLINE auto name(const T1 &a1, const T2 &a2) {                       \
-        return a1.derived().func##_(mask_t<expr_t<T1>>(a2));                   \
+        using E = expr_t<T1, T2>;                                              \
+        if constexpr (is_array_any_v<T1, T2>) {                                \
+            if constexpr (std::is_same_v<T1, E> && std::is_same_v<T2, E>)      \
+                return a1.derived().func##_(a2.derived());                     \
+            else                                                               \
+                return name(static_cast<const E &>(a1),                        \
+                            static_cast<const E &>(a2));                       \
+        } else {                                                               \
+            return expr;                                                       \
+        }                                                                      \
     }
 
-#define ENOKI_ROUTE_BINARY_NOPTR(name, func)                                   \
-    /* Case 1: use array-specific implementation of operation */               \
-    template <typename T,                                                      \
-              std::enable_if_t<is_array<T>::value &&                           \
-                              !std::is_pointer<scalar_t<T>>::value &&          \
-                               std::is_same<expr_t<T>, T>::value, int> = 0>    \
-    ENOKI_INLINE auto name(const T &a1, const T &a2) {                         \
-        return a1.derived().func##_(a2.derived());                             \
-    }                                                                          \
-    /* Case 2: broadcast/evaluate input arrays and try again */                \
-    template <typename T1, typename T2,                                        \
-              typename Array = detail::extract_array_t<T1, T2>,                \
-              std::enable_if_t<!std::is_void<Array>::value &&                  \
-                               !std::is_pointer<scalar_t<T1>>::value, int> = 0>\
-    ENOKI_INLINE auto name(const T1 &a1, const T2 &a2) {                       \
-        using Output = expr_t<T1, T2>;                                         \
-        return name((detail::ref_cast_t<T1, Output>) a1,                       \
-                    (detail::ref_cast_t<T2, Output>) a2);                      \
-    }
-
-#define ENOKI_ROUTE_SHIFT(name, func)                                          \
-    /* Case 1: use array-specific implementation of operation */               \
-    template <typename T,                                                      \
-              std::enable_if_t<is_array<T>::value &&                           \
-                               std::is_same<expr_t<T>, T>::value, int> = 0>    \
-    ENOKI_INLINE auto name(const T &a1, const T &a2) {                         \
-        return a1.derived().func##_(a2.derived());                             \
-    }                                                                          \
-    /* Case 2: broadcast/evaluate input arrays and try again */                \
-    template <typename T1, typename T2,                                        \
-              std::enable_if_t<is_array<T1>::value, int> = 0>                  \
-    ENOKI_INLINE auto name(const T1 &a1, const T2 &a2) {                       \
-        using Output = expr_t<T1, T2>;                                         \
-        return name((detail::ref_cast_t<T1, Output>) a1,                       \
-                    (detail::ref_cast_t<T2, Output>) a2);                      \
-    }
-
-#define ENOKI_ROUTE_TERNARY(name, func)                                        \
-    /* Case 1: use array-specific implementation of operation */               \
-    template <typename T,                                                      \
-              std::enable_if_t<is_array<T>::value &&                           \
-                               std::is_same<expr_t<T>, T>::value, int> = 0>    \
-    ENOKI_INLINE auto name(const T &a1, const T &a2, const T &a3) {            \
-        return a1.derived().func##_(a2.derived(), a3.derived());               \
-    }                                                                          \
-    /* Case 2: broadcast/evaluate input arrays and try again */                \
-    template <typename T1, typename T2, typename T3,                           \
-              typename Array = detail::extract_array_t<T1, T2, T3>,            \
-              std::enable_if_t<!std::is_void<Array>::value, int> = 0>          \
+/// Define a ternary operation
+#define ENOKI_ROUTE_TERNARY_SCALAR(name, func, expr)                           \
+    template <typename T1, typename T2, typename T3>                           \
     ENOKI_INLINE auto name(const T1 &a1, const T2 &a2, const T3 &a3) {         \
-        using Output = expr_t<T1, T2, T3>;                                     \
-        return name((detail::ref_cast_t<T1, Output>) a1,                       \
-                    (detail::ref_cast_t<T2, Output>) a2,                       \
-                    (detail::ref_cast_t<T3, Output>) a3);                      \
+        using E = expr_t<T1, T2, T3>;                                          \
+        if constexpr (is_array_any_v<T1, T2, T3>) {                            \
+            if constexpr (std::is_same_v<T1, E> &&                             \
+                          std::is_same_v<T2, E> &&                             \
+                          std::is_same_v<T3, E>)                               \
+                return a1.derived().func##_(a2.derived(), a3.derived());       \
+            else                                                               \
+                return name(static_cast<const E &>(a1),                        \
+                            static_cast<const E &>(a2),                        \
+                            static_cast<const E &>(a3));                       \
+        } else {                                                               \
+            return expr;                                                       \
+        }                                                                      \
     }
 
 /// Macro for compound assignment operators (operator+=, etc.)
@@ -184,26 +150,33 @@ NAMESPACE_BEGIN(enoki)
         return a1;                                                             \
     }
 
-// -----------------------------------------------------------------------
-//! @{ \name Vertical and horizontal operations
-// -----------------------------------------------------------------------
+template <typename T> ENOKI_INLINE decltype(auto) eval(const T& x) {
+    if constexpr (std::is_same_v<std::decay_t<T>, expr_t<T>>)
+        return x.derived();
+    else
+        return expr_t<T>(x);
+}
 
 ENOKI_ROUTE_UNARY(operator-, neg)
 ENOKI_ROUTE_UNARY(operator~, not)
 ENOKI_ROUTE_UNARY(operator!, not)
 
-ENOKI_ROUTE_BINARY_NOPTR(operator+, add)
-ENOKI_ROUTE_BINARY_NOPTR(operator-, sub)
+ENOKI_ROUTE_BINARY_COND(operator+, add, !std::is_pointer_v<scalar_t<T1>> && !std::is_pointer_v<scalar_t<T2>>);
+ENOKI_ROUTE_BINARY_COND(operator-, sub, !std::is_pointer_v<scalar_t<T1>> && !std::is_pointer_v<scalar_t<T2>>);
 ENOKI_ROUTE_BINARY(operator*, mul)
 
-ENOKI_ROUTE_BINARY_BIT(operator&,  and)
-ENOKI_ROUTE_BINARY_BIT(operator&&, and)
-ENOKI_ROUTE_BINARY_BIT(operator|,  or)
-ENOKI_ROUTE_BINARY_BIT(operator||, or)
-ENOKI_ROUTE_BINARY_BIT(operator^,  xor)
+ENOKI_ROUTE_BINARY_SHIFT(operator<<, sl)
+ENOKI_ROUTE_BINARY_SHIFT(operator>>, sr)
 
-ENOKI_ROUTE_SHIFT(operator<<, slv)
-ENOKI_ROUTE_SHIFT(operator>>, srv)
+ENOKI_ROUTE_UNARY_SCALAR_IMM(sl, sl, a << Imm)
+ENOKI_ROUTE_UNARY_SCALAR_IMM(sr, sr, a >> Imm)
+
+ENOKI_ROUTE_BINARY_BITOP(operator&,  and)
+ENOKI_ROUTE_BINARY_BITOP(operator&&, and)
+ENOKI_ROUTE_BINARY_BITOP(operator|,  or)
+ENOKI_ROUTE_BINARY_BITOP(operator||, or)
+ENOKI_ROUTE_BINARY_BITOP(operator^,  xor)
+ENOKI_ROUTE_BINARY_SCALAR(andnot, andnot, a1 & ~a2)
 
 ENOKI_ROUTE_BINARY(operator<,  lt)
 ENOKI_ROUTE_BINARY(operator<=, le)
@@ -223,51 +196,36 @@ ENOKI_ROUTE_COMPOUND_OPERATOR(&)
 ENOKI_ROUTE_COMPOUND_OPERATOR(<<)
 ENOKI_ROUTE_COMPOUND_OPERATOR(>>)
 
-ENOKI_ROUTE_BINARY_SCALAR(max,   max,  (std::decay_t<decltype(a1+a2)>) std::max((decltype(a1+a2)) a1, (decltype(a1+a2)) a2))
-ENOKI_ROUTE_BINARY_SCALAR(min,   min,  (std::decay_t<decltype(a1+a2)>) std::min((decltype(a1+a2)) a1, (decltype(a1+a2)) a2))
-ENOKI_ROUTE_BINARY_SCALAR(pow,   pow,   std::pow  ((decltype(a1+a2)) a1, (decltype(a1+a2)) a2))
-ENOKI_ROUTE_BINARY_SCALAR(atan2, atan2, std::atan2((decltype(a1+a2)) a1, (decltype(a1+a2)) a2))
-ENOKI_ROUTE_BINARY_SCALAR(fmod,  fmod,  std::fmod((decltype(a1+a2)) a1, (decltype(a1+a2)) a2))
-ENOKI_ROUTE_BINARY(ldexp, ldexp)
-ENOKI_ROUTE_BINARY_SCALAR(dot,   dot,   a1*a2)
+ENOKI_ROUTE_BINARY_SCALAR(max,   max,  (std::decay_t<E>) std::max((E) a1, (E) a2))
+ENOKI_ROUTE_BINARY_SCALAR(min,   min,  (std::decay_t<E>) std::min((E) a1, (E) a2))
 
-ENOKI_ROUTE_BINARY_SCALAR(andnot, andnot, a1 & ~a2)
+ENOKI_ROUTE_BINARY_SCALAR(dot,   dot,   (E) a1 * (E) a2)
 
-ENOKI_ROUTE_BINARY(mulhi, mulhi)
+ENOKI_ROUTE_BINARY_SCALAR(mulhi, mulhi, detail::mulhi_scalar(a1, a2))
 
-ENOKI_ROUTE_UNARY(abs, abs)
+ENOKI_ROUTE_UNARY_SCALAR(abs, abs, detail::abs_scalar(a))
 
-ENOKI_ROUTE_TERNARY(fmadd,    fmadd)
-ENOKI_ROUTE_TERNARY(fmsub,    fmsub)
-ENOKI_ROUTE_TERNARY(fnmadd,   fnmadd)
-ENOKI_ROUTE_TERNARY(fnmsub,   fnmsub)
-ENOKI_ROUTE_TERNARY(fmsubadd, fmsubadd)
-ENOKI_ROUTE_TERNARY(fmaddsub, fmaddsub)
+ENOKI_ROUTE_TERNARY_SCALAR(fmadd,  fmadd,  detail::fmadd_scalar((E)  a1, (E) a2, (E)  a3))
+ENOKI_ROUTE_TERNARY_SCALAR(fmsub,  fmsub,  detail::fmadd_scalar((E)  a1, (E) a2, (E) -a3))
+ENOKI_ROUTE_TERNARY_SCALAR(fnmadd, fnmadd, detail::fmadd_scalar((E) -a1, (E) a2, (E)  a3))
+ENOKI_ROUTE_TERNARY_SCALAR(fnmsub, fnmsub, detail::fmadd_scalar((E) -a1, (E) a2, (E) -a3))
+ENOKI_ROUTE_TERNARY_SCALAR(fmaddsub, fmaddsub, fmsub(a1, a2, a3))
+ENOKI_ROUTE_TERNARY_SCALAR(fmsubadd, fmsubadd, fmadd(a1, a2, a3))
 
-ENOKI_ROUTE_UNARY_SCALAR(sincos,  sincos,  std::make_pair(std::sin(a),  std::cos(a)))
-ENOKI_ROUTE_UNARY_SCALAR(sincosh, sincosh, std::make_pair(std::sinh(a), std::cosh(a)))
+ENOKI_ROUTE_UNARY_SCALAR(rcp, rcp, detail::rcp_scalar<Approx>(a))
+ENOKI_ROUTE_UNARY_SCALAR(rsqrt, rsqrt, detail::rsqrt_scalar<Approx>(a))
 
-ENOKI_ROUTE_UNARY(popcnt, popcnt)
-ENOKI_ROUTE_UNARY(lzcnt, lzcnt)
-ENOKI_ROUTE_UNARY(tzcnt, tzcnt)
+ENOKI_ROUTE_UNARY_SCALAR(popcnt, popcnt, detail::popcnt_scalar(a))
+ENOKI_ROUTE_UNARY_SCALAR(lzcnt, lzcnt, detail::lzcnt_scalar(a))
+ENOKI_ROUTE_UNARY_SCALAR(tzcnt, tzcnt, detail::tzcnt_scalar(a))
 
-ENOKI_ROUTE_UNARY_SCALAR(all,          all,           (bool) a)
-ENOKI_ROUTE_UNARY_SCALAR(all_nested,   all_nested,    (bool) a)
-ENOKI_ROUTE_UNARY_SCALAR(any,          any,           (bool) a)
-ENOKI_ROUTE_UNARY_SCALAR(any_nested,   any_nested,    (bool) a)
-ENOKI_ROUTE_UNARY_SCALAR(none,         none,         !(bool) a)
-ENOKI_ROUTE_UNARY_SCALAR(none_nested,  none_nested,  !(bool) a)
-ENOKI_ROUTE_UNARY_SCALAR(count,        count,         (size_t) ((bool) a ? 1 : 0))
-ENOKI_ROUTE_UNARY_SCALAR(count_nested, count_nested,  (size_t) ((bool) a ? 1 : 0))
-
-ENOKI_ROUTE_UNARY_SCALAR(hmin,          hmin,          a)
-ENOKI_ROUTE_UNARY_SCALAR(hmin_nested,   hmin_nested,   a)
-ENOKI_ROUTE_UNARY_SCALAR(hmax,          hmax,          a)
-ENOKI_ROUTE_UNARY_SCALAR(hmax_nested,   hmax_nested,   a)
-ENOKI_ROUTE_UNARY_SCALAR(hsum,          hsum,          a)
-ENOKI_ROUTE_UNARY_SCALAR(hsum_nested,   hsum_nested,   a)
-ENOKI_ROUTE_UNARY_SCALAR(hprod,         hprod,         a)
-ENOKI_ROUTE_UNARY_SCALAR(hprod_nested,  hprod_nested,  a)
+ENOKI_ROUTE_UNARY_SCALAR(all,   all,   (bool) a)
+ENOKI_ROUTE_UNARY_SCALAR(any,   any,   (bool) a)
+ENOKI_ROUTE_UNARY_SCALAR(count, count, (size_t) ((bool) a ? 1 : 0))
+ENOKI_ROUTE_UNARY_SCALAR(hmin,  hmin,  a)
+ENOKI_ROUTE_UNARY_SCALAR(hmax,  hmax,  a)
+ENOKI_ROUTE_UNARY_SCALAR(hsum,  hsum,  a)
+ENOKI_ROUTE_UNARY_SCALAR(hprod, hprod, a)
 
 ENOKI_ROUTE_UNARY_SCALAR(sqrt,  sqrt,  std::sqrt(a))
 ENOKI_ROUTE_UNARY_SCALAR(floor, floor, std::floor(a))
@@ -275,1497 +233,315 @@ ENOKI_ROUTE_UNARY_SCALAR(ceil,  ceil,  std::ceil(a))
 ENOKI_ROUTE_UNARY_SCALAR(round, round, std::rint(a))
 ENOKI_ROUTE_UNARY_SCALAR(trunc, trunc, std::trunc(a))
 
-ENOKI_ROUTE_UNARY_SCALAR(log,   log,   std::log(a))
-
-ENOKI_ROUTE_UNARY_SCALAR(sin,   sin,   std::sin(a))
-ENOKI_ROUTE_UNARY_SCALAR(cos,   cos,   std::cos(a))
-ENOKI_ROUTE_UNARY_SCALAR(tan,   tan,   std::tan(a))
-
-ENOKI_ROUTE_UNARY_SCALAR(csc,   csc,   T(1) / std::sin(a))
-ENOKI_ROUTE_UNARY_SCALAR(sec,   sec,   T(1) / std::cos(a))
-ENOKI_ROUTE_UNARY_SCALAR(cot,   cot,   T(1) / std::tan(a))
-
-ENOKI_ROUTE_UNARY_SCALAR(asin,  asin,  std::asin(a))
-ENOKI_ROUTE_UNARY_SCALAR(acos,  acos,  std::acos(a))
-ENOKI_ROUTE_UNARY_SCALAR(atan,  atan,  std::atan(a))
-
-ENOKI_ROUTE_UNARY_SCALAR(sinh,  sinh,  std::sinh(a))
-ENOKI_ROUTE_UNARY_SCALAR(cosh,  cosh,  std::cosh(a))
-ENOKI_ROUTE_UNARY_SCALAR(tanh,  tanh,  std::tanh(a))
-
-ENOKI_ROUTE_UNARY_SCALAR(csch,  csch,  T(1) / std::sinh(a))
-ENOKI_ROUTE_UNARY_SCALAR(sech,  sech,  T(1) / std::cosh(a))
-ENOKI_ROUTE_UNARY_SCALAR(coth,  coth,  T(1) / std::tanh(a))
-
-ENOKI_ROUTE_UNARY_SCALAR(asinh, asinh, std::asinh(a))
-ENOKI_ROUTE_UNARY_SCALAR(acosh, acosh, std::acosh(a))
-ENOKI_ROUTE_UNARY_SCALAR(atanh, atanh, std::atanh(a))
-
-ENOKI_ROUTE_UNARY_SCALAR(isnan, isnan, std::isnan(a))
-ENOKI_ROUTE_UNARY_SCALAR(isinf, isinf, std::isinf(a))
-ENOKI_ROUTE_UNARY_SCALAR(isfinite, isfinite, std::isfinite(a))
-
-/// Break floating-point number into normalized fraction and power of 2 (scalar fallback)
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE std::pair<Arg, Arg> frexp(const Arg &a) {
-#if defined(ENOKI_X86_AVX512F) && (!defined(__GNUG__) || defined(__clang__))
-    /// GCC 7 seems to have some issues with these intrinsics
-    if (std::is_same<Arg, float>::value) {
-        __m128 v = _mm_set_ss((float) a);
-        return std::make_pair(
-            Arg(_mm_cvtss_f32(_mm_getmant_ss(v, v, _MM_MANT_NORM_p5_1, _MM_MANT_SIGN_src))),
-            Arg(_mm_cvtss_f32(_mm_getexp_ss(v, v))));
-    }
-    if (std::is_same<Arg, double>::value) {
-        __m128d v = _mm_set_sd((double) a);
-        return std::make_pair(
-            Arg(_mm_cvtsd_f64(_mm_getmant_sd(v, v, _MM_MANT_NORM_p5_1, _MM_MANT_SIGN_src))),
-            Arg(_mm_cvtsd_f64(_mm_getexp_sd(v, v))));
-    }
-#endif
-
-    int tmp;
-    Arg result = std::frexp(a, &tmp);
-    return std::make_pair(result, Arg(tmp) - Arg(1));
-}
-
-template <typename Arg1, typename Arg2, enable_if_not_array_t<Arg1> = 0,
-          enable_if_not_array_t<Arg2> = 0>
-ENOKI_INLINE Arg1 ldexp(const Arg1 &a1, const Arg2 &a2) {
-#if defined(ENOKI_X86_AVX512F)
-    if (std::is_same<Arg1, float>::value) {
-        __m128 v1 = _mm_set_ss((float) a1),
-               v2 = _mm_set_ss((float) a2);
-        return Arg1(_mm_cvtss_f32(_mm_scalef_ss(v1, v2)));
-    }
-    if (std::is_same<Arg1, double>::value) {
-        __m128d v1 = _mm_set_sd((double) a1),
-                v2 = _mm_set_sd((double) a2);
-        return Arg1(_mm_cvtsd_f64(_mm_scalef_sd(v1, v2)));
-    }
-#endif
-
-    return std::ldexp(a1, int(a2));
-}
-
-ENOKI_ROUTE_UNARY(frexp, frexp)
-
-template <typename T, std::enable_if_t<!is_array<T>::value && std::is_signed<T>::value, int> = 0>
-ENOKI_INLINE T abs(const T &a) {
-    return std::abs(a);
-}
-
-template <typename T, std::enable_if_t<!is_array<T>::value && std::is_unsigned<T>::value, int> = 0>
-ENOKI_INLINE T abs(const T &a) {
-    return a;
-}
-
-/* select(): case 1: use array-specific implementation of operation */
-template <typename T,
-          std::enable_if_t<is_array<T>::value &&
-                           std::is_same<expr_t<T>, T>::value, int> = 0>
-ENOKI_INLINE auto select(mask_t<T> m, const T &t, const T &f) {
-    return T::Derived::select_(m.derived(), t.derived(), f.derived());
-}
-
-/* select(): case 2: scalar input */
-template <typename T1, typename T2, typename T3,
-          typename Void = detail::extract_array_t<T1, T2, T3>,
-          std::enable_if_t<std::is_void<Void>::value, int> = 0>
-ENOKI_INLINE auto select(const T1 &m, const T2 &t, const T3 &f) {
-    using T = expr_t<T2, T3>;
-    return (bool) m ? (T) t : (T) f;
-}
-
-/* select(): case 3: broadcast/evaluate input arrays and try again */
-template <typename T1, typename T2, typename T3,
-          typename Array = detail::extract_array_t<T2, T3>,
-          std::enable_if_t<!std::is_void<Array>::value, int> = 0>
-ENOKI_INLINE auto select(const T1 &m, const T2 &t, const T3 &f) {
-    using Output = expr_t<T2, T3>;
-    return select((detail::ref_cast_t<T1, mask_t<Output>>) m,
-                  (detail::ref_cast_t<T2, Output>) t,
-                  (detail::ref_cast_t<T3, Output>) f);
-}
-
-template <typename Target, typename Source, std::enable_if_t<std::is_same<Source, Target>::value, int> = 0>
-ENOKI_INLINE Target reinterpret_array(const Source &src) {
-    return src;
-}
-
-template <typename Target, typename Source,
-          std::enable_if_t<!std::is_same<Source, Target>::value &&
-                            std::is_constructible<Target, const Source &, detail::reinterpret_flag>::value, int> = 0>
-ENOKI_INLINE Target reinterpret_array(const Source &src) {
-    return Target(src, detail::reinterpret_flag());
-}
-
-template <typename Target, typename Source,
-          std::enable_if_t<std::is_scalar<Source>::value && std::is_scalar<Target>::value &&
-                           sizeof(Source) != sizeof(Target), int> = 0>
-ENOKI_INLINE Target reinterpret_array(const Source &src) {
-    using SrcInt = typename detail::type_chooser<sizeof(Source)>::Int;
-    using TrgInt = typename detail::type_chooser<sizeof(Target)>::Int;
-    if (std::is_same<Target, bool>::value)
-        return memcpy_cast<SrcInt>(src) != 0 ? Target(true) : Target(false);
-    else
-        return memcpy_cast<Target>(memcpy_cast<SrcInt>(src) != 0 ? TrgInt(-1) : TrgInt(0));
-}
-
-template <typename Target, typename Source,
-          std::enable_if_t<std::is_scalar<Source>::value && std::is_scalar<Target>::value &&
-                           !std::is_same<Source, Target>::value && sizeof(Source) == sizeof(Target), int> = 0>
-ENOKI_INLINE Target reinterpret_array(const Source &src) {
-    return memcpy_cast<Target>(src);
-}
-
-template <typename T1, typename T2,
-          typename Array = detail::extract_array_t<T1, T2>,
-          std::enable_if_t<!std::is_void<Array>::value, int> = 0>
-ENOKI_INLINE bool operator==(const T1 &a1, const T2 &a2) {
-    return all_nested(eq(a1, a2));
-}
-
-template <typename T1, typename T2,
-          typename Array = detail::extract_array_t<T1, T2>,
-          std::enable_if_t<!std::is_void<Array>::value, int> = 0>
-ENOKI_INLINE bool operator!=(const T1 &a1, const T2 &a2) {
-    return any_nested(neq(a1, a2));
-}
-
-template <typename Array1, typename Array2>
-ENOKI_INLINE auto abs_dot(const Array1 &a1, const Array2 &a2) {
-    return abs(dot(a1, a2));
-}
-
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE auto mean(const Array &a) {
-    return hsum(a) * (1.f / array_size<Array>::value);
-}
-
-template <typename Array, enable_if_dynamic_array_t<Array> = 0>
-ENOKI_INLINE auto mean(const Array &a) {
-    return hsum(a) * (1.f / a.size());
-}
-
-template <size_t Imm, typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg roli(const Arg &a) {
-    size_t mask = 8 * sizeof(Arg) - 1;
-    return (a << (Imm & mask)) | (a >> ((~Imm + 1) & mask));
-}
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg rol(const Arg &a, size_t amt) {
-    size_t mask = 8 * sizeof(Arg) - 1;
-    return (a << (amt & mask)) | (a >> ((~amt + 1) & mask));
-}
-
-template <size_t Imm, typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg rori(const Arg &a) {
-    size_t mask = 8 * sizeof(Arg) - 1;
-    return (a >> (Imm & mask)) | (a << ((~Imm + 1) & mask));
-}
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg ror(const Arg &a, size_t amt) {
-    size_t mask = 8 * sizeof(Arg) - 1;
-    return (a >> (amt & mask)) | (a << ((~amt + 1) & mask));
-}
-
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE auto ror(const Array &a, size_t value) {
-    return a.derived().ror_(value);
-}
-
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE auto rol(const Array &a, size_t value) {
-    return a.derived().rol_(value);
-}
-
-template <typename T,
-          std::enable_if_t<is_array<T>::value && std::is_same<expr_t<T>, T>::value, int> = 0>
-ENOKI_INLINE auto operator<<(const T &a, size_t value) {
-    return a.derived().sl_(value);
-}
-template <typename T,
-          std::enable_if_t<is_array<T>::value && !std::is_same<expr_t<T>, T>::value, int> = 0>
-ENOKI_INLINE auto operator<<(const T &a, size_t value) {
-    return operator<<((expr_t<T>) a, value);
-}
-
-template <typename T,
-          std::enable_if_t<is_array<T>::value && std::is_same<expr_t<T>, T>::value, int> = 0>
-ENOKI_INLINE auto operator>>(const T &a, size_t value) {
-    return a.derived().sr_(value);
-}
-template <typename T,
-          std::enable_if_t<is_array<T>::value && !std::is_same<expr_t<T>, T>::value, int> = 0>
-ENOKI_INLINE auto operator>>(const T &a, size_t value) {
-    return operator>>((expr_t<T>) a, value);
-}
-
-ENOKI_ROUTE_UNARY_SCALAR_IMM(sli, sli, a << Imm)
-ENOKI_ROUTE_UNARY_SCALAR_IMM(sri, sri, a >> Imm)
-
-ENOKI_ROUTE_UNARY_IMM(roli, roli)
-ENOKI_ROUTE_UNARY_IMM(rori, rori)
-
 ENOKI_ROUTE_UNARY_IMM(rol_array, rol_array)
 ENOKI_ROUTE_UNARY_IMM(ror_array, ror_array)
 
-ENOKI_ROUTE_BINARY(ror, rorv)
-ENOKI_ROUTE_BINARY(rol, rolv)
-
-template <bool = false, typename T,
-          std::enable_if_t<is_array<T>::value && std::is_same<expr_t<T>, T>::value, int> = 0>
-ENOKI_INLINE auto rcp(const T &a) {
-    return a.derived().rcp_();
-}
-template <bool = false, typename T,
-          std::enable_if_t<is_array<T>::value && !std::is_same<expr_t<T>, T>::value, int> = 0>
-ENOKI_INLINE auto rcp(const T &a) {
-    return rcp((expr_t<T>) a);
+template <typename T> auto none(const T &value) {
+    return !any(value);
 }
 
-/// Reciprocal (scalar fallback)
-template <bool Approx = false, typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg rcp(const Arg &a) {
-#if defined(ENOKI_X86_AVX512ER)
-    if (std::is_same<Arg, float>::value) {
-        __m128 v = _mm_set_ss((float) a);
-        return Arg(_mm_cvtss_f32(_mm_rcp28_ss(v, v))); /* rel error < 2^-28 */
-    }
-#endif
-
-    if (Approx && std::is_same<Arg, float>::value) {
-#if defined(ENOKI_X86_SSE42)
-        __m128 v = _mm_set_ss((float) a), r;
-
-        #if defined(ENOKI_X86_AVX512F)
-            r = _mm_rcp14_ss(v, v); /* rel error < 2^-14 */
-        #else
-            r = _mm_rcp_ss(v);      /* rel error < 1.5*2^-12 */
-        #endif
-
-        /* Refine using one Newton-Raphson iteration */
-        __m128 ro = r;
-
-        __m128 t0 = _mm_add_ss(r, r);
-        __m128 t1 = _mm_mul_ss(r, v);
-
-        #if defined(ENOKI_X86_FMA)
-            r = _mm_fnmadd_ss(r, t1, t0);
-        #else
-            r = _mm_sub_ss(t0, _mm_mul_ss(r, t1));
-        #endif
-
-        r = _mm_blendv_ps(r, ro, t1); /* mask bit is '1' iff t1 == nan */
-
-        return Arg(_mm_cvtss_f32(r));
-#elif defined(ENOKI_ARM_NEON) && defined(ENOKI_ARM_64)
-        float v = (float) a;
-        float r = vrecpes_f32(v);
-        r *= vrecpss_f32(r, v);
-        r *= vrecpss_f32(r, v);
-        return Arg(r);
-#endif
-    }
-
-#if defined(ENOKI_X86_AVX512F) || defined(ENOKI_X86_AVX512ER)
-    if (Approx && std::is_same<Arg, double>::value) {
-        __m128d v = _mm_set_sd((double) a), r;
-
-        #if defined(ENOKI_X86_AVX512ER)
-            r = _mm_rcp28_sd(v, v);  /* rel error < 2^-28 */
-        #elif defined(ENOKI_X86_AVX512F)
-            r = _mm_rcp14_sd(v, v);  /* rel error < 2^-14 */
-        #endif
-
-        __m128d ro = r, t0, t1;
-
-        /* Refine using 1-2 Newton-Raphson iterations */
-        ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
-            t0 = _mm_add_sd(r, r);
-            t1 = _mm_mul_sd(r, v);
-
-            #if defined(ENOKI_X86_FMA)
-                r = _mm_fnmadd_sd(t1, r, t0);
-            #else
-                r = _mm_sub_sd(t0, _mm_mul_sd(r, t1));
-            #endif
-        }
-
-        r = _mm_blendv_pd(r, ro, t1); /* mask bit is '1' iff t1 == nan */
-
-        return Arg(_mm_cvtsd_f64(r));
-    }
-#endif
-
-    return Arg(1) / a;
-}
-
-template <bool = false, typename T,
-          std::enable_if_t<is_array<T>::value && std::is_same<expr_t<T>, T>::value, int> = 0>
-ENOKI_INLINE auto rsqrt(const T &a) {
-    return a.derived().rsqrt_();
-}
-template <bool = false, typename T,
-          std::enable_if_t<is_array<T>::value && !std::is_same<expr_t<T>, T>::value, int> = 0>
-ENOKI_INLINE auto rsqrt(const T &a) {
-    return rsqrt((expr_t<T>) a);
-}
-
-/// Reciprocal square root (scalar fallback)
-template <bool Approx = false, typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg rsqrt(const Arg &a) {
-#if defined(ENOKI_X86_AVX512ER)
-    if (std::is_same<Arg, float>::value) {
-        __m128 v = _mm_set_ss((float) a);
-        return Arg(_mm_cvtss_f32(_mm_rsqrt28_ss(v, v))); /* rel error < 2^-28 */
-    }
-#endif
-
-    if (Approx && std::is_same<Arg, float>::value) {
-#if defined(ENOKI_X86_SSE42)
-        __m128 v = _mm_set_ss((float) a), r;
-        #if defined(ENOKI_X86_AVX512F)
-            r = _mm_rsqrt14_ss(v, v);  /* rel error < 2^-14 */
-        #else
-            r = _mm_rsqrt_ss(v);       /* rel error < 1.5*2^-12 */
-        #endif
-
-        /* Refine using one Newton-Raphson iteration */
-        const __m128 c0 = _mm_set_ss(0.5f),
-                     c1 = _mm_set_ss(3.0f);
-
-        __m128 t0 = _mm_mul_ss(r, c0),
-               t1 = _mm_mul_ss(r, v),
-               ro = r;
-
-        #if defined(ENOKI_X86_FMA)
-            r = _mm_mul_ss(_mm_fnmadd_ss(t1, r, c1), t0);
-        #else
-            r = _mm_mul_ss(_mm_sub_ss(c1, _mm_mul_ss(t1, r)), t0);
-        #endif
-
-        r = _mm_blendv_ps(r, ro, t1); /* mask bit is '1' iff t1 == nan */
-
-        return Arg(_mm_cvtss_f32(r));
-#elif defined(ENOKI_ARM_NEON) && defined(ENOKI_ARM_64)
-        float v = (float) a;
-        float r = vrsqrtes_f32(v);
-        r *= vrsqrtss_f32(r*r, v);
-        r *= vrsqrtss_f32(r*r, v);
-        return r;
-#endif
-    }
-
-#if defined(ENOKI_X86_AVX512F) || defined(ENOKI_X86_AVX512ER)
-    if (Approx && std::is_same<Arg, double>::value) {
-        __m128d v = _mm_set_sd((double) a), r;
-
-        #if defined(ENOKI_X86_AVX512ER)
-            r = _mm_rsqrt28_sd(v, v);  /* rel error < 2^-28 */
-        #elif defined(ENOKI_X86_AVX512F)
-            r = _mm_rsqrt14_sd(v, v);  /* rel error < 2^-14 */
-        #endif
-
-        const __m128d c0 = _mm_set_sd(0.5),
-                      c1 = _mm_set_sd(3.0);
-
-        __m128d ro = r, t0, t1;
-
-        /* Refine using 1-2 Newton-Raphson iterations */
-        ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
-            t0 = _mm_mul_sd(r, c0);
-            t1 = _mm_mul_sd(r, v);
-
-            #if defined(ENOKI_X86_FMA)
-                r = _mm_mul_sd(_mm_fnmadd_sd(t1, r, c1), t0);
-            #else
-                r = _mm_mul_sd(_mm_sub_sd(c1, _mm_mul_sd(t1, r)), t0);
-            #endif
-        }
-
-        r = _mm_blendv_pd(r, ro, t1); /* mask bit is '1' iff t1 == nan */
-
-        return Arg(_mm_cvtsd_f64(r));
-    }
-#endif
-
-    return Arg(1) / std::sqrt(a);
-}
-
-template <bool = false, typename T,
-          std::enable_if_t<is_array<T>::value && std::is_same<expr_t<T>, T>::value, int> = 0>
-ENOKI_INLINE auto exp(const T &a) {
-    return a.derived().exp_();
-}
-template <bool = false, typename T,
-          std::enable_if_t<is_array<T>::value && !std::is_same<expr_t<T>, T>::value, int> = 0>
-ENOKI_INLINE auto exp(const T &a) {
-    return exp((expr_t<T>) a);
-}
-
-template <bool Approx = false, typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg exp(const Arg &a) {
-#if defined(ENOKI_X86_AVX512ER)
-    if (std::is_same<Arg, float>::value && Approx) {
-        __m128 v = _mm512_castps512_ps128(
-            _mm512_exp2a23_ps(_mm512_castps128_ps512(_mm_mul_ps(
-                _mm_set_ss((float) a), _mm_set1_ps(1.4426950408889634074f)))));
-        return Arg(_mm_cvtss_f32(v));
-    }
-#endif
-    return std::exp(a);
-}
-
-/* operator/, operator%: case 1: use array-specific implementation of operation */
-template <typename T,
-          std::enable_if_t<is_array<T>::value && std::is_same<expr_t<T>, T>::value, int> = 0>
-ENOKI_INLINE auto operator/(const T &a1, const T &a2) {
-    return a1.derived().div_(a2.derived());
-}
-
-template <typename T,
-          std::enable_if_t<is_array<T>::value && std::is_same<expr_t<T>, T>::value, int> = 0>
-ENOKI_INLINE auto operator%(const T &a1, const T &a2) {
-    return a1.derived().mod_(a2.derived());
-}
-
-/* operator/, operator%: case 2: broadcast/evaluate input arrays and try again */
-template <typename T1, typename T2,
-          typename Array = detail::extract_array_t<T1, T2>,
-          std::enable_if_t<!std::is_void<Array>::value
-                           &&!(std::is_integral<scalar_t<T1>>::value && std::is_integral<T2>::value), int> = 0>
+/// Floating point division
+template <typename T1, typename T2, enable_if_array_any_t<T1, T2> = 0,
+          enable_if_t<std::is_floating_point_v<scalar_t<expr_t<T1, T2>>>> = 0>
 ENOKI_INLINE auto operator/(const T1 &a1, const T2 &a2) {
-    using Cast   = expr_t<scalar_t<T1>, T2>;
-    using Output = expr_t<T1, T2>;
+    using E = expr_t<T1, T2>;
+    using T = expr_t<scalar_t<T1>, T2>;
 
-    Output result;
-    if (array_depth<T1>::value > array_depth<T2>::value && Output::Approx)
-        result = (detail::ref_cast_t<T1, Output>) a1 *
-                 rcp<Output::Approx>((Cast) a2);
+    if constexpr (std::is_same_v<T1, E> && std::is_same_v<T2, E>)
+        return a1.derived().div_(a2.derived());
+    else if constexpr (array_depth_v<T1> > array_depth_v<T2> && E::Approx)
+        return (const E &) a1 * // reciprocal approximation
+               rcp<E::Approx>((const T &) a2);
     else
-        result = (detail::ref_cast_t<T1, Output>) a1 /
-                 (detail::ref_cast_t<T2, Output>) a2;
-    return result;
-}
-
-template <typename T1, typename T2,
-          typename Array = detail::extract_array_t<T1, T2>,
-          std::enable_if_t<!std::is_void<Array>::value
-                           &&!(std::is_integral<scalar_t<T1>>::value && std::is_integral<T2>::value), int> = 0>
-ENOKI_INLINE auto operator%(const T1 &a1, const T2 &a2) {
-    using Output = expr_t<T1, T2>;
-    return (detail::ref_cast_t<T1, Output>) a1 %
-           (detail::ref_cast_t<T2, Output>) a2;
+        return operator/((const E &) a1,
+                         (const E &) a2);
 }
 
 /// Shuffle the entries of an array
-template <size_t... Args, typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE auto shuffle(const Array &in) { return in.derived().template shuffle_<Args...>(); }
-
-/// Shuffle the entries of an array (scalar fallback)
-template <size_t Index, typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg shuffle(const Arg &arg) {
-    static_assert(Index == 0, "Invalid argument to shuffle");
-    return arg;
+template <size_t... Is, typename T>
+ENOKI_INLINE auto shuffle(const T &a) {
+    if constexpr (is_array_v<T>) {
+        return eval(a).template shuffle_<Is...>();
+    } else {
+        static_assert(sizeof...(Is) == 1 && (... && (Is == 0)), "Shuffle argument out of bounds!");
+        return a;
+    }
 }
 
 //// Compute the square of the given value
-template <typename Arg, typename E = expr_t<Arg>> ENOKI_INLINE E sqr(const Arg &value) {
+template <typename T> ENOKI_INLINE auto sqr(const T &value) {
     return value * value;
 }
 
 //// Convert radians to degrees
-template <typename Arg, typename E = expr_t<Arg>> ENOKI_INLINE E rad_to_deg(const Arg &value) {
-    return scalar_t<E>(180 / M_PI) * value;
+template <typename T> ENOKI_INLINE auto rad_to_deg(const T &a) {
+    return a * scalar_t<T>(180 / M_PI);
 }
 
 /// Convert degrees to radians
-template <typename Arg, typename E = expr_t<Arg>> ENOKI_INLINE E deg_to_rad(const Arg &value) {
-    return scalar_t<E>(M_PI / 180) * value;
+template <typename T> ENOKI_INLINE auto deg_to_rad(const T &a) {
+    return a * scalar_t<T>(M_PI / 180);
 }
 
-NAMESPACE_BEGIN(detail)
-template <typename Arg>
-ENOKI_INLINE auto sign_mask(const Arg &a) {
-    using UInt = scalar_t<uint_array_t<Arg>>;
-    using Float = scalar_t<Arg>;
-    const Float mask = memcpy_cast<Float>(UInt(1) << (sizeof(UInt) * 8 - 1));
-    return detail::and_(expr_t<Arg>(mask), a);
+template <typename T> ENOKI_INLINE auto sign_mask() {
+    using Scalar = scalar_t<T>;
+    using UInt = uint_array_t<Scalar>;
+    return memcpy_cast<Scalar>(UInt(1) << (sizeof(UInt) * 8 - 1));
 }
 
-template <typename Arg>
-ENOKI_INLINE auto sign_mask_neg(const Arg &a) {
-    using UInt = scalar_t<uint_array_t<Arg>>;
-    using Float = scalar_t<Arg>;
-    const Float mask = memcpy_cast<Float>(UInt(1) << (sizeof(UInt) * 8 - 1));
-    return detail::andnot_(expr_t<Arg>(mask), a);
-}
+template <typename T, typename Expr = expr_t<T>>
+ENOKI_INLINE Expr sign(const T &a) {
+    using Scalar = scalar_t<T>;
 
-template <typename Array>
-constexpr size_t fix_stride(size_t Stride) {
-    if (has_avx2 && (Array::IsRecursive || Array::IsNative)) {
-       if (Stride % 8 == 0)      return 8;
-       else if (Stride % 4 == 0) return 4;
-       else                      return 1;
-    }
-    return Stride;
-}
-NAMESPACE_END(detail)
-
-template <typename Array, enable_if_static_array_t<Array> = 0, typename Expr = expr_t<Array>>
-ENOKI_INLINE Expr sign(const Array &a) {
-    using Scalar = scalar_t<Expr>;
-
-    if (!std::is_signed<Scalar>::value)
+    if constexpr (array_depth_v<Expr> >= 2) {
+        Expr result;
+        for (size_t i = 0; i < Expr::Size; ++i)
+            result.coeff(i) = sign(a.coeff(i));
+        return result;
+    } else if constexpr (!std::is_signed_v<Scalar>) {
         return Expr(Scalar(1));
-    else if (std::is_floating_point<Scalar>::value && !is_torch_array<Expr>::value)
-        return detail::sign_mask(a) | Expr(Scalar(1));
-    else
+    } else if constexpr (!std::is_floating_point_v<Scalar> || is_autodiff_array_v<Expr>) {
         return select(a < Scalar(0), Expr(Scalar(-1)), Expr(Scalar(1)));
-}
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-inline Arg sign(const Arg &a) {
-    return std::copysign(Arg(1), a);
-}
-
-template <typename Array1, typename Array2, typename Result = expr_t<Array1, Array2>,
-          enable_if_array_t<Result> = 0>
-ENOKI_INLINE Result copysign(const Array1 &a, const Array2 &b) {
-    static_assert(std::is_same<scalar_t<Array1>, scalar_t<Array2>>::value, "Mismatched argument types!");
-    static_assert(std::is_signed<scalar_t<Array1>>::value, "copysign() expects signed arguments!");
-    using Scalar = scalar_t<Result>;
-
-    if (std::is_floating_point<scalar_t<Result>>::value) {
-        if (!is_torch_array<Result>::value)
-            return abs(a) | detail::sign_mask(b);
-        else
-            return abs(a) * sign(b);
+    } else if constexpr (is_scalar_v<Expr>) {
+        return std::copysign(Scalar(1), a);
     } else {
-        Result result(a);
-        result[(a ^ b) < Scalar(0)] = -a;
+        return (sign_mask<T>() & a) | Expr(Scalar(1));
+    }
+}
+
+template <typename T1, typename T2, typename Expr = expr_t<T1, T2>>
+ENOKI_INLINE Expr copysign(const T1 &a1, const T2 &a2) {
+    using Scalar1 = scalar_t<T1>;
+    using Scalar2 = scalar_t<T2>;
+
+    static_assert(std::is_same_v<Scalar1, Scalar2> || !std::is_signed_v<Scalar1>,
+                  "copysign(): Incompatibile input arguments!");
+
+    if constexpr (!std::is_same_v<T1, Expr> || !std::is_same_v<T2, Expr>) {
+        return copysign((const Expr &) a1, (const Expr &) a2);
+    } else if constexpr (array_depth_v<Expr> >= 2) {
+        Expr result;
+        for (size_t i = 0; i < Expr::Size; ++i)
+            result.coeff(i) = copysign(a1.coeff(i), a2.coeff(i));
         return result;
+    } else if constexpr (!std::is_floating_point_v<Scalar1>) {
+        return select((a1 ^ a2) < Scalar1(0), a1, -a1);
+    } else if constexpr (is_scalar_v<Expr>) {
+        return std::copysign(a1, a2);
+    } else if constexpr (is_autodiff_array_v<Expr>) {
+        return abs(a1) * sign(a2);
+    } else {
+        return abs(a1) | (sign_mask<Expr>() & a2);
     }
 }
 
-template <typename Array1, typename Array2, typename Result = expr_t<Array1, Array2>,
-          enable_if_array_t<Result> = 0>
-ENOKI_INLINE Result copysign_neg(const Array1 &a, const Array2 &b) {
-    static_assert(std::is_same<scalar_t<Array1>, scalar_t<Array2>>::value, "Mismatched argument types!");
-    static_assert(std::is_signed<scalar_t<Array1>>::value, "copysign_neg() expects signed arguments!");
-    using Scalar = scalar_t<Result>;
+template <typename T1, typename T2, typename Expr = expr_t<T1, T2>>
+ENOKI_INLINE Expr copysign_neg(const T1 &a1, const T2 &a2) {
+    using Scalar1 = scalar_t<T1>;
+    using Scalar2 = scalar_t<T2>;
 
-    if (std::is_floating_point<scalar_t<Result>>::value) {
-        if (!is_torch_array<Result>::value)
-            return abs(a) | detail::sign_mask_neg(b);
-        else
-            return abs(a) * -sign(b);
-    } else {
-        Result result(a);
-        result[(a ^ b) >= Scalar(0)] = -a;
+    static_assert(std::is_same_v<Scalar1, Scalar2> || !std::is_signed_v<Scalar1>,
+                  "copysign_neg(): Incompatibile input arguments!");
+
+    if constexpr (!std::is_same_v<T1, Expr> || !std::is_same_v<T2, Expr>) {
+        return copysign_neg((const Expr &) a1, (const Expr &) a2);
+    } else if constexpr (array_depth_v<Expr> >= 2) {
+        Expr result;
+        for (size_t i = 0; i < Expr::Size; ++i)
+            result.coeff(i) = copysign_neg(a1.coeff(i), a2.coeff(i));
         return result;
+    } else if constexpr (!std::is_floating_point_v<Scalar1>) {
+        return select((a1 ^ a2) < Scalar1(0), -a1, a1);
+    } else if constexpr (is_scalar_v<Expr>) {
+        return std::copysign(a1, -a2);
+    } else if constexpr (is_autodiff_array_v<Expr>) {
+        return abs(a1) * -sign(a2);
+    } else {
+        return abs(a1) | andnot(sign_mask<Expr>(), a2);
     }
 }
 
-template <typename Array1, typename Array2, typename Result = expr_t<Array1, Array2>,
-          enable_if_array_t<Result> = 0>
-ENOKI_INLINE Result mulsign(const Array1 &a, const Array2 &b) {
-    static_assert(std::is_same<scalar_t<Array1>, scalar_t<Array2>>::value, "Mismatched argument types!");
-    static_assert(std::is_signed<scalar_t<Array1>>::value, "mulsign() expects signed arguments!");
-    using Scalar = scalar_t<Result>;
+template <typename T1, typename T2, typename Expr = expr_t<T1, T2>>
+ENOKI_INLINE Expr mulsign(const T1 &a1, const T2 &a2) {
+    using Scalar1 = scalar_t<T1>;
+    using Scalar2 = scalar_t<T2>;
 
-    if (std::is_floating_point<scalar_t<Result>>::value) {
-        if (!is_torch_array<Result>::value)
-            return a ^ detail::sign_mask(b);
-        else
-            return a * sign(b);
-    } else {
-        Result result(a);
-        result[Result(b) < Scalar(0)] = -a;
+    static_assert(std::is_same_v<Scalar1, Scalar2> || !std::is_signed_v<Scalar1>,
+                  "mulsign(): Incompatibile input arguments!");
+
+    if constexpr (!std::is_same_v<T1, Expr> || !std::is_same_v<T2, Expr>) {
+        return mulsign((const Expr &) a1, (const Expr &) a2);
+    } else if constexpr (array_depth_v<Expr> >= 2) {
+        Expr result;
+        for (size_t i = 0; i < Expr::Size; ++i)
+            result.coeff(i) = mulsign(a1.coeff(i), a2.coeff(i));
         return result;
+    } else if constexpr (!std::is_floating_point_v<Scalar1>) {
+        return select(a2 < Scalar1(0), -a1, a1);
+    } else if constexpr (is_scalar_v<Expr>) {
+        return a1 * std::copysign(Scalar1(1), a2);
+    } else if constexpr (is_autodiff_array_v<Expr>) {
+        return a1 * sign(a2);
+    } else {
+        return a1 ^ (sign_mask<Expr>() & a2);
     }
 }
 
-template <typename Array1, typename Array2, typename Result = expr_t<Array1, Array2>,
-          enable_if_array_t<Result> = 0>
-ENOKI_INLINE Result mulsign_neg(const Array1 &a, const Array2 &b) {
-    static_assert(std::is_same<scalar_t<Array1>, scalar_t<Array2>>::value, "Mismatched argument types!");
-    static_assert(std::is_signed<scalar_t<Array1>>::value, "mulsign_neg() expects signed arguments!");
-    using Scalar = scalar_t<Result>;
+template <typename T1, typename T2, typename Expr = expr_t<T1, T2>>
+ENOKI_INLINE Expr mulsign_neg(const T1 &a1, const T2 &a2) {
+    using Scalar1 = scalar_t<T1>;
+    using Scalar2 = scalar_t<T2>;
 
-    if (std::is_floating_point<scalar_t<Result>>::value) {
-        if (!is_torch_array<Result>::value)
-            return a ^ detail::sign_mask_neg(b);
-        else
-            return a * -sign(b);
-    } else {
-        Result result(a);
-        result[Result(b) >= Scalar(0)] = -a;
+    static_assert(std::is_same_v<Scalar1, Scalar2> || !std::is_signed_v<Scalar1>,
+                  "mulsign_neg(): Incompatibile input arguments!");
+
+    if constexpr (!std::is_same_v<T1, Expr> || !std::is_same_v<T2, Expr>) {
+        return mulsign_neg((const Expr &) a1, (const Expr &) a2);
+    } else if constexpr (array_depth_v<Expr> >= 2) {
+        Expr result;
+        for (size_t i = 0; i < Expr::Size; ++i)
+            result.coeff(i) = mulsign_neg(a1.coeff(i), a2.coeff(i));
         return result;
-    }
-}
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-inline Arg copysign(const Arg &a, const Arg &b) {
-    return std::copysign(a, b);
-}
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-inline Arg copysign_neg(const Arg &a, const Arg &b) {
-    return std::copysign(a, -b);
-}
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-inline Arg mulsign(const Arg &a, const Arg &b) {
-    return a * std::copysign(Arg(1), b);
-}
-
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-inline Arg mulsign_neg(const Arg &a, const Arg &b) {
-    return a * std::copysign(Arg(1), -b);
-}
-
-template <typename T, std::enable_if_t<std::is_integral<T>::value, int> = 0>
-ENOKI_INLINE T popcnt(T v) {
-#if defined(ENOKI_X86_SSE42)
-    if (sizeof(T) <= 4)
-        return (T) _mm_popcnt_u32((unsigned int) v);
-    #if defined(ENOKI_X86_64)
-        return (T) _mm_popcnt_u64((unsigned long long) v);
-    #else
-        unsigned long long v_ = (unsigned long long) v;
-        unsigned int lo = (unsigned int) v_;
-        unsigned int hi = (unsigned int) (v_ >> 32);
-        return (T) (_mm_popcnt_u32(lo) + _mm_popcnt_u32(hi));
-    #endif
-#elif defined(_MSC_VER)
-    if (sizeof(T) <= 4) {
-        uint32_t w = (uint32_t) v;
-        w -= (w >> 1) & 0x55555555;
-        w = (w & 0x33333333) + ((w >> 2) & 0x33333333);
-        w = (w + (w >> 4)) & 0x0F0F0F0F;
-        w = (w * 0x01010101) >> 24;
-        return (T) w;
+    } else if constexpr (!std::is_floating_point_v<Scalar1>) {
+        return select(a2 < Scalar1(0), a1, -a1);
+    } else if constexpr (is_scalar_v<Expr>) {
+        return a1 * std::copysign(Scalar1(1), -a2);
+    } else if constexpr (is_autodiff_array_v<Expr>) {
+        return a1 * -sign(a2);
     } else {
-        uint64_t w = (uint64_t) v;
-        w -= (w >> 1) & 0x5555555555555555ull;
-        w = (w & 0x3333333333333333ull) + ((w >> 2) & 0x3333333333333333ull);
-        w = (w + (w >> 4)) & 0x0F0F0F0F0F0F0F0Full;
-        w = (w * 0x0101010101010101ull) >> 56;
-        return (T) w;
+        return a1 ^ andnot(sign_mask<Expr>(), a2);
     }
-#else
-    if (sizeof(T) <= 4)
-        return (T) __builtin_popcount((unsigned int) v);
+}
+
+template <typename M, typename T, typename F>
+ENOKI_INLINE auto select(const M &m, const T &t, const F &f) {
+    using E = expr_t<T, F>;
+
+    if constexpr (!is_array_v<E>)
+        return (bool) m ? (E) t : (E) f;
+    else if constexpr (std::is_same_v<M, mask_t<E>> &&
+                       std::is_same_v<T, E> &&
+                       std::is_same_v<F, E>)
+        return E::select_(m.derived(), t.derived(), f.derived());
     else
-        return (T) __builtin_popcountll((unsigned long long) v);
-#endif
+        return select((const mask_t<E> &) m, (const E &) t, (const E &) f);
 }
 
-template <typename T, std::enable_if_t<std::is_integral<T>::value, int> = 0>
-ENOKI_INLINE T lzcnt(T v) {
-#if defined(ENOKI_X86_AVX2)
-    if (sizeof(T) <= 4)
-        return (T) _lzcnt_u32((unsigned int) v);
-    #if defined(ENOKI_X86_64)
-        return (T) _lzcnt_u64((unsigned long long) v);
-    #else
-        unsigned long long v_ = (unsigned long long) v;
-        unsigned int lo = (unsigned int) v_;
-        unsigned int hi = (unsigned int) (v_ >> 32);
-        return (T) (hi != 0 ? _lzcnt_u32(hi) : (_lzcnt_u32(lo) + 32));
-    #endif
-#elif defined(_MSC_VER)
-    unsigned long result;
-    if (sizeof(T) <= 4) {
-        _BitScanReverse(&result, (unsigned long) v);
-        return (v != 0) ? (31 - result) : 32;
-    } else {
-        _BitScanReverse64(&result, (unsigned long long) v);
-        return (v != 0) ? (63 - result) : 64;
-    }
-#else
-    if (sizeof(T) <= 4)
-        return (T) (v != 0 ? __builtin_clz((unsigned int) v) : 32);
-    else
-        return (T) (v != 0 ? __builtin_clzll((unsigned long long) v) : 64);
-#endif
+template <typename T1, typename T2, enable_if_array_any_t<T1, T2> = 0>
+ENOKI_INLINE bool operator==(const T1 &a1, const T2 &a2) {
+    return all_nested(eq(a1, a2));
 }
 
-template <typename T, std::enable_if_t<std::is_integral<T>::value, int> = 0>
-ENOKI_INLINE T tzcnt(T v) {
-#if defined(ENOKI_X86_AVX2)
-    if (sizeof(T) <= 4)
-        return (T) _tzcnt_u32((unsigned int) v);
-    #if defined(ENOKI_X86_64)
-        return (T) _tzcnt_u64((unsigned long long) v);
-    #else
-        unsigned long long v_ = (unsigned long long) v;
-        unsigned int lo = (unsigned int) v_;
-        unsigned int hi = (unsigned int) (v_ >> 32);
-        return (T) (lo != 0 ? _tzcnt_u32(lo) : (_tzcnt_u32(hi) + 32));
-    #endif
-#elif defined(_MSC_VER)
-    unsigned long result;
-    if (sizeof(T) <= 4) {
-        _BitScanForward(&result, (unsigned long) v);
-        return (v != 0) ? result : 32;
-    } else {
-        _BitScanForward64(&result, (unsigned long long) v);
-        return (v != 0) ? result: 64;
-    }
-#else
-    if (sizeof(T) <= 4)
-        return (T) (v != 0 ? __builtin_ctz((unsigned int) v) : 32);
+template <typename T1, typename T2, enable_if_array_any_t<T1, T2> = 0>
+ENOKI_INLINE bool operator!=(const T1 &a1, const T2 &a2) {
+    return any_nested(neq(a1, a2));
+}
+
+namespace detail {
+    template <typename T>
+    using has_ror = decltype(std::declval<T>().template ror_<0>());
+    template <typename T>
+    constexpr bool has_ror_v = is_detected_v<has_ror, T>;
+};
+
+/// Bit-level rotate left (with immediate offset value)
+template <size_t Imm, typename T>
+ENOKI_INLINE auto rol(const T &a) {
+    constexpr size_t Mask = 8 * sizeof(scalar_t<T>) - 1u;
+    using UInt = uint_array_t<T>;
+
+    if constexpr (detail::has_ror_v<T>)
+        return a.template rol_<Imm>();
     else
-        return (T) (v != 0 ? __builtin_ctzll((unsigned long long) v) : 64);
-#endif
+        return sl<Imm & Mask>(a) | T(sr<((~Imm + 1u) & Mask)>(UInt(a)));
+}
+
+/// Bit-level rotate right (with immediate offset value)
+template <typename T1, typename T2>
+ENOKI_INLINE auto rol(const T1 &a1, const T2 &a2) {
+    if constexpr (detail::has_ror_v<T1>) {
+        return a1.rol_(a2);
+    } else {
+        using U1 = uint_array_t<T1>;
+        using U2 = uint_array_t<T2>;
+        using Expr = expr_t<T1, T2>;
+        constexpr scalar_t<U2> Mask = 8 * sizeof(scalar_t<Expr>) - 1u;
+
+        U1 u1 = (U1) a1; U2 u2 = (U2) a2;
+        return Expr((u1 << u2) | (u1 >> ((~u2 + 1u) & Mask)));
+    }
+}
+
+/// Bit-level rotate right (with scalar or array offset value)
+template <size_t Imm, typename T>
+ENOKI_INLINE T ror(const T &a) {
+    constexpr size_t Mask = 8 * sizeof(scalar_t<T>) - 1u;
+    using UInt = uint_array_t<T>;
+
+    if constexpr (detail::has_ror_v<T>)
+        return a.template ror_<Imm>();
+    else
+        return T(sr<Imm & Mask>(UInt(a))) | sl<((~Imm + 1u) & Mask)>(a);
+}
+
+/// Bit-level rotate right (with scalar or array offset value)
+template <typename T1, typename T2>
+ENOKI_INLINE auto ror(const T1 &a1, const T2 &a2) {
+    if constexpr (detail::has_ror_v<T1>) {
+        return a1.ror_(a2);
+    } else {
+        using U1 = uint_array_t<T1>;
+        using U2 = uint_array_t<T2>;
+        using Expr = expr_t<T1, T2>;
+        constexpr scalar_t<U2> Mask = 8 * sizeof(scalar_t<Expr>) - 1u;
+
+        U1 u1 = (U1) a1; U2 u2 = (U2) a2;
+        return Expr((u1 >> u2) | (u1 << ((~u2 + 1u) & Mask)));
+    }
 }
 
 /// Fast implementation for computing the base 2 log of an integer.
-template <typename T> ENOKI_INLINE T log2i(T value) {
+template <typename T> ENOKI_INLINE auto log2i(T value) {
     return scalar_t<T>(sizeof(scalar_t<T>) * 8 - 1) - lzcnt(value);
 }
 
-//! @}
-// -----------------------------------------------------------------------
-
-// -----------------------------------------------------------------------
-//! @{ \name Arithmetic operations for pointer arrays
-// -----------------------------------------------------------------------
-
-template <typename T1, typename T2,
-          typename Array = detail::extract_array_t<T1, T2>,
-          std::enable_if_t<!std::is_void<Array>::value &&
-                            std::is_pointer<scalar_t<T1>>::value, int> = 0>
-ENOKI_INLINE auto operator-(const T1 &a1_, const T2 &a2_) {
-    using Int = std::conditional_t<sizeof(void *) == 8, int64_t, int32_t>;
-    using T1i = replace_t<T1, Int>;
-    using T2i = replace_t<T2, Int>;
-    using Ti = expr_t<T1i, T2i>;
-    Ti a1 = Ti((T1i) a1_), a2 = Ti((T2i) a2_);
-    constexpr bool PointerArg = std::is_pointer<scalar_t<T2>>::value;
-    using Return = std::conditional_t<PointerArg, expr_t<T1i, T2i>, expr_t<T1, T2>>;
-
-    constexpr Int InstanceSize = sizeof(std::remove_pointer_t<scalar_t<T1>>);
-    constexpr Int LogInstanceSize = detail::clog2i(InstanceSize);
-    if ((1 << LogInstanceSize) == InstanceSize) {
-        if (PointerArg)
-            return Return(a1.sub_(a2).template sri_<LogInstanceSize>());
-        else
-            return Return(a1.sub_(a2.template sli_<LogInstanceSize>()));
+template <typename Target, typename Source>
+ENOKI_INLINE Target reinterpret_array(const Source &src) {
+    if constexpr (std::is_same_v<Source, Target>) {
+        return src;
+    } else if constexpr (std::is_constructible_v<Target, const Source &, detail::reinterpret_flag>) {
+        return Target(src, detail::reinterpret_flag());
+    } else if constexpr (is_scalar_v<Source> && is_scalar_v<Target>) {
+        if constexpr (sizeof(Source) == sizeof(Target)) {
+            return memcpy_cast<Target>(src);
+        } else {
+            using SrcInt = int_array_t<Source>;
+            using TrgInt = int_array_t<Target>;
+            if constexpr (std::is_same_v<Target, bool>)
+                return memcpy_cast<SrcInt>(src) != 0 ? true : false;
+            else
+                return memcpy_cast<Target>(memcpy_cast<SrcInt>(src) != 0 ? TrgInt(-1) : TrgInt(0));
+        }
     } else {
-        if (PointerArg)
-            return Return(a1.sub_(a2) / InstanceSize);
-        else
-            return Return(a1.sub_(a2 * InstanceSize));
+        static_assert(detail::false_v<Source, Target>, "reinterpret_array(): don't know what to do!");
     }
 }
 
-template <typename T1, typename T2,
-          typename Array = detail::extract_array_t<T1, T2>,
-          std::enable_if_t<!std::is_void<Array>::value &&
-                            std::is_pointer<scalar_t<T1>>::value, int> = 0>
-ENOKI_INLINE auto operator+(const T1 &a1_, const T2 &a2_) {
-    using Int = std::conditional_t<sizeof(void *) == 8, int64_t, int32_t>;
-    using T1i = replace_t<T1, Int>;
-    using T2i = replace_t<T2, Int>;
-    using Ti = expr_t<T1i, T2i>;
-    using Output = expr_t<T1, T2>;
-    Ti a1 = Ti((T1i) a1_), a2 = Ti((T2i) a2_);
+/// Element-wise test for NaN values
+template <typename T>
+ENOKI_INLINE auto isnan(const T &a) { return !eq(a, a); }
 
-    constexpr Int InstanceSize = sizeof(std::remove_pointer_t<scalar_t<T1>>);
-    constexpr Int LogInstanceSize = detail::clog2i(InstanceSize);
-    if ((1 << LogInstanceSize) == InstanceSize)
-        return Output(a1.add_(a2.template sli_<LogInstanceSize>()));
-    else
-        return Output(a1.add_(a2 * InstanceSize));
+/// Element-wise test for +/- infinity
+template <typename T>
+ENOKI_INLINE auto isinf(const T &a) {
+    return eq(abs(a), std::numeric_limits<scalar_t<T>>::infinity());
 }
 
-//! @}
-// -----------------------------------------------------------------------
-
-// -----------------------------------------------------------------------
-//! @{ \name Initialization, loading/writing data
-// -----------------------------------------------------------------------
-
-template <typename Array> ENOKI_INLINE Array zero(size_t size = 1);
-
-/// Construct an index sequence, i.e. 0, 1, 2, ..
-template <typename Array, enable_if_dynamic_array_t<Array> = 0>
-ENOKI_INLINE Array index_sequence(size_t size) {
-    return Array::index_sequence_(size);
-}
-
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE Array index_sequence() {
-    return Array::index_sequence_();
-}
-
-
-/// Construct an index sequence, i.e. 0, 1, 2, .. (scalar fallback)
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg index_sequence() {
-    return Arg(0);
-}
-
-/// Construct an array that linearly interpolates from min..max
-template <typename Array, enable_if_dynamic_array_t<Array> = 0>
-ENOKI_INLINE Array linspace(size_t size, scalar_t<Array> min, scalar_t<Array> max) {
-    return Array::linspace_(size, min, max);
-}
-
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE Array linspace(scalar_t<Array> min, scalar_t<Array> max) {
-    return Array::linspace_(min, max);
-}
-
-/// Construct an array that linearly interpolates from min..max (scalar fallback)
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg linspace() {
-    return Arg(0);
-}
-
-/// Load an array from aligned memory
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE Array load(const void *mem) {
-    return Array::load_(mem);
-}
-
-/// Load an array from aligned memory (masked)
-template <typename Array, typename Mask,
-          enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<Array::Size == Mask::Size, int> = 0>
-ENOKI_INLINE Array load(const void *mem, const Mask &mask) {
-    return Array::load_(mem, reinterpret_array<mask_t<Array>>(mask));
-}
-
-/// Load an array from aligned memory (scalar fallback)
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg load(const void *mem) {
-    assert((uintptr_t) mem % alignof(Arg) == 0);
-    return *static_cast<const Arg *>(mem);
-}
-
-/// Load an array from aligned memory (scalar fallback, masked)
-template <typename Arg, typename Mask, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg load(const void *mem, const Mask &mask) {
-    assert((uintptr_t) mem % alignof(Arg) == 0);
-    return detail::mask_active(mask) ? *static_cast<const Arg *>(mem) : Arg(0);
-}
-
-/// Load an array from unaligned memory
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE Array load_unaligned(const void *mem) {
-    return Array::load_unaligned_(mem);
-}
-
-/// Load an array from aligned memory (masked)
-template <typename Array, typename Mask,
-          enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<Array::Size == Mask::Size, int> = 0>
-ENOKI_INLINE Array load_unaligned(const void *mem, const Mask &mask) {
-    return Array::load_unaligned_(mem, reinterpret_array<mask_t<Array>>(mask));
-}
-
-/// Load an array from unaligned memory (scalar fallback)
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg load_unaligned(const void *mem) {
-    return *static_cast<const Arg *>(mem);
-}
-
-/// Load an array from unaligned memory (scalar fallback, masked)
-template <typename Arg, typename Mask, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg load_unaligned(const void *mem, Mask mask) {
-    return detail::mask_active(mask) ? *static_cast<const Arg *>(mem) : Arg(0);
-}
-
-/// Store an array to aligned memory
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE void store(void *mem, const Array &a) {
-    a.store_(mem);
-}
-
-/// Store an array to aligned memory (masked)
-template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<Array::Size == Mask::Size, int> = 0>
-ENOKI_INLINE void store(void *mem, const Array &a, const Mask &mask) {
-    a.store_(mem, reinterpret_array<mask_t<Array>>(mask));
-}
-
-/// Store an array to aligned memory (scalar fallback)
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE void store(void *mem, const Arg &a) {
-    assert((uintptr_t) mem % alignof(Arg) == 0);
-    *static_cast<Arg *>(mem) = a;
-}
-
-/// Store an array to aligned memory (scalar fallback, masked)
-template <typename Arg, typename Mask, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE void store(void *mem, const Arg &a, const Mask &mask) {
-    assert((uintptr_t) mem % alignof(Arg) == 0);
-    if (detail::mask_active(mask))
-        *static_cast<Arg *>(mem) = a;
-}
-
-/// Store an array to unaligned memory
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE void store_unaligned(void *mem, const Array &a) {
-    a.store_unaligned_(mem);
-}
-
-/// Store an array to unaligned memory (masked)
-template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<Array::Size == Mask::Size, int> = 0>
-ENOKI_INLINE void store_unaligned(void *mem, const Array &a, const Mask &mask) {
-    a.store_unaligned_(mem, reinterpret_array<mask_t<Array>>(mask));
-}
-
-/// Store an array to unaligned memory (scalar fallback)
-template <typename Arg, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE void store_unaligned(void *mem, const Arg &a) {
-    *static_cast<Arg *>(mem) = a;
-}
-
-/// Store an array to unaligned memory (scalar fallback)
-template <typename Arg, typename Mask, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE void store_unaligned(void *mem, const Arg &a, const Mask &mask) {
-    if (detail::mask_active(mask))
-        *static_cast<Arg *>(mem) = a;
-}
-
-template <typename Outer, typename Inner>
-ENOKI_INLINE like_t<Outer, Inner> fill(const Inner &inner) {
-    return like_t<Outer, Inner>::fill_(inner);
-}
-
-/// Prefetch operation (scalar fallback)
-template <typename Arg, bool Write = false, size_t Level = 2, size_t Stride = sizeof(Arg),
-          typename Index, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
-    static_assert(detail::is_std_int<Index>::value, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
-    auto ptr = (const uint8_t *) mem + index * Index(Stride);
-#if defined(ENOKI_X86_SSE42)
-    constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
-    _mm_prefetch((char *) ptr, Hint);
-#else
-    (void) ptr;
-#endif
-}
-
-/// Gather operation (scalar fallback)
-template <typename Arg, size_t Stride = sizeof(Arg), typename Index, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg gather(const void *mem, const Index &index) {
-    static_assert(detail::is_std_int<Index>::value, "gather(): expected a signed 32/64-bit integer as 'index' argument!");
-    return *((const Arg *) ((const uint8_t *) mem + index * Index(Stride)));
-}
-
-/// Scatter operation (scalar fallback)
-template <size_t Stride_ = 0, typename Arg, typename Index, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE void scatter(void *mem, const Arg &value, const Index &index) {
-    static_assert(detail::is_std_int<Index>::value, "scatter(): expected a signed 32/64-bit integer as 'index' argument!");
-    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(Arg);
-    auto ptr = (Arg *) ((uint8_t *) mem + index * Index(Stride));
-    *ptr = value;
-}
-
-/// Masked prefetch operation (scalar fallback)
-template <typename Arg, bool Write = false, size_t Level = 2, size_t Stride = sizeof(Arg),
-          typename Index, typename Mask, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE void prefetch(const void *mem, const Index &index, const Mask &mask) {
-    static_assert(detail::is_std_int<Index>::value, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
-    static_assert(array_depth<Mask>::value == 0, "prefetch(): invalid mask argument!");
-    auto ptr = (const uint8_t *) mem + index * Index(Stride);
-#if defined(ENOKI_X86_SSE42)
-    constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
-    if (detail::mask_active(mask))
-        _mm_prefetch((char *) ptr, Hint);
-#else
-    (void) mask; (void) ptr;
-#endif
-}
-
-/// Masked gather operation (scalar fallback)
-template <typename Arg, size_t Stride = sizeof(Arg), typename Index, typename Mask, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE Arg gather(const void *mem, const Index &index, const Mask &mask) {
-    static_assert(detail::is_std_int<Index>::value, "gather(): expected a signed 32/64-bit integer as 'index' argument!");
-    static_assert(array_depth<Mask>::value == 0, "gather(): invalid mask argument!");
-    return detail::mask_active(mask)
-        ? *((const Arg *) ((const uint8_t *) mem + index * Index(Stride))) : Arg(0);
-}
-
-/// Masked scatter operation (scalar fallback)
-template <size_t Stride_ = 0, typename Arg, typename Index, typename Mask, enable_if_not_array_t<Arg> = 0>
-ENOKI_INLINE void scatter(void *mem, const Arg &value, const Index &index, const Mask &mask) {
-    static_assert(detail::is_std_int<Index>::value, "scatter(): expected a signed 32/64-bit integer as 'index' argument!");
-    static_assert(array_depth<Mask>::value == 0, "scatter(): invalid mask argument!");
-    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(Arg);
-    auto ptr = (Arg *) ((uint8_t *) mem + index * Index(Stride));
-    if (detail::mask_active(mask))
-        *ptr = value;
-}
-
-/// Prefetch operation (turn into scalar prefetch)
-template <typename Array, bool Write = false, size_t Level = 2, size_t Stride = sizeof(Array), typename Index,
-          enable_if_static_array_t<Array> = 0, enable_if_not_array_t<Index> = 0>
-ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
-    static_assert(detail::is_std_int<Index>::value, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
-    auto ptr = (const uint8_t *) mem + index * Index(Stride);
-#if defined(ENOKI_X86_SSE42)
-    _mm_prefetch((char *) ptr, Level == 2 ? _MM_HINT_T1 : _MM_HINT_T0);
-#else
-    (void) ptr;
-#endif
-}
-
-/// Gather operation (turn into load)
-template <typename Array, size_t Stride = sizeof(Array), typename Index,
-          enable_if_static_array_t<Array> = 0, enable_if_not_array_t<Index> = 0>
-ENOKI_INLINE Array gather(const void *mem, const Index &index) {
-    static_assert(detail::is_std_int<Index>::value, "gather(): expected a signed 32/64-bit integer as 'index' argument!");
-    return load_unaligned<Array>((const uint8_t *) mem + index * Index(Stride));
-}
-
-/// Scatter operation (turn into store)
-template <size_t Stride_ = 0, typename Array, typename Index,
-          enable_if_static_array_t<Array> = 0, enable_if_not_array_t<Index> = 0>
-ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index) {
-    static_assert(detail::is_std_int<Index>::value, "scatter(): expected a signed 32/64-bit integer as 'index' argument!");
-    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(Array);
-    store_unaligned((uint8_t *) mem + index * Index(Stride), value);
-}
-
-/// Masked prefetch operation (turn into scalar prefetch)
-template <typename Array, bool Write = false, size_t Level = 2, size_t Stride = sizeof(Array),
-          typename Index, typename Mask, enable_if_static_array_t<Array> = 0, enable_if_not_array_t<Index> = 0>
-ENOKI_INLINE void prefetch(const void *mem, const Index &index, const Mask &mask) {
-    static_assert(detail::is_std_int<Index>::value, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
-    static_assert(array_depth<Mask>::value == 0, "prefetch(): invalid mask argument!");
-    auto ptr = (const uint8_t *) mem + index * Index(Stride);
-#if defined(ENOKI_X86_SSE42)
-    if (detail::mask_active(mask))
-        _mm_prefetch((char *) ptr, Level == 2 ? _MM_HINT_T1 : _MM_HINT_T0);
-#else
-    (void) mask; (void) ptr;
-#endif
-}
-
-/// Masked gather operation (turn into load)
-template <typename Array, size_t Stride = sizeof(Array), typename Index, typename Mask,
-          enable_if_static_array_t<Array> = 0, enable_if_not_array_t<Index> = 0>
-ENOKI_INLINE Array gather(const void *mem, const Index &index, const Mask &mask) {
-    static_assert(detail::is_std_int<Index>::value, "gather(): expected a signed 32/64-bit integer as 'index' argument!");
-    static_assert(array_depth<Mask>::value == 0, "gather(): invalid mask argument!");
-    return detail::mask_active(mask) ? load_unaligned<Array>((const uint8_t *) mem + index * Index(Stride))
-                                     : zero<Array>();
-}
-
-/// Masked scatter operation (turn into store)
-template <size_t Stride_ = 0, typename Array, typename Index, typename Mask,
-          enable_if_static_array_t<Array> = 0, enable_if_not_array_t<Index> = 0>
-ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index, const Mask &mask) {
-    static_assert(detail::is_std_int<Index>::value, "scatter(): expected a signed 32/64-bit integer as 'index' argument!");
-    static_assert(array_depth<Mask>::value == 0, "scatter(): invalid mask argument!");
-    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(Array);
-    if (detail::mask_active(mask))
-        store_unaligned((uint8_t *) mem + index * Index(Stride), value);
-}
-
-/// Prefetch operation (forward to array implementation)
-template <typename Array, bool Write = false, size_t Level = 2, size_t Stride = sizeof(scalar_t<Array>), typename Index,
-          std::enable_if_t<is_static_array<Array>::value && array_depth<Array>::value == array_depth<Index>::value, int> = 0>
-ENOKI_INLINE void prefetch(const void *mem, const Index &index) {
-    static_assert(detail::is_std_int<scalar_t<Index>>::value, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
-    static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Index>>::value, "prefetch(): output array and index shapes don't match!");
-    constexpr size_t Stride2 = detail::fix_stride<Array>(Stride);
-
-    Array::template prefetch_<Write, Level, Stride2>(mem,
-        Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index);
-}
-
-/// Gather operation (forward to array implementation)
-template <typename Array, size_t Stride = sizeof(scalar_t<Array>), typename Index,
-          std::enable_if_t<is_static_array<Array>::value && array_depth<Array>::value == array_depth<Index>::value, int> = 0>
-ENOKI_INLINE Array gather(const void *mem, const Index &index) {
-    static_assert(detail::is_std_int<scalar_t<Index>>::value, "gather(): expected a signed 32/64-bit integer as 'index' argument!");
-    static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Index>>::value, "gather(): output array and index shapes don't match!");
-    constexpr size_t Stride2 = detail::fix_stride<Array>(Stride);
-    return Array::template gather_<Stride2>(mem,
-        Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index);
-}
-
-/// Scatter operation (forward to array implementation)
-template <size_t Stride_ = 0, typename Array, typename Index,
-          std::enable_if_t<is_static_array<Array>::value && array_depth<Array>::value == array_depth<Index>::value, int> = 0>
-ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index) {
-    static_assert(detail::is_std_int<scalar_t<Index>>::value, "scatter(): expected a signed 32/64-bit integer as 'index' argument!");
-    static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Index>>::value, "scatter(): input array and index shapes don't match!");
-    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(scalar_t<Array>);
-    constexpr size_t Stride2 = detail::fix_stride<Array>(Stride);
-    value.template scatter_<Stride2>(mem,
-        Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index);
-}
-
-/// Masked prefetch operation (forward to array implementation)
-template <typename Array, bool Write = false, size_t Level = 2, size_t Stride = sizeof(scalar_t<Array>), typename Index, typename Mask,
-          std::enable_if_t<is_static_array<Array>::value && array_depth<Array>::value == array_depth<Index>::value, int> = 0>
-ENOKI_INLINE void prefetch(const void *mem, const Index &index, const Mask &mask_) {
-    static_assert(detail::is_std_int<scalar_t<Index>>::value, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
-    static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Index>>::value, "prefetch(): output array and index shapes don't match!");
-    static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Mask>>::value, "prefetch(): output array and mask shapes don't match!");
-    constexpr size_t Stride2 = detail::fix_stride<Array>(Stride);
-    Array::template prefetch_<Write, Level, Stride2>(mem,
-        Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index,
-        reinterpret_array<mask_t<Array>>(mask_));
-}
-
-/// Masked gather operation (forward to array implementation)
-template <typename Array, size_t Stride = sizeof(scalar_t<Array>), typename Index, typename Mask,
-          std::enable_if_t<is_static_array<Array>::value && array_depth<Array>::value == array_depth<Index>::value, int> = 0>
-ENOKI_INLINE Array gather(const void *mem, const Index &index, const Mask &mask_) {
-    static_assert(detail::is_std_int<scalar_t<Index>>::value, "gather(): expected a signed 32/64-bit integer as 'index' argument!");
-    static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Index>>::value, "gather(): output array and index shapes don't match!");
-    static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Mask>>::value, "gather(): output array and mask shapes don't match!");
-    constexpr size_t Stride2 = detail::fix_stride<Array>(Stride);
-    return Array::template gather_<Stride2>(mem,
-        Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index,
-        reinterpret_array<mask_t<Array>>(mask_));
-}
-
-/// Masked scatter operation (forward to array implementation)
-template <size_t Stride_ = 0, typename Array, typename Index, typename Mask,
-          std::enable_if_t<is_static_array<Array>::value && array_depth<Array>::value == array_depth<Index>::value, int> = 0>
-ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index, const Mask &mask_) {
-    static_assert(detail::is_std_int<scalar_t<Index>>::value, "scatter(): expected a signed 32/64-bit integer as 'index' argument!");
-    static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Index>>::value, "scatter(): input array and index shapes don't match!");
-    static_assert(std::is_same<array_shape_t<Array>, array_shape_t<Mask>>::value, "scatter(): input array and mask shapes don't match!");
-    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(scalar_t<Array>);
-    constexpr size_t Stride2 = detail::fix_stride<Array>(Stride);
-    value.template scatter_<Stride2>(mem,
-        Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index,
-        reinterpret_array<mask_t<Array>>(mask_));
-}
-
-// -------------------
-
-NAMESPACE_BEGIN(detail)
-
-template <typename Array, size_t Mult1, size_t Mult2, typename = Array, typename Func, typename Index1, typename Index2,
-          std::enable_if_t<array_depth<Index1>::value + array_depth<Index2>::value == array_depth<Array>::value, int> = 0>
-ENOKI_INLINE decltype(auto) do_recursive(const Func &func, const Index1 &offset1, const Index2 &offset2) {
-    using CombinedIndex = like_t<Index2, Index1>;
-
-    CombinedIndex combined_offset =
-        CombinedIndex(offset2) +
-        enoki::fill<Index2>(offset1) * scalar_t<Index1>(Mult1 == 0 ? Mult2 : Mult1);
-
-    return func(combined_offset);
-}
-
-template <typename Array, size_t Mult1, size_t Mult2, typename = Array, typename Func, typename Index1, typename Index2, typename Mask,
-          std::enable_if_t<array_depth<Index1>::value + array_depth<Index2>::value == array_depth<Array>::value, int> = 0>
-ENOKI_INLINE decltype(auto) do_recursive(const Func &func, const Index1 &offset1, const Index2 &offset2, const Mask &mask) {
-    using CombinedIndex = like_t<Index2, Index1>;
-
-    CombinedIndex combined_offset =
-        CombinedIndex(offset2) +
-        enoki::fill<Index2>(offset1) * scalar_t<Index1>(Mult1 == 0 ? Mult2 : Mult1);
-
-    return func(combined_offset, enoki::fill<Index2>(mask));
-}
-
-template <typename Array, size_t Mult1 = 0, size_t Mult2 = 1, typename Guide = Array, typename Func, typename Index1, typename Index2,
-          std::enable_if_t<array_depth<Index1>::value + array_depth<Index2>::value != array_depth<Array>::value, int> = 0>
-ENOKI_INLINE decltype(auto) do_recursive(const Func &func, const Index1 &offset, const Index2 &offset2) {
-    using NewIndex      = enoki::Array<scalar_t<Index1>, Guide::Size>;
-    using CombinedIndex = like_t<Index2, NewIndex>;
-
-    constexpr size_t Size = (array_depth<Index1>::value + array_depth<Index2>::value + 1 != array_depth<Array>::value) ?
-        Guide::ActualSize : enoki::Array<scalar_t<Guide>, Guide::Size>::ActualSize;  /* Deal with n=3 special case */
-
-    CombinedIndex combined_offset =
-        CombinedIndex(offset2 * scalar_t<Index1>(Size)) +
-        enoki::fill<Index2>(index_sequence<NewIndex>());
-
-    return do_recursive<Array, Mult1, Mult2 * Size, value_t<Guide>>(func, offset, combined_offset);
-}
-
-template <typename Array, size_t Mult1 = 0, size_t Mult2 = 1, typename Guide = Array, typename Func, typename Index1, typename Index2, typename Mask,
-          std::enable_if_t<array_depth<Index1>::value + array_depth<Index2>::value != array_depth<Array>::value, int> = 0>
-ENOKI_INLINE decltype(auto) do_recursive(const Func &func, const Index1 &offset, const Index2 &offset2, const Mask &mask) {
-    using NewIndex      = enoki::Array<scalar_t<Index1>, Guide::Size>;
-    using CombinedIndex = like_t<Index2, NewIndex>;
-
-    constexpr size_t Size = (array_depth<Index1>::value + array_depth<Index2>::value + 1 != array_depth<Array>::value) ?
-        Guide::ActualSize : enoki::Array<scalar_t<Guide>, Guide::Size>::ActualSize;  /* Deal with n=3 special case */
-
-    CombinedIndex combined_offset =
-        CombinedIndex(offset2 * scalar_t<Index1>(Size)) +
-        enoki::fill<Index2>(index_sequence<NewIndex>());
-
-    return do_recursive<Array, Mult1, Mult2 * Size, value_t<Guide>>(func, offset, combined_offset, mask);
-}
-
-NAMESPACE_END(detail)
-
-// -------------------
-
-/// Nested prefetch operation
-template <typename Array, bool Write = false, size_t Level = 2, size_t Stride = 0,
-          size_t ScalarStride = sizeof(scalar_t<Array>), typename Index,
-          std::enable_if_t<is_static_array<Index>::value && (array_depth<Array>::value > array_depth<Index>::value), int> = 0>
-ENOKI_INLINE void prefetch(const void *mem, const Index &offset) {
-    static_assert(Stride % ScalarStride == 0, "Array size must be a multiple of the underlying scalar type");
-    detail::do_recursive<Array, Stride / ScalarStride>(
-        [mem](const auto &index2) ENOKI_INLINE_LAMBDA { prefetch<Array, Write, Level, ScalarStride>(mem, index2); },
-        offset, scalar_t<Index>(0)
-    );
-}
-
-/// Nested gather operation
-template <typename Array, size_t Stride = 0, size_t ScalarStride = sizeof(scalar_t<Array>), typename Index,
-          std::enable_if_t<is_static_array<Index>::value && (array_depth<Array>::value > array_depth<Index>::value), int> = 0>
-ENOKI_INLINE Array gather(const void *mem, const Index &offset) {
-    static_assert(Stride % ScalarStride == 0, "Array size must be a multiple of the underlying scalar type");
-    return detail::do_recursive<Array, Stride / ScalarStride>(
-        [mem](const auto &index2) ENOKI_INLINE_LAMBDA { return gather<Array, ScalarStride>(mem, index2); },
-        offset, scalar_t<Index>(0)
-    );
-}
-
-/// Nested scatter operation
-template <size_t Stride = 0, typename Array, typename Index, size_t ScalarStride = sizeof(scalar_t<Array>),
-          std::enable_if_t<is_static_array<Index>::value && (array_depth<Array>::value > array_depth<Index>::value), int> = 0>
-ENOKI_INLINE void scatter(void *mem, const Array &array, const Index &offset) {
-    static_assert(Stride % ScalarStride == 0, "Array size must be a multiple of the underlying scalar type");
-    detail::do_recursive<Array, Stride / ScalarStride>(
-        [mem, &array](const auto &index2) ENOKI_INLINE_LAMBDA {
-            scatter<ScalarStride>(mem, array, index2);
-        },
-        offset, scalar_t<Index>(0)
-    );
-}
-
-/// Nested masked prefetch operation
-template <typename Array, bool Write = false, size_t Level = 2, size_t Stride = 0,
-          size_t ScalarStride = sizeof(scalar_t<Array>), typename Index, typename Mask,
-          std::enable_if_t<is_static_array<Index>::value && (array_depth<Array>::value > array_depth<Index>::value), int> = 0>
-ENOKI_INLINE void prefetch(const void *mem, const Index &offset, const Mask &mask) {
-    static_assert(std::is_same<array_shape_t<Index>, array_shape_t<Mask>>::value, "prefetch(): mask and index have mismatched shapes!");
-    static_assert(Stride % ScalarStride == 0, "Array size must be a multiple of the underlying scalar type");
-    detail::do_recursive<Array, Stride / ScalarStride>(
-        [mem](const auto& index2, const auto &mask2) ENOKI_INLINE_LAMBDA { prefetch<Array, Write, Level, ScalarStride>(mem, index2, mask2); },
-        offset, scalar_t<Index>(0), mask
-    );
-}
-
-/// Nested masked gather operation
-template <typename Array, size_t Stride = 0,
-          size_t ScalarStride = sizeof(scalar_t<Array>), typename Index, typename Mask,
-          std::enable_if_t<is_static_array<Index>::value && (array_depth<Array>::value > array_depth<Index>::value), int> = 0>
-ENOKI_INLINE Array gather(const void *mem, const Index &offset, const Mask &mask) {
-    static_assert(std::is_same<array_shape_t<Index>, array_shape_t<Mask>>::value, "gather(): mask and index have mismatched shapes!");
-    return detail::do_recursive<Array, Stride / ScalarStride>(
-        [mem](const auto& index2, const auto &mask2) ENOKI_INLINE_LAMBDA { return gather<Array, ScalarStride>(mem, index2, mask2); },
-        offset, scalar_t<Index>(0), mask
-    );
-}
-
-/// Nested masked scatter operation
-template <size_t Stride = 0, typename Array, typename Index, typename Mask, size_t ScalarStride = sizeof(scalar_t<Array>),
-          std::enable_if_t<is_static_array<Index>::value && (array_depth<Array>::value > array_depth<Index>::value), int> = 0>
-ENOKI_INLINE void scatter(void *mem, const Array &array, const Index &offset, const Mask &mask) {
-    static_assert(std::is_same<array_shape_t<Index>, array_shape_t<Mask>>::value, "scatter(): mask and index have mismatched shapes!");
-    detail::do_recursive<Array, Stride / ScalarStride>(
-        [mem, &array](const auto& index2, const auto &mask2) ENOKI_INLINE_LAMBDA {
-            scatter<ScalarStride>(mem, array, index2, mask2);
-        },
-        offset, scalar_t<Index>(0), mask
-    );
-}
-
-/// Combined gather-modify-scatter operation without conflicts
-template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
-          typename Index, typename Func, enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<std::is_integral<scalar_t<Index>>::value &&
-                           Index::Size == Array::Size, int> = 0,
-          typename... Args,
-          typename = decltype(std::declval<const Func &>()(
-              std::declval<Array &>(), std::declval<const Args &>()...))>
-ENOKI_INLINE void transform(void *mem, const Index &index, const Func &func,
-                            const Args &... args) {
-    Array::template transform_<Stride>(mem, int_array_t<Array>(index), func, args...);
-}
-
-/// Combined gather-modify-scatter operation without conflicts
-template <typename Array, size_t Stride = sizeof(scalar_t<Array>),
-          typename Index, typename Mask, typename Func,
-          enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<std::is_integral<scalar_t<Index>>::value &&
-                           Index::Size == Array::Size &&
-                           Mask::Size == Array::Size, int> = 0,
-          typename... Args,
-          typename = decltype(std::declval<const Func &>()(
-              std::declval<Array &>(), std::declval<const Args &>()...))>
-ENOKI_INLINE void transform(void *mem, const Index &index, const Mask &mask, const Func &func,
-                            const Args &... args) {
-    Array::template transform_masked_<Stride>(
-        mem, int_array_t<Array>(index), reinterpret_array<mask_t<Array>>(mask), func, args...);
+/// Element-wise test for finiteness
+template <typename T>
+ENOKI_INLINE auto isfinite(const T &a) {
+    return abs(a) < std::numeric_limits<scalar_t<T>>::infinity();
 }
-
-/// Combined gather-modify-scatter operation without conflicts (scalar fallback)
-template <typename Arg, size_t Stride = sizeof(Arg), typename Index, typename Func,
-          typename Mask, enable_if_not_array_t<Arg> = 0,
-          std::enable_if_t<std::is_integral<Index>::value, int> = 0,
-          typename... Args,
-          typename = decltype(std::declval<const Func &>()(
-              std::declval<Arg &>(), std::declval<const Args &>()...))>
-ENOKI_INLINE void transform(void *mem, const Index &index, const Mask &mask,
-                            const Func &func, const Args&... args) {
-    Arg& ptr = *(Arg *) ((uint8_t *) mem + index * Index(Stride));
-    if (detail::mask_active(mask))
-        func(ptr, args...);
-}
-
-/// Combined gather-modify-scatter operation without conflicts (scalar fallback)
-template <typename Arg, size_t Stride = sizeof(Arg), typename Index, typename Func,
-          enable_if_not_array_t<Arg> = 0,
-          std::enable_if_t<std::is_integral<Index>::value, int> = 0,
-          typename... Args,
-          typename = decltype(std::declval<const Func &>()(
-              std::declval<Arg &>(), std::declval<const Args &>()...))>
-ENOKI_INLINE void transform(void *mem, const Index &index,
-                            const Func &func, const Args&... args) {
-    Arg &ptr = *(Arg *) ((uint8_t *) mem + index * Index(Stride));
-    func(ptr, args...);
-}
-
-/// Mask extraction operation
-template <typename Array, typename Mask, enable_if_static_array_t<Array> = 0,
-          std::enable_if_t<Mask::Size == Array::Size, int> = 0>
-ENOKI_INLINE value_t<Array> extract(const Array &value, const Mask &mask) {
-    return (value_t<Array>) value.extract_(reinterpret_array<mask_t<Array>>(mask));
-}
-
-/// Mask extraction operation (scalar fallback)
-template <typename Arg, enable_if_not_array_t<Arg> = 0, typename Mask>
-ENOKI_INLINE Arg extract(const Arg &value, const Mask &) {
-    return value;
-}
-template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
-          std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
-ENOKI_INLINE T fmadd(const T1 &t1, const T2 &t2, const T3 &t3) {
-#if defined(ENOKI_X86_FMA) || defined(ENOKI_ARM_FMA)
-    return std::fma((T) t1, (T) t2, (T) t3);
-#else
-    return (T) t1 * (T) t2 + (T) t3;
-#endif
-}
-
-template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
-          std::enable_if_t<!std::is_floating_point<T>::value && !is_array<T>::value, int> = 0>
-ENOKI_INLINE T fmadd(const T1 &t1, const T2 &t2, const T3 &t3) {
-    return (T) t1 * (T) t2 + (T) t3;
-}
-
-template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
-          std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
-ENOKI_INLINE T fmsub(const T1 &t1, const T2 &t2, const T3 &t3) {
-#if defined(ENOKI_X86_FMA) || defined(ENOKI_ARM_FMA)
-    return std::fma((T) t1, (T) t2, - (T) t3);
-#else
-    return (T) t1 * (T) t2 - (T) t3;
-#endif
-}
-
-template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
-          std::enable_if_t<!std::is_floating_point<T>::value && !is_array<T>::value, int> = 0>
-ENOKI_INLINE T fmsub(const T1 &t1, const T2 &t2, const T3 &t3) {
-    return (T) t1 * (T) t2 - (T) t3;
-}
-
-template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
-          std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
-ENOKI_INLINE T fnmadd(const T1 &t1, const T2 &t2, const T3 &t3) {
-#if defined(ENOKI_X86_FMA) || defined(ENOKI_ARM_FMA)
-    return std::fma(-(T) t1, (T) t2, (T) t3);
-#else
-    return - (T) t1 * (T) t2 + (T) t3;
-#endif
-}
-
-template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
-          std::enable_if_t<!std::is_floating_point<T>::value && !is_array<T>::value, int> = 0>
-ENOKI_INLINE T fnmadd(const T1 &t1, const T2 &t2, const T3 &t3) {
-    return -(T) t1 * (T) t2 + (T) t3;
-}
-
-template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
-          std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
-ENOKI_INLINE T fnmsub(const T1 &t1, const T2 &t2, const T3 &t3) {
-#if defined(ENOKI_X86_FMA) || defined(ENOKI_ARM_FMA)
-    return std::fma(-(T) t1, (T) t2, - (T) t3);
-#else
-    return - (T) t1 * (T) t2 - (T) t3;
-#endif
-}
-
-template <typename T1, typename T2, typename T3, typename T = expr_t<T1, T2, T3>,
-          std::enable_if_t<!std::is_floating_point<T>::value && !is_array<T>::value, int> = 0>
-ENOKI_INLINE T fnmsub(const T1 &t1, const T2 &t2, const T3 &t3) {
-    return -(T) t1 * (T) t2 - (T) t3;
-}
-
-template <typename T1, typename T2, typename T3,
-          typename T = expr_t<T1, T2, T3>, enable_if_not_array_t<T> = 0>
-ENOKI_INLINE T fmaddsub(const T1 &t1, const T2 &t2, const T3 &t3) {
-    return fmsub(t1, t2, t3);
-}
-
-template <typename T1, typename T2, typename T3,
-          typename T = expr_t<T1, T2, T3>, enable_if_not_array_t<T> = 0>
-ENOKI_INLINE T fmsubadd(const T1 &t1, const T2 &t2, const T3 &t3) {
-    return fmadd(t1, t2, t3);
-}
-
-template <typename Value1, typename Value2, typename Value3>
-auto lerp(const Value1 &a, const Value2 &b, const Value3 &t) {
-    return fmadd(a, scalar_t<Value3>(1) - t, t * b);
-}
-
-//! @}
-// -----------------------------------------------------------------------
-
-// -----------------------------------------------------------------------
-//! @{ \name "Safe" functions that avoid domain errors due to rounding
-// -----------------------------------------------------------------------
-
-template <typename T> ENOKI_INLINE auto safe_sqrt(const T &a) {
-    return sqrt(max(a, zero<T>()));
-}
-
-template <typename T> ENOKI_INLINE auto safe_rsqrt(const T &a) {
-    return rsqrt(max(a, zero<T>()));
-}
-
-template <typename T> ENOKI_INLINE auto safe_asin(const T &a) {
-    return asin(min(T(1), max(T(-1), a)));
-}
-
-template <typename T> ENOKI_INLINE auto safe_acos(const T &a) {
-    return acos(min(T(1), max(T(-1), a)));
-}
-
-//! @}
-// -----------------------------------------------------------------------
-
-// -----------------------------------------------------------------------
-//! @{ \name Miscellaneous functions
-// -----------------------------------------------------------------------
 
 /// Extract the low elements from an array of even size
 template <typename Array, enable_if_static_array_t<Array> = 0>
@@ -1775,28 +551,32 @@ auto low(const Array &a) { return a.derived().low_(); }
 template <typename Array, enable_if_static_array_t<Array> = 0>
 auto high(const Array &a) { return a.derived().high_(); }
 
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE auto norm(const Array &v) {
+
+// -----------------------------------------------------------------------
+//! @{ \name Miscellaneous routines for vector spaces
+// -----------------------------------------------------------------------
+
+template <typename T1, typename T2>
+ENOKI_INLINE auto abs_dot(const T1 &a1, const T2 &a2) {
+    return abs(dot(a1, a2));
+}
+
+template <typename T> ENOKI_INLINE auto norm(const T &v) {
     return sqrt(dot(v, v));
 }
 
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE auto squared_norm(const Array &v) {
+template <typename T> ENOKI_INLINE auto squared_norm(const T &v) {
     return dot(v, v);
 }
 
-template <typename Array, enable_if_static_array_t<Array> = 0>
-ENOKI_INLINE auto normalize(const Array &v) {
-    return v * Array(rsqrt<Array::Approx>(squared_norm(v)));
+template <typename T> ENOKI_INLINE auto normalize(const T &v) {
+    return v * rsqrt<array_approx_v<T>>(squared_norm(v));
 }
 
-template <typename Array1, typename Array2,
-          enable_if_static_array_t<Array1> = 0,
-          enable_if_static_array_t<Array2> = 0>
-ENOKI_INLINE auto cross(const Array1 &v1, const Array2 &v2) {
-    static_assert(Array1::Derived::Size == 3 && Array2::Derived::Size == 3,
-                  "cross(): requires Size = 3");
-
+template <typename T1, typename T2,
+          enable_if_t<array_size_v<T1> == 3 &&
+                      array_size_v<T2> == 3> = 0>
+ENOKI_INLINE auto cross(const T1 &v1, const T2 &v2) {
 #if defined(ENOKI_ARM_32) || defined(ENOKI_ARM_64)
     return fnmadd(
         shuffle<2, 0, 1>(v1), shuffle<1, 2, 0>(v2),
@@ -1808,382 +588,596 @@ ENOKI_INLINE auto cross(const Array1 &v1, const Array2 &v2) {
 #endif
 }
 
-/// Generic range clamping function
-template <typename Value1, typename Value2, typename Value3>
-auto clamp(const Value1 &value, const Value2 &min_, const Value3 &max_) {
-    return max(min(value, max_), min_);
+template <typename Array, enable_if_array_t<Array> = 0>
+ENOKI_INLINE auto mean(const Array &a) {
+    return hsum(a) * (1.f / a.size());
 }
 
-template <typename Array1, typename Array2>
-ENOKI_INLINE auto hypot(const Array1 &a, const Array2 &b) {
-    auto abs_a = abs(a);
-    auto abs_b = abs(b);
-    auto max   = enoki::max(abs_a, abs_b);
-    auto min   = enoki::min(abs_a, abs_b);
-    auto ratio = min / max;
-
-    using Scalar = scalar_t<decltype(ratio)>;
-    const Scalar inf = std::numeric_limits<Scalar>::infinity();
-
-    return select(
-        (abs_a < inf) & (abs_b < inf) & (ratio < inf),
-        max * sqrt(Scalar(1) + ratio*ratio),
-        abs_a + abs_b
-    );
+template <typename T> decltype(auto) detach(const T &a) {
+    if constexpr (!is_autodiff_array_v<T>) {
+        return a;
+    } else if constexpr (array_depth_v<T> >= 2) {
+        using Value = decltype(detach(a.coeff(0)));
+        Array<Value, T::Size> result;
+        for (size_t i = 0; i < T::Size; ++i)
+            result.coeff(i) = detach(a.coeff(i));
+        return result;
+    } else {
+        return a.value_();
+    }
 }
 
-template <typename Value, typename Expr = expr_t<Value>>
-ENOKI_INLINE Expr prev_float(const Value &value) {
-    using Int = int_array_t<Expr>;
-    using IntScalar = scalar_t<Int>;
+template <typename T1, typename T2, typename Value = expr_t<T1, T2>>
+bool allclose(const T1 &a1, const T2 &a2,
+              double relerr_thresh = std::is_same_v<scalar_t<T1>, float> ? 1e-5 : 1e-10,
+              double abserr_thresh = std::is_same_v<scalar_t<T1>, float> ? 1e-5 : 1e-10) {
+    using Scalar = scalar_t<Value>;
+    auto diff = abs(detach(a1) - detach(a2));
+    Scalar abserr = hmax(diff);
+    Scalar relerr = hmax(diff / abs(detach(a2)));
 
-    const Int exponent_mask = sizeof(IntScalar) == 4
-                                  ? IntScalar(0x7f800000)
-                                  : IntScalar(0x7ff0000000000000ll);
-
-    const Int pos_denorm = sizeof(IntScalar) == 4
-                              ? IntScalar(0x80000001)
-                              : IntScalar(0x8000000000000001ll);
-
-    Int i = reinterpret_array<Int>(value);
-
-    auto is_nan_inf = eq(i & exponent_mask, exponent_mask);
-    auto is_pos_0   = eq(i, 0);
-    auto is_gt_0    = i >= 0;
-    auto is_special = is_nan_inf | is_pos_0;
-
-    Int j1 = i + select(is_gt_0, Int(-1), Int(1));
-    Int j2 = select(is_pos_0, pos_denorm, i);
-
-    return reinterpret_array<Expr>(select(is_special, j2, j1));
+    return (double) abserr < abserr_thresh ||
+           (double) relerr < relerr_thresh;
 }
 
-template <typename Value, typename Expr = expr_t<Value>>
-ENOKI_INLINE Expr next_float(const Value &value) {
-    using Int = int_array_t<Expr>;
-    using IntScalar = scalar_t<Int>;
+//! @}
+// -----------------------------------------------------------------------
 
-    const Int exponent_mask = sizeof(IntScalar) == 4
-                                  ? IntScalar(0x7f800000)
-                                  : IntScalar(0x7ff0000000000000ll);
+// -----------------------------------------------------------------------
+//! @{ \name Initialization, loading/writing data
+// -----------------------------------------------------------------------
 
-    const Int sign_mask = sizeof(IntScalar) == 4
-                              ? IntScalar(0x80000000)
-                              : IntScalar(0x8000000000000000ll);
+template <typename T> ENOKI_INLINE T zero(size_t size = 1);
+template <typename T> ENOKI_INLINE T empty(size_t size = 1);
 
-    Int i = reinterpret_array<Int>(value);
-
-    auto is_nan_inf = eq(i & exponent_mask, exponent_mask);
-    auto is_neg_0   = eq(i, sign_mask);
-    auto is_gt_0    = i >= 0;
-    auto is_special = is_nan_inf | is_neg_0;
-
-    Int j1 = i + select(is_gt_0, Int(1), Int(-1));
-    Int j2 = select(is_neg_0, Int(1), i);
-
-    return reinterpret_array<Expr>(select(is_special, j2, j1));
+/// Construct an index sequence, i.e. 0, 1, 2, ..
+template <typename Array, enable_if_dynamic_array_t<Array> = 0>
+ENOKI_INLINE Array arange(size_t end = 1) {
+    return Array::arange_(0, (ssize_t) end, 1);
 }
 
-template <typename Arg> auto isdenormal(const Arg &a) {
-    return abs(a) < std::numeric_limits<scalar_t<Arg>>::min();
+template <typename Array, enable_if_static_array_t<Array> = 0>
+ENOKI_INLINE Array arange(size_t end = Array::Size) {
+    assert(end == Array::Size);
+    (void) end;
+    return Array::arange_(0, (ssize_t) Array::Size, 1);
 }
 
-template <typename Mask> ENOKI_INLINE Mask disable_mask_if_scalar(const Mask &mask) {
-    if (std::is_same<Mask, bool>::value)
-        return Mask(true);
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
+ENOKI_INLINE Arg arange(size_t end = 1) {
+    assert(end == 1);
+    (void) end;
+    return Arg(0);
+}
+
+template <typename T>
+ENOKI_INLINE T arange(ssize_t start, ssize_t end, ssize_t step = 1) {
+    if constexpr (is_static_array_v<T>) {
+        assert(end - start == (ssize_t) T::Size * step);
+        return T::arange_(start, end, step);
+    } else if constexpr (is_dynamic_array_v<T>) {
+        return T::arange_(start, end, step);
+    } else {
+        assert(end - start == step);
+        (void) end;
+        (void) step;
+        return T(start);
+    }
+}
+
+/// Construct an array that linearly interpolates from min..max
+template <typename Array, enable_if_dynamic_array_t<Array> = 0>
+ENOKI_INLINE Array linspace(scalar_t<Array> min, scalar_t<Array> max, size_t size = 1) {
+    return Array::linspace_(min, max, size);
+}
+
+template <typename Array, enable_if_static_array_t<Array> = 0>
+ENOKI_INLINE Array linspace(scalar_t<Array> min, scalar_t<Array> max, size_t size = Array::Size) {
+    assert(size == Array::Size);
+    (void) size;
+    return Array::linspace_(min, max);
+}
+
+/// Construct an array that linearly interpolates from min..max (scalar fallback)
+template <typename Arg, enable_if_not_array_t<Arg> = 0>
+ENOKI_INLINE Arg linspace(scalar_t<Arg> min, scalar_t<Arg>, size_t size = 1) {
+    assert(size == 1);
+    (void) size;
+    return min;
+}
+
+template <typename Outer, typename Inner,
+          typename Return = replace_scalar_t<Outer, Inner>>
+ENOKI_INLINE Return full(const Inner &inner, size_t size = 1) {
+    return Return::full_(inner, size);
+}
+
+/// Load an array from aligned memory
+template <typename T> ENOKI_INLINE T load(const void *mem) {
+    if constexpr (is_array_v<T>) {
+        return T::load_(mem);
+    } else {
+        assert((uintptr_t) mem % alignof(T) == 0);
+        return *static_cast<const T *>(mem);
+    }
+}
+
+/// Load an array from aligned memory (masked)
+template <typename T> ENOKI_INLINE T load(const void *mem, const mask_t<T> &mask) {
+    if constexpr (is_array_v<T>) {
+        return T::load_(mem, mask);
+    } else {
+        if (mask) {
+            assert((uintptr_t) mem % alignof(T) == 0);
+            return *static_cast<const T *>(mem);
+        } else {
+            return T(0);
+        }
+    }
+}
+
+/// Load an array from unaligned memory
+template <typename T> ENOKI_INLINE T load_unaligned(const void *mem) {
+    if constexpr (is_array_v<T>)
+        return T::load_unaligned_(mem);
     else
-        return mask;
+        return *static_cast<const T *>(mem);
+}
+
+/// Load an array from unaligned memory (masked)
+template <typename T> ENOKI_INLINE T load_unaligned(const void *mem, const mask_t<T> &mask) {
+    if constexpr (is_array_v<T>)
+        return T::load_unaligned_(mem, mask);
+    else
+        return mask ? *static_cast<const T *>(mem) : T(0);
+}
+
+/// Store an array to aligned memory
+template <typename T> ENOKI_INLINE void store(void *mem, const T &value) {
+    if constexpr (is_array_v<T>) {
+        value.store_(mem);
+    } else {
+        assert((uintptr_t) mem % alignof(T) == 0);
+        *static_cast<T *>(mem) = value;
+    }
+}
+
+/// Store an array to aligned memory (masked)
+template <typename T> ENOKI_INLINE void store(void *mem, const T &value, const mask_t<T> &mask) {
+    if constexpr (is_array_v<T>) {
+        value.store_(mem, mask);
+    } else {
+        if (mask) {
+            assert((uintptr_t) mem % alignof(T) == 0);
+            *static_cast<T *>(mem) = value;
+        }
+    }
+}
+
+/// Store an array to unaligned memory
+template <typename T> ENOKI_INLINE void store_unaligned(void *mem, const T &value) {
+    if constexpr (is_array_v<T>)
+        value.store_unaligned_(mem);
+    else
+        *static_cast<T *>(mem) = value;
+}
+
+/// Store an array to unaligned memory (masked)
+template <typename T> ENOKI_INLINE void store_unaligned(void *mem, const T &value, const mask_t<T> &mask) {
+    if constexpr (is_array_v<T>)
+        value.store_unaligned_(mem, mask);
+    else if (mask)
+        *static_cast<T *>(mem) = value;
+}
+
+template <typename T1, typename T2> auto concat(const T1 &a1, const T2 &a2) {
+    static_assert(std::is_same_v<value_t<T1>, value_t<T2>>,
+                  "concat(): Value types must be identical");
+
+    constexpr size_t Depth1 = array_depth_v<T1>,
+                     Depth2 = array_depth_v<T2>,
+                     Size1 = array_size_v<T1>,
+                     Size2 = array_size_v<T2>,
+                     Size  = Size1 + Size2;
+
+    using Result = Array<value_t<T1>, Size>;
+    if constexpr (Depth2 < Depth1) {
+        Result result;
+        if constexpr(T1::ActualSize == Size) {
+            result = Result(a1);
+            #if defined(ENOKI_X86_SSE42)
+                if constexpr (std::is_same_v<value_t<T1>, float>)
+                    result.m = _mm_insert_ps(result.m, _mm_set_ss(a2), 0b00110000);
+                else
+            #endif
+            result.coeff(Size1) = a2;
+        } else {
+            for (size_t i = 0; i < Size1; ++i)
+                result.coeff(i) = a1.derived().coeff(i);
+            result.coeff(Size1) = a2;
+        }
+        return result;
+    } else if constexpr (Result::Size1 == Size1 && Result::Size2 == Size2) {
+        return Result(a1, a2);
+    } else {
+        Result result;
+        for (size_t i = 0; i < Size1; ++i)
+            result.coeff(i) = a1.derived().coeff(i);
+        for (size_t i = 0; i < Size2; ++i)
+            result.coeff(i + Size1) = a2.derived().coeff(i);
+        return result;
+    }
+}
+
+namespace detail {
+    template <typename Return, size_t Offset, typename T, size_t... Index>
+    static ENOKI_INLINE Return extract(const T &a, std::index_sequence<Index...>) {
+        return Return(a.coeff(Index + Offset)...);
+    }
+}
+
+template <size_t Size, typename T,
+          typename Return = Array<value_t<T>, Size, T::Approx, T::Mode>>
+ENOKI_INLINE Return head(const T &a) {
+    if constexpr (T::ActualSize == Return::ActualSize) {
+        return a;
+    } else if constexpr (T::Size1 == Size) {
+        return low(a);
+    } else {
+        static_assert(Size <= array_size_v<T>, "Array size mismatch");
+        return detail::extract<Return, 0>(a, std::make_index_sequence<Size>());
+    }
+}
+
+template <size_t Size, typename T,
+          typename Return = Array<value_t<T>, Size, T::Approx, T::Mode>>
+ENOKI_INLINE Return tail(const T &a) {
+    if constexpr (T::Size == Return::Size) {
+        return a;
+    } else if constexpr (T::Size2 == Size) {
+        return high(a);
+    } else {
+        static_assert(Size <= array_size_v<T>, "Array size mismatch");
+        return detail::extract<Return, T::Size - Size>(a, std::make_index_sequence<Size>());
+    }
+}
+
+/// Masked extraction operation
+template <typename Array, typename Mask>
+ENOKI_INLINE auto extract(const Array &value, const Mask &mask) {
+    if constexpr (is_array_v<Array>)
+        return (value_t<Array>) value.extract_(mask);
+    else
+        return value;
 }
 
 //! @}
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+//! @{ \name Scatter/gather/prefetch operations
 // -----------------------------------------------------------------------
 
 NAMESPACE_BEGIN(detail)
 
-template <typename T> struct MaskedValue {
-    MaskedValue(T &d, bool m) : d(d), m(m) { }
+template <typename Array, size_t Mult1 = 0, size_t Mult2 = 1, typename Guide = Array,
+          typename Func, typename Index1, typename Index2, typename Mask>
+ENOKI_INLINE decltype(auto) do_recursive(const Func &func, const Index1 &offset1, const Index2 &offset2, const Mask &mask) {
+    if constexpr (array_depth_v<Index1> + array_depth_v<Index2> != array_depth_v<Array>) {
+        using NewIndex      = enoki::Array<scalar_t<Index1>, Guide::Size>;
+        using CombinedIndex = replace_scalar_t<Index2, NewIndex>;
 
-    template <typename T2> ENOKI_INLINE void operator =(const T2 &value) { if (m) d = value; }
-    template <typename T2> ENOKI_INLINE void operator+=(const T2 &value) { if (m) d += value; }
-    template <typename T2> ENOKI_INLINE void operator-=(const T2 &value) { if (m) d -= value; }
-    template <typename T2> ENOKI_INLINE void operator*=(const T2 &value) { if (m) d *= value; }
-    template <typename T2> ENOKI_INLINE void operator/=(const T2 &value) { if (m) d /= value; }
-    template <typename T2> ENOKI_INLINE void operator|=(const T2 &value) { if (m) d |= value; }
-    template <typename T2> ENOKI_INLINE void operator&=(const T2 &value) { if (m) d &= value; }
-    template <typename T2> ENOKI_INLINE void operator^=(const T2 &value) { if (m) d ^= value; }
+        constexpr size_t Size = (array_depth_v<Index1> + array_depth_v<Index2> + 1 != array_depth_v<Array>) ?
+            Guide::ActualSize : enoki::Array<scalar_t<Guide>, Guide::Size>::ActualSize;  /* Deal with n=3 special case */
 
-    T &d;
-    bool m;
-};
+        CombinedIndex combined_offset =
+            CombinedIndex(offset2 * scalar_t<Index1>(Size)) +
+            full<Index2>(arange<NewIndex>());
 
-template <typename T> struct MaskedArray : ArrayBase<value_t<T>, MaskedArray<T>> {
-    static constexpr bool Approx = T::Approx;
-    using Scalar = MaskedValue<scalar_t<T>>;
-    using MaskType = MaskedArray<mask_t<T>>;
-    using Value =
-        std::conditional_t<std::is_scalar<value_t<T>>::value,
-        MaskedValue<value_t<T>>,
-        MaskedArray<value_t<T>>>;
-    using UnmaskedValue = value_t<T>;
+        return do_recursive<Array, Mult1, Mult2 * Size, value_t<Guide>>(
+            func, offset1, combined_offset, mask);
+    } else {
+        using CombinedIndex = replace_scalar_t<Index2, Index1>;
 
-    MaskedArray(T &d, const mask_t<T> &m) : d(d), m(m) { }
+        CombinedIndex combined_offset =
+            CombinedIndex(offset2) +
+            enoki::full<Index2>(offset1) * scalar_t<Index1>(Mult1 == 0 ? Mult2 : Mult1);
 
-    template <typename T2> ENOKI_INLINE void operator =(const T2 &value) { d.massign_(value, m); }
-    template <typename T2> ENOKI_INLINE void operator+=(const T2 &value) { d.madd_(value, m); }
-    template <typename T2> ENOKI_INLINE void operator-=(const T2 &value) { d.msub_(value, m); }
-    template <typename T2> ENOKI_INLINE void operator*=(const T2 &value) { d.mmul_(value, m); }
-    template <typename T2> ENOKI_INLINE void operator/=(const T2 &value) { d.mdiv_(value, m); }
-    template <typename T2> ENOKI_INLINE void operator|=(const T2 &value) { d.mor_(value, m); }
-    template <typename T2> ENOKI_INLINE void operator&=(const T2 &value) { d.mand_(value, m); }
-    template <typename T2> ENOKI_INLINE void operator^=(const T2 &value) { d.mxor_(value, m); }
+        return func(combined_offset, full<Index2>(mask));
+    }
+}
 
-    /// Type alias for a similar-shaped array over a different type
-    template <typename T2> using ReplaceType = MaskedArray<typename T::template ReplaceType<T2>>;
-
-    T &d;
-    mask_t<T> m;
-};
+template <typename T> constexpr size_t fix_stride(size_t Stride) {
+    if (has_avx2 && (T::IsNative || T::IsRecursive)) {
+       if (Stride % 8 == 0)      return 8;
+       else if (Stride % 4 == 0) return 4;
+       else                      return 1;
+    }
+    return Stride;
+}
 
 NAMESPACE_END(detail)
 
+/// Masked prefetch operation
+template <typename Array, bool Write = false, size_t Level = 2, size_t Stride = sizeof(scalar_t<Array>),
+          typename Index, typename Mask = mask_t<replace_scalar_t<Index, scalar_t<Array>>>>
+ENOKI_INLINE void prefetch(const void *mem, const Index &index, const detail::identity_t<Mask> &mask = true) {
+    static_assert(is_std_int_v<scalar_t<Index>>, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
 
-// -----------------------------------------------------------------------
-//! @{ \name Adapter and routing functions for dynamic data structures
-// -----------------------------------------------------------------------
-
-template <typename T, typename = int>
-struct struct_support {
-    static constexpr bool is_dynamic_nested = false;
-    using dynamic_t = T;
-
-    template <typename T2> static ENOKI_INLINE size_t slices(const T2 &) { return 0; }
-    template <typename T2> static ENOKI_INLINE size_t packets(const T2 &) { return 0; }
-    template <typename T2> static ENOKI_INLINE void set_slices(const T2 &, size_t) { }
-
-    template <typename T2> static ENOKI_INLINE decltype(auto) ref_wrap(T2&& value) { return value; }
-    template <typename T2> static ENOKI_INLINE decltype(auto) packet(T2&& value, size_t) { return value; }
-    template <typename T2> static ENOKI_INLINE decltype(auto) slice(T2&& value, size_t) { return value; }
-    template <typename T2> static ENOKI_INLINE decltype(auto) slice_ptr(T2&& value, size_t) { return value; }
-    template <typename Mem, typename T2, typename Mask> static ENOKI_INLINE size_t compress(Mem& mem, const T2& value, const Mask &mask) {
-        size_t count = detail::mask_active(mask) ? 1 : 0;
-        *mem = value;
-        mem += count;
-        return count;
+    if constexpr (!is_array_v<Array> && !is_array_v<Index>) {
+        /* Scalar case */
+        #if defined(ENOKI_X86_SSE42)
+            if (mask) {
+                const uint8_t *ptr = (const uint8_t *) mem + index * Index(Stride);
+                constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
+                _mm_prefetch((char *) ptr, Hint);
+            }
+        #else
+            (void) mem; (void) index; (void) mask;
+        #endif
+    } else if constexpr (std::is_same_v<array_shape_t<Array>, array_shape_t<Index>>) {
+        /* Forward to the array-specific implementation */
+        constexpr size_t Stride2 = detail::fix_stride<Array>(Stride);
+        Index index2 = Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index;
+        Array::template prefetch_<Write, Level, Stride2>(mem, index2, mask);
+    } else if constexpr (array_depth_v<Array> > array_depth_v<Index>) {
+        static_assert(Stride == sizeof(scalar_t<Array>), "Stride != sizeof(scalar_t<Array>) in nested prefetch!");
+        /* Dimension mismatch, reduce to a sequence of gather operations */
+        detail::do_recursive<Array>(
+            [mem](const auto &index2, const auto &mask2) ENOKI_INLINE_LAMBDA {
+                prefetch<Array, Write, Level, Stride>(mem, index2, mask2);
+            },
+            index, scalar_t<Index>(0), mask);
+    } else {
+        static_assert(detail::false_v<Array>, "prefetch(): don't know what to do with the input arguments!");
     }
-    static ENOKI_INLINE T zero(size_t) { return T(0); }
-};
-
-template <typename T> ENOKI_INLINE T zero(size_t size)
-{ return struct_support<std::decay_t<T>>::zero(size); }
-
-template <typename T> ENOKI_INLINE size_t packets(const T &value) {
-    return struct_support<std::decay_t<T>>::packets(value);
 }
 
-template <typename T> ENOKI_INLINE size_t slices(const T &value) {
-    return struct_support<std::decay_t<T>>::slices(value);
+/// Masked gather operation
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>), bool Masked = true,
+          typename Index, typename Mask = mask_t<replace_scalar_t<Index, scalar_t<Array>>>>
+ENOKI_INLINE Array gather(const void *mem, const Index &index, const detail::identity_t<Mask> &mask) {
+    static_assert(is_std_int_v<scalar_t<Index>>, "gather(): expected a signed 32/64-bit integer as 'index' argument!");
+
+    if constexpr (!is_array_v<Array> && !is_array_v<Index>) {
+        /* Scalar case */
+        const Array *ptr = (const Array *) ((const uint8_t *) mem + index * Index(Stride));
+        return mask ? *ptr : Array(0);
+    } else if constexpr (std::is_same_v<array_shape_t<Array>, array_shape_t<Index>>) {
+        /* Forward to the array-specific implementation */
+        constexpr size_t Stride2 = detail::fix_stride<Array>(Stride);
+        Index index2 = Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index;
+        return Array::template gather_<Stride2>(mem, index2, mask);
+    } else if constexpr (array_depth_v<Array> == 1 && array_depth_v<Index> == 0) {
+        /* Turn into a load */
+        if constexpr (Masked)
+            return load_unaligned<Array>((uint8_t *) mem + Stride * (size_t) index, mask);
+        else
+            return load_unaligned<Array>((uint8_t *) mem + Stride * (size_t) index);
+    } else if constexpr (array_depth_v<Array> > array_depth_v<Index>) {
+        /* Dimension mismatch, reduce to a sequence of gather operations */
+        static_assert(Stride == sizeof(scalar_t<Array>), "Stride != sizeof(scalar_t<Array>) in nested gather!");
+        return detail::do_recursive<Array>(
+            [mem](const auto &index2, const auto &mask2) ENOKI_INLINE_LAMBDA {
+                return gather<Array, Stride>(mem, index2, mask2);
+            },
+            index, scalar_t<Index>(0), mask);
+    } else {
+        static_assert(detail::false_v<Array>, "gather(): don't know what to do with the input arguments!");
+    }
 }
 
-template <typename T> ENOKI_NOINLINE void set_slices(T &value, size_t size) {
-    struct_support<std::decay_t<T>>::set_slices(value, size);
+/// Masked scatter operation
+template <size_t Stride_ = 0, bool Masked = true, typename Array, typename Index,
+          typename Mask = mask_t<replace_scalar_t<Index, scalar_t<Array>>>>
+ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index, const detail::identity_t<Mask> &mask) {
+    static_assert(is_std_int_v<scalar_t<Index>>, "scatter(): expected a signed 32/64-bit integer as 'index' argument!");
+    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(scalar_t<Array>);
+
+    if constexpr (!is_array_v<Array> && !is_array_v<Index>) {
+        /* Scalar case */
+        Array *ptr = (Array *) ((uint8_t *) mem + index * Index(Stride));
+        if (mask)
+            *ptr = value;
+    } else if constexpr (std::is_same_v<array_shape_t<Array>, array_shape_t<Index>>) {
+        /* Forward to the array-specific implementation */
+        constexpr size_t Stride2 = detail::fix_stride<Array>(Stride);
+        Index index2 = Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index;
+        value.template scatter_<Stride2>(mem, index2, mask);
+    } else if constexpr (array_depth_v<Array> == 1 && array_depth_v<Index> == 0) {
+        /* Turn into a store */
+        if constexpr (Masked)
+            return store_unaligned((uint8_t *) mem + Stride * (size_t) index, value, mask);
+        else
+            return store_unaligned((uint8_t *) mem + Stride * (size_t) index, value);
+    } else if constexpr (array_depth_v<Array> > array_depth_v<Index>) {
+        static_assert(Stride == sizeof(scalar_t<Array>), "Stride != sizeof(scalar_t<Array>) in nested scatter!");
+        /* Dimension mismatch, reduce to a sequence of scatter operations */
+        detail::do_recursive<Array>(
+            [mem, &value](const auto& index2, const auto &mask2) ENOKI_INLINE_LAMBDA {
+                scatter<Stride, Masked>(mem, value, index2, mask2);
+            },
+            index, scalar_t<Index>(0), mask);
+    } else {
+        static_assert(detail::false_v<Array>, "scatter(): don't know what to do with the input arguments!");
+    }
 }
 
-template <typename T>
-ENOKI_INLINE decltype(auto) packet(T &&value, size_t i) {
-    return struct_support<std::decay_t<T>>::packet(value, i);
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>), typename Index>
+ENOKI_INLINE Array gather(const void *mem, const Index &index) {
+    return gather<Array, Stride, false>(mem, index, true);
 }
 
-template <typename T>
-ENOKI_INLINE decltype(auto) slice(T &&value, size_t i) {
-    return struct_support<std::decay_t<T>>::slice(value, i);
+template <size_t Stride_ = 0, typename Array, typename Index>
+ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index) {
+    scatter<Stride_, false>(mem, value, index, true);
 }
 
-template <typename T>
-ENOKI_INLINE decltype(auto) slice_ptr(T &&value, size_t i) {
-    return struct_support<std::decay_t<T>>::slice_ptr(value, i);
+#if defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wunused-value"
+#endif
+
+/// Conflict-free modification operation
+template <typename Arg, size_t Stride = sizeof(scalar_t<Arg>),
+          typename Func, typename Index, typename... Args>
+void transform(void *mem, const Index &index, Func &&func, Args&&... args) {
+    if constexpr (is_array_v<Arg>) {
+        if constexpr ((false, ..., is_mask_v<Args>))
+            Arg::template transform_<Stride>(mem, index, (..., args), func, args...);
+        else
+            Arg::template transform_<Stride>(mem, index, mask_t<Arg>(true),
+                                             func, args..., mask_t<Arg>(true));
+    } else {
+        Arg& ref = *(Arg *) ((uint8_t *) mem + index * Index(Stride));
+        if constexpr ((false, ..., is_mask_v<Args>)) {
+            if ((..., args))
+                func(ref, args...);
+        } else {
+            func(ref, args..., true);
+        }
+    }
 }
 
-template <typename T>
-ENOKI_INLINE decltype(auto) ref_wrap(T &&value) {
-    return struct_support<std::decay_t<T>>::ref_wrap(value);
+#if defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#endif
+
+/// Conflict-free scatter-add update
+template <size_t Stride_ = 0, typename Arg, typename Index>
+void scatter_add(void *mem, const Index &index, const Arg &value, mask_t<Arg> mask = true) {
+    constexpr size_t Stride = Stride_ == 0 ? sizeof(scalar_t<Arg>) : Stride_;
+
+    if constexpr (is_array_v<Arg>) {
+        value.template scatter_add_<Stride>(mem, index, mask);
+    } else {
+        Arg& ref = *(Arg *) ((uint8_t *) mem + index * Index(Stride));
+        if (mask)
+            ref += value;
+    }
 }
 
-template <typename Mem, typename Value, typename Mask>
-ENOKI_INLINE size_t compress(Mem &mem, const Value &value, const Mask& mask) {
-    return struct_support<std::decay_t<Value>>::compress(mem, value, mask);
+/// Prefetch operations with an array source
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>), typename Source, typename... Args,
+          enable_if_array_t<Source> = 0>
+void prefetch(const Source &source, const Args &... args) {
+    prefetch<Array, Stride>(source.data(), args...);
 }
 
-template <typename T>
-using is_dynamic_nested =
-    std::integral_constant<bool, struct_support<std::decay_t<T>>::is_dynamic_nested>;
+/// Gather operations with an array source
+template <typename Array, size_t Stride = sizeof(scalar_t<Array>), typename Source, typename... Args,
+          enable_if_array_t<Source> = 0>
+Array gather(const Source &source, const Args &... args) {
+    if constexpr (is_autodiff_array_v<Source>)
+        Source::set_scatter_gather_source_(source.index_(), source.size());
 
-template <typename Array, typename Mask, enable_if_array_t<Mask> = 0>
-ENOKI_INLINE auto masked(Array &array, const Mask &mask) {
-    return struct_support<std::decay_t<Array>>::masked(array, mask);
+   Array result = gather<Array, Stride>(source.data(), args...);
+
+    if constexpr (is_autodiff_array_v<Source>)
+        Source::set_scatter_gather_source_(0);
+
+   return result;
 }
 
-template <typename Value, typename Mask, enable_if_not_array_t<Mask> = 0>
-ENOKI_INLINE auto masked(Value &value, const Mask &mask) {
-    static_assert(std::is_same<Mask, bool>::value ||
-                  std::is_same<Mask, int>::value, "mask(): expected boolean or array type as mask.");
-    return detail::MaskedValue<Value>{value, (bool) mask};
+/// Scatter operations with an array target
+template <size_t Stride = 0, typename Target, typename... Args, enable_if_array_t<Target> = 0>
+void scatter(Target &target, const Args &... args) {
+    if constexpr (is_autodiff_array_v<Target>)
+        Target::set_scatter_gather_source_(target.index_(), target.size());
+
+    scatter<Stride>(target.data(), args...);
+
+    if constexpr (is_autodiff_array_v<Target>)
+        Target::set_scatter_gather_source_(0);
 }
 
-template <typename T>
-using make_dynamic_t = typename struct_support<std::decay_t<T>>::dynamic_t;
 
-template <typename T>
-using enable_if_dynamic_nested_t =
-    std::enable_if_t<is_dynamic_nested<T>::value, int>;
+/// Scatter operations with an array target
+template <size_t Stride = 0, typename Target, typename... Args,
+          enable_if_array_t<Target> = 0>
+void scatter_add(Target &target, const Args &... args) {
+    if constexpr (is_autodiff_array_v<Target>)
+        Target::set_scatter_gather_source_(target.index(), target.size());
+
+    scatter_add<Stride>(target.data(), args...);
+
+    if constexpr (is_autodiff_array_v<Target>)
+        Target::set_scatter_gather_source_(0);
+}
+
 
 //! @}
 // -----------------------------------------------------------------------
 
 // -----------------------------------------------------------------------
-//! @{ \name Operations to query the depth and shape of nested arrays
+//! @{ \name Nested horizontal reduction operators
 // -----------------------------------------------------------------------
 
-NAMESPACE_BEGIN(detail)
-template <typename T, std::enable_if_t<!is_array<T>::value, int> = 0>
-ENOKI_INLINE void get_shape_recursive(const T &, size_t *) { }
-
-template <typename T, std::enable_if_t<is_array<T>::value, int> = 0>
-ENOKI_INLINE void get_shape_recursive(const T &a, size_t *out) {
-    *out++ = a.derived().size();
-    get_shape_recursive(a.derived().coeff(0), out);
+template <typename T> auto hsum_nested(const T &a) {
+    if constexpr (is_array_v<T>)
+        return hsum_nested(hsum(a));
+    else
+        return a;
 }
 
-template <typename T, std::enable_if_t<!is_array<T>::value, int> = 0>
-ENOKI_INLINE bool check_shape_recursive(const T &, const size_t *) { return true; }
-
-template <typename T, std::enable_if_t<is_array<T>::value, int> = 0>
-ENOKI_INLINE bool check_shape_recursive(const T &a, const size_t *shape) {
-    size_t size = a.derived().size();
-    if (*shape != size)
-        return false;
-    bool match = true;
-    if (is_dynamic_nested<value_t<T>>::value) {
-        for (size_t i = 0; i < size; ++i)
-            match &= check_shape_recursive(a.derived().coeff(i), shape + 1);
-    } else {
-        check_shape_recursive(a.derived().coeff(0), shape + 1);
-    }
-    return match;
+template <typename T> auto hprod_nested(const T &a) {
+    if constexpr (is_array_v<T>)
+        return hprod_nested(hprod(a));
+    else
+        return a;
 }
 
-template <typename T, std::enable_if_t<!is_array<T>::value, int> = 0>
-ENOKI_INLINE void set_shape_recursive(const T &, const size_t *) { }
-
-template <typename T, std::enable_if_t<is_array<T>::value, int> = 0>
-ENOKI_INLINE void set_shape_recursive(T &a, const size_t *shape) {
-    size_t size = a.derived().size();
-    a.resize_(*shape);
-    if (is_dynamic_nested<value_t<T>>::value) {
-        for (size_t i = 0; i < size; ++i)
-            set_shape_recursive(a.derived().coeff(i), shape + 1);
-    } else {
-        set_shape_recursive(a.derived().coeff(0), shape + 1);
-    }
+template <typename T> auto hmin_nested(const T &a) {
+    if constexpr (is_array_v<T>)
+        return hmin_nested(hmin(a));
+    else
+        return a;
 }
 
-NAMESPACE_END(detail)
-
-template <typename T> std::array<size_t, array_depth<T>::value> shape(const T &a) {
-    std::array<size_t, array_depth<T>::value> result;
-    detail::get_shape_recursive(a, result.data());
-    return result;
+template <typename T> auto hmax_nested(const T &a) {
+    if constexpr (is_array_v<T>)
+        return hmax_nested(hmax(a));
+    else
+        return a;
 }
 
-template <typename T>
-void resize(T &a, const std::array<size_t, array_depth<T>::value> &value) {
-    detail::set_shape_recursive(a, value.data());
+template <typename T> auto count_nested(const T &a) {
+    if constexpr (is_array_v<T>)
+        return hsum_nested(count(a));
+    else
+        return count(a);
 }
 
-template <typename T> bool ragged(const T &a) {
-    auto shape = enoki::shape(a);
-    return !detail::check_shape_recursive(a, shape.data());
+template <typename T> auto any_nested(const T &a) {
+    if constexpr (is_array_v<T>)
+        return any_nested(any(a));
+    else
+        return any(a);
 }
 
-//! @}
-// -----------------------------------------------------------------------
-
-// -----------------------------------------------------------------------
-//! @{ \name Polynomial evaluation with short dependency chains and
-//           fused multply-adds based on Estrin's scheme
-// -----------------------------------------------------------------------
-
-template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
-ENOKI_INLINE T poly2(T1 x, T2 c0, T2 c1, T2 c2) {
-    T x2 = x * x;
-    return fmadd(x2, S(c2), fmadd(x, S(c1), S(c0)));
+template <typename T> auto all_nested(const T &a) {
+    if constexpr (is_array_v<T>)
+        return all_nested(all(a));
+    else
+        return all(a);
 }
 
-template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
-ENOKI_INLINE T poly3(T1 x, T2 c0, T2 c1, T2 c2, T2 c3) {
-    T x2 = x * x;
-    return fmadd(x2, fmadd(x, S(c3), S(c2)), fmadd(x, S(c1), S(c0)));
-}
-
-template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
-ENOKI_INLINE T poly4(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4) {
-    T x2 = x * x, x4 = x2 * x2;
-    return fmadd(x2, fmadd(x, S(c3), S(c2)), fmadd(x, S(c1), S(c0)) + S(c4) * x4);
-}
-
-template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
-ENOKI_INLINE T poly5(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5) {
-    T x2 = x * x, x4 = x2 * x2;
-    return fmadd(x2, fmadd(x, S(c3), S(c2)),
-                     fmadd(x4, fmadd(x, S(c5), S(c4)), fmadd(x, S(c1), S(c0))));
-}
-
-template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
-ENOKI_INLINE T poly6(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5, T2 c6) {
-    T x2 = x * x, x4 = x2 * x2;
-    return fmadd(x4, fmadd(x2, S(c6), fmadd(x, S(c5), S(c4))),
-                     fmadd(x2, fmadd(x, S(c3), S(c2)), fmadd(x, S(c1), S(c0))));
-}
-
-template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
-ENOKI_INLINE T poly7(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5, T2 c6, T2 c7) {
-    T x2 = x * x, x4 = x2 * x2;
-    return fmadd(x4, fmadd(x2, fmadd(x, S(c7), S(c6)), fmadd(x, S(c5), S(c4))),
-                     fmadd(x2, fmadd(x, S(c3), S(c2)), fmadd(x, S(c1), S(c0))));
-}
-
-template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
-ENOKI_INLINE T poly8(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5, T2 c6, T2 c7, T2 c8) {
-    T x2 = x * x, x4 = x2 * x2, x8 = x4 * x4;
-    return fmadd(x4, fmadd(x2, fmadd(x, S(c7), S(c6)), fmadd(x, S(c5), S(c4))),
-                     fmadd(x2, fmadd(x, S(c3), S(c2)), fmadd(x, S(c1), S(c0)) + S(c8) * x8));
-}
-
-template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
-ENOKI_INLINE T poly9(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5, T2 c6, T2 c7, T2 c8, T2 c9) {
-    T x2 = x * x, x4 = x2 * x2, x8 = x4 * x4;
-    return fmadd(x8, fmadd(x, S(c9), S(c8)),
-                     fmadd(x4, fmadd(x2, fmadd(x, S(c7), S(c6)), fmadd(x, S(c5), S(c4))),
-                               fmadd(x2, fmadd(x, S(c3), S(c2)), fmadd(x, S(c1), S(c0)))));
-}
-
-template <typename T1, typename T2, typename T = expr_t<T1>, typename S = scalar_t<T1>>
-ENOKI_INLINE T poly10(T1 x, T2 c0, T2 c1, T2 c2, T2 c3, T2 c4, T2 c5, T2 c6, T2 c7, T2 c8, T2 c9, T2 c10) {
-    T x2 = x * x, x4 = x2 * x2, x8 = x4 * x4;
-    return fmadd(x8, fmadd(x2, S(c10), fmadd(x, S(c9), S(c8))),
-                     fmadd(x4, fmadd(x2, fmadd(x, S(c7), S(c6)), fmadd(x, S(c5), S(c4))),
-                               fmadd(x2, fmadd(x, S(c3), S(c2)), fmadd(x, S(c1), S(c0)))));
+template <typename T> auto none_nested(const T &a) {
+    return !any_nested(a);
 }
 
 //! @}
 // -----------------------------------------------------------------------
 
 #undef ENOKI_ROUTE_UNARY
-#undef ENOKI_ROUTE_UNARY_SCALAR
 #undef ENOKI_ROUTE_UNARY_IMM
+#undef ENOKI_ROUTE_UNARY_SCALAR
 #undef ENOKI_ROUTE_UNARY_SCALAR_IMM
 #undef ENOKI_ROUTE_BINARY
+#undef ENOKI_ROUTE_BINARY_BITOP
+#undef ENOKI_ROUTE_BINARY_COND
+#undef ENOKI_ROUTE_BINARY_SHIFT
 #undef ENOKI_ROUTE_BINARY_SCALAR
-#undef ENOKI_ROUTE_SHIFT
 #undef ENOKI_ROUTE_TERNARY
 #undef ENOKI_ROUTE_COMPOUND_OPERATOR
 

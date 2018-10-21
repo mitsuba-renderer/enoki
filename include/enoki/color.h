@@ -13,20 +13,18 @@
 
 #pragma once
 
-#include "array.h"
+#include <enoki/array.h>
 
 NAMESPACE_BEGIN(enoki)
 
-template <typename Value,
-          typename Expr = expr_t<Value>,
-          typename Scalar = scalar_t<Value>> Expr linear_to_srgb(const Value &x) {
-    Expr r = Scalar(12.92);
-    mask_t<Expr> large_mask = x > Scalar(0.0031308);
+ENOKI_UNARY_OPERATION(linear_to_srgb, linear_to_srgb<true>(x)) {
+    Value r = Scalar(12.92);
+    Mask large_mask = x > Scalar(0.0031308);
 
     if (ENOKI_LIKELY(any(large_mask))) {
-        Expr y = sqrt(x), p, q;
+        Value y = sqrt(x), p, q;
 
-        if (std::is_same<Scalar, float>::value) {
+        if constexpr (Single) {
             p = poly5(y, -0.0016829072605308378, 0.03453868659826638,
                       0.7642611304733891, 2.0041169284241644,
                       0.7551545191665577, -0.016202083165206348);
@@ -52,16 +50,14 @@ template <typename Value,
     return r * x;
 }
 
-template <typename Value,
-          typename Expr = expr_t<Value>,
-          typename Scalar = scalar_t<Value>> Expr srgb_to_linear(const Value &x) {
-    Expr r = Scalar(1.0 / 12.92);
-    mask_t<Expr> large_mask = x > Scalar(0.04045);
+ENOKI_UNARY_OPERATION(srgb_to_linear, srgb_to_linear<true>(x)) {
+    Value r = Scalar(1.0 / 12.92);
+    Mask large_mask = x > Scalar(0.04045);
 
     if (ENOKI_LIKELY(any(large_mask))) {
-        Expr p, q;
+        Value p, q;
 
-        if (std::is_same<Scalar, float>::value) {
+        if constexpr (Single) {
             p = poly4(x, -0.0163933279112946, -0.7386328024653209,
                       -11.199318357635072, -47.46726633009393,
                       -36.04572663838034);

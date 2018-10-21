@@ -12,6 +12,7 @@
 */
 
 #include "test.h"
+#include <enoki/dynamic.h>
 
 ENOKI_TEST(test01_alloc)  {
     using T = Array<float, 4>;
@@ -40,13 +41,13 @@ ENOKI_TEST(test01_alloc)  {
     assert(!all(enoki::isnan(packet(y, 0))));
     assert( any(enoki::isnan(packet(y, 0))));
     assert( all(enoki::isnan(packet(y, 1))));
-    assert(!all(enoki::isnan(packet(y, 2))));
+    assert( all(enoki::isnan(packet(y, 2))));
     assert( any(enoki::isnan(packet(y, 2))));
 
     y.coeff(2) = 2.f;
     assert(to_string(y) == "[-nan, 1, 2, -nan, -nan, -nan, -nan, -nan, -nan, -nan]" ||
            to_string(y) == "[nan, 1, 2, nan, nan, nan, nan, nan, nan, nan]");
-    resize(y, {{ 3 }});
+    set_shape(y, {{ 3 }});
     assert(to_string(y) == "[-nan, 1, 2]" || to_string(y) == "[nan, 1, 2]");
 }
 
@@ -57,10 +58,9 @@ ENOKI_TEST(test02_map)  {
     using T = Array<float, 4>;
     using D = DynamicArray<T>;
 
-    auto x = D(f, 6);
+    auto x = D::map(f, 6);
 
     assert(x.size() == 6);
-    assert(x.capacity() == 0);
     assert(packets(x) == 2);
     assert(x.is_mapped());
     assert(to_string(x) == "[0, 1, 2, 3, 4, 5]");
@@ -75,7 +75,7 @@ ENOKI_TEST(test03_alloc_nested)  {
     using Vector3f  = Array<float, 3>;
 
     Vector3fX x;
-    resize(x, {{ 3, 2 }});
+    set_shape(x, {{ 3, 2 }});
     packet(x[0], 0) = FloatP(1.f, 2.f, 3.f, 4.f);
     packet(x[1], 0) = FloatP(5.f, 6.f, 7.f, 8.f);
     packet(x[2], 0) = FloatP(9.f,10.f,11.f,12.f);
@@ -87,15 +87,16 @@ ENOKI_TEST(test03_alloc_nested)  {
     assert(to_string(y) == "[[1, 5, 9],\n [2, 6, 10]]");
     assert(to_string(z) == "[[1, 5, 0],\n [2, 6, 11]]");
 
-    assert(!is_dynamic_nested<Float>::value && !is_dynamic_nested<FloatP>::value &&
-           is_dynamic_nested<FloatX>::value && !is_dynamic_nested<Vector3fP>::value &&
-           is_dynamic_nested<Vector3fX>::value);
+    assert(!is_dynamic<Float>::value && !is_dynamic<FloatP>::value &&
+           is_dynamic<FloatX>::value && !is_dynamic<Vector3fP>::value &&
+           is_dynamic<Vector3fX>::value);
 
-    assert(packets(123) == 0);
-    assert(packet(123, 0) == 123);
+    assert(packets(123) == 1);
+    int v = 123;
+    assert(packet(v, 0) == 123);
     assert(packets(z) == 1);
     assert(packets(z[0]) == 1);
-    assert(packets(z[0][0]) == 0);
+    assert(packets(z[0][0]) == 1);
     assert(to_string(packet(z, 0)) == "[[1, 5, 0],\n [2, 6, 11],\n [3, 7, 12],\n [4, 8, 13]]");
     assert((std::is_reference<decltype(packet(z, 0))::Value>::value));
 
@@ -111,8 +112,8 @@ ENOKI_TEST(test04_init)  {
     using FloatX = DynamicArray<FloatP>;
 
     auto v0 = zero<FloatX>(11);
-    auto v1 = index_sequence<FloatX>(11);
-    auto v2 = linspace<FloatX>(11, 0.f, 1.f);
+    auto v1 = arange<FloatX>(11);
+    auto v2 = linspace<FloatX>(0.f, 1.f, 11);
     int ctr = 0;
     assert(v0.size() == 11);
     assert(v1.size() == 11);
@@ -135,8 +136,8 @@ ENOKI_TEST(test05_meshgrid) {
     auto dc = test::dealloc_count;
 
     /* Nested scope */ {
-        auto x = linspace<FloatX>(3, 0.f, 2.f);
-        auto y = linspace<FloatX>(4, 1.f, 4.f);
+        auto x = linspace<FloatX>(0.f, 2.f, 3);
+        auto y = linspace<FloatX>(1.f, 4.f, 4);
         auto xy = meshgrid(x, y);
 
         assert(slices(xy) == 12);
@@ -241,14 +242,14 @@ template <size_t PacketSize> void test07_compress() {
 
     auto ptr = slice_ptr(coord2, 0);
     for (size_t i = 0; i < 2; ++i) {
-        auto idx = index_sequence<uint_array_t<FloatP>>();
-        auto even_mask = mask_t<FloatP>(eq(sli<1>(sri<1>(idx)), idx));
+        auto idx = arange<uint_array_t<FloatP>>();
+        auto even_mask = mask_t<FloatP>(eq(sl<1>(sr<1>(idx)), idx));
         compress(ptr, packet(coord1, i), even_mask);
     }
 
     for (size_t i = 0; i < 2; ++i) {
-        auto idx = index_sequence<uint_array_t<FloatP>>();
-        auto odd_mask = mask_t<FloatP>(neq(sli<1>(sri<1>(idx)), idx));
+        auto idx = arange<uint_array_t<FloatP>>();
+        auto odd_mask = mask_t<FloatP>(neq(sl<1>(sr<1>(idx)), idx));
         compress(ptr, packet(coord1, i), odd_mask);
     }
     set_slices(coord2, 2*PacketSize);
@@ -269,24 +270,6 @@ ENOKI_TEST(array_float_04_test07_compress) { test07_compress<4>();  }
 ENOKI_TEST(array_float_08_test07_compress) { test07_compress<8>();  }
 ENOKI_TEST(array_float_16_test07_compress) { test07_compress<16>(); }
 ENOKI_TEST(array_float_32_test07_compress) { test07_compress<32>(); }
-
-ENOKI_TEST(test08_realloc) {
-    using FloatP = Array<uint32_t>;
-    using FloatX = DynamicArray<FloatP>;
-
-    FloatX array;
-    for (size_t i = 0; i < 1024; ++i) {
-        set_slices(array, (i + 1) * 1024);
-        for (size_t j = 0; j < 1024; ++j)
-            slice(array, i * 1024 + j) = (uint32_t) (i * 1024 + j);
-    }
-    for (size_t j = 0; j < 1024 * 1024; ++j)
-        assert(slice(array, j) == j);
-
-    set_slices(array, 1024 * 512);
-    for (size_t j = 0; j < 1024 * 512; ++j)
-        assert(slice(array, j) == j);
-}
 
 template <typename T, size_t PacketSize> void test09_packet_from_struct() {
     using ValueX       = DynamicArray<Array<T, PacketSize>>;
@@ -324,6 +307,7 @@ template <typename T, size_t PacketSize> void test09_packet_from_struct() {
             assert(none(g.reliable));
     }
 }
+
 ENOKI_TEST(array_int32_04_test09_mask_packet) { test09_packet_from_struct<int32_t, 4>();  }
 ENOKI_TEST(array_int32_08_test09_mask_packet) { test09_packet_from_struct<int32_t, 8>();  }
 ENOKI_TEST(array_int32_16_test09_mask_packet) { test09_packet_from_struct<int32_t, 16>(); }

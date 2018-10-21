@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include "common.h"
+#include <enoki/array_traits.h>
 
 NAMESPACE_BEGIN(enoki)
 struct half;
@@ -35,7 +35,7 @@ struct half {
     #endif
     { }
 
-    #define ENOKI_IF_SCALAR template <typename Value, std::enable_if_t<std::is_arithmetic<Value>::value, int> = 0>
+    #define ENOKI_IF_SCALAR template <typename Value, enable_if_t<std::is_arithmetic_v<Value>> = 0>
 
     ENOKI_IF_SCALAR half(Value val) : value(float32_to_float16(float(val))) { }
 
@@ -110,7 +110,8 @@ private:
 public:
     static uint16_t float32_to_float16(float value) {
         #if defined(ENOKI_X86_F16C)
-            return (uint16_t) _mm_cvtsi128_si32(_mm_cvtps_ph(_mm_set_ss(value), _MM_FROUND_CUR_DIRECTION));
+            return (uint16_t) _mm_cvtsi128_si32(
+                _mm_cvtps_ph(_mm_set_ss(value), _MM_FROUND_CUR_DIRECTION));
         #elif defined(ENOKI_ARM_NEON)
             return memcpy_cast<uint16_t>((__fp16) value);
         #else

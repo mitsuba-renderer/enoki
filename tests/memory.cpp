@@ -17,26 +17,26 @@ ENOKI_TEST_ALL(test01_load) {
     alignas(alignof(T)) Value mem[Size];
     for (size_t i = 0; i < Size; ++i)
         mem[i] = (Value) i;
-    assert(load<T>(mem) == index_sequence<T>());
+    assert(load<T>(mem) == arange<T>());
 }
 
 ENOKI_TEST_ALL(test02_load_unaligned) {
     Value mem[Size];
     for (size_t i = 0; i < Size; ++i)
         mem[i] = (Value) i;
-    assert(load_unaligned<T>(mem) == index_sequence<T>());
+    assert(load_unaligned<T>(mem) == arange<T>());
 }
 
 ENOKI_TEST_ALL(test03_store) {
     alignas(alignof(T)) Value mem[Size];
-    store(mem, index_sequence<T>());
+    store(mem, arange<T>());
     for (size_t i = 0; i < Size; ++i)
         assert(mem[i] == (Value) i);
 }
 
 ENOKI_TEST_ALL(test04_store_unaligned) {
     Value mem[Size];
-    store_unaligned(mem, index_sequence<T>());
+    store_unaligned(mem, arange<T>());
     for (size_t i = 0; i < Size; ++i)
         assert(mem[i] == (Value) i);
 }
@@ -89,8 +89,8 @@ ENOKI_TEST_ALL(test06_gather_mask) {
 
     auto id32 = load_unaligned<Array<uint32_t, Size>>(indices32);
     auto id64 = load_unaligned<Array<uint64_t, Size>>(indices64);
-    auto idx = index_sequence<uint_array_t<T>>();
-    auto even_mask = mask_t<T>(eq(sli<1>(sri<1>(idx)), idx));
+    auto idx = arange<uint_array_t<T>>();
+    auto even_mask = mask_t<T>(eq(sl<1>(sr<1>(idx)), idx));
 
 #if defined(_MSC_VER)
     /// MSVC doesn't seem to correctly track data dependencies involving gathers
@@ -150,8 +150,8 @@ ENOKI_TEST_ALL(test08_scatter_mask) {
     auto id32 = load_unaligned<Array<uint32_t, Size>>(indices32);
     auto id64 = load_unaligned<Array<uint64_t, Size>>(indices64);
 
-    auto idx = index_sequence<uint_array_t<T>>();
-    auto even_mask = mask_t<T>(eq(sli<1>(sri<1>(idx)), idx));
+    auto idx = arange<uint_array_t<T>>();
+    auto even_mask = mask_t<T>(eq(sl<1>(sr<1>(idx)), idx));
 
     memset(dst, 0, sizeof(Value) * Size);
     scatter(dst, load<T>(mem), id32, even_mask);
@@ -175,8 +175,8 @@ ENOKI_TEST_ALL(test09_prefetch) {
     }
     auto id32 = load_unaligned<Array<uint32_t, Size>>(indices32);
     auto id64 = load_unaligned<Array<uint64_t, Size>>(indices64);
-    auto idx = index_sequence<uint_array_t<T>>();
-    auto even_mask = mask_t<T>(eq(sli<1>(sri<1>(idx)), idx));
+    auto idx = arange<uint_array_t<T>>();
+    auto even_mask = mask_t<T>(eq(sl<1>(sr<1>(idx)), idx));
 
     /* Hard to test these, let's at least make sure that it compiles
        and does not crash .. */
@@ -195,8 +195,8 @@ ENOKI_TEST_ALL(test10_load_masked) {
         mem_u[i] = (Value) i;
         mem2[i] = (i % 2 == 0) ? (Value) i : (Value) 0;
     }
-    auto idx = index_sequence<uint_array_t<T>>();
-    auto even_mask = mask_t<T>(eq(sli<1>(sri<1>(idx)), idx));
+    auto idx = arange<uint_array_t<T>>();
+    auto even_mask = mask_t<T>(eq(sl<1>(sr<1>(idx)), idx));
     assert(load<T>(mem, even_mask) == load_unaligned<T>(mem2));
     assert(load_unaligned<T>(mem_u, even_mask) == load_unaligned<T>(mem2));
 }
@@ -211,9 +211,9 @@ ENOKI_TEST_ALL(test11_store_masked) {
         mem2[i] = (i % 2 == 0) ? (Value) i : (Value) 1;
     }
 
-    auto idx = index_sequence<uint_array_t<T>>();
-    auto idx2 = index_sequence<T>();
-    auto even_mask = mask_t<T>(eq(sli<1>(sri<1>(idx)), idx));
+    auto idx = arange<uint_array_t<T>>();
+    auto idx2 = arange<T>();
+    auto even_mask = mask_t<T>(eq(sl<1>(sr<1>(idx)), idx));
 
 #if defined(_MSC_VER)
     /// MSVC doesn't seem to correctly track data dependencies involving masked loads/stores

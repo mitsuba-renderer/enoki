@@ -34,8 +34,8 @@ int main(int /* argc */, char * /* argv */[]) {
     const uint32_t bin_count = 31;
     uint32_t bins[bin_count] { };
 
-    for (size_t j = 0; j < 16 / RNG::Size; ++j) {
-        RNG rng(PCG32_DEFAULT_STATE, index_sequence<UInt64>() + (j * RNG::Size));
+    for (size_t j = 0; j < 16 / UInt32::Size; ++j) {
+        RNG rng(PCG32_DEFAULT_STATE, arange<UInt64>() + (j * UInt32::Size));
 
         for (size_t i = 0; i < 1024 * 1024; ++i) {
             /* Generate a uniform variate */
@@ -51,9 +51,7 @@ int main(int /* argc */, char * /* argv */[]) {
             UInt32Mask mask = idx >= zero<UInt32>() && idx < bin_count;
 
             /* Increment the bin indices */
-            transform<UInt32>(
-                bins, idx, mask, [](auto &x) { x += 1u; }
-            );
+            scatter_add(bins, idx, UInt32(1), mask);
         }
     }
 
@@ -67,9 +65,9 @@ int main(int /* argc */, char * /* argv */[]) {
     }
 
 #if defined(__aarch64__)
-    assert(std::abs(int(16 * 1024 * 1024 - sum)- 743) <= 200);
+    assert(std::abs(int(16 * 1024 * 1024 - sum) - 743) <= 200);
 #else
-    assert(std::abs(int(16 * 1024 * 1024 - sum)- 743) <= 3);
+    assert(std::abs(int(16 * 1024 * 1024 - sum) - 743) <= 3);
 #endif
     assert(bins[1] == 2558);
     assert(bins[2] == 6380);

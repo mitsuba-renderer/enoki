@@ -11,1419 +11,518 @@
 
 #pragma once
 
-#include "array_base.h"
+#include <enoki/array_static.h>
+#include <functional>
 
 NAMESPACE_BEGIN(enoki)
 
-NAMESPACE_BEGIN(detail)
+namespace detail {
+    template <typename StorageType, typename T>
+    using is_constructible = std::bool_constant<
+         std::is_constructible_v<StorageType, T> &&
+        !std::is_same_v<std::decay_t<T>, reinterpret_flag>>;
 
-#define ENOKI_DECLARE_ARRAY(Base, Derived)                                     \
-    static constexpr bool Is##Derived = true;                                  \
+    template <typename T>
+    using is_not_reinterpret_flag = std::bool_constant<
+        !std::is_same_v<std::decay_t<T>, reinterpret_flag>>;
+
+    template <typename Target, size_t I, typename Source>
+    static decltype(auto) broadcast(Source& source) {
+        if constexpr (is_static_array_v<Source> && array_size_v<Source> == Target::Size) {
+            if constexpr ((std::decay_t<Source>::BroadcastPreferOuter &&
+                           array_depth_v<Source> < array_depth_v<Target>) ||
+                          array_depth_v<Source> == array_depth_v<Target>)
+                return source.coeff(I);
+            else
+                return source;
+        } else {
+            return source;
+        }
+    }
+
+    template <typename Value, size_t Size,
+              RoundingMode Mode = RoundingMode::Default, typename = int>
+    struct is_native {
+        static constexpr bool value = false;
+    };
+
+    template <typename Value, size_t Size, RoundingMode Mode = RoundingMode::Default>
+    constexpr bool is_native_v = is_native<Value, Size, Mode>::value;
+
+    /**
+     * \brief The class StaticArrayImpl has several different implementations.
+     * This class specifies which one to use.
+     */
+    template <typename Value, size_t Size, RoundingMode Mode = RoundingMode::Default>
+    struct array_config {
+        /// Use SSE/AVX/NEON implementation
+        static constexpr bool use_native_impl =
+            is_native_v<Value, Size, Mode>;
+
+        /// Workaround for architectures that can't change the rounding mode
+        static constexpr bool use_rounding_fallback_impl =
+            !use_native_impl &&
+            Mode != RoundingMode::Default &&
+            !((has_avx512f && is_float_v <Value> && Size / 16 * 16 == Size) ||
+              (has_avx512f && is_double_v<Value> && Size /  8 *  8 == Size));
+
+        /// Reduce to several recursive operations
+        static constexpr bool use_recursive_impl =
+            !use_native_impl &&
+            !use_rounding_fallback_impl &&
+            is_std_type_v<Value> &&
+            has_vectorization &&
+            Size > 3;
+
+        /// Special case for arrays of enumerations
+        static constexpr bool use_enum_impl =
+            std::is_enum_v<Value>;
+
+        /// Special case for arrays of pointers
+        static constexpr bool use_pointer_impl =
+             std::is_pointer_v<Value> &&
+            !std::is_arithmetic_v<std::remove_pointer_t<Value>>;
+
+        /// Catch-all for anything that wasn't matched so far
+        static constexpr bool use_generic_impl =
+            !use_native_impl &&
+            !use_rounding_fallback_impl &&
+            !use_recursive_impl &&
+            !use_enum_impl &&
+            !use_pointer_impl;
+    };
+
+    template <typename T>
+    using has_bitmask = decltype(std::declval<T>().bitmask_());
+    template <typename T>
+    constexpr bool has_bitmask_v = is_detected_v<has_bitmask, T>;
+};
+
+/// Macro to initialize uninitialized floating point arrays with 1 bits (NaN/-1) in debug mode
+#if defined(NDEBUG)
+#define ENOKI_TRIVIAL_CONSTRUCTOR(Value)                                       \
+    template <typename T = Value,                                              \
+              enable_if_t<std::is_default_constructible_v<T>> = 0>             \
+    ENOKI_INLINE StaticArrayImpl() { }
+#else
+#define ENOKI_TRIVIAL_CONSTRUCTOR(Value)                                       \
+    template <typename T = Value, enable_if_t<is_scalar_v<T>> = 0>             \
+    ENOKI_INLINE StaticArrayImpl()                                             \
+        : StaticArrayImpl(memcpy_cast<T>(int_array_t<T>(-1))) { }              \
+    template <typename T = Value,                                              \
+              enable_if_t<!is_scalar_v<T> &&                                   \
+                           std::is_default_constructible_v<T>> = 0>            \
+    ENOKI_INLINE StaticArrayImpl() {}
+#endif
+
+
+/// SFINAE macro for constructors that convert from another type
+#define ENOKI_CONVERT(Value)                                                   \
+    template <typename Value2, bool Approx2, RoundingMode Mode2,               \
+              typename Derived2,                                               \
+              enable_if_t<detail::is_same_v<Value2, Value>> = 0>               \
+    ENOKI_INLINE StaticArrayImpl(                                              \
+        const StaticArrayBase<Value2, Size, Approx2, Mode2, IsMask_, Derived2> &a)
+
+/// SFINAE macro for constructors that reinterpret another type
+#define ENOKI_REINTERPRET(Value)                                               \
+    template <typename Value2, bool Approx2, RoundingMode Mode2,               \
+              typename Derived2, bool IsMask2,                                 \
+              enable_if_t<detail::is_same_v<Value2, Value>> = 0>               \
+    ENOKI_INLINE StaticArrayImpl(                                              \
+        const StaticArrayBase<Value2, Size, Approx2, Mode2, IsMask2, Derived2> \
+            &a, detail::reinterpret_flag)
+
+#define ENOKI_ARRAY_DEFAULTS(Array)                                            \
+    Array(const Array &) = default;                                            \
+    Array(Array &&) = default;                                                 \
+    Array &operator=(const Array &) = default;                                 \
+    Array &operator=(Array &&) = default;
+
+/// Import the essentials when declaring an array subclass
+#define ENOKI_ARRAY_IMPORT_BASIC(Base, Array)                                  \
+    ENOKI_ARRAY_DEFAULTS(Array)                                                \
+    using typename Base::Derived;                                              \
+    using typename Base::Value;                                                \
+    using typename Base::Scalar;                                               \
+    using Base::Size;                                                          \
+    using Base::Mode;                                                          \
+    using Base::derived;                                                       \
+
+/// Import the essentials when declaring an array subclass (+constructor/assignment op)
+#define ENOKI_ARRAY_IMPORT(Base, Array)                                        \
+    ENOKI_ARRAY_IMPORT_BASIC(Base, Array)                                      \
     using Base::Base;                                                          \
-    using Base::operator=;                                                     \
-    Derived() = default;                                                       \
-    Derived(const Derived &) = default;                                        \
-    Derived(Derived &&) = default;                                             \
-    Derived &operator=(const Derived &) = default;                             \
-    Derived &operator=(Derived &&) = default;                                  \
-    template <typename T, std::enable_if_t<                                    \
-              std::is_constructible<Derived, T>::value, int> = 0>              \
-    Derived& operator=(const T &value) { return operator=(Derived(value)); }
-
-NAMESPACE_END(detail)
-
-template <typename, size_t, bool, RoundingMode, typename, typename>
-struct StaticArrayImpl { /* Will never be instantiated */ };
-
-template <typename Value_, size_t Size_, bool Approx_, typename Derived_>
-struct StaticArrayImpl<
-    Value_, Size_, Approx_, RoundingMode::Default, Derived_,
-    std::enable_if_t<!detail::is_native<Value_, Size_>::value &&
-                     !std::is_enum<Value_>::value &&
-                     !(std::is_pointer<Value_>::value && !std::is_arithmetic<std::remove_pointer_t<Value_>>::value) &&
-                     !detail::is_recursive<Value_, Size_, RoundingMode::Default>::value>>
-    : StaticArrayBase<Value_, Size_, Approx_, RoundingMode::Default, Derived_> {
-
-    using Base = StaticArrayBase<Value_, Size_, Approx_, RoundingMode::Default, Derived_>;
-
     using Base::operator=;
-    using typename Base::Value;
-    using typename Base::Element;
-    using typename Base::Derived;
-    using typename Base::Scalar;
+
+
+/// Internal macro for native StaticArrayImpl overloads (SSE, AVX, ..)
+#define ENOKI_NATIVE_ARRAY(Value_, Size_, Approx_, Register_, Mode_)           \
+    using Base =                                                               \
+        StaticArrayBase<Value_, Size_, Approx_, Mode_, IsMask_, Derived_>;     \
+    ENOKI_ARRAY_IMPORT_BASIC(Base, StaticArrayImpl)                            \
+    using typename Base::Array1;                                               \
+    using typename Base::Array2;                                               \
+    using Base::ActualSize;                                                    \
+    using Ref = const Derived &;                                               \
+    using Register = Register_;                                                \
+    static constexpr bool IsNative = true;                                     \
+    Register m;                                                                \
+    ENOKI_TRIVIAL_CONSTRUCTOR(Value_)                                          \
+    ENOKI_INLINE StaticArrayImpl(Register value) : m(value) {}                 \
+    ENOKI_INLINE StaticArrayImpl(Register value, detail::reinterpret_flag)     \
+        : m(value) { }                                                         \
+    ENOKI_INLINE StaticArrayImpl(bool b, detail::reinterpret_flag)             \
+        : StaticArrayImpl(b ? memcpy_cast<Value_>(int_array_t<Value>(-1))      \
+                            : memcpy_cast<Value_>(int_array_t<Value>(0))) { }  \
+    template <typename Value2, size_t Size2, bool Approx2, RoundingMode Mode2, \
+              typename Derived2, enable_if_t<is_scalar_v<Value2>> = 0>         \
+    ENOKI_INLINE StaticArrayImpl(                                              \
+        const StaticArrayBase<Value2, Size2, Approx2,                          \
+                              Mode2, IsMask_, Derived2> &a)                    \
+        : Base(a) { }                                                          \
+    ENOKI_INLINE StaticArrayImpl &operator=(const Derived &v) {                \
+        m = v.m;                                                               \
+        return *this;                                                          \
+    }                                                                          \
+    template <typename T> ENOKI_INLINE StaticArrayImpl &operator=(const T &v) {\
+        return operator=(Derived(v)); return *this;                            \
+    }                                                                          \
+    ENOKI_INLINE decltype(auto) coeff(size_t i) {                              \
+        union Data {                                                           \
+            Register value;                                                    \
+            Value data[Size_];                                                 \
+        };                                                                     \
+        Value &ref = ((Data *) &m)->data[i];                                   \
+        if constexpr (Derived::IsMask)                                         \
+            return detail::convert_mask(ref);                                  \
+        else                                                                   \
+            return ref;                                                        \
+    }                                                                          \
+    ENOKI_INLINE decltype(auto) coeff(size_t i) const {                        \
+        union Data {                                                           \
+            Register value;                                                    \
+            Value data[Size_];                                                 \
+        };                                                                     \
+        const Value &ref = ((const Data *) &m)->data[i];                       \
+        if constexpr (Derived::IsMask)                                         \
+            return detail::convert_mask(ref);                                  \
+        else                                                                   \
+            return ref;                                                        \
+    }
+
+/// Internal macro for native StaticArrayImpl overloads -- 3D special case
+#define ENOKI_DECLARE_3D_ARRAY(Array)                                          \
+    ENOKI_ARRAY_DEFAULTS(Array)                                                \
+    using typename Base::Value;                                                \
+    using typename Base::Derived;                                              \
+    using typename Base::Ref;                                                  \
+    using Base::m;                                                             \
+    using Base::coeff;                                                         \
+    static constexpr size_t Size = 3;                                          \
+    Array() = default;                                                         \
+    ENOKI_INLINE Array(Value v) : Base(v) { }                                  \
+    ENOKI_INLINE Array(Value f1, Value f2, Value f3)                           \
+        : Base(f1, f2, f3, (Value) 0) { }                                      \
+    ENOKI_INLINE Array(Value f1, Value f2, Value f3, Value f4)                 \
+        : Base(f1, f2, f3, f4) { }                                             \
+    ENOKI_INLINE Array(typename Base::Register r) : Base(r) { }                \
+    ENOKI_INLINE Array(typename Base::Register r, detail::reinterpret_flag)    \
+        : Base(r, detail::reinterpret_flag()) { }                              \
+    ENOKI_INLINE Array(bool b, detail::reinterpret_flag)                       \
+        : Base(b, detail::reinterpret_flag()) { }                              \
+    template <typename Value2, bool Approx2, RoundingMode Mode2,               \
+              typename Derived2>                                               \
+    ENOKI_INLINE Array(const StaticArrayBase<Value2, 4, Approx2, Mode2,        \
+                                             IsMask_, Derived2> &a)            \
+        : Base(a) { }                                                          \
+    template <typename Value2, bool Approx2, RoundingMode Mode2, bool IsMask2, \
+              typename Derived2>                                               \
+    ENOKI_INLINE Array(const StaticArrayBase<Value2, 4, Approx2, Mode2,        \
+                                             IsMask2, Derived2> &a,            \
+                       detail::reinterpret_flag)                               \
+        : Base(a, detail::reinterpret_flag()) { }                              \
+    template <typename Value2, bool Approx2, RoundingMode Mode2,               \
+              typename Derived2>                                               \
+    ENOKI_INLINE Array(const StaticArrayBase<Value2, 3, Approx2, Mode2,        \
+                                             IsMask_, Derived2> &a) {          \
+        ENOKI_TRACK_SCALAR("Constructor (conversion, 3D case)");               \
+        Base::operator=(Derived(Value(a.derived().coeff(0)),                   \
+                                Value(a.derived().coeff(1)),                   \
+                                Value(a.derived().coeff(2))));                 \
+    }                                                                          \
+    template <typename Value2, bool Approx2, RoundingMode Mode2, bool IsMask2, \
+              typename Derived2>                                               \
+    ENOKI_INLINE Array(const StaticArrayBase<Value2, 3, Approx2, Mode2,        \
+                                             IsMask2, Derived2> &a,            \
+                       detail::reinterpret_flag) {                             \
+        ENOKI_TRACK_SCALAR("Constructor (reinterpreting, 3D case)");           \
+        Base::operator=(                                                       \
+            Derived(reinterpret_array<Value>(a.derived().coeff(0)),            \
+                    reinterpret_array<Value>(a.derived().coeff(1)),            \
+                    reinterpret_array<Value>(a.derived().coeff(2))));          \
+    }                                                                          \
+    template <typename T> Array &operator=(T &&value) {                        \
+        return (Array&) Base::operator=(Derived(value));                       \
+    }
+
+
+template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_,
+          bool IsMask_, typename Derived_, typename = int>
+struct StaticArrayImpl;
+
+template <typename Value_, size_t Size_, bool Approx_, bool IsMask_, typename Derived_>
+struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, Derived_,
+                       enable_if_t<detail::array_config<Value_, Size_>::use_generic_impl>>
+    : StaticArrayBase<std::conditional_t<IsMask_, mask_t<Value_>, Value_>,
+                      Size_, Approx_, RoundingMode::Default, IsMask_, Derived_> {
+    using Base = StaticArrayBase<
+        std::conditional_t<IsMask_, mask_t<Value_>, Value_>,
+        Size_, Approx_, RoundingMode::Default, IsMask_, Derived_>;
+
+    ENOKI_ARRAY_IMPORT_BASIC(Base, StaticArrayImpl)
     using typename Base::Array1;
     using typename Base::Array2;
-    using Base::Size;
     using Base::Size1;
     using Base::Size2;
-    using Base::data;
+    using Base::Depth;
 
     using StorageType =
-        std::conditional_t<std::is_reference<Value_>::value,
-                           std::reference_wrapper<Element>, Value>;
+        std::conditional_t<std::is_reference_v<Value>,
+                           std::reference_wrapper<std::remove_reference_t<Value>>, Value>;
 
-    // -----------------------------------------------------------------------
-    //! @{ \name Default constructors and assignment operators
-    // -----------------------------------------------------------------------
+    /// Trivial constructor
+    ENOKI_TRIVIAL_CONSTRUCTOR(Value)
 
-    ENOKI_TRIVIAL_CONSTRUCTOR(Value_)
-
-    /// Default copy constructor
-    StaticArrayImpl(const StaticArrayImpl &t) = default;
-
-    /// Default move constructor
-    StaticArrayImpl(StaticArrayImpl &&t) = default;
-
-    /// Default copy assignment operator
-    StaticArrayImpl& operator=(const StaticArrayImpl &) = default;
-
-    /// Default move assignment operator
-    StaticArrayImpl& operator=(StaticArrayImpl &&) = default;
-
-    //! @}
-    // -----------------------------------------------------------------------
-
-    // -----------------------------------------------------------------------
-    //! @{ \name Constructors that convert from compatible representations
-    // -----------------------------------------------------------------------
-
-    /// Initialize the components individually
-    template <typename Arg, typename... Args,
-              /* Ugly, works around a compiler ICE in MSVC */
-              std::enable_if_t<
-                  detail::all_of<std::is_constructible<StorageType, Arg>::value,
-                                 (std::is_constructible<StorageType, Args>::value && !std::is_same<Args, detail::reinterpret_flag>::value)...,
-                                 sizeof...(Args) + 1 == Size_ && (sizeof...(Args) > 0)>::value, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(Arg&& arg, Args&&... args)
-        : m_data{{ (StorageType) std::forward<Arg>(arg),
-                   (StorageType) std::forward<Args>(args)... }} { ENOKI_CHKSCALAR }
-
-private:
-    template <typename T, size_t... Index>
-    ENOKI_INLINE StaticArrayImpl(T &&t, std::index_sequence<Index...>)
-        : m_data{{ (detail::ref_cast_t<std::decay_t<value_t<T>>, StorageType>) t.derived().coeff(Index)... }} { }
-
-public:
-    /// Convert a compatible array type (const, non-recursive)
-    template <
-        typename Value2, size_t Size2, bool Approx2, RoundingMode Mode2,
-        typename Derived2, typename T = Derived,
-        std::enable_if_t<std::is_constructible<Value_, const Value2 &>::value &&
-                        !T::IsMask && Derived2::Size == T::Size && !Derived2::IsRecursive, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(
-        const StaticArrayBase<Value2, Size2, Approx2, Mode2, Derived2> &a)
-        : StaticArrayImpl(a, std::make_index_sequence<Size>()) { }
-
-    /// Convert a compatible array type (const, recursive)
-    template <
-        typename Value2, size_t Size2, bool Approx2, RoundingMode Mode2,
-        typename Derived2, typename T = Derived,
-        std::enable_if_t<std::is_constructible<Value_, const Value2 &>::value &&
-                        !T::IsMask && Derived2::Size == T::Size && Derived2::IsRecursive, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(
-        const StaticArrayBase<Value2, Size2, Approx2, Mode2, Derived2> &a)
-        : StaticArrayImpl(Array1(low(a)), Array2(high(a))) { }
-
-    /// Convert a compatible array type (non-const, useful when storing references)
-    template <typename Value2, size_t Size2, bool Approx2, RoundingMode Mode2,
-              typename Derived2, typename T = Derived,
-              std::enable_if_t<std::is_constructible<Value_, Value2 &>::value &&
-                              !std::is_constructible<Value_, const Value2 &>::value &&
-                              Derived2::Size == T::Size && !T::IsMask, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(
-              StaticArrayBase<Value2, Size2, Approx2, Mode2, Derived2> &a)
-        : StaticArrayImpl(a, std::make_index_sequence<Size>()) { }
-
-    /// Reinterpret a compatible array (non-recursive)
-    template <typename Value2, size_t Size2, bool Approx2, RoundingMode Mode2, typename Derived2,
-              typename T = Derived, std::enable_if_t<Derived2::Size == T::Size && !Derived2::IsRecursive
-                  && is_reinterpretable<Value_, Value2>::value, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(
-        const StaticArrayBase<Value2, Size2, Approx2, Mode2, Derived2> &a,
-        detail::reinterpret_flag) {
-        for (size_t i = 0; i < Size; ++i)
-            coeff(i) = reinterpret_array<Value>(a.derived().coeff(i));
+    /// Construct from component values
+    template <typename... Ts, enable_if_t<sizeof...(Ts) == Size_ && Size_ != 1 &&
+              std::conjunction_v<detail::is_constructible<StorageType, Ts>...>> = 0>
+    ENOKI_INLINE StaticArrayImpl(Ts&&... ts)
+        : m_data{{ (StorageType) std::forward<Ts>(ts)... }} {
+        ENOKI_CHKSCALAR("Constructor (component values)");
     }
 
-    /// Reinterpret another array (recursive)
-    template <typename Value2, size_t Size2, bool Approx2, RoundingMode Mode2, typename Derived2,
-              typename T = Derived, std::enable_if_t<Derived2::Size == T::Size && Derived2::IsRecursive, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<Value2, Size2, Approx2, Mode2, Derived2> &a,
-                                 detail::reinterpret_flag)
-        : StaticArrayImpl(reinterpret_array<Array1>(low(a)),
-                          reinterpret_array<Array2>(high(a))) { }
+    /// Construct from a scalar or another array
+    template <typename T, typename ST = StorageType,
+              enable_if_t<!std::is_default_constructible_v<ST>> = 0>
+    ENOKI_INLINE StaticArrayImpl(T &&value)
+        : StaticArrayImpl(std::forward<T>(value),
+                          std::make_index_sequence<Derived::Size>()) { }
 
-
-    /// Convert a compatible mask -- only used if this is an Array<bool, ...> or another kind of mask
-    template <typename T, typename T2 = Derived, std::enable_if_t<T2::IsMask, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(const T &value)
-        : StaticArrayImpl(value, detail::reinterpret_flag()) { }
-
-    //! @}
-    // -----------------------------------------------------------------------
-
-    // -----------------------------------------------------------------------
-    //! @{ \name Constructors that convert from incompatible representations
-    // -----------------------------------------------------------------------
-
-    /// Broadcast a scalar or packet type
-    template <typename T, typename T2 = Derived, typename T3 = Value_,
-              std::enable_if_t<broadcast<T>::value && !T2::IsMask && !T2::CustomBroadcast &&
-                               std::is_default_constructible<T3>::value &&
-                               std::is_constructible<T3, const T &>::value, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(const T &a) {
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            coeff(i) = Value(a);
+    /// Construct from a scalar or another array (potential optimizations)
+    template <typename T, typename ST = StorageType,
+              enable_if_t<std::is_default_constructible_v<ST>> = 0>
+    ENOKI_INLINE StaticArrayImpl(T &&value) {
+        if constexpr (Derived::IsMask) {
+            derived() = Derived(value, detail::reinterpret_flag());
+        } else if constexpr (is_recursive_array_v<T> &&
+                             array_depth_v<T> == array_depth_v<Derived>) {
+            derived() = Derived(Array1(low(value)), Array2(high(value)));
+        } else {
+            assign_(std::forward<T>(value),
+                    std::make_index_sequence<Derived::Size>());
+        }
     }
 
-    /// Broadcast a scalar (reinterpret cast)
-    template <typename T, typename T2 = Value_,
-              std::enable_if_t<broadcast<T>::value &&
-                               std::is_default_constructible<T2>::value &&
-                               is_reinterpretable<T2, T>::value, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(const T &a, detail::reinterpret_flag) {
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            coeff(i) = reinterpret_array<Value>(a);
+    /// Reinterpret another array (potential optimizations)
+    template <typename T>
+    ENOKI_INLINE StaticArrayImpl(T&& value, detail::reinterpret_flag) {
+        if constexpr (is_recursive_array_v<T> &&
+                      array_depth_v<T> == array_depth_v<Derived>) {
+            derived() = Derived(reinterpret_array<Array1>(low(value)),
+                                reinterpret_array<Array2>(high(value)));
+        } else {
+            assign_(std::forward<T>(value), detail::reinterpret_flag(),
+                    std::make_index_sequence<Derived::Size>());
+        }
     }
 
-    /// Broadcast an incompatible array type
-    template <typename Value2, size_t Size2, bool Approx2, RoundingMode Mode2, typename Derived2,
-              typename T = Derived, std::enable_if_t<Derived2::Size != T::Size &&
-                                                     std::is_constructible<Value_, const Derived2 &>::value, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<Value2, Size2, Approx2, Mode2, Derived2> &a) {
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            coeff(i) = Value(a.derived());
+    template <typename T> ENOKI_INLINE StaticArrayImpl &operator=(T &&value) {
+        assign_(std::forward<T>(value),
+                std::make_index_sequence<Derived::Size>());
+        return *this;
     }
 
-    /// Broadcast an incompatible array type (reinterpret cast)
-    template <typename Value2, size_t Size2, bool Approx2, RoundingMode Mode2, typename Derived2,
-              typename T = Derived, std::enable_if_t<Derived2::Size != T::Size &&
-                                                     is_reinterpretable<Value_, Derived2>::value, int> = 0>
-    ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<Value2, Size2, Approx2, Mode2, Derived2> &a, detail::reinterpret_flag) {
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            coeff(i) = reinterpret_array<Value>(a.derived());
-    }
-
-    //! @}
-    // -----------------------------------------------------------------------
-
-    // -----------------------------------------------------------------------
-    //! @{ \name Converting from/to half size vectors
-    // -----------------------------------------------------------------------
-
-    template <size_t S = Size2, std::enable_if_t<S != 0, int> = 0>
-    StaticArrayImpl(const Array1 &a1, const Array2 &a2)
+    /// Construct from sub-arrays
+    template <typename T1, typename T2, typename T = StaticArrayImpl, enable_if_t<
+              array_depth_v<T1> == array_depth_v<T> && array_size_v<T1> == Size1 &&
+              array_depth_v<T2> == array_depth_v<T> && array_size_v<T2> == Size2 &&
+              Size2 != 0> = 0>
+    StaticArrayImpl(const T1 &a1, const T2 &a2)
         : StaticArrayImpl(a1, a2, std::make_index_sequence<Size1>(),
                                   std::make_index_sequence<Size2>()) { }
 
 private:
-    template <size_t... Index1, size_t... Index2>
-    ENOKI_INLINE StaticArrayImpl(const Array1 &a1, const Array2 &a2,
+    template <typename T, size_t... Is>
+    ENOKI_INLINE StaticArrayImpl(T&& value, std::index_sequence<Is...>)
+        : m_data{{ detail::broadcast<Derived, Is>(value)... }} {
+        ENOKI_CHKSCALAR("Copy constructor");
+    }
+
+    template <typename T1, typename T2, size_t... Index1, size_t... Index2>
+    ENOKI_INLINE StaticArrayImpl(const T1 &a1, const T2 &a2,
                                  std::index_sequence<Index1...>,
                                  std::index_sequence<Index2...>)
-        : m_data{ { (StorageType) a1.coeff(Index1)...,
-                    (StorageType) a2.coeff(Index2)... } } { ENOKI_CHKSCALAR }
+        : m_data{{ a1.coeff(Index1)...,
+                   a2.coeff(Index2)... }} {
+        ENOKI_CHKSCALAR("Copy constructor (from 2 components)");
+    }
+
+    template <typename T, size_t... Is>
+    ENOKI_INLINE void assign_(T&& value, std::index_sequence<Is...>) {
+        if constexpr (std::is_same_v<array_shape_t<T>, array_shape_t<Derived>> &&
+                      std::is_same_v<Value, half>) {
+            #if defined(ENOKI_X86_F16C)
+                using Value2 = value_t<T>;
+
+                if constexpr (std::is_same_v<Value2, double>) {
+                    derived() = float32_array_t<T, false>(value);
+                    return;
+                } else if constexpr (std::is_same_v<Value2, float>) {
+                    if constexpr (Size == 4) {
+                        long long result = detail::mm_cvtsi128_si64(_mm_cvtps_ph(
+                            value.derived().m, _MM_FROUND_CUR_DIRECTION));
+                        memcpy(m_data.data(), &result, sizeof(long long));
+                        return;
+                    } else if constexpr (Size == 8) {
+                        __m128i result = _mm256_cvtps_ph(value.derived().m,
+                                                         _MM_FROUND_CUR_DIRECTION);
+                        _mm_storeu_si128((__m128i *) m_data.data(), result);
+                        return;
+                    }
+                    #if defined(ENOKI_X86_AVX512F)
+                        if constexpr (Size == 16) {
+                            __m256i result = _mm512_cvtps_ph(value.derived().m,
+                                                             _MM_FROUND_CUR_DIRECTION);
+                            _mm256_storeu_si256((__m256i *) m_data.data(), result);
+                            return;
+                        }
+                    #endif
+                }
+            #endif
+        }
+
+        ENOKI_CHKSCALAR("Copy constructor");
+        if constexpr (std::is_default_constructible_v<StorageType>) {
+            bool unused[] = { (coeff(Is) = (const StorageType &) detail::broadcast<Derived, Is>(value), false)... };
+            (void) unused;
+        } else {
+            bool unused[] = { (coeff(Is) = detail::broadcast<Derived, Is>(value), false)... };
+            (void) unused;
+        }
+    }
+
+    template <typename T, size_t... Is>
+    ENOKI_INLINE void assign_(T&& value, detail::reinterpret_flag, std::index_sequence<Is...>) {
+        if constexpr (std::is_same_v<array_shape_t<T>, array_shape_t<Derived>> &&
+                      std::is_same_v<Value, bool> && detail::has_bitmask_v<T>) {
+            #if defined(ENOKI_X86_AVX512VL)
+                if constexpr (Size == 16) {
+                    _mm_storeu_si128((__m128i *) data(),
+                                     _mm_maskz_set1_epi8((__mmask16) value.bitmask_(), (char) 1));
+                    return;
+                } else if constexpr (Size == 8) {
+                    uint64_t result = (uint64_t) detail::mm_cvtsi128_si64(
+                        _mm_maskz_set1_epi8((__mmask8) value.bitmask_(), (char) 1));
+                    memcpy(data(), &result, sizeof(uint64_t));
+                    return;
+                } else if constexpr (Size == 4) {
+                    uint32_t result = (uint32_t) _mm_cvtsi128_si32(
+                        _mm_maskz_set1_epi8((__mmask8) value.bitmask_(), (char) 1));
+                    memcpy(data(), &result, sizeof(uint32_t));
+                    return;
+                }
+            #elif defined(ENOKI_X86_AVX2)
+                uint32_t k = value.bitmask_();
+                if constexpr (Size == 16) {
+                    uint64_t low = (uint64_t) _pdep_u64(k,      0x0101010101010101ull);
+                    uint64_t hi  = (uint64_t) _pdep_u64(k >> 8, 0x0101010101010101ull);
+                    memcpy((uint8_t *) data(), &low, sizeof(uint64_t));
+                    memcpy((uint8_t *) data() + sizeof(uint64_t), &hi, sizeof(uint64_t));
+                    return;
+                } else if constexpr (Size == 8) {
+                    uint64_t result = (uint64_t) _pdep_u64(k, 0x0101010101010101ull);
+                    memcpy(data(), &result, sizeof(uint64_t));
+                    return;
+                } else if constexpr (Size == 4) {
+                    uint32_t result = (uint32_t) _pdep_u32(k, 0x01010101ull);
+                    memcpy(data(), &result, sizeof(uint32_t));
+                    return;
+                }
+            #endif
+        }
+
+        ENOKI_CHKSCALAR("Copy constructor");
+        bool unused[] = { (coeff(Is) = reinterpret_array<Value>(
+                               detail::broadcast<Derived, Is>(value)), false)... };
+        (void) unused;
+    }
+
 
 public:
-    auto low_() const {
-        expr_t<Array1> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size1; ++i)
-            result.coeff(i) = coeff(i);
-        return result;
+    /// Return the size in bytes
+    size_t nbytes() const {
+        if constexpr (is_dynamic_v<Value>) {
+            size_t result = 0;
+            for (size_t i = 0; i < Derived::Size; ++i)
+                result += coeff(i).nbytes();
+            return result;
+        } else {
+            return Base::nbytes();
+        }
     }
 
-    auto high_() const {
-        expr_t<Array2> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size2; ++i)
-            result.coeff(i) = coeff(Size1 + i);
-        return result;
-    }
-
-    //! @}
-    // -----------------------------------------------------------------------
-
-    // -----------------------------------------------------------------------
-    //! @{ \name SSE/AVX/AVX2/AVX512/.. mask to Array<bool, ..> conversions
-    // -----------------------------------------------------------------------
-
-    #define ENOKI_REINTERPRET_BOOL(Count, ValueSize)                           \
-        template <typename Value2, bool Approx2, RoundingMode Mode2,           \
-                  typename Derived2, typename T = Derived_,                    \
-                  std::enable_if_t<std::is_same<value_t<T>, bool>::value &&    \
-                      Derived2::IsNative && Derived2::Size == T::Size &&       \
-                      sizeof(Value2) == ValueSize, int> = 0>                   \
-        ENOKI_INLINE StaticArrayImpl(                                          \
-            const StaticArrayBase<Value2, Count, Approx2, Mode2, Derived2> &a, \
-            detail::reinterpret_flag)
-
-#if defined(ENOKI_X86_SSE42)
-    ENOKI_REINTERPRET_BOOL(2, 8) {
-        __m128i m = _mm_and_si128((__m128i &) a.derived().m, _mm_set1_epi8(1));
-        uint16_t result = (uint16_t) _mm_cvtsi128_si32(_mm_shuffle_epi8(
-            m, _mm_set1_epi32(0 + (8 << 8))));
-        memcpy(data(), &result, T::Size);
-    }
-
-    ENOKI_REINTERPRET_BOOL(4, 4) {
-        __m128i m = _mm_and_si128((__m128i &) a.derived().m, _mm_set1_epi8(1));
-        uint32_t result = (uint32_t) _mm_cvtsi128_si32(_mm_shuffle_epi8(
-            m, _mm_set1_epi32((0 << 0) + (4 << 8) + (8 << 16) + (12 << 24))));
-        memcpy(data(), &result, T::Size);
-    }
-#endif
-
-#if defined(ENOKI_X86_AVX)
-    ENOKI_REINTERPRET_BOOL(4, 8) {
-        __m128i hi, lo;
-        #if defined(ENOKI_X86_AVX2)
-            __m256i m = _mm256_and_si256((__m256i &) a.derived().m, _mm256_set1_epi8(1));
-            m = _mm256_shuffle_epi8(
-                m, _mm256_set1_epi32((0 << 0) + (8 << 8) + (0 << 16) + (8 << 24)));
-            hi = _mm256_castsi256_si128(m);
-            lo = _mm256_extracti128_si256(m, 1);
-
-        #else
-            const __m128i shufmask = _mm_set1_epi32((0 << 0) + (8 << 8) + (0 << 16) + (8 << 24));
-            __m256i m = _mm256_castps_si256(_mm256_and_ps((__m256 &) a.derived().m,
-                                            _mm256_castsi256_ps(_mm256_set1_epi8(1))));
-            hi = _mm256_castsi256_si128(m);
-            lo = _mm256_extractf128_si256(m, 1);
-            lo = _mm_shuffle_epi8(lo, shufmask);
-            hi = _mm_shuffle_epi8(hi, shufmask);
-        #endif
-        uint32_t result = (uint32_t) _mm_cvtsi128_si32(_mm_unpacklo_epi16(hi, lo));
-        memcpy(data(), &result, T::Size);
-    }
-
-    ENOKI_REINTERPRET_BOOL(8, 4) {
-        __m128i hi, lo;
-        #if defined(ENOKI_X86_AVX2)
-            __m256i m = _mm256_and_si256((__m256i &) a.derived().m, _mm256_set1_epi8(1));
-            m = _mm256_shuffle_epi8(
-                m, _mm256_set1_epi32((0 << 0) + (4 << 8) + (8 << 16) + (12 << 24)));
-            hi = _mm256_castsi256_si128(m);
-            lo = _mm256_extracti128_si256(m, 1);
-
-        #else
-            const __m128i shufmask = _mm_set1_epi32((0 << 0) + (4 << 8) + (8 << 16) + (12 << 24));
-            __m256i m = _mm256_castps_si256(_mm256_and_ps((__m256 &) a.derived().m,
-                                            _mm256_castsi256_ps(_mm256_set1_epi8(1))));
-            hi = _mm256_castsi256_si128(m);
-            lo = _mm256_extractf128_si256(m, 1);
-            lo = _mm_shuffle_epi8(lo, shufmask);
-            hi = _mm_shuffle_epi8(hi, shufmask);
-        #endif
-        uint64_t result = (uint64_t) detail::mm_cvtsi128_si64(_mm_unpacklo_epi32(hi, lo));
-        memcpy(data(), &result, T::Size);
-    }
-#endif
-
-#if defined(ENOKI_X86_AVX512F)
-    ENOKI_REINTERPRET_BOOL(16, 1) {
-        #if defined(ENOKI_X86_AVX512BW) && defined(ENOKI_X86_AVX512VL)
-            __m128i value = _mm_maskz_set1_epi8(a.derived().k, 1);
-            _mm_storeu_si128((__m128i *) data(), value);
-        #else
-            uint64_t low = (uint64_t) _pdep_u64(a.derived().k,      0x0101010101010101ull);
-            uint64_t hi  = (uint64_t) _pdep_u64(a.derived().k >> 8, 0x0101010101010101ull);
-            memcpy(data(), &low, 8);
-            memcpy(data() + 8, &hi, 8);
-        #endif
-    }
-
-    ENOKI_REINTERPRET_BOOL(8, 1) {
-        #if defined(ENOKI_X86_AVX512BW) && defined(ENOKI_X86_AVX512VL)
-            __m128i value = _mm_maskz_set1_epi8(a.derived().k, 1);
-            uint64_t result = (uint64_t) _mm_cvtsi128_si64(value);
-        #else
-            uint64_t result = (uint64_t) _pdep_u64(a.derived().k, 0x0101010101010101ull);
-        #endif
-        memcpy(data(), &result, T::Size);
-    }
-
-#endif
-
-    #undef ENOKI_REINTERPRET_BOOL
-
-    //! @}
-    // -----------------------------------------------------------------------
-
-    // -----------------------------------------------------------------------
-    //! @{ \name Half-precision conversions
-    // -----------------------------------------------------------------------
-
-    #define ENOKI_CONVERT_GENERIC(InputT, OutputT, Count)                      \
-        template <bool Approx2, RoundingMode Mode2, typename Derived2,         \
-                  typename T = Derived,                                        \
-                  std::enable_if_t<std::is_same<value_t<T>, OutputT>::value && \
-                                   Derived2::Size == T::Size, int> = 0>        \
-        ENOKI_INLINE StaticArrayImpl(                                          \
-            const StaticArrayBase<InputT, Count, Approx2, Mode2, Derived2> &a)
-
-#if defined(ENOKI_X86_F16C)
-    ENOKI_CONVERT_GENERIC(float, half, 4) {
-        __m128i value = _mm_cvtps_ph(a.derived().m, _MM_FROUND_CUR_DIRECTION);
-        memcpy(m_data.data(), &value, sizeof(uint16_t) * Derived::Size);
-    }
-
-#if defined(ENOKI_X86_AVX)
-    ENOKI_CONVERT_GENERIC(double, half, 4) {
-        __m128i value = _mm_cvtps_ph(_mm256_cvtpd_ps(a.derived().m), _MM_FROUND_CUR_DIRECTION);
-        memcpy(m_data.data(), &value, sizeof(uint16_t) * Derived::Size);
-    }
-
-    ENOKI_CONVERT_GENERIC(float, half, 8) {
-        _mm_storeu_si128((__m128i *) m_data.data(), _mm256_cvtps_ph(a.derived().m, _MM_FROUND_CUR_DIRECTION));
-    }
-#endif
-
-#if defined(ENOKI_X86_AVX512F)
-    ENOKI_CONVERT_GENERIC(double, half, 8) {
-        _mm_storeu_si128((__m128i *) m_data.data(), _mm256_cvtps_ph(_mm512_cvtpd_ps(a.derived().m), _MM_FROUND_CUR_DIRECTION));
-    }
-
-    ENOKI_CONVERT_GENERIC(float, half, 16) {
-        _mm256_storeu_si256((__m256i *) m_data.data(), _mm512_cvtps_ph(a.derived().m, _MM_FROUND_CUR_DIRECTION));
-    }
-#endif
-#endif
-
-#if defined(ENOKI_ARM_NEON)
-    ENOKI_CONVERT_GENERIC(float, half, 4) {
-        float16x4_t value = vcvt_f16_f32(a.derived().m);
-        memcpy(m_data.data(), &value, sizeof(uint16_t) * Derived::Size);
-    }
-#endif
-
-    #undef ENOKI_CONVERT_GENERIC
-
-    //! @}
-    // -----------------------------------------------------------------------
-
-    // -----------------------------------------------------------------------
-    //! @{ \name Generic implementations of vertical operations
-    // -----------------------------------------------------------------------
-
-    /// Addition
-    ENOKI_INLINE auto add_(const Derived &d) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            (Value &) result.coeff(i) = (const Value &) coeff(i) + (const Value &) d.coeff(i);
-        return result;
-    }
-
-    /// Subtraction
-    ENOKI_INLINE auto sub_(const Derived &d) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            (Value &) result.coeff(i) = (const Value &) coeff(i) - (const Value &) d.coeff(i);
-        return result;
-    }
-
-    /// Multiplication
-    ENOKI_INLINE auto mul_(const Derived &d) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = coeff(i) * d.coeff(i);
-        return result;
-    }
-
-    /// Integer high multiplication
-    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
-    ENOKI_INLINE auto mulhi_(const Derived &d) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = mulhi(coeff(i), d.coeff(i));
-        return result;
-    }
-
-    /// Division
-    ENOKI_INLINE auto div_(const Derived &d) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = coeff(i) / d.coeff(i);
-        return result;
-    }
-
-    /// Modulo
-    ENOKI_INLINE auto mod_(const Derived &d) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = coeff(i) % d.coeff(i);
-        return result;
-    }
-
-    /// Arithmetic unary NOT operation
-    ENOKI_INLINE auto not_() const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.m_data[i] = detail::not_(coeff(i));
-        return result;
-    }
-
-    /// Arithmetic OR operation
-    template <typename Array>
-    ENOKI_INLINE auto or_(const Array &d) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.m_data[i] = detail::or_(coeff(i), d.coeff(i));
-        return result;
-    }
-
-    /// Arithmetic AND operation
-    template <typename Array>
-    ENOKI_INLINE auto and_(const Array &d) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.m_data[i] = detail::and_(coeff(i), d.coeff(i));
-        return result;
-    }
-
-    /// Arithmetic ANDNOT operation
-    template <typename Array>
-    ENOKI_INLINE auto andnot_(const Array &d) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.m_data[i] = detail::andnot_(coeff(i), d.coeff(i));
-        return result;
-    }
-
-    /// Arithmetic XOR operation
-    template <typename Array>
-    ENOKI_INLINE auto xor_(const Array &d) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.m_data[i] = detail::xor_(coeff(i), d.coeff(i));
+    /// Arithmetic NOT operation
+    ENOKI_INLINE Derived not_() const {
+        Derived result;
+        ENOKI_CHKSCALAR("not");
+        for (size_t i = 0; i < Derived::Size; ++i) {
+            if constexpr (IsMask_)
+                (Value &) result.coeff(i) = !(Value) derived().coeff(i);
+            else
+                (Value &) result.coeff(i) = ~(Value) derived().coeff(i);
+        }
         return result;
     }
 
     /// Arithmetic unary negation operation
-    ENOKI_INLINE auto neg_() const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = -coeff(i);
+    ENOKI_INLINE Derived neg_() const {
+        Derived result;
+        ENOKI_CHKSCALAR("neg");
+        for (size_t i = 0; i < Derived::Size; ++i)
+            (Value &) result.coeff(i) = - (Value) derived().coeff(i);
         return result;
     }
 
-    /// Left shift operator
-    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
-    ENOKI_INLINE auto sl_(size_t value) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = coeff(i) << value;
-        return result;
+    /// Array indexing operator
+    ENOKI_INLINE std::remove_reference_t<Value> &coeff(size_t i) {
+        ENOKI_CHKSCALAR("coeff");
+        return m_data[i];
     }
 
-    /// Left shift operator
-    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
-    ENOKI_INLINE auto slv_(const Derived &d) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = coeff(i) << d.coeff(i);
-        return result;
+    /// Array indexing operator (const)
+    ENOKI_INLINE const std::remove_reference_t<Value> &coeff(size_t i) const {
+        ENOKI_CHKSCALAR("coeff");
+        return m_data[i];
     }
-
-    /// Right shift operator
-    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
-    ENOKI_INLINE auto sr_(size_t value) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = coeff(i) >> value;
-        return result;
-    }
-
-    /// Right shift operator
-    template <typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
-    ENOKI_INLINE auto srv_(const Derived &d) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = coeff(i) >> d.coeff(i);
-        return result;
-    }
-
-    /// Left shift operator (immediate)
-    template <size_t Imm, typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
-    ENOKI_INLINE auto sli_() const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = sli<Imm>(coeff(i));
-        return result;
-    }
-
-    /// Right shift operator (immediate)
-    template <size_t Imm, typename T = Scalar, std::enable_if_t<std::is_integral<T>::value, int> = 0>
-    ENOKI_INLINE auto sri_() const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = sri<Imm>(coeff(i));
-        return result;
-    }
-
-    /// Equality comparison operation
-    ENOKI_INLINE auto eq_(const Derived &d) const {
-        mask_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = eq(Value(coeff(i)), Value(d.coeff(i)));
-        return result;
-    }
-
-    /// Inequality comparison operation
-    ENOKI_INLINE auto neq_(const Derived &d) const {
-        mask_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = neq(Value(coeff(i)), Value(d.coeff(i)));
-        return result;
-    }
-
-    /// Less than comparison operation
-    ENOKI_INLINE auto lt_(const Derived &d) const {
-        mask_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = coeff(i) < d.coeff(i);
-        return result;
-    }
-
-    /// Less than or equal comparison operation
-    ENOKI_INLINE auto le_(const Derived &d) const {
-        mask_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = coeff(i) <= d.coeff(i);
-        return result;
-    }
-
-    /// Greater than comparison operation
-    ENOKI_INLINE auto gt_(const Derived &d) const {
-        mask_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = coeff(i) > d.coeff(i);
-        return result;
-    }
-
-    /// Greater than or equal comparison operation
-    ENOKI_INLINE auto ge_(const Derived &d) const {
-        mask_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = coeff(i) >= d.coeff(i);
-        return result;
-    }
-
-    /// Absolute value
-    ENOKI_INLINE auto abs_() const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = abs(coeff(i));
-        return result;
-    }
-
-    /// Square root
-    ENOKI_INLINE auto sqrt_() const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = sqrt(coeff(i));
-        return result;
-    }
-
-    /// Round to smallest integral value not less than argument
-    ENOKI_INLINE auto ceil_() const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = ceil(coeff(i));
-        return result;
-    }
-
-    /// Round to largest integral value not greater than argument
-    ENOKI_INLINE auto floor_() const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = floor(coeff(i));
-        return result;
-    }
-
-    /// Round to integral value
-    ENOKI_INLINE auto round_() const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = round(coeff(i));
-        return result;
-    }
-
-    /// Element-wise maximum
-    ENOKI_INLINE auto max_(const Derived &d) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = max(coeff(i), d.coeff(i));
-        return result;
-    }
-
-    /// Element-wise minimum
-    ENOKI_INLINE auto min_(const Derived &d) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = min(coeff(i), d.coeff(i));
-        return result;
-    }
-
-    /// Fused multiply-add
-    ENOKI_INLINE auto fmadd_(const Derived &d1, const Derived &d2) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = fmadd(coeff(i), d1.coeff(i), d2.coeff(i));
-        return result;
-    }
-
-    /// Fused negative multiply-add
-    ENOKI_INLINE auto fnmadd_(const Derived &d1, const Derived &d2) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = fnmadd(coeff(i), d1.coeff(i), d2.coeff(i));
-        return result;
-    }
-
-    /// Fused multiply-subtract
-    ENOKI_INLINE auto fmsub_(const Derived &d1, const Derived &d2) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = fmsub(coeff(i), d1.coeff(i), d2.coeff(i));
-        return result;
-    }
-
-    /// Fused negative multiply-subtract
-    ENOKI_INLINE auto fnmsub_(const Derived &d1, const Derived &d2) const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = fnmsub(coeff(i), d1.coeff(i), d2.coeff(i));
-        return result;
-    }
-
-    /// Square root of the reciprocal
-    ENOKI_INLINE auto rsqrt_() const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = rsqrt<Approx_>(coeff(i));
-        return result;
-    }
-
-    /// Reciprocal
-    ENOKI_INLINE auto rcp_() const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = rcp<Approx_>(coeff(i));
-        return result;
-    }
-
-    /// Exponential function
-    ENOKI_INLINE auto exp_() const {
-        if (std::is_arithmetic<Value>::value && !has_avx512er) {
-            return Base::exp_();
-        } else {
-            expr_t<Derived> result;
-            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-                result.coeff(i) = exp<Approx_>(coeff(i));
-            return result;
-        }
-    }
-
-    /// Ternary operator -- select between to values based on mask
-    template <typename Mask>
-    static ENOKI_INLINE auto select_(const Mask &m, const Derived &t, const Derived &f) {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = select(m.coeff(i), t.coeff(i), f.coeff(i));
-        return result;
-    }
-
-    /// Population count
-    ENOKI_INLINE auto popcnt_() const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = popcnt(coeff(i));
-        return result;
-    }
-
-    /// Leading zero count
-    ENOKI_INLINE auto lzcnt_() const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = lzcnt(coeff(i));
-        return result;
-    }
-
-    /// Trailing zero count
-    ENOKI_INLINE auto tzcnt_() const {
-        expr_t<Derived> result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.coeff(i) = tzcnt(coeff(i));
-        return result;
-    }
-
-    //! @}
-    // -----------------------------------------------------------------------
-
-    // -----------------------------------------------------------------------
-    //! @{ \name Generic implementations of horizontal operations
-    // -----------------------------------------------------------------------
-
-    /// Horizontal sum
-    ENOKI_INLINE Value hsum_() const {
-        Value result = coeff(0);
-        ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
-            result += coeff(i);
-        return result;
-    }
-
-    /// Horizontal product
-    ENOKI_INLINE Value hprod_() const {
-        Value result = coeff(0);
-        ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
-            result *= coeff(i);
-        return result;
-    }
-
-    /// Horizontal maximum
-    ENOKI_INLINE Value hmax_() const {
-        Value result = coeff(0);
-        ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
-            result = max(result, coeff(i));
-        return result;
-    }
-
-    /// Horizontal minimum
-    ENOKI_INLINE Value hmin_() const {
-        Value result = coeff(0);
-        ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
-            result = min(result, coeff(i));
-        return result;
-    }
-
-    /// Check if all mask bits are set
-    ENOKI_INLINE Value all_() const {
-        Value result = coeff(0);
-        ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
-            result = result & coeff(i);
-        return result;
-    }
-
-    /// Check if any mask bits are set
-    ENOKI_INLINE Value any_() const {
-        Value result = coeff(0);
-        ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
-            result = result | coeff(i);
-        return result;
-    }
-
-    /// Check if none of the mask bits are set
-    ENOKI_INLINE Value none_() const {
-        Value result = coeff(0);
-        ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
-            result = result | coeff(i);
-        return !result;
-    }
-
-    /// Count the number of active mask bits
-    ENOKI_INLINE auto count_() const {
-        using Int = value_t<size_array_t<array_t<Derived>>>;
-        const Int one(1);
-        Int result(0);
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            masked(result, coeff(i)) += one;
-        return result;
-    }
-
-    /// Dot product
-    ENOKI_INLINE Value dot_(const Derived &arg) const {
-        Value result = coeff(0) * arg.coeff(0);
-        ENOKI_CHKSCALAR for (size_t i = 1; i < Size; ++i)
-            result = fmadd(coeff(i), arg.coeff(i), result);
-        return result;
-    }
-
-    //! @}
-    // -----------------------------------------------------------------------
-
-    // -----------------------------------------------------------------------
-    //! @{ \name Element access
-    // -----------------------------------------------------------------------
-
-    ENOKI_INLINE Element &coeff(size_t i) { ENOKI_CHKSCALAR return m_data[i]; }
-    ENOKI_INLINE const Element &coeff(size_t i) const { ENOKI_CHKSCALAR return m_data[i]; }
 
     /// Recursive array indexing operator (const)
-    template <typename... Args, std::enable_if_t<(sizeof...(Args) >= 1), int> = 0>
+    template <typename... Args, enable_if_t<(sizeof...(Args) >= 1)> = 0>
     ENOKI_INLINE decltype(auto) coeff(size_t i0, Args... other) const {
         return coeff(i0).coeff(size_t(other)...);
     }
 
     /// Recursive array indexing operator
-    template <typename... Args, std::enable_if_t<(sizeof...(Args) >= 1), int> = 0>
+    template <typename... Args, enable_if_t<(sizeof...(Args) >= 1)> = 0>
     ENOKI_INLINE decltype(auto) coeff(size_t i0, Args... other) {
         return coeff(i0).coeff(size_t(other)...);
     }
 
-    //! @}
-    // -----------------------------------------------------------------------
-
-    // -----------------------------------------------------------------------
-    //! @{ \name Higher-level functions
-    // -----------------------------------------------------------------------
-
-    #define ENOKI_FORWARD_FUNCTION(name)                                     \
-        auto name##_() const {                                               \
-            expr_t<Derived> result;                                          \
-            if (std::is_arithmetic<Value>::value) {                          \
-                result = Base::name##_();                                    \
-            } else {                                                         \
-                ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)            \
-                    result.coeff(i) = name(coeff(i));                        \
-            }                                                                \
-            return result;                                                   \
-        }
-
-    auto pow_(const Derived &arg) const {
-        expr_t<Derived> result;
-        if (std::is_arithmetic<Value>::value) {
-            result = Base::pow_(arg);
-        } else {
-            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-                result.coeff(i) = pow(coeff(i), arg.coeff(i));
-        }
-        return result;
-    }
-
-    auto ldexp_(const Derived &arg) const {
-        expr_t<Derived> result;
-        if (std::is_arithmetic<Value>::value && !has_avx512f) {
-            result = Base::ldexp_(arg);
-        } else {
-            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-                result.coeff(i) = ldexp(coeff(i), arg.coeff(i));
-        }
-        return result;
-    }
-
-    auto frexp_() const {
-        std::pair<expr_t<Derived>, expr_t<Derived>> result;
-        if (std::is_arithmetic<Value>::value && !has_avx512f) {
-            result = Base::frexp_();
-        } else {
-            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-                std::tie(result.first.coeff(i), result.second.coeff(i)) = frexp(coeff(i));
-        }
-        return result;
-    }
-
-    auto sincos_() const {
-        std::pair<expr_t<Derived>, expr_t<Derived>> result;
-        if (std::is_arithmetic<Value>::value) {
-            result = Base::sincos_();
-        } else {
-            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-                std::tie(result.first.coeff(i), result.second.coeff(i)) = sincos(coeff(i));
-        }
-        return result;
-    }
-
-    auto sincosh_() const {
-        std::pair<expr_t<Derived>, expr_t<Derived>> result;
-        if (std::is_arithmetic<Value>::value) {
-            result = Base::sincosh_();
-        } else {
-            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-                std::tie(result.first.coeff(i), result.second.coeff(i)) = sincosh(coeff(i));
-        }
-        return result;
-    }
-
-    ENOKI_FORWARD_FUNCTION(log)
-    ENOKI_FORWARD_FUNCTION(sin)
-    ENOKI_FORWARD_FUNCTION(sinh)
-    ENOKI_FORWARD_FUNCTION(cos)
-    ENOKI_FORWARD_FUNCTION(cosh)
-    ENOKI_FORWARD_FUNCTION(tan)
-    ENOKI_FORWARD_FUNCTION(tanh)
-    ENOKI_FORWARD_FUNCTION(csc)
-    ENOKI_FORWARD_FUNCTION(csch)
-    ENOKI_FORWARD_FUNCTION(sec)
-    ENOKI_FORWARD_FUNCTION(sech)
-    ENOKI_FORWARD_FUNCTION(cot)
-    ENOKI_FORWARD_FUNCTION(coth)
-    ENOKI_FORWARD_FUNCTION(asin)
-    ENOKI_FORWARD_FUNCTION(asinh)
-    ENOKI_FORWARD_FUNCTION(acos)
-    ENOKI_FORWARD_FUNCTION(acosh)
-    ENOKI_FORWARD_FUNCTION(atan)
-    ENOKI_FORWARD_FUNCTION(atanh)
-
-    #undef ENOKI_FORWARD_FUNCTION
-
-    //! @}
-    // -----------------------------------------------------------------------
-
-    // -----------------------------------------------------------------------
-    //! @{ \name Initialization, loading/writing data
-    // -----------------------------------------------------------------------
-
-    static ENOKI_INLINE auto zero_() { return expr_t<Derived>(Value(0)); }
-
-    template <typename T = Derived,
-              std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
-    static ENOKI_INLINE Derived load_(const void *ptr) {
-        Derived result;
-        if (std::is_arithmetic<Value>::value) {
-            memcpy(result.m_data.data(), ptr, sizeof(Value) * Size);
-        } else {
-            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-                result.m_data[i] = load<Value>(static_cast<const Value *>(ptr) + i);
-        }
-        return result;
-    }
-
-    template <typename T = Derived, typename Mask,
-              std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
-    static ENOKI_INLINE Derived load_(const void *ptr, const Mask &mask) {
-        Derived result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.m_data[i] = load<Value>(static_cast<const Value *>(ptr) + i, mask.coeff(i));
-        return result;
-    }
-
-    template <typename T = Derived,
-              std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
-    static ENOKI_INLINE Derived load_unaligned_(const void *ptr) {
-        Derived result;
-        if (std::is_arithmetic<Value>::value) {
-            memcpy(result.m_data.data(), ptr, sizeof(Value) * Size);
-        } else {
-            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-                result.m_data[i] = load_unaligned<Value>(static_cast<const Value *>(ptr) + i);
-        }
-        return result;
-    }
-
-    template <typename T = Derived, typename Mask,
-              std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
-    static ENOKI_INLINE Derived load_unaligned_(const void *ptr, const Mask &mask) {
-        Derived result;
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            result.m_data[i] = load_unaligned<Value>(static_cast<const Value *>(ptr) + i, mask.coeff(i));
-        return result;
-    }
-
-    void store_(void *ptr) const {
-        if (std::is_arithmetic<Value>::value) {
-            memcpy(ptr, m_data.data(), sizeof(Value) * Size);
-        } else {
-            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-                store<Value>((void *) (static_cast<Value *>(ptr) + i), coeff(i));
-        }
-    }
-
-    template <typename Mask>
-    void store_(void *ptr, const Mask &mask) const {
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            store<Value>((void *) (static_cast<Value *>(ptr) + i), coeff(i), mask.coeff(i));
-    }
-
-    void store_unaligned_(void *ptr) const {
-        if (std::is_arithmetic<Value>::value) {
-            memcpy(ptr, m_data.data(), sizeof(Value) * Size);
-        } else {
-            ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-                store_unaligned<Value>((void *) (static_cast<Value *>(ptr) + i), coeff(i));
-        }
-    }
-
-    template <typename Mask>
-    void store_unaligned_(void *ptr, const Mask &mask) const {
-        ENOKI_CHKSCALAR for (size_t i = 0; i < Size; ++i)
-            store_unaligned<Value>((void *) (static_cast<Value *>(ptr) + i), coeff(i), mask.coeff(i));
-    }
-
-    //! @}
-    // -----------------------------------------------------------------------
+    StorageType *data() { return m_data.data(); }
+    const StorageType *data() const { return m_data.data(); }
 
 private:
     std::array<StorageType, Size> m_data;
-};
-
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived_, typename SFINAE = void>
-struct StaticMaskImpl : StaticArrayImpl<mask_t<Value_>, Size_, false, RoundingMode::Default, Derived_> {
-    using Base = StaticArrayImpl<mask_t<Value_>, Size_, false, RoundingMode::Default, Derived_>;
-    using Base::Base;
-    using Base::operator=;
-    using Base::data;
-
-    StaticMaskImpl() = default;
-};
-
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived_>
-struct StaticMaskImpl<Value_, Size_, Approx_, Mode_, Derived_,
-                      std::enable_if_t<Array<Value_, Size_, Approx_, Mode_>::IsNative &&
-                                       std::is_arithmetic<Value_>::value &&
-                                       sizeof(Value_) * Size_ * 8 != 512 /* AVX512 is handled specially */ >>
-    : StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived_> {
-    StaticMaskImpl() = default;
-    using Base = StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived_>;
-    using Base::Base;
-    using Base::operator=;
-};
-
-/// Enumeration support
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived_>
-struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived_,
-                       std::enable_if_t<std::is_enum<Value_>::value>>
-    : StaticArrayImpl<std::underlying_type_t<Value_>, Size_, Approx_, Mode_, Derived_> {
-
-    using UnderlyingType = std::underlying_type_t<Value_>;
-    using Base = StaticArrayImpl<UnderlyingType, Size_, Approx_, Mode_, Derived_>;
-    using Base::Base;
-    using Base::operator=;
-
-    using Value = Value_;
-    using Scalar = Value_;
-
-    StaticArrayImpl()  = default;
-    StaticArrayImpl(Value value) : Base(UnderlyingType(value)) { }
-
-    ENOKI_INLINE const Value& coeff(size_t i) const { return (Value &) Base::coeff(i); }
-    ENOKI_INLINE Value& coeff(size_t i) { return (Value &) Base::coeff(i); }
-};
-
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived_>
-struct StaticMaskImpl<Value_, Size_, Approx_, Mode_, Derived_, std::enable_if_t<std::is_enum<Value_>::value>>
-    : StaticMaskImpl<std::underlying_type_t<Value_>, Size_, Approx_, Mode_, Derived_> {
-    StaticMaskImpl() = default;
-    using Base = StaticMaskImpl<std::underlying_type_t<Value_>, Size_, Approx_, Mode_, Derived_>;
-    using Base::Base;
-    using Base::operator=;
-};
-
-/// Pointer support
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived_>
-struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, Derived_,
-    std::enable_if_t<std::is_pointer<Value_>::value && !std::is_arithmetic<std::remove_pointer_t<Value_>>::value>>
-    : StaticArrayImpl<std::uintptr_t, Size_, Approx_, Mode_, Derived_> {
-
-    using UnderlyingType = std::uintptr_t;
-    using Base = StaticArrayImpl<UnderlyingType, Size_, Approx_, Mode_, Derived_>;
-
-    using Base::Base;
-    using Base::operator=;
-    using Base::derived;
-    using Value = Value_;
-    using Scalar = Value_;
-
-    StaticArrayImpl() = default;
-    StaticArrayImpl(Value value) : Base(UnderlyingType(value)) { }
-
-    ENOKI_INLINE const Value& coeff(size_t i) const { return (Value &) Base::coeff(i); }
-    ENOKI_INLINE Value& coeff(size_t i) { return (Value &) Base::coeff(i); }
-
-    call_support<Derived_, Derived_> operator->() const {
-        return call_support<Derived_, Derived_>(derived());
-    }
-};
-
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived_>
-struct StaticMaskImpl<Value_, Size_, Approx_, Mode_, Derived_,
-    std::enable_if_t<std::is_pointer<Value_>::value && !std::is_arithmetic<std::remove_pointer_t<Value_>>::value>>
-    : StaticMaskImpl<std::uintptr_t, Size_, Approx_, Mode_, Derived_> {
-    StaticMaskImpl() = default;
-    using Base = StaticMaskImpl<std::uintptr_t, Size_, Approx_, Mode_, Derived_>;
-    using Base::Base;
-    using Base::operator=;
-};
-
-template <typename PacketType_, typename Storage_> struct call_support_base {
-    using PacketType = PacketType_;
-    using Storage = Storage_;
-    using Instance = value_t<PacketType>;
-    using Mask = mask_t<PacketType>;
-    call_support_base(const Storage &self) : self(self) { }
-    const Storage &self;
-
-    template <typename Func, typename InputMask, typename... Args,
-              typename Result = decltype(std::declval<Func>()(
-                  std::declval<Instance>(), std::declval<Args>()...,
-                  std::declval<Mask>())),
-              std::enable_if_t<!std::is_void<Result>::value, int> = 0>
-    ENOKI_INLINE Result dispatch_2(Func&& func, InputMask&& mask_, Args&&... args) {
-        Mask mask(mask_);
-        Result result = zero<Result>();
-        mask &= neq(self, nullptr);
-
-        while (any(mask)) {
-            Instance value         = extract(self, mask);
-            Mask active            = mask & eq(self, PacketType(value));
-            mask                   = andnot(mask, active);
-            masked(result, active) = func(value, args..., active);
-        }
-
-        return result;
-    }
-
-    template <typename Func, typename InputMask, typename... Args,
-              typename Result = decltype(std::declval<Func>()(
-                  std::declval<Instance>(), std::declval<Args>()...,
-                  std::declval<Mask>())),
-              std::enable_if_t<std::is_void<Result>::value, int> = 0>
-    ENOKI_INLINE void dispatch_2(Func &&func, InputMask&& mask_, Args&&... args) {
-        Mask mask(mask_);
-        mask &= neq(self, nullptr);
-
-        while (any(mask)) {
-            Instance value = extract(self, mask);
-            Mask active    = mask & eq(self, PacketType(value));
-            mask           = andnot(mask, active);
-            func(value, args..., active);
-        }
-    }
-
-    template <typename Func, typename InputMask, typename... Args,
-              typename Result = decltype(std::declval<Func>()(
-                  std::declval<Instance>(), std::declval<Args>()...)),
-              typename ResultArray = array_t<like_t<Mask, Result>>,
-              std::enable_if_t<!std::is_void<Result>::value, int> = 0>
-    ENOKI_INLINE ResultArray dispatch_scalar_2(Func &&func, InputMask&& mask_, Args&&... args) {
-        Mask mask(mask_);
-        ResultArray result = zero<Result>();
-        mask &= neq(self, nullptr);
-
-        while (any(mask)) {
-            Instance value          = extract(self, mask);
-            Mask active             = mask & eq(self, PacketType(value));
-            mask                    = andnot(mask, active);
-            masked(result, active)  = func(value, args...);
-        }
-
-        return result;
-    }
-
-    template <typename Func, typename InputMask, typename... Args,
-              typename Result = decltype(std::declval<Func>()(
-                  std::declval<Instance>(), std::declval<Args>()...)),
-              std::enable_if_t<std::is_void<Result>::value, int> = 0>
-    ENOKI_INLINE void dispatch_scalar_2(Func &&func, InputMask&& mask_, Args&&... args) {
-        Mask mask(mask_);
-        mask &= neq(self, nullptr);
-
-        while (any(mask)) {
-            Instance value  = extract(self, mask);
-            mask           &= neq(self, PacketType(value));
-            func(value, args...);
-        }
-    }
-
-    template <typename Func, typename Tuple, size_t... Indices,
-              std::enable_if_t<is_mask<detail::tuple_tail_t<Tuple>>::value, int> = 0>
-    decltype(auto) dispatch_1(Func &&func, Tuple &&args, std::index_sequence<Indices...>) {
-        (void) args; /* Don't warn if the function takes no arguments */
-        return dispatch_2(func, std::get<(Indices + sizeof...(Indices) - 1) %
-                                  sizeof...(Indices)>(args)...);
-    }
-
-    template <typename Func, typename Tuple, size_t... Indices,
-              std::enable_if_t<!is_mask<detail::tuple_tail_t<Tuple>>::value, int> = 0>
-    decltype(auto) dispatch_1(Func &&func, Tuple &&args, std::index_sequence<Indices...>) {
-        (void) args; /* Don't warn if the function takes no arguments */
-        return dispatch_2(func, true, std::get<Indices>(args)...);
-    }
-
-    template <typename Func, typename Tuple, size_t... Indices,
-              std::enable_if_t<is_mask<detail::tuple_tail_t<Tuple>>::value, int> = 0>
-    decltype(auto) dispatch_scalar_1(Func &&func, Tuple &&args, std::index_sequence<Indices...>) {
-        (void) args; /* Don't warn if the function takes no arguments */
-        return dispatch_scalar_2(func, std::get<(Indices + sizeof...(Indices) - 1) %
-                                 sizeof...(Indices)>(args)...);
-    }
-
-    template <typename Func, typename Tuple, size_t... Indices,
-              std::enable_if_t<!is_mask<detail::tuple_tail_t<Tuple>>::value, int> = 0>
-    decltype(auto) dispatch_scalar_1(Func &&func, Tuple &&args, std::index_sequence<Indices...>) {
-        (void) args; /* Don't warn if the function takes no arguments */
-        return dispatch_scalar_2(func, true, std::get<Indices>(args)...);
-    }
-};
-
-#define ENOKI_CALL_SUPPORT_BEGIN(PacketType)                                   \
-    namespace enoki {                                                          \
-    template <typename Storage>                                                \
-    struct call_support<PacketType, Storage>                                   \
-        : call_support_base<PacketType, Storage> {                             \
-        using Base = call_support_base<PacketType, Storage>;                   \
-        using Base::Base;                                                      \
-        using Base::self;                                                      \
-        using Instance = std::remove_pointer_t<typename Base::Instance>;       \
-        auto operator-> () { return this; }
-
-#define ENOKI_CALL_SUPPORT_GENERIC(name, dispatch)                             \
-    template <typename... Args, typename T = Storage,                          \
-              enable_if_static_array_t<T> = 0>                                 \
-    ENOKI_INLINE decltype(auto) name(Args&&... args) {                         \
-        return Base::dispatch(                                                 \
-            [](Instance *s, auto&&... args2) { return s->name(args2...); },    \
-            std::forward_as_tuple(args...),                                    \
-            std::make_index_sequence<sizeof...(Args)>()                        \
-        );                                                                     \
-    }                                                                          \
-    template <typename... Args, typename T = Storage,                          \
-              enable_if_dynamic_array_t<T> = 0>                                \
-    ENOKI_INLINE decltype(auto) name(Args&&... args) {                         \
-        return vectorize([](auto self_p, auto&&... args_p) {                   \
-                             return self_p->name(args_p...);                   \
-                         }, self, args...);                                    \
-    }
-
-#define ENOKI_CALL_SUPPORT(name)                                               \
-    ENOKI_CALL_SUPPORT_GENERIC(name, dispatch_1)
-#define ENOKI_CALL_SUPPORT_SCALAR(name)                                        \
-    ENOKI_CALL_SUPPORT_GENERIC(name, dispatch_scalar_1)
-
-#define ENOKI_CALL_SUPPORT_END(PacketType)                                     \
-        };                                                                     \
-    }
-
-//! @}
-// -----------------------------------------------------------------------
-
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
-struct Array : StaticArrayImpl<Value_, Size_, Approx_, Mode_,
-                               Array<Value_, Size_, Approx_, Mode_>> {
-
-    using Base = StaticArrayImpl<Value_, Size_, Approx_, Mode_,
-                                 Array<Value_, Size_, Approx_, Mode_>>;
-    using MaskType = Mask<Value_, Size_, Approx_, Mode_>;
-
-    /// Type alias for creating a similar-shaped array over a different type
-    template <typename T>
-    using ReplaceType = Array<T, Size_,
-          detail::is_std_float<scalar_t<T>>::value ? Approx_ : detail::approx_default<T>::value,
-          detail::is_std_float<scalar_t<T>>::value ? Mode_ : RoundingMode::Default>;
-
-    ENOKI_DECLARE_ARRAY(Base, Array)
-};
-
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
-struct Array<detail::MaskedArray<Value_>, Size_, Approx_, Mode_>
-    : detail::MaskedArray<Array<Value_, Size_, Approx_, Mode_>> {
-    using Base = detail::MaskedArray<Array<Value_, Size_, Approx_, Mode_>>;
-    using Base::Base;
-    using Base::operator=;
-    Array(const Base &b) : Base(b) { }
-};
-
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
-struct Packet : StaticArrayImpl<Value_, Size_, Approx_, Mode_,
-                               Packet<Value_, Size_, Approx_, Mode_>> {
-
-    using Base = StaticArrayImpl<Value_, Size_, Approx_, Mode_,
-                                 Packet<Value_, Size_, Approx_, Mode_>>;
-    using MaskType = PacketMask<Value_, Size_, Approx_, Mode_>;
-    static constexpr bool PrefersBroadcast = true;
-
-    /// Type alias for creating a similar-shaped array over a different type
-    template <typename T>
-    using ReplaceType = Packet<T, Size_,
-          detail::is_std_float<scalar_t<T>>::value ? Approx_ : detail::approx_default<T>::value,
-          detail::is_std_float<scalar_t<T>>::value ? Mode_ : RoundingMode::Default>;
-
-    ENOKI_DECLARE_ARRAY(Base, Packet)
-};
-
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
-struct Mask : StaticMaskImpl<Value_, Size_, Approx_, Mode_, Mask<Value_, Size_, Approx_, Mode_>> {
-    using Base = StaticMaskImpl<Value_, Size_, Approx_, Mode_, Mask<Value_, Size_, Approx_, Mode_>>;
-
-    using ArrayType = Array<Value_, Size_, Approx_, Mode_>;
-    using MaskType = Mask;
-    using typename Base::Scalar;
-    static constexpr bool BaseIsMask = Base::IsMask;
-
-    /// Type alias for creating a similar-shaped array over a different type
-    template <typename T> using ReplaceType = Mask<T, Size_>;
-
-    /// Turn mask casts into reinterpreting casts
-    template <typename T
-#if !defined(__clang__)
-    /* Clang handles resolution order of imported constructors
-       differently and doesn't require this extra check to avoid
-       ambiguity errors */
-    , typename T2 = Mask, std::enable_if_t<!T2::BaseIsMask, int> = 0
-#endif
-    >
-    ENOKI_INLINE Mask(const T &value)
-        : Mask(value, detail::reinterpret_flag()) { }
-
-    ENOKI_INLINE Mask(const int &value)
-        : Mask((bool) value, detail::reinterpret_flag()) { }
-
-    /// Initialize mask with a uniform constant
-    template <typename T, typename T2 = Mask,
-              std::enable_if_t<std::is_arithmetic<T>::value
-#if !defined(__clang__)
-        && !T2::BaseIsMask
-#endif
-    , int> = 0>
-    ENOKI_INLINE Mask(const T &value, detail::reinterpret_flag, int = 0)
-        : Base(reinterpret_array<Scalar>(value)) { }
-
-    auto eq_(const Mask &other) const {
-        return ~(other ^ *this);
-    }
-
-    auto neq_(const Mask &other) const {
-        return other ^ *this;
-    }
-
-    ENOKI_DECLARE_ARRAY(Base, Mask)
-};
-
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
-struct PacketMask : StaticMaskImpl<Value_, Size_, Approx_, Mode_, PacketMask<Value_, Size_, Approx_, Mode_>> {
-    using Base = StaticMaskImpl<Value_, Size_, Approx_, Mode_, PacketMask<Value_, Size_, Approx_, Mode_>>;
-    using ArrayType = Packet<Value_, Size_, Approx_, Mode_>;
-    using MaskType = PacketMask;
-    using typename Base::Scalar;
-    static constexpr bool IsMask = true;
-    static constexpr bool BaseIsMask = Base::IsMask;
-    static constexpr bool PrefersBroadcast = true;
-
-    /// Type alias for creating a similar-shaped array over a different type
-    template <typename T> using ReplaceType = PacketMask<T, Size_>;
-
-    /// Turn mask casts into reinterpreting casts
-    template <typename T
-#if !defined(__clang__)
-    /* Clang handles resolution order of imported constructors
-       differently and doesn't require this extra check to avoid
-       ambiguity errors */
-    , typename T2 = PacketMask, std::enable_if_t<!T2::BaseIsMask, int> = 0
-#endif
-    >
-    ENOKI_INLINE PacketMask(const T &value)
-        : PacketMask(value, detail::reinterpret_flag()) { }
-
-    ENOKI_INLINE PacketMask(const int &value)
-        : PacketMask((bool) value, detail::reinterpret_flag()) { }
-
-    /// Initialize mask with a uniform constant
-    template <typename T, typename T2 = PacketMask,
-              std::enable_if_t<std::is_arithmetic<T>::value
-#if !defined(__clang__)
-        && !T2::BaseIsMask
-#endif
-    , int> = 0>
-    ENOKI_INLINE PacketMask(const T &value, detail::reinterpret_flag, int = 0)
-        : Base(reinterpret_array<Scalar>(value)) { }
-
-    auto eq_(const PacketMask &other) const {
-        return ~(other ^ *this);
-    }
-
-    auto neq_(const PacketMask &other) const {
-        return other ^ *this;
-    }
-
-    ENOKI_DECLARE_ARRAY(Base, PacketMask)
 };
 
 NAMESPACE_END(enoki)

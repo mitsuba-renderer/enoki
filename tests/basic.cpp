@@ -36,8 +36,8 @@ ENOKI_TEST_ALL(test00_align) {
 #endif
 
     using Packet     = T;
-    using Vector4x   = Array<Value, 4>;
-    using Vector4xr  = Array<Value&, 4>;
+    using Vector4x   = Array<Value, 4, T::Approx>;
+    using Vector4xr  = Array<Value&, 4, T::Approx>;
     using Vector4xP  = Array<Packet, 4>;
     using Vector4xPr = Array<Packet&, 4>;
 
@@ -47,15 +47,8 @@ ENOKI_TEST_ALL(test00_align) {
     static_assert(std::is_same<value_t<Vector4xP>,  Packet>::value, "value_t failure");
     static_assert(std::is_same<value_t<Vector4xPr>, Packet&>::value, "value_t failure");
 
-    using DoubleP    = Array<double, Packet::Size, Vector4xP::Approx>;
-
-    using Vector4x   = Array<Value, 4>;
-    using Vector4xr  = Array<Value&, 4>;
-
-    using Vector4xP  = Array<Packet, 4>;
-    using Vector4xPr = Array<Packet&, 4>;
-
-    using Vector4d   = Array<double, 4, Vector4x::Approx>;
+    using DoubleP    = Array<double, array_size_v<T>, is_std_float_v<Value> ? array_approx_v<T> : true>;
+    using Vector4d   = Array<double, 4, is_std_float_v<Value> ? array_approx_v<T> : true>;
     using Vector4dP  = Array<DoubleP, 4>;
 
     /* Non-array input */
@@ -402,7 +395,7 @@ void test19_lowhi_impl() {
 template <typename T,
           std::enable_if_t<T::Size == (T::Size / 2) * 2, int> = 0>
 void test19_lowhi_impl() {
-    auto value = index_sequence<T>();
+    auto value = arange<T>();
     assert(T(low(value), high(value)) == value);
     assert(concat(low(value), high(value)) == value);
 }
@@ -410,14 +403,14 @@ ENOKI_TEST_ALL(test19_lowhi) { test19_lowhi_impl<T>(); }
 
 ENOKI_TEST_ALL(test20_iterator) {
     Value j(0);
-    for (Value i : index_sequence<T>()) {
+    for (Value i : arange<T>()) {
         assert(i == j);
         j += 1;
     }
 }
 
 ENOKI_TEST_ALL(test21_mask_assign) {
-    T x = index_sequence<T>();
+    T x = arange<T>();
     x[x > Value(0)] = x + Value(1);
     if (Size >= 2) {
         assert(x.coeff(0) == Value(0));
@@ -468,7 +461,7 @@ ENOKI_TEST_ALL(test24_fmaddsub) {
 }
 
 ENOKI_TEST_ALL(test25_rorl_array) {
-    auto a = index_sequence<T>();
+    auto a = arange<T>();
     auto b = ror_array<2>(a);
     auto c = rol_array<2>(b);
     assert(a == c);
@@ -523,7 +516,8 @@ ENOKI_TEST_ALL(test28_mask_from_int) {
 
 ENOKI_TEST_ALL(test29_pointer_arithmetic) {
     /* Power of two sized instance */ {
-        struct Class { uint32_t x;};
+        struct Class { uint32_t x; };
+        static_assert(sizeof(Class) == 4);
         using ClassP = Packet<Class*, Size>;
         using UInt32P = Packet<uint32_t, Size>;
 
@@ -545,6 +539,7 @@ ENOKI_TEST_ALL(test29_pointer_arithmetic) {
 
     /* Non-power of two sized instance */ {
         struct Class { uint32_t x[3];};
+        static_assert(sizeof(Class) == 12);
         using ClassP = Packet<Class*, Size>;
         using UInt32P = Packet<uint32_t, Size>;
 

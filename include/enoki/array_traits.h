@@ -1,0 +1,472 @@
+/*
+    enoki/array_traits.h -- Type traits for Enoki arrays
+
+    Enoki is a C++ template library that enables transparent vectorization
+    of numerical kernels using SIMD instruction sets available on current
+    processor architectures.
+
+    Copyright (c) 2018 Wenzel Jakob <wenzel.jakob@epfl.ch>
+
+    All rights reserved. Use of this source code is governed by a BSD-style
+    license that can be found in the LICENSE file.
+*/
+
+#pragma once
+
+#include "fwd.h"
+#include <cstdint>
+#include <cmath>
+#include <cstring>
+#include <cassert>
+#include <array>
+#include <limits>
+#include <iostream>
+#include <string>
+#include <stdexcept>
+#include <tuple>
+
+NAMESPACE_BEGIN(enoki)
+
+// -----------------------------------------------------------------------
+//! @{ \name General type traits (not specific to Enoki arrays)
+// -----------------------------------------------------------------------
+
+/// Convenience wrapper around std::enable_if
+template <bool B> using enable_if_t = std::enable_if_t<B, int>;
+
+constexpr size_t Dynamic = (size_t) -1;
+
+namespace detail {
+    /// Identity function for types
+    template <typename T> struct identity {
+        using type = T;
+    };
+    template <typename T> using identity_t = typename identity<T>::type;
+
+    template <template <typename...> typename B, typename T>
+    struct is_base_of_impl {
+    private:
+        template <typename... Ts>
+        static constexpr std::true_type test(const B<Ts...> *);
+        static constexpr std::false_type test(...);
+
+    public:
+        using type = decltype(test(std::declval<T *>()));
+    };
+
+    template <typename, template <typename...> typename Op, typename... Ts>
+    struct detector : std::false_type { };
+
+    template <template <typename...> typename Op, typename... Ts>
+    struct detector<std::void_t<Op<Ts...>>, Op, Ts...>
+        : std::true_type { };
+
+    template <typename... > constexpr bool false_v = false;
+}
+
+template <template<typename ...> class Op, class... Args>
+constexpr bool is_detected_v = detail::detector<void, Op, Args...>::value;
+
+/// Check if 'T' is a subtype of a given template 'B'
+template <template <typename...> typename B, typename T>
+using is_base_of = typename detail::is_base_of_impl<B, T>::type;
+
+template <template <typename...> typename B, typename T>
+constexpr bool is_base_of_v = is_base_of<B, T>::value;
+
+/// Check if T is a 32 or 64 bit integer (supports both 'int' and 'long' family)
+template <typename T> using is_int32 = std::bool_constant<std::is_integral_v<T> && sizeof(T) == 4>;
+template <typename T> constexpr bool is_int32_v = is_int32<T>::value;
+
+template <typename T> using is_int64 = std::bool_constant<std::is_integral_v<T> && sizeof(T) == 8>;
+template <typename T> constexpr bool is_int64_v = is_int64<T>::value;
+
+template <typename T> constexpr bool is_float_v = std::is_same<T, float>::value;
+template <typename T> constexpr bool is_double_v = std::is_same<T, double>::value;
+
+template <typename T> using is_std_float = std::bool_constant<is_float_v<T> || is_double_v<T>>;
+template <typename T> constexpr bool is_std_float_v = is_std_float<T>::value;
+
+template <typename T> using is_std_int = std::bool_constant<is_int32_v<T> || is_int64_v<T>>;
+template <typename T> constexpr bool is_std_int_v = is_std_int<T>::value;
+
+template <typename T> using is_std_type = std::bool_constant<is_std_int_v<T> || is_std_float_v<T>>;
+template <typename T> constexpr bool is_std_type_v = is_std_type<T>::value;
+
+template <typename T> using enable_if_int32_t = enable_if_t<is_int32_v<T>>;
+template <typename T> using enable_if_int64_t = enable_if_t<is_int64_v<T>>;
+template <typename T> using enable_if_std_int_v = enable_if_t<is_std_int_v<T>>;
+template <typename T> using enable_if_std_float_v = enable_if_t<is_std_float_v<T>>;
+template <typename T> using enable_if_std_type_v = enable_if_t<is_std_type_v<T>>;
+
+template <typename T> constexpr bool is_scalar_v = std::is_scalar_v<std::decay_t<T>>;
+
+namespace detail {
+    /// Value equivalence between arithmetic type to work around subtle issues between 'long' vs 'long long' on OSX
+    template <typename T0, typename T1>
+    struct is_same {
+        static constexpr bool value =
+            sizeof(T0) == sizeof(T1) &&
+            std::is_floating_point_v<T0> == std::is_floating_point_v<T1> &&
+            std::is_signed_v<T0> == std::is_signed_v<T1> &&
+            std::is_arithmetic_v<T0> == std::is_arithmetic_v<T1>;
+    };
+
+    template <typename T0, typename T1>
+    static constexpr bool is_same_v = is_same<T0, T1>::value;
+
+    template <typename T> using has_size = std::enable_if_t<std::decay_t<T>::Size != Dynamic>;
+    template <typename T> constexpr bool has_size_v = is_detected_v<has_size, T>;
+
+    template <typename T> using is_masked_array = std::enable_if_t<T::IsMaskedArray>;
+    template <typename T> constexpr bool is_masked_array_v = is_detected_v<is_masked_array, T>;
+};
+
+//! @}
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+//! @{ \name Type traits for Enoki arrays
+// -----------------------------------------------------------------------
+
+/// Is 'T' an Enoki array? (any variant)
+template <typename T> using is_array = is_base_of<ArrayBase, std::decay_t<T>>;
+template <typename T> constexpr bool is_array_v = is_array<T>::value;
+template <typename T> using enable_if_array_t = enable_if_t<is_array_v<T>>;
+template <typename T> using enable_if_not_array_t = enable_if_t<!is_array_v<T>>;
+
+template <typename... Ts> using is_array_any = std::disjunction<is_array<Ts>...>;
+template <typename... Ts> constexpr bool is_array_any_v = is_array_any<Ts...>::value;
+template <typename... Ts> using enable_if_array_any_t = enable_if_t<is_array_any_v<Ts...>>;
+
+template <typename T> using is_static_array = std::bool_constant<is_array_v<T> && detail::has_size_v<T>>;
+template <typename T> constexpr bool is_static_array_v = is_static_array<T>::value;
+template <typename T> using enable_if_static_array_t = enable_if_t<is_static_array_v<T>>;
+
+template <typename T> using is_dynamic_array = std::bool_constant<is_array_v<T> && !detail::has_size_v<T>>;
+template <typename T> constexpr bool is_dynamic_array_v = is_dynamic_array<T>::value;
+template <typename T> using enable_if_dynamic_array_t = enable_if_t<is_dynamic_array_v<T>>;
+
+namespace detail {
+    template <typename T, typename = int> struct value {
+        using type = std::decay_t<T>;
+    };
+
+    template <typename T, typename = int> struct packet_ {
+        using type = std::decay_t<T>;
+    };
+
+    template <typename T> struct value<T, enable_if_array_t<T>> {
+        using type = typename std::decay_t<T>::Derived::Value;
+    };
+
+    template <typename T>
+    struct packet_<
+        T, enable_if_t<is_array_v<T> && !detail::is_masked_array_v<T>>> {
+        using type = typename std::decay_t<T>::Derived::Value;
+    };
+
+    template <typename T>
+    struct packet_<
+        T, enable_if_t<is_array_v<T> && detail::is_masked_array_v<T>>> {
+        using type = typename std::decay_t<T>::Derived::UnderlyingValue;
+    };
+}
+
+/// Type trait to access the value type of an array
+template <typename T> using value_t = typename detail::value<T>::type;
+
+/// Is 'T' an Enoki mask or a boolean?
+template <typename T, typename = int> struct is_mask {
+    static constexpr bool value = std::is_same_v<std::decay_t<T>, bool>;
+};
+
+template <typename T> struct is_mask<T, enable_if_array_t<T>> {
+    static constexpr bool value = std::decay_t<T>::Derived::IsMask;
+};
+
+template <typename T> constexpr bool is_mask_v = is_mask<T>::value;
+template <typename T> using enable_if_mask_t = enable_if_t<is_mask_v<T>>;
+
+/// Is 'T' implemented using a recursive implementation?
+template <typename T, typename = int> struct is_recursive_array {
+    static constexpr bool value = false;
+};
+
+template <typename T> struct is_recursive_array<T, enable_if_array_t<T>> {
+    static constexpr bool value = std::decay_t<T>::Derived::IsRecursive;
+};
+
+template <typename T> constexpr bool is_recursive_array_v = is_recursive_array<T>::value;
+template <typename T> using enable_if_recursive_t = enable_if_t<is_recursive_array_v<T>>;
+
+/// Does this array compute derivatives using automatic differentiation?
+template <typename T, typename = int> struct is_autodiff_array {
+    static constexpr bool value = false;
+};
+
+template <typename T> struct is_autodiff_array<T, enable_if_array_t<T>> {
+    static constexpr bool value = std::decay_t<T>::Derived::IsAutoDiff;
+};
+
+template <typename T> constexpr bool is_autodiff_array_v = is_autodiff_array<T>::value;
+template <typename T> using enable_if_autodiff_t = enable_if_t<is_autodiff_array_v<T>>;
+
+/// Determine the depth of a nested Enoki array (scalars evaluate to zero)
+template <typename T, typename = int> struct array_depth {
+    static constexpr size_t value = 0;
+};
+
+template <typename T> struct array_depth<T, enable_if_array_t<T>> {
+    static constexpr size_t value = std::decay_t<T>::Derived::Depth;
+};
+
+template <typename T> constexpr size_t array_depth_v = array_depth<T>::value;
+
+/// Determine the size of a nested Enoki array (scalars evaluate to one)
+template <typename T, typename = int> struct array_size {
+    static constexpr size_t value = 1;
+};
+
+template <typename T> struct array_size<T, enable_if_static_array_t<T>> {
+    static constexpr size_t value = std::decay_t<T>::Derived::Size;
+};
+
+template <typename T> struct array_size<T, enable_if_dynamic_array_t<T>> {
+    static constexpr size_t value = Dynamic;
+};
+
+template <typename T> constexpr size_t array_size_v = array_size<T>::value;
+
+namespace detail {
+    template <typename T, size_t>
+    struct prepend_index { };
+
+    template <size_t... Index, size_t Value>
+    struct prepend_index<std::index_sequence<Index...>, Value> {
+        using type = std::index_sequence<Value, Index...>;
+    };
+
+    template <typename T, size_t Value>
+    using prepend_index_t = typename prepend_index<T, Value>::type;
+};
+
+/// Determine the shape of an array
+template <typename T, typename = int> struct array_shape {
+    using type = std::index_sequence<>;
+};
+
+template <typename T>
+using array_shape_t = typename array_shape<T>::type;
+
+template <typename T> struct array_shape<T, enable_if_array_t<T>> {
+    using type = detail::prepend_index_t<array_shape_t<value_t<T>>, array_size_v<T>>;
+};
+
+namespace detail {
+    template <typename T, typename = int> struct scalar {
+        using type = std::decay_t<T>;
+    };
+
+    template <typename T> struct scalar<T, enable_if_array_t<T>> {
+        using type = typename std::decay_t<T>::Derived::Scalar;
+    };
+
+    template <typename T> using packet_t = typename detail::packet_<T>::type;
+}
+
+/// Type trait to access the base scalar type underlying a potentially nested array
+template <typename T> using scalar_t = typename detail::scalar<T>::type;
+
+namespace detail {
+    template <typename T, typename = int> struct mask { using type = bool; };
+
+    template <typename T> struct mask<T, enable_if_array_t<T>> {
+        using type = typename std::decay_t<T>::Derived::MaskType;
+    };
+
+    template <typename T, typename = int> struct array { };
+
+    template <typename T> struct array<T, enable_if_array_t<T>> {
+        using type = typename std::decay_t<T>::Derived::ArrayType;
+    };
+}
+
+/// Type trait to access the mask type underlying an array
+template <typename T> using mask_t = typename detail::mask<T>::type;
+
+/// Type trait to access the array type underlying a mask
+template <typename T> using array_t = typename detail::array<T>::type;
+
+/// Extract the most deeply nested Enoki array type from a list of arguments
+template <typename... Args> struct deepest_array;
+template <> struct deepest_array<> { using type = void; };
+
+template <typename Arg, typename... Args> struct deepest_array<Arg, Args...> {
+private:
+    using T0 = Arg;
+    using T1 = typename deepest_array<Args...>::type;
+
+    // Give precedence to dynamic arrays
+    static constexpr size_t D0 = array_depth_v<T0> + (is_dynamic_array_v<T0> ? 1 : 0);
+    static constexpr size_t D1 = array_depth_v<T1> + (is_dynamic_array_v<T1> ? 1 : 0);
+
+public:
+    using type = std::conditional_t<(D1 > D0 || D0 == 0), T1, T0>;
+};
+
+template <typename... Args> using deepest_array_t = typename deepest_array<Args...>::type;
+
+namespace detail {
+    template <typename... Ts> struct expr;
+};
+
+/// Type trait to compute the type of an arithmetic expression involving Ts...
+template <typename... Ts> using expr_t = typename detail::expr<Ts...>::type;
+
+namespace detail {
+    /// Type trait to compute the result of a unary expression
+    template <typename Array, typename T> struct expr_1;
+
+    template <typename T> struct expr_1<T, T> {
+    private:
+        using Td        = std::decay_t<T>;
+        using Entry     = value_t<T>;
+        using EntryExpr = expr_t<Entry>;
+
+    public:
+        using type = std::conditional_t<
+            std::is_same_v<Entry, EntryExpr>,
+            Td, typename Td::Derived::template ReplaceValue<EntryExpr>
+        >;
+    };
+
+    template <typename T>
+    struct expr_1<void, T> { using type = std::decay_t<T>; };
+
+    /// Type trait to compute the result of a n-ary expression involving types (T, Ts...)
+    template <typename Array, typename T, typename... Ts>
+    struct expr_n {
+    private:
+        using Value = expr_t<detail::packet_t<T>, detail::packet_t<Ts>...>;
+    public:
+        using type  = typename std::decay_t<Array>::Derived::template ReplaceValue<Value>;
+    };
+
+    template <typename T, typename... Ts>
+    struct expr_n<void, T, Ts...> {
+        using type = decltype(std::declval<T>() + std::declval<expr_t<Ts...>>());
+    };
+
+    template <typename T> struct expr_n<void, T*, T*> { using type = T*; };
+    template <typename T> struct expr_n<void, T*, const T*> { using type = const T*; };
+    template <typename T> struct expr_n<void, const T*, T*> { using type = const T*; };
+    template <typename T> struct expr_n<void, T*, std::nullptr_t> { using type = T*; };
+    template <typename T> struct expr_n<void, std::nullptr_t, T*> { using type = T*; };
+
+    /// Type trait to compute the result of arbitrary expressions
+    template <typename... Ts> struct expr    : detail::expr_n<deepest_array_t<Ts...>, Ts...> { };
+    template <typename T>     struct expr<T> : detail::expr_1<deepest_array_t<T>,     T>     { };
+}
+
+/// Array-specific definition of array_approx (defined in 'fwd.h')
+template <typename T> struct array_approx<T, enable_if_array_t<T>> {
+    static constexpr bool value = std::decay_t<T>::Derived::Approx;
+};
+
+namespace detail {
+    /// Convenience class to choose an arithmetic type based on its size and flavor
+    template <size_t Size> struct type_chooser { };
+
+    template <> struct type_chooser<1> {
+        using Int = int8_t;
+        using UInt = uint8_t;
+    };
+
+    template <> struct type_chooser<2> {
+        using Int = int16_t;
+        using UInt = uint16_t;
+        using Float = half;
+    };
+
+    template <> struct type_chooser<4> {
+        using Int = int32_t;
+        using UInt = uint32_t;
+        using Float = float;
+    };
+
+    template <> struct type_chooser<8> {
+        using Int = int64_t;
+        using UInt = uint64_t;
+        using Float = double;
+    };
+
+    /// Copy modifier flags (const/pointer/lvalue/rvalue reference from 'S' to 'T')
+    template <typename S, typename T> struct copy_flags {
+    private:
+        using R = std::remove_reference_t<S>;
+        using T1 = std::conditional_t<std::is_const<R>::value, std::add_const_t<T>, T>;
+        using T2 = std::conditional_t<std::is_pointer<S>::value,
+                                      std::add_pointer_t<T1>, T1>;
+        using T3 = std::conditional_t<std::is_lvalue_reference<S>::value,
+                                      std::add_lvalue_reference_t<T2>, T2>;
+        using T4 = std::conditional_t<std::is_rvalue_reference<S>::value,
+                                      std::add_rvalue_reference_t<T3>, T3>;
+
+    public:
+        using type = T4;
+    };
+
+    template <typename S, typename T>
+    using copy_flags_t = typename detail::copy_flags<S, T>::type;
+};
+
+/// Replace the base scalar type of a (potentially nested) array
+template <typename T, typename Value, bool CopyFlags = true, typename = int>
+struct replace_scalar { };
+
+template <typename T, typename Value, bool CopyFlags = true>
+using replace_scalar_t = typename replace_scalar<T, Value, CopyFlags>::type;
+
+template <typename T, typename Value, bool CopyFlags> struct replace_scalar<T, Value, CopyFlags, enable_if_not_array_t<T>> {
+    using type = std::conditional_t<CopyFlags, detail::copy_flags_t<T, Value>, Value>;
+};
+
+template <typename T, typename Value, bool CopyFlags> struct replace_scalar<T, Value, CopyFlags, enable_if_array_t<T>> {
+private:
+    using Entry = replace_scalar_t<detail::packet_t<T>, Value, CopyFlags>;
+    using Array = typename std::decay_t<T>::Derived::template ReplaceValue<Entry>;
+public:
+    using type = std::conditional_t<CopyFlags, detail::copy_flags_t<T, Array>, Array>;
+};
+
+/// Integer-based version of a given array class
+template <typename T, bool CopyFlags = true>
+using int_array_t = replace_scalar_t<T, typename detail::type_chooser<sizeof(scalar_t<T>)>::Int, CopyFlags>;
+
+/// Unsigned integer-based version of a given array class
+template <typename T, bool CopyFlags = true>
+using uint_array_t = replace_scalar_t<T, typename detail::type_chooser<sizeof(scalar_t<T>)>::UInt, CopyFlags>;
+
+/// Floating point-based version of a given array class
+template <typename T, bool CopyFlags = true>
+using float_array_t = replace_scalar_t<T, typename detail::type_chooser<sizeof(scalar_t<T>)>::Float, CopyFlags>;
+
+
+template <typename T, bool CopyFlags = true> using int32_array_t   = replace_scalar_t<T, int32_t, CopyFlags>;
+template <typename T, bool CopyFlags = true> using uint32_array_t  = replace_scalar_t<T, uint32_t, CopyFlags>;
+template <typename T, bool CopyFlags = true> using int64_array_t   = replace_scalar_t<T, int64_t, CopyFlags>;
+template <typename T, bool CopyFlags = true> using uint64_array_t  = replace_scalar_t<T, uint64_t, CopyFlags>;
+template <typename T, bool CopyFlags = true> using float16_array_t = replace_scalar_t<T, half, CopyFlags>;
+template <typename T, bool CopyFlags = true> using float32_array_t = replace_scalar_t<T, float, CopyFlags>;
+template <typename T, bool CopyFlags = true> using float64_array_t = replace_scalar_t<T, double, CopyFlags>;
+template <typename T, bool CopyFlags = true> using bool_array_t    = replace_scalar_t<T, bool, CopyFlags>;
+template <typename T, bool CopyFlags = true> using size_array_t    = replace_scalar_t<T, size_t, CopyFlags>;
+template <typename T, bool CopyFlags = true> using ssize_array_t   = replace_scalar_t<T, ssize_t, CopyFlags>;
+
+//! @}
+// -----------------------------------------------------------------------
+
+template <typename T> using struct_support_t = struct_support<std::decay_t<T>>;
+
+NAMESPACE_END(enoki)

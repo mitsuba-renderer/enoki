@@ -120,19 +120,6 @@ endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/resources")
 
-# Use memkind library (high-bandwidth memory on Xeon Phi) if available
-find_package(Memkind QUIET)
-
-if (MEMKIND_FOUND)
-  if (NOT ENOKI_MASTER_PROJECT)
-    set(MEMKIND_INCLUDE_DIRS ${MEMKIND_INCLUDE_DIRS} PARENT_SCOPE)
-    set(MEMKIND_LIBRARIES ${MEMKIND_LIBRARIES} PARENT_SCOPE)
-  endif()
-  message(STATUS "Enoki: Using memkind library for heap memory allocation.")
-else()
-  message(STATUS "Enoki: Using C library for heap memory allocation.")
-endif()
-
 macro(enoki_set_native_flags)
   add_compile_options(${ENOKI_NATIVE_FLAGS})
   string(REPLACE ";" " " ENOKI_NATIVE_FLAGS_STR "${ENOKI_NATIVE_FLAGS}")
@@ -172,12 +159,6 @@ macro(enoki_set_compile_flags)
     add_compile_options(-fp-model precise)
   endif()
 
-  if (MEMKIND_INCLUDE_DIRS)
-    include_directories(${MEMKIND_INCLUDE_DIRS})
-    add_definitions(-DENOKI_USE_MEMKIND)
-    set(CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_CXX_STANDARD_LIBRARIES} ${MEMKIND_LIBRARIES}")
-  endif()
-
   if (MSVC)
     # Disable buffer security check cookie
     set(Configurations RELEASE RELWITHDEBINFO MINSIZEREL)
@@ -199,33 +180,43 @@ endmacro()
 include_directories(include)
 
 set(ENOKI_HEADERS
-  ${PROJECT_SOURCE_DIR}/include/enoki/alloc.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/fwd.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/array.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/array_avx.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/array_avx2.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/array_avx512.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/array_base.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/array_dynamic.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/array_generic.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/array_idiv.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/array_misc.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/array_macro.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/array_neon.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/array_recursive.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/array_round.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/array_router.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/array_sse42.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/quaternion.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/stl.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/special.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/transform.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/matrix.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/complex.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/common.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/half.h
-  ${PROJECT_SOURCE_DIR}/include/enoki/python.h
-  ${PROJECT_SOURCE_DIR}/tests/test.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_avx.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_avx2.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_avx512.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_base.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_call.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_fallbacks.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_generic.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_idiv.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_intrin.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_kmask.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_masked.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_macro.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_math.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_recursive.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_round.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_router.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_sse42.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_static.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_struct.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_traits.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_utils.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/autodiff.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/color.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/complex.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/dynamic.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/fwd.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/half.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/matrix.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/morton.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/python.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/quaternion.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/random.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/sh.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/special.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/stl.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/transform.h
 )
 
 if (ENOKI_TEST)

@@ -13,85 +13,106 @@
 
 #pragma once
 
-#include "complex.h"
-#include "matrix.h"
+#include <enoki/complex.h>
+#include <enoki/matrix.h>
 
 NAMESPACE_BEGIN(enoki)
 
-template <typename Value_, bool Approx_ = detail::approx_default<Value_>::value>
-struct Quaternion : StaticArrayImpl<Value_, 4, Approx_, RoundingMode::Default, Quaternion<Value_, Approx_>> {
-    using Base = StaticArrayImpl<Value_, 4, Approx_, RoundingMode::Default, Quaternion<Value_, Approx_>>;
+/// SFINAE helper for quaternions
+template <typename T> using is_quaternion_helper = enable_if_t<std::decay_t<T>::IsQuaternion>;
+template <typename T> constexpr bool is_quaternion_v = is_detected_v<is_quaternion_helper, T>;
+template <typename T> using enable_if_quaternion_t = enable_if_t<is_quaternion_v<T>>;
+template <typename T> using enable_if_not_quaternion_t = enable_if_t<!is_quaternion_v<T>>;
+
+template <typename Value_, bool Approx_ = array_approx_v<Value_>>
+struct Quaternion : StaticArrayImpl<Value_, 4, Approx_, RoundingMode::Default, false, Quaternion<Value_, Approx_>> {
+    using Base = StaticArrayImpl<Value_, 4, Approx_, RoundingMode::Default, false, Quaternion<Value_, Approx_>>;
+    using Base::Depth;
+    ENOKI_ARRAY_IMPORT_BASIC(Base, Quaternion);
+    using Base::operator=;
+
+    static constexpr bool IsQuaternion = true;
+
+    using ArrayType = Quaternion;
     using MaskType = Mask<Value_, 4, Approx_, RoundingMode::Default>;
 
-    static constexpr bool CustomBroadcast = true; // This class provides a custom broadcast operator
+    template <typename T>
+    using ReplaceValue = Quaternion<T, is_std_float_v<scalar_t<T>> && is_std_float_v<scalar_t<Value_>>
+                                    ? Approx_ : array_approx_v<T>>;
 
-    using typename Base::Value;
-    using typename Base::Scalar;
+    Quaternion() = default;
 
-    template <typename T, typename T2 = Quaternion>
-    using ReplaceType = Quaternion<T,
-        detail::is_std_float<scalar_t<T>>::value ? T2::Approx
-                                                 : detail::approx_default<T>::value>;
+    template <typename Value2, bool Approx2>
+    ENOKI_INLINE Quaternion(const Quaternion<Value2, Approx2> &z) : Base(z) { }
 
-    template <typename T, typename T2 = Value_,
-              std::enable_if_t<broadcast<T>::value &&
-                               std::is_default_constructible<T2>::value &&
-                               std::is_constructible<T2, T>::value, int> = 0>
-    ENOKI_INLINE Quaternion(const T &f) : Base(zero<Value>(), zero<Value>(), zero<Value>(), f) { }
-    ENOKI_INLINE Quaternion(const scalar_t<Value_> &f) : Base(zero<Value>(), zero<Value>(), zero<Value>(), f) { }
+    template <typename T, enable_if_t<(array_depth_v<T> < Depth && (is_scalar_v<T> || is_array_v<T>))> = 0,
+              enable_if_not_quaternion_t<T> = 0>
+    ENOKI_INLINE Quaternion(T &&v) : Base(zero<Value_>(), zero<Value_>(), zero<Value_>(), v) { }
 
-    template <typename Im, typename Re, std::enable_if_t<Im::Size == 3, int> = 0>
+    template <typename T, enable_if_t<(array_depth_v<T> == Depth || !(is_scalar_v<T> || is_array_v<T>))> = 0,
+              enable_if_not_quaternion_t<T> = 0>
+    ENOKI_INLINE Quaternion(T &&v) : Base(std::forward<T>(v)) { }
+
+    ENOKI_INLINE Quaternion(const Value_ &vi, const Value_ &vj,
+                            const Value_ &vk, const Value_ &vr)
+        : Base(vi, vj, vk, vr) { }
+
+    template <typename Im, typename Re, enable_if_t<array_size_v<Im> == 3> = 0>
     ENOKI_INLINE Quaternion(const Im &im, const Re &re)
         : Base(im.x(), im.y(), im.z(), re) { }
 
-    template <typename T>
-    ENOKI_INLINE static Quaternion fill_(const T &value) { return Array<Value, 4>::fill_(value); }
-
-    ENOKI_DECLARE_ARRAY(Base, Quaternion)
+    /// Construct from sub-arrays
+    template <typename T1, typename T2, typename T = Quaternion, enable_if_t<
+              array_depth_v<T1> == array_depth_v<T> && array_size_v<T1> == 2 &&
+              array_depth_v<T2> == array_depth_v<T> && array_size_v<T2> == 2> = 0>
+    Quaternion(const T1 &a1, const T2 &a2)
+        : Base(a1, a2) { }
 };
 
-template <typename Quat, std::enable_if_t<Quat::IsQuaternion, int> = 0> ENOKI_INLINE Quat identity() {
-    return Quat(0.f, 0.f, 0.f, 1.f);
+template <typename T, enable_if_quaternion_t<T> = 0>
+ENOKI_INLINE T identity() {
+    return T(0.f, 0.f, 0.f, 1.f);
 }
+
+template <typename T, bool Approx> ENOKI_INLINE expr_t<T> real(const Quaternion<T, Approx> &q) { return q.w(); }
+template <typename T, bool Approx> ENOKI_INLINE auto imag(const Quaternion<T, Approx> &q) { return head<3>(q); }
 
 template <typename T0, typename T1, bool Approx0, bool Approx1, typename T = expr_t<T0, T1>>
 ENOKI_INLINE T dot(const Quaternion<T0, Approx0> &q0, const Quaternion<T1, Approx1> &q1) {
-    using Base = Array<T, 4>;
+    using Base = Array<T, 4, Approx0 && Approx1>;
     return dot(Base(q0), Base(q1));
 }
 
-template <typename T0, bool Approx, typename T = expr_t<T0>>
-ENOKI_INLINE T dot(const Quaternion<T0, Approx> &q0, const Quaternion<T0, Approx> &q1) {
-    using Base = Array<T, 4>;
-    return dot(Base(q0), Base(q1));
-}
-
-template <typename T, bool Approx> ENOKI_INLINE Quaternion<expr_t<T>, Approx> conj(const Quaternion<T, Approx> &q) {
+template <typename T, bool Approx>
+ENOKI_INLINE Quaternion<expr_t<T>, Approx> conj(const Quaternion<T, Approx> &q) {
     const Quaternion<expr_t<T>, Approx> mask(-0.f, -0.f, -0.f, 0.f);
     return q ^ mask;
 }
 
-template <typename T, bool Approx> ENOKI_INLINE expr_t<T> squared_norm(const Quaternion<T, Approx> &q) {
-    return enoki::squared_norm(Array<expr_t<T>, 4>(q));
+template <typename T, bool Approx>
+ENOKI_INLINE expr_t<T> squared_norm(const Quaternion<T, Approx> &q) {
+    return enoki::squared_norm(Array<expr_t<T>, 4, Approx>(q));
 }
 
-template <typename T, bool Approx> ENOKI_INLINE expr_t<T> norm(const Quaternion<T, Approx> &q) {
-    return enoki::norm(Array<expr_t<T>, 4>(q));
+template <typename T, bool Approx>
+ENOKI_INLINE expr_t<T> norm(const Quaternion<T, Approx> &q) {
+    return enoki::norm(Array<expr_t<T>, 4, Approx>(q));
 }
 
-template <typename T, bool Approx> ENOKI_INLINE Quaternion<expr_t<T>, Approx> normalize(const Quaternion<T, Approx> &q) {
-    return enoki::normalize(Array<expr_t<T>, 4>(q));
+template <typename T, bool Approx>
+ENOKI_INLINE Quaternion<expr_t<T>, Approx> normalize(const Quaternion<T, Approx> &q) {
+    return enoki::normalize(Array<expr_t<T>, 4, Approx>(q));
 }
 
-template <typename T, bool Approx> ENOKI_INLINE Quaternion<expr_t<T>, Approx> rcp(const Quaternion<T, Approx> &q) {
+template <typename T, bool Approx>
+ENOKI_INLINE Quaternion<expr_t<T>, Approx> rcp(const Quaternion<T, Approx> &q) {
     return conj(q) * (1 / squared_norm(q));
 }
 
-NAMESPACE_BEGIN(detail)
-
-template <typename T0, typename T1, bool Approx0, bool Approx1, typename T = expr_t<T0, T1>>
-ENOKI_INLINE Quaternion<T, Approx0 && Approx1> quat_mul(const Quaternion<T0, Approx0> &q0, const Quaternion<T1, Approx1> &q1) {
-    using Base = Array<T, 4>;
+template <typename T0, typename T1, bool Approx0, bool Approx1,
+          typename Value = expr_t<T0, T1>, typename Result = Quaternion<Value, Approx0 && Approx1>>
+ENOKI_INLINE Result operator*(const Quaternion<T0, Approx0> &q0, const Quaternion<T1, Approx1> &q1) {
+    using Base   = Array<Value, 4, Approx0 && Approx1>;
     const Base sign_mask(0.f, 0.f, 0.f, -0.f);
     Base q0_xyzx = shuffle<0, 1, 2, 0>(q0);
     Base q0_yzxy = shuffle<1, 2, 0, 1>(q0);
@@ -106,62 +127,43 @@ ENOKI_INLINE Quaternion<T, Approx0 && Approx1> quat_mul(const Quaternion<T0, App
     return t1 + t2;
 }
 
-template <typename T0, typename T1, bool Approx0, bool Approx1, typename T = expr_t<T0, T1>>
-ENOKI_INLINE Quaternion<T, Approx0 && Approx1> quat_div(const Quaternion<T0, Approx0> &q0, const Quaternion<T1, Approx1> &q1) {
+template <typename T0, typename T1, bool Approx0,
+          typename Value = expr_t<T0, T1>, typename Result = Quaternion<Value, Approx0>>
+ENOKI_INLINE Result operator*(const Quaternion<T0, Approx0> &q0, const T1 &v1) {
+    return Array<expr_t<T0>, 4, Approx0>(q0) * v1;
+}
+
+template <typename T0, typename T1, bool Approx1,
+          typename Value = expr_t<T0, T1>, typename Result = Quaternion<Value, Approx1>>
+ENOKI_INLINE Result operator*(const T0 &v0, const Quaternion<T1, Approx1> &q1) {
+    return v0 * Array<expr_t<T0>, 4, Approx1>(q1);
+}
+
+template <typename T0, typename T1, bool Approx0, bool Approx1,
+          typename Value = expr_t<T0, T1>, typename Result = Quaternion<Value, Approx0 && Approx1>>
+ENOKI_INLINE Result operator/(const Quaternion<T0, Approx0> &q0, const Quaternion<T1, Approx1> &q1) {
     return q0 * rcp(q1);
 }
 
-NAMESPACE_END(detail)
-
-template <typename T0, typename T1, bool Approx0, bool Approx1>
-ENOKI_INLINE auto operator*(const Quaternion<T0, Approx0> &q0, const Quaternion<T1, Approx1> &q1) {
-    return detail::quat_mul(q0, q1);
+template <typename T0, typename T1, bool Approx0,
+          typename Value = expr_t<T0, T1>, typename Result = Quaternion<Value, Approx0>>
+ENOKI_INLINE Result operator/(const Quaternion<T0, Approx0> &z0, const T1 &v1) {
+    return Array<expr_t<T0>, 4, Approx0>(z0) / v1;
 }
 
-template <typename T0, bool Approx>
-ENOKI_INLINE auto operator*(const Quaternion<T0, Approx> &q0, const Quaternion<T0, Approx> &q1) {
-    return detail::quat_mul(q0, q1);
+template <typename T, bool Approx>
+ENOKI_INLINE expr_t<T> abs(const Quaternion<T, Approx> &z) {
+    return norm(z);
 }
-
-template <typename T0, typename T1, bool Approx, std::enable_if_t<broadcast<T1>::value, int> = 0>
-ENOKI_INLINE Quaternion<expr_t<T0, T1>> operator*(const Quaternion<T0, Approx> &q, const T1 &s) {
-    return Array<expr_t<T0>, 4>(q) * fill<Array<scalar_t<T1>, 4>>(s);
-}
-
-template <typename T0, typename T1, bool Approx, std::enable_if_t<broadcast<T0>::value, int> = 0>
-ENOKI_INLINE Quaternion<expr_t<T0, T1>> operator*(const T0 &s, const Quaternion<T1, Approx> &q) {
-    return fill<Array<scalar_t<T0>, 4>>(s) * Array<expr_t<T1>, 4>(q);
-}
-
-template <typename T0, typename T1, bool Approx0, bool Approx1>
-ENOKI_INLINE auto operator/(const Quaternion<T0, Approx0> &q0, const Quaternion<T1, Approx1> &q1) {
-    return detail::quat_div(q0, q1);
-}
-
-template <typename T0, bool Approx>
-ENOKI_INLINE auto operator/(const Quaternion<T0, Approx> &q0, const Quaternion<T0, Approx> &q1) {
-    return detail::quat_div(q0, q1);
-}
-
-template <typename T0, typename T1, bool Approx, std::enable_if_t<broadcast<T1>::value, int> = 0>
-ENOKI_INLINE Quaternion<expr_t<T0, T1>> operator/(const Quaternion<T0, Approx> &q, const T1 &s) {
-    return Array<expr_t<T0>, 4>(q) / s;
-}
-
-template <typename T, bool Approx> ENOKI_INLINE expr_t<T> real(const Quaternion<T, Approx> &q) { return q.w(); }
-template <typename T, bool Approx> ENOKI_INLINE auto imag(const Quaternion<T, Approx> &q) { return head<3>(q); }
-
-template <typename T, bool Approx> ENOKI_INLINE expr_t<T> abs(const Quaternion<T, Approx> &q) { return norm(q); }
 
 template <typename T, bool Approx>
 ENOKI_INLINE Quaternion<expr_t<T>, Approx> exp(const Quaternion<T, Approx> &q) {
-    auto qi    = imag(q);
-    auto ri    = norm(qi);
-    auto exp_w = exp(real(q));
-    auto sc    = sincos(ri);
+    auto qi     = imag(q);
+    auto ri     = norm(qi);
+    auto exp_w  = exp(real(q));
+    auto [s, c] = sincos(ri);
 
-    return Quaternion<expr_t<T>, Approx>(qi * (sc.first * exp_w / ri),
-                                 sc.second * exp_w);
+    return { qi * (s * exp_w / ri), c * exp_w };
 }
 
 template <typename T, bool Approx>
@@ -171,7 +173,7 @@ ENOKI_INLINE Quaternion<expr_t<T>, Approx> log(const Quaternion<T, Approx> &q) {
     auto acos_rq = acos(real(q) / rq);
     auto log_rq  = log(rq);
 
-    return Quaternion<expr_t<T>, Approx>(qi_n * acos_rq, log_rq);
+    return { qi_n * acos_rq, log_rq };
 }
 
 template <typename T0, typename T1, bool Approx0, bool Approx1>
@@ -183,36 +185,11 @@ template <typename T, bool Approx>
 Quaternion<expr_t<T>, Approx> sqrt(const Quaternion<T, Approx> &q) {
     auto ri = norm(imag(q));
     auto cs = sqrt(Complex<expr_t<T>, Approx>(real(q), ri));
-    return Quaternion<expr_t<T>, Approx>(imag(q) * (rcp(ri) * imag(cs)), real(cs));
-}
-
-template <typename T, bool Approx, std::enable_if_t<!is_array<std::decay_t<T>>::value, int> = 0>
-ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os, const Quaternion<T, Approx> &q) {
-    os << q.w();
-    os << (q.x() < 0 ? " - " : " + ") << abs(q.x()) << "i";
-    os << (q.y() < 0 ? " - " : " + ") << abs(q.y()) << "j";
-    os << (q.z() < 0 ? " - " : " + ") << abs(q.z()) << "k";
-    return os;
-}
-
-template <typename T, bool Approx, std::enable_if_t<is_array<std::decay_t<T>>::value, int> = 0>
-ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os, const Quaternion<T, Approx> &q) {
-    os << "[";
-    size_t size = q.x().size();
-    for (size_t i = 0; i < size; ++i) {
-        os << q.w().coeff(i);
-        os << (q.x().coeff(i) < 0 ? " - " : " + ") << abs(q.x().coeff(i)) << "i";
-        os << (q.y().coeff(i) < 0 ? " - " : " + ") << abs(q.y().coeff(i)) << "j";
-        os << (q.z().coeff(i) < 0 ? " - " : " + ") << abs(q.z().coeff(i)) << "k";
-        if (i + 1 < size)
-            os << ",\n ";
-    }
-    os << "]";
-    return os;
+    return { imag(q) * (rcp(ri) * imag(cs)), real(cs) };
 }
 
 template <typename Matrix, bool Approx, typename T, typename Expr = expr_t<T>,
-          std::enable_if_t<Matrix::Size == 4, int> = 0>
+          enable_if_t<Matrix::Size == 4> = 0>
 ENOKI_INLINE Matrix quat_to_matrix(const Quaternion<T, Approx> &q_) {
     auto q = q_ * scalar_t<T>(M_SQRT2);
 
@@ -229,7 +206,7 @@ ENOKI_INLINE Matrix quat_to_matrix(const Quaternion<T, Approx> &q_) {
 }
 
 template <typename Matrix, bool Approx, typename T, typename Expr = expr_t<T>,
-          std::enable_if_t<Matrix::Size == 3, int> = 0>
+          enable_if_t<Matrix::Size == 3> = 0>
 ENOKI_INLINE Matrix quat_to_matrix(const Quaternion<T, Approx> &q_) {
     auto q = q_ * scalar_t<T>(M_SQRT2);
 
@@ -247,7 +224,7 @@ ENOKI_INLINE Matrix quat_to_matrix(const Quaternion<T, Approx> &q_) {
 template <typename T, size_t Size, bool Approx,
           typename Expr = expr_t<T>,
           typename Quat = Quaternion<Expr, Approx>,
-          std::enable_if_t<Size == 3 || Size == 4, int> = 0>
+          enable_if_t<Size == 3 || Size == 4> = 0>
 ENOKI_INLINE Quat matrix_to_quat(const Matrix<T, Size, Approx> &mat) {
     const Expr c0(0), c1(1), ch(0.5f);
 
@@ -292,34 +269,60 @@ ENOKI_INLINE Quat matrix_to_quat(const Matrix<T, Size, Approx> &mat) {
     return q0123 * (rsqrt(t0123) * ch);
 }
 
-template <typename T0, typename T1, bool Approx0, bool Approx1, typename Float,
-          typename Value  = expr_t<Float, T0, T1>,
+template <typename T0, typename T1, bool Approx0, bool Approx1, typename T2,
+          typename Value  = expr_t<T0, T1, T2>,
           typename Return = Quaternion<Value, Approx0 && Approx1>>
 ENOKI_INLINE Return slerp(const Quaternion<T0, Approx0> &q0,
-                          const Quaternion<T1, Approx1> &q1_, Float t) {
-    using Base = Array<Value, 4>;
+                          const Quaternion<T1, Approx1> &q1_, const T2 &t) {
+    using Base = Array<Value, 4, Approx0 && Approx1>;
 
     Value cos_theta = dot(q0, q1_);
     Return q1 = mulsign(Base(q1_), cos_theta);
     cos_theta = mulsign(cos_theta, cos_theta);
 
     Value theta = acos(cos_theta);
-    auto sc = sincos(theta * t);
+    auto [s, c] = sincos(theta * t);
     auto close_mask = cos_theta > 0.9995f;
 
-    Return qperp = normalize(q1 - q0 * cos_theta);
-    Return result = q0 * sc.second + qperp * sc.first;
+    Return qperp  = normalize(q1 - q0 * cos_theta),
+           result = q0 * c + qperp * s;
 
     if (ENOKI_UNLIKELY(any_nested(close_mask)))
-        masked(result, mask_t<Base>(close_mask)) = Base(normalize(q0 * (1.f - t) + q1 * t));
+        result[mask_t<Base>(close_mask)] =
+            Base(normalize(q0 * (1.f - t) + q1 * t));
 
     return result;
 }
 
-template <typename Quat, typename Vector3, std::enable_if_t<Quat::IsQuaternion, int> = 0>
+template <typename Quat, typename Vector3, enable_if_t<Quat::IsQuaternion> = 0>
 ENOKI_INLINE Quat rotate(const Vector3 &axis, const value_t<Quat> &angle) {
-    auto sc = sincos(angle * .5f);
-    return Quat(concat(axis * sc.first, sc.second));
+    auto [s, c] = sincos(angle * .5f);
+    return concat(axis * s, c);
+}
+
+template <typename T, bool Approx, enable_if_not_array_t<T> = 0>
+ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os, const Quaternion<T, Approx> &q) {
+    os << q.w();
+    os << (q.x() < 0 ? " - " : " + ") << abs(q.x()) << "i";
+    os << (q.y() < 0 ? " - " : " + ") << abs(q.y()) << "j";
+    os << (q.z() < 0 ? " - " : " + ") << abs(q.z()) << "k";
+    return os;
+}
+
+template <typename T, bool Approx, enable_if_array_t<T> = 0>
+ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os, const Quaternion<T, Approx> &q) {
+    os << "[";
+    size_t size = q.x().size();
+    for (size_t i = 0; i < size; ++i) {
+        os << q.w().coeff(i);
+        os << (q.x().coeff(i) < 0 ? " - " : " + ") << abs(q.x().coeff(i)) << "i";
+        os << (q.y().coeff(i) < 0 ? " - " : " + ") << abs(q.y().coeff(i)) << "j";
+        os << (q.z().coeff(i) < 0 ? " - " : " + ") << abs(q.z().coeff(i)) << "k";
+        if (i + 1 < size)
+            os << ",\n ";
+    }
+    os << "]";
+    return os;
 }
 
 NAMESPACE_END(enoki)

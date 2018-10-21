@@ -18,8 +18,8 @@
 #include "test.h"
 
 template <typename T, typename Value2> void convtest() {
-    using T2 = like_t<T, Value2>;
-    auto value1 = index_sequence<T>();
+    using T2 = replace_scalar_t<T, Value2>;
+    auto value1 = arange<T>();
     auto value2 = T2(value1);
     auto value3 = T(value2);
     assert(value1 == value3);
@@ -27,9 +27,9 @@ template <typename T, typename Value2> void convtest() {
 
 template <typename T, typename Value2> void masktest() {
     using Value = typename T::Value;
-    using T2 = like_t<T, Value2>;
+    using T2 = replace_scalar_t<T, Value2>;
     for (size_t i = 0; i < T::Size; ++i) {
-        mask_t<T> mask = eq(index_sequence<T>() - T(Value(i)), T(0));
+        mask_t<T> mask = eq(arange<T>() - T(Value(i)), T(0));
         mask_t<T2> mask2(mask);
         T2 result = select(mask2, T2(Value2(1)), T2(Value2(0)));
         Value2 out[T::Size];
@@ -53,13 +53,11 @@ ENOKI_TEST_ALL(test10_mask_int64_t)  { masktest<T, int64_t>();  }
 ENOKI_TEST_ALL(test11_mask_uint64_t) { masktest<T, uint64_t>(); }
 ENOKI_TEST_ALL(test12_mask_float)    { masktest<T, float>();    }
 ENOKI_TEST_ALL(test13_mask_double)   { masktest<T, double>();   }
-#if !defined(ENOKI_X86_AVX512F) || !defined(__clang__) // Auto-vectorizer bug :(
 ENOKI_TEST_ALL(test14_mask_half)     { masktest<T, half>();     }
-#endif
 
 ENOKI_TEST_ALL(test15_bool_conv) {
     for (size_t i = 0; i < T::Size; ++i) {
-        mask_t<T> mask = eq(index_sequence<T>() - T(Value(i)), T(0));
+        mask_t<T> mask = eq(arange<T>() - T(Value(i)), T(0));
         bool_array_t<T> mask3(mask);
         mask_t<T> mask4(mask3);
         T result  = select(mask, T(Value(1)), T(Value(0)));

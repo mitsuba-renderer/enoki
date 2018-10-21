@@ -12,9 +12,9 @@
     license that can be found in the LICENSE file.
 */
 
-#pragma once
+#include <enoki/array.h>
 
-#include "array.h"
+#pragma once
 
 NAMESPACE_BEGIN(enoki)
 
@@ -45,12 +45,17 @@ template <typename T, enable_if_not_array_t<T> = 0> T erfc(const T &x) {
     return std::erfc(x);
 }
 
-template <typename T, bool Recurse = true, typename Expr = expr_t<T>, enable_if_array_t<T> = 0> Expr erfc(const T &x);
-template <typename T, bool Recurse = true, typename Expr = expr_t<T>, enable_if_array_t<T> = 0> Expr erf(const T &x);
+template <typename T, bool Recurse = true, typename Expr = expr_t<T>,
+          enable_if_array_t<T> = 0>
+Expr erfc(const T &x);
+
+template <typename T, bool Recurse = true, typename Expr = expr_t<T>,
+          enable_if_array_t<T> = 0>
+Expr erf(const T &x);
 
 template <typename T, bool Recurse, typename Expr, enable_if_array_t<T>>
 Expr erfc(const T &x) {
-    constexpr bool Single = std::is_same<scalar_t<T>, float>::value;
+    constexpr bool Single = std::is_same_v<scalar_t<T>, float>;
     using Scalar = scalar_t<T>;
 
     Expr r;
@@ -60,6 +65,8 @@ Expr erfc(const T &x) {
 
         auto erf_mask   = xa < Scalar(1),
              large_mask = xa > Scalar(Single ? 2 : 8);
+
+        ENOKI_MARK_USED(erf_mask);
 
         if (Single) {
             Expr q  = rcp(xa),
@@ -115,8 +122,10 @@ Expr erfc(const T &x) {
 
         r[x < Scalar(0)] = Scalar(2) - r;
 
-        if (ENOKI_UNLIKELY(Recurse && any_nested(erf_mask)))
-            r[erf_mask] = Scalar(1) - erf<T, false>(x);
+        if constexpr (Recurse) {
+            if (ENOKI_UNLIKELY(any_nested(erf_mask)))
+                r[erf_mask] = Scalar(1) - erf<T, false>(x);
+        }
     } else {
         for (size_t i = 0; i < Expr::Size; ++i)
             r.coeff(i) = enoki::erfc(x.coeff(i));
@@ -126,15 +135,16 @@ Expr erfc(const T &x) {
 
 template <typename T, bool Recurse, typename Expr, enable_if_array_t<T>>
 Expr erf(const T &x) {
-    constexpr bool Single = std::is_same<scalar_t<T>, float>::value;
     using Scalar = scalar_t<T>;
 
     Expr r;
-    if (Expr::Approx) {
+    if constexpr (Expr::Approx) {
         auto erfc_mask = abs(x) > Scalar(1);
+        ENOKI_MARK_USED(erfc_mask);
 
         Expr z = x * x;
 
+        constexpr bool Single = std::is_same_v<scalar_t<T>, float>;
         if (Single) {
             r = poly6(z, 1.128379165726710e+0, -3.761262582423300e-1,
                          1.128358514861418e-1, -2.685381193529856e-2,
@@ -151,13 +161,69 @@ Expr erf(const T &x) {
 
         r *= x;
 
-        if (ENOKI_UNLIKELY(Recurse && any_nested(erfc_mask)))
-            r[erfc_mask] = Scalar(1) - erfc<T, false>(x);
+        if constexpr (Recurse) {
+            if (ENOKI_UNLIKELY(any_nested(erfc_mask)))
+                r[erfc_mask] = Scalar(1) - erfc<T, false>(x);
+        }
     } else {
         for (size_t i = 0; i < Expr::Size; ++i)
             r.coeff(i) = enoki::erf(x.coeff(i));
     }
     return r;
+}
+
+
+/// Modified Bessel function of the first kind, order zero (exponentially scaled)
+template <typename T, typename Expr = expr_t<T>> Expr i0e(const T &x_) {
+    using Scalar = scalar_t<T>;
+
+    /* Chebyshev coefficients for exp(-x) I0(x)
+     * in the interval [0,8].
+     *
+     * lim(x->0) { exp(-x) I0(x) } = 1.
+     */
+
+    static Scalar A[] = {
+        Scalar(-1.30002500998624804212E-8), Scalar(6.04699502254191894932E-8),
+        Scalar(-2.67079385394061173391E-7), Scalar(1.11738753912010371815E-6),
+        Scalar(-4.41673835845875056359E-6), Scalar(1.64484480707288970893E-5),
+        Scalar(-5.75419501008210370398E-5), Scalar(1.88502885095841655729E-4),
+        Scalar(-5.76375574538582365885E-4), Scalar(1.63947561694133579842E-3),
+        Scalar(-4.32430999505057594430E-3), Scalar(1.05464603945949983183E-2),
+        Scalar(-2.37374148058994688156E-2), Scalar(4.93052842396707084878E-2),
+        Scalar(-9.49010970480476444210E-2), Scalar(1.71620901522208775349E-1),
+        Scalar(-3.04682672343198398683E-1), Scalar(6.76795274409476084995E-1)
+    };
+
+
+    /* Chebyshev coefficients for exp(-x) sqrt(x) I0(x)
+     * in the inverted interval [8,infinity].
+     *
+     * lim(x->inf) { exp(-x) sqrt(x) I0(x) } = 1/sqrt(2pi).
+     */
+
+    static Scalar B[] = {
+        Scalar(3.39623202570838634515E-9), Scalar(2.26666899049817806459E-8),
+        Scalar(2.04891858946906374183E-7), Scalar(2.89137052083475648297E-6),
+        Scalar(6.88975834691682398426E-5), Scalar(3.36911647825569408990E-3),
+        Scalar(8.04490411014108831608E-1)
+    };
+
+
+    Expr x = abs(x_);
+
+    auto mask_big = x > Scalar(8);
+
+    Expr r_big, r_small;
+
+    if (!all_nested(mask_big))
+        r_small = chbevl(fmsub(x, Expr(Scalar(0.5)), Expr(Scalar(2))), A);
+
+    if (any_nested(mask_big))
+        r_big = chbevl(fmsub(Expr(Scalar(32)), rcp(x), Expr(Scalar(2))), B) *
+                rsqrt(x);
+
+    return select(mask_big, r_big, r_small);
 }
 
 // Inverse real error function approximation based on on "Approximating the
@@ -211,60 +277,7 @@ template <typename T, typename Expr = expr_t<T>> Expr dawson(const T &x) {
 template <typename T, typename Expr = expr_t<T>> Expr erfi(const T &x) {
     using Scalar = scalar_t<T>;
 
-    return Scalar(M_2_SQRTPI) * dawson(x) * exp(x*x);
-}
-
-/// Modified Bessel function of the first kind, order zero (exponentially scaled)
-template <typename T, typename Expr = expr_t<T>> Expr i0e(const T &x_) {
-    using Scalar = scalar_t<T>;
-
-    /* Chebyshev coefficients for exp(-x) I0(x)
-     * in the interval [0,8].
-     *
-     * lim(x->0) { exp(-x) I0(x) } = 1.
-     */
-
-    static double A[] = {
-        -1.30002500998624804212E-8, 6.04699502254191894932E-8,
-        -2.67079385394061173391E-7, 1.11738753912010371815E-6,
-        -4.41673835845875056359E-6, 1.64484480707288970893E-5,
-        -5.75419501008210370398E-5, 1.88502885095841655729E-4,
-        -5.76375574538582365885E-4, 1.63947561694133579842E-3,
-        -4.32430999505057594430E-3, 1.05464603945949983183E-2,
-        -2.37374148058994688156E-2, 4.93052842396707084878E-2,
-        -9.49010970480476444210E-2, 1.71620901522208775349E-1,
-        -3.04682672343198398683E-1, 6.76795274409476084995E-1
-    };
-
-
-    /* Chebyshev coefficients for exp(-x) sqrt(x) I0(x)
-     * in the inverted interval [8,infinity].
-     *
-     * lim(x->inf) { exp(-x) sqrt(x) I0(x) } = 1/sqrt(2pi).
-     */
-
-    static double B[] = {
-        3.39623202570838634515E-9, 2.26666899049817806459E-8,
-        2.04891858946906374183E-7, 2.89137052083475648297E-6,
-        6.88975834691682398426E-5, 3.36911647825569408990E-3,
-        8.04490411014108831608E-1
-    };
-
-
-    Expr x = abs(x_);
-
-    auto mask_big = x > Scalar(8);
-
-    Expr r_big, r_small;
-
-    if (!all_nested(mask_big))
-        r_small = chbevl(fmsub(x, Expr(Scalar(0.5)), Expr(Scalar(2))), A);
-
-    if (any_nested(mask_big))
-        r_big = chbevl(fmsub(Expr(Scalar(32)), rcp(x), Expr(Scalar(2))), B) *
-                rsqrt(x);
-
-    return select(mask_big, r_big, r_small);
+    return Scalar(M_2_SQRTPI) * dawson(x) * exp(x * x);
 }
 
 /**
@@ -299,7 +312,7 @@ Value carlson_rf(Vector3 xyz) {
         mu_inv = rcp(mu);
         XYZ = fnmadd(xyz, mu_inv, Scalar(1));
         Value eps = hmax(abs(XYZ));
-        active &= eps > Scalar(std::is_same<Scalar, double>::value
+        active &= eps > Scalar(std::is_same_v<Scalar, double>
                                    ? 0.0024608
                                    : 0.070154); // eps ^ (1/6)
 
@@ -356,7 +369,7 @@ Value carlson_rd(Vector3 xyz) {
         mu_inv = rcp(mu);
         XYZ = fnmadd(xyz, mu_inv, Scalar(1));
         Value eps = hmax(abs(XYZ));
-        active &= eps > Scalar(std::is_same<Scalar, double>::value
+        active &= eps > Scalar(std::is_same_v<Scalar, double>
                                    ? (0.0024608 * 0.6)
                                    : (0.070154 * 0.6)); // eps ^ (1/6) * 0.6
 
@@ -418,7 +431,7 @@ Value carlson_rc(Vector2 xy) {
         inv_mu = rcp(mu);
         s = (xy.y() - mu) * inv_mu;
 
-        active &= abs(s) > Scalar(std::is_same<Scalar, double>::value
+        active &= abs(s) > Scalar(std::is_same_v<Scalar, double>
                                    ? (0.0024608 * 0.48)
                                    : (0.070154 * 0.48)); // eps ^ (1/6) * 0.48
 
@@ -475,7 +488,7 @@ Value carlson_rj(Vector4 xyzr) {
         mu_inv = rcp(mu);
         XYZR = fnmadd(xyzr, mu_inv, Scalar(1));
         Value eps = hmax(abs(XYZR));
-        active &= eps > Scalar(std::is_same<Scalar, double>::value
+        active &= eps > Scalar(std::is_same_v<Scalar, double>
                                    ? (0.0024608 * 0.6)
                                    : (0.070154 * 0.6)); // eps ^ (1/6) * 0.6
 

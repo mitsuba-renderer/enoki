@@ -15,6 +15,7 @@
 #  pragma warning(disable: 4723) /// potential divide by 0
 #endif
 
+#include <enoki/dynamic.h>
 #include <fstream>
 #include "ray.h"
 #include <chrono>
@@ -73,7 +74,7 @@ template <typename Ray> ENOKI_INLINE typename Ray::Vector intersect_rays(const R
     auto discrim = b*b - 4.f*a*c;
     auto t = (-b + sqrt(discrim)) / (2.f * a);
 
-    return select(discrim >= 0.f, r(t), typename Ray::Vector(0.f));
+    return select(discrim >= 0.f, r(t), 0.f);
 }
 
 /// "Shader": directional illumination
@@ -126,7 +127,7 @@ void write_image(const std::string &filename, const FloatX &image) {
 }
 
 int main(int /* argc */, char ** /* argv */) {
-    auto idx = linspace<FloatX>(1024, -1.2f, 1.2f);
+    auto idx = linspace<FloatX>(-1.2f, 1.2f, 1024);
     auto grid = meshgrid(idx, idx);
 
     /* benchmark1 */ {

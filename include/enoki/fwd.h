@@ -70,6 +70,7 @@
 #    endif
 #    define ENOKI_REGCALL
 #  endif
+#  define ENOKI_MARK_USED(x) (void) x
 #endif
 
 #if !defined(NAMESPACE_BEGIN)
@@ -90,6 +91,20 @@
     (ENOKI_TOSTRING(ENOKI_VERSION_MAJOR) "."                                   \
      ENOKI_TOSTRING(ENOKI_VERSION_MINOR) "."                                   \
      ENOKI_TOSTRING(ENOKI_VERSION_PATCH))
+
+#if defined(__clang__) && defined(__apple_build_version__)
+#  if __clang_major__ < 10
+#    error Enoki requires a very recent version of AppleClang (XCode >= 10.0)
+#  endif
+#elif defined(__clang__)
+#  if __clang_major__ < 7
+#    error Enoki requires a very recent version of Clang/LLVM (>= 7.0)
+#  endif
+#elif defined(__GNUC__)
+#  if (__GNUC__ < 8) || (__GNUC__ == 8 && __GNUC_MINOR__ < 2)
+#    error Enoki requires a very recent version of GCC (>= 8.2)
+#  endif
+#endif
 
 #if defined(__x86_64__) || defined(_M_X64)
 #  define ENOKI_X86_64 1
@@ -188,26 +203,28 @@
    unimplemented methods in vectorized backends */
 
 #if !defined(ENOKI_TRACK_SCALAR)
-#  define ENOKI_TRACK_SCALAR
+#  define ENOKI_TRACK_SCALAR(reason)
 #endif
 
 #if defined(ENOKI_ALLOC_VERBOSE)
-#  define ENOKI_TRACK_ALLOC   printf("Enoki: %p: alloc(%llu)\n", ptr, (uint64_t) size);
-#  define ENOKI_TRACK_REALLOC printf("Enoki: %p -> %p: realloc(%llu)\n", cur, ptr, (uint64_t) size);
-#  define ENOKI_TRACK_DEALLOC printf("Enoki: %p: dealloc()\n", ptr);
+#  define ENOKI_TRACK_ALLOC(ptr, size)                                         \
+      printf("Enoki: %p: alloc(%llu)\n", (ptr), (uint64_t)(size));
+#  define ENOKI_TRACK_DEALLOC(ptr, size)                                       \
+      printf("Enoki: %p: dealloc(%llu)\n", (ptr), (uint64_t)(size));
 #endif
 
 #if !defined(ENOKI_TRACK_ALLOC)
-#  define ENOKI_TRACK_ALLOC
-#endif
-#if !defined(ENOKI_TRACK_REALLOC)
-#  define ENOKI_TRACK_REALLOC
-#endif
-#if !defined(ENOKI_TRACK_DEALLOC)
-#  define ENOKI_TRACK_DEALLOC
+#  define ENOKI_TRACK_ALLOC(ptr, size)
 #endif
 
-#define ENOKI_CHKSCALAR if (std::is_arithmetic<std::decay_t<Value>>::value) { ENOKI_TRACK_SCALAR }
+#if !defined(ENOKI_TRACK_DEALLOC)
+#  define ENOKI_TRACK_DEALLOC(ptr, size)
+#endif
+
+#define ENOKI_CHKSCALAR(reason)                                                \
+    if (std::is_arithmetic_v<std::decay_t<Value>>) {                           \
+        ENOKI_TRACK_SCALAR(reason)                                             \
+    }
 
 #if !defined(ENOKI_APPROX_DEFAULT)
 #  define ENOKI_APPROX_DEFAULT 1
@@ -228,6 +245,17 @@ using ssize_t = std::make_signed_t<size_t>;
     static constexpr size_t max_packet_size = 4;
 #endif
 
+template <typename T, typename = int> struct array_approx {
+#if ENOKI_APPROX_DEFAULT == 1
+    static constexpr bool value = std::is_same_v<std::decay_t<T>, float> ||
+                                  std::is_same_v<std::decay_t<T>, double>;
+#else
+    static constexpr bool value = false;
+#endif
+};
+
+template <typename T> constexpr bool array_approx_v = array_approx<T>::value;
+
 /// Choice of rounding modes for floating point operations
 enum class RoundingMode {
     /// Default rounding mode configured in the hardware's status register
@@ -246,82 +274,59 @@ enum class RoundingMode {
     Zero = 11
 };
 
-NAMESPACE_BEGIN(detail)
-
 template <typename T>
-using is_std_float =
-    std::integral_constant<bool, std::is_same<T, float>::value ||
-                                 std::is_same<T, double>::value>;
+constexpr size_t array_default_size = (max_packet_size / sizeof(T) > 1)
+                                     ? max_packet_size / sizeof(T) : 1;
 
-template <typename T>
-using is_std_int =
-    std::integral_constant<bool, std::is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8)>;
+/// Base class of all arrays
+template <typename Value_, typename Derived_> struct ArrayBase;
 
-/// Value trait to determine if a type should be handled using approximate mode by default
-template <typename T, typename = int> struct approx_default {
-#if ENOKI_APPROX_DEFAULT == 1
-    static constexpr bool value = is_std_float<std::decay_t<T>>::value;
-#else
-    static constexpr bool value = false;
-#endif
-};
-
-NAMESPACE_END(detail)
-
-// -----------------------------------------------------------------------
-//! @{ \name Forward declarations
-// -----------------------------------------------------------------------
-
-template <typename Value, typename Derived> struct ArrayBase;
-
-template <typename Value, size_t Size, bool Approx, RoundingMode Mode,
-          typename Derived>
+/// Base class of all statically sized arrays
+template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_,
+          bool IsMask_, typename Derived_>
 struct StaticArrayBase;
 
-template <typename Value, size_t Size, bool Approx, RoundingMode Mode,
-          typename Derived, typename SFINAE = void>
-struct StaticArrayImpl;
-
-template <typename Value, typename Derived> struct DynamicArrayBase;
-
-template <typename Value> struct DynamicArray;
-
-struct half;
-
+/// Generic array class, which broadcasts from the outer to inner dimensions
 template <typename Value_,
-          size_t Size_ = (max_packet_size / sizeof(Value_) > 1)
-                        ? max_packet_size / sizeof(Value_) : 1,
-          bool Approx_ = detail::approx_default<Value_>::value,
+          size_t Size_ = array_default_size<Value_>,
+          bool Approx_ = array_approx_v<Value_>,
           RoundingMode Mode_ = RoundingMode::Default>
 struct Array;
 
+/// Generic array class, which broadcasts from the inner to outer dimensions
 template <typename Value_,
-          size_t Size_ = (max_packet_size / sizeof(Value_) > 1)
-                        ? max_packet_size / sizeof(Value_) : 1,
-          bool Approx_ = detail::approx_default<Value_>::value,
+          size_t Size_ = array_default_size<Value_>,
+          bool Approx_ = array_approx_v<Value_>,
           RoundingMode Mode_ = RoundingMode::Default>
 struct Packet;
 
-template <typename Value_, size_t Size_,
-          bool Approx_ = detail::approx_default<Value_>::value,
+/// Generic mask class, which broadcasts from the outer to inner dimensions
+template <typename Value_,
+          size_t Size_ = array_default_size<Value_>,
+          bool Approx_ = array_approx_v<Value_>,
           RoundingMode Mode_ = RoundingMode::Default>
 struct Mask;
 
-template <typename Value_, size_t Size_,
-          bool Approx_ = detail::approx_default<Value_>::value,
+/// Generic mask class, which broadcasts from the inner to outer dimensions
+template <typename Value_,
+          size_t Size_ = array_default_size<Value_>,
+          bool Approx_ = array_approx_v<Value_>,
           RoundingMode Mode_ = RoundingMode::Default>
 struct PacketMask;
 
-template <typename Value_, size_t Size_,
-          bool Approx_ = detail::approx_default<Value_>::value>
-struct Matrix;
+/// Dynamically sized array
+template <typename Packet_> struct DynamicArray;
+template <typename Packet_> struct DynamicMask;
 
-template <typename Value_, size_t Size_>
-struct TorchArray;
+/// Helper class for custom data structures
+template <typename T, typename = int>
+struct struct_support;
 
-template<typename T, typename U> T memcpy_cast(const U &);
+/// Half-precision floating point value
+struct half;
 
-//! @}
-// -----------------------------------------------------------------------
+namespace detail {
+    struct reinterpret_flag { };
+}
 
 NAMESPACE_END(enoki)

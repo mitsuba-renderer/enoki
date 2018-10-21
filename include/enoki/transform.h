@@ -13,8 +13,7 @@
 
 #pragma once
 
-#include "matrix.h"
-#include "quaternion.h"
+#include <enoki/quaternion.h>
 
 NAMESPACE_BEGIN(enoki)
 
@@ -28,28 +27,26 @@ template <typename Matrix, typename Vector> ENOKI_INLINE Matrix scale(const Vect
     return diag<Matrix>(concat(v, 1.f));
 }
 
-template <typename Matrix, std::enable_if_t<Matrix::IsMatrix && Matrix::Size == 3, int> = 0>
+template <typename Matrix, enable_if_t<Matrix::IsMatrix && Matrix::Size == 3> = 0>
 ENOKI_INLINE Matrix rotate(const entry_t<Matrix> &angle) {
-    entry_t<Matrix> s, c, z(0.f), o(1.f);
-    std::tie(s, c) = sincos(angle);
+    entry_t<Matrix> z(0.f), o(1.f);
+    auto [s, c] = sincos(angle);
     return Matrix(c, -s, z, s, c, z, z, z, o);
 }
 
-template <typename Matrix, typename Vector3,
-          std::enable_if_t<Matrix::IsMatrix && Matrix::Size == 4, int> = 0>
+template <typename Matrix, typename Vector3, enable_if_t<Matrix::IsMatrix && Matrix::Size == 4> = 0>
 ENOKI_INLINE Matrix rotate(const Vector3 &axis, const entry_t<Matrix> &angle) {
-    using Float = entry_t<Matrix>;
+    using Value = entry_t<Matrix>;
     using Vector4 = column_t<Matrix>;
 
-    Float sin_theta, cos_theta;
-    std::tie(sin_theta, cos_theta) = sincos(angle);
-    Float cos_theta_m = 1.f - cos_theta;
+    auto [sin_theta, cos_theta] = sincos(angle);
+    Value cos_theta_m = 1.f - cos_theta;
 
     auto shuf1 = shuffle<1, 2, 0>(axis),
          shuf2 = shuffle<2, 0, 1>(axis),
-         tmp0  = axis * axis * cos_theta_m + cos_theta,
-         tmp1  = axis * shuf1 * cos_theta_m + shuf2 * sin_theta,
-         tmp2  = axis * shuf2 * cos_theta_m - shuf1 * sin_theta;
+         tmp0  = fmadd(axis * axis, cos_theta_m, cos_theta),
+         tmp1  = fmadd(axis * shuf1, cos_theta_m, shuf2 * sin_theta),
+         tmp2  = fmsub(axis * shuf2, cos_theta_m, shuf1 * sin_theta);
 
     return Matrix(
         Vector4(tmp0.x(), tmp1.x(), tmp2.x(), 0.f),
@@ -78,12 +75,12 @@ ENOKI_INLINE Matrix perspective(const entry_t<Matrix> &fov,
 }
 
 template <typename Matrix>
-ENOKI_INLINE Matrix frustum(entry_t<Matrix> left,
-                            entry_t<Matrix> right,
-                            entry_t<Matrix> bottom,
-                            entry_t<Matrix> top,
-                            entry_t<Matrix> near,
-                            entry_t<Matrix> far) {
+ENOKI_INLINE Matrix frustum(const entry_t<Matrix> &left,
+                            const entry_t<Matrix> &right,
+                            const entry_t<Matrix> &bottom,
+                            const entry_t<Matrix> &top,
+                            const entry_t<Matrix> &near,
+                            const entry_t<Matrix> &far) {
     static_assert(Matrix::Size == 4, "Matrix::frustum(): implementation assumes 4x4 matrix output");
 
     auto rl = rcp(right - left),

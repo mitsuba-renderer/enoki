@@ -483,15 +483,47 @@ situations other than just building histograms.
 .. code-block:: cpp
 
     /* Unmasked version */
-    transform<FloatP>(hist, indices, [](auto& x) { x += 1; });
+    transform<FloatP>(hist, indices, [](auto& x, auto& /* mask */) { x += 1; });
 
     /* Masked version */
-    transform<FloatP>(hist, indices, mask, [](auto& x) { x += 1; });
+    transform<FloatP>(hist, indices, [](auto& x, auto& /* mask */) { x += 1; }, mask);
+
+A mask argument is always provided to the lambda function. This is useful, e.g.
+to mask memory operations or function calls performed inside it. Note that any
+extra arguments will also be passed to the lambda function:
+
+.. code-block:: cpp
+
+    FloatP amount = ...;
+
+    /* Unmasked version */
+    transform<FloatP>(hist, indices,
+                      [](auto& x, auto&y, auto & /* mask */) { x += y; },
+                      amount);
+
+    /* Masked version */
+    transform<FloatP>(hist, indices,
+                      [](auto& x, auto&y, auto& /* mask */) { x += y; },
+                      amount, mask);
 
 Internally, :cpp:func:`enoki::transform` detects and processes conflicts using
 the AVX512CDI instruction set. When conflicts are present, the function
 provided as an argument may be invoked multiple times in a row. When AVX512CDI
 is not available, a slower scalar fallback implementation is used.
+
+Since the above use pattern---adding values to an array---is so common, a
+special short-hand notation exists:
+
+.. code-block:: cpp
+
+    FloatP amount = ...;
+
+    /* Unmasked version */
+    scatter_add(hist, indices, amount);
+
+    /* Masked version */
+    scatter_add(hist, indices, amount, mask);
+
 
 Memory allocation and alignment
 -------------------------------

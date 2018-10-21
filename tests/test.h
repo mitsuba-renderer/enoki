@@ -26,10 +26,10 @@ namespace test {
     static int dealloc_count = 0;
 }
 
-#define ENOKI_TRACK_SCALAR { ++test::nonvectorized_count; }
-#define ENOKI_TRACK_ALLOC { ++test::alloc_count; }
-#define ENOKI_TRACK_REALLOC { ++test::realloc_count; }
-#define ENOKI_TRACK_DEALLOC { ++test::dealloc_count; }
+//#define ENOKI_TRACK_SCALAR(reason) { printf("[%s] ", reason); ++test::nonvectorized_count; }
+#define ENOKI_TRACK_SCALAR(reason) { ++test::nonvectorized_count; }
+#define ENOKI_TRACK_ALLOC(ptr, size) { ++test::alloc_count; }
+#define ENOKI_TRACK_DEALLOC(ptr, size) { ++test::dealloc_count; }
 #define ENOKI_TEST(name) void name(); static test::Test name##_test{#name, &name}; void name()
 
 #include <enoki/array.h>
@@ -482,7 +482,7 @@ NAMESPACE_END(test)
 
 #define ENOKI_TEST_TYPE(name, type)                                             \
     template <typename Value, size_t Size,                                      \
-              bool Approx = enoki::detail::is_std_float<Value>::value,          \
+              bool Approx = array_approx_v<Value>,                              \
               typename T = enoki::Array<Value, Size, Approx>>                   \
     void name##_##type();                                                       \
     ENOKI_TEST_HELPER(name##_##type, type)                                      \
@@ -491,7 +491,7 @@ NAMESPACE_END(test)
 
 #define ENOKI_TEST_FLOAT(name)                                                  \
     template <typename Value, size_t Size,                                      \
-              bool Approx = enoki::detail::is_std_float<Value>::value,          \
+              bool Approx = array_approx_v<Value>,                              \
               typename T = enoki::Array<Value, Size, Approx>>                   \
     void name();                                                                \
     ENOKI_TEST(array_float_01acc_##name) { name<float, 1, false>();  }          \
@@ -513,7 +513,7 @@ NAMESPACE_END(test)
 
 #define ENOKI_TEST_ALL(name)                                                    \
     template <typename Value, size_t Size,                                      \
-              bool Approx = enoki::detail::is_std_float<Value>::value,          \
+              bool Approx = array_approx_v<Value>,                              \
               typename T = enoki::Array<Value, Size, Approx>>                   \
     void name();                                                                \
     ENOKI_TEST(array_float_01acc_##name) { name<float, 1, false>();  }          \
@@ -552,6 +552,10 @@ int main(int argc, char** argv) {
     /* Turn on verbose mode if requested */
     if (argc == 2 && strcmp(argv[1], "-v") == 0)
         test::detailed = true;
+
+    (void) test::alloc_count;
+    (void) test::realloc_count;
+    (void) test::dealloc_count;
 
     std::cout << std::endl;
     std::cout << std::endl;

@@ -12,6 +12,7 @@
 */
 
 #include "test.h"
+#include <enoki/dynamic.h>
 #include "ray.h"
 #include <enoki/stl.h>
 
@@ -22,10 +23,11 @@ using Int32P = Array<int>;
 using TestP = Array<const Test*, Int32P::Size>;
 using ChildP = Array<const TestChild*, Int32P::Size>;
 
-using TestPMask = mask_t<TestP>;
-
-using Int32X = DynamicArray<Int32P>;
 using TestX  = DynamicArray<TestP>;
+using Int32X = DynamicArray<Int32P>;
+
+using TestPMask = mask_t<TestP>;
+using TestXMask = mask_t<TestX>;
 
 using FloatP    = Packet<float>;
 using Vector3f  = Array<float, 3>;
@@ -34,11 +36,14 @@ using Ray3fP    = Ray<Vector3fP>;
 
 
 struct Test {
+    ENOKI_CALL_SUPPORT()
+
     Test(int32_t value) : value(value) { }
     virtual ~Test() { }
 
     // Vectorized function (accepts a mask, which is ignored here)
     virtual Int32P func1(Int32P i, TestPMask /* unused */) const { return i + value; }
+    virtual Int32X func1(Int32X i, TestXMask /* unused */) const { return i + value; }
 
     // Vectorized function (accepts a mask, which is ignored here)
     virtual void func2(Int32P &i, TestPMask mask) const { i[mask] += value; }
@@ -49,6 +54,7 @@ struct Test {
 
     Ray3fP make_ray(TestPMask) const { return Ray3fP(Vector3f(1, 1, 1), Vector3f(1, 2, 3));}
 
+protected:
     int32_t value;
 };
 
@@ -60,17 +66,18 @@ struct TestChild : public Test {
 
 // Allow Enoki arrays containing pointers to transparently forward function
 // calls (with the appropriate masks).
-ENOKI_CALL_SUPPORT_BEGIN(TestP)
-ENOKI_CALL_SUPPORT(func1)
-ENOKI_CALL_SUPPORT(func2)
-ENOKI_CALL_SUPPORT_SCALAR(func3)
-ENOKI_CALL_SUPPORT(func4)
-ENOKI_CALL_SUPPORT(make_ray)
-ENOKI_CALL_SUPPORT_END(TestP)
+ENOKI_CALL_SUPPORT_BEGIN(Test)
+ENOKI_CALL_SUPPORT_METHOD(func1)
+ENOKI_CALL_SUPPORT_METHOD(func2)
+ENOKI_CALL_SUPPORT_METHOD(func3)
+ENOKI_CALL_SUPPORT_GETTER(get_value, Int32P, value)
+ENOKI_CALL_SUPPORT_METHOD(func4)
+ENOKI_CALL_SUPPORT_METHOD(make_ray)
+ENOKI_CALL_SUPPORT_END(Test)
 
-ENOKI_CALL_SUPPORT_BEGIN(ChildP)
-ENOKI_CALL_SUPPORT_SCALAR(is_child)
-ENOKI_CALL_SUPPORT_END(ChildP)
+ENOKI_CALL_SUPPORT_BEGIN(TestChild)
+ENOKI_CALL_SUPPORT_METHOD(is_child)
+ENOKI_CALL_SUPPORT_END(TestChild)
 
 
 ENOKI_TEST(test01_call) {
@@ -81,16 +88,20 @@ ENOKI_TEST(test01_call) {
     TestP pointers(a);
     pointers.coeff(offset) = b;
 
-    Int32P index = index_sequence<Int32P>();
-    Int32P result = pointers->func1(index);
-    Int32P ref = index_sequence<Int32P>() + 10;
+    Int32P index = arange<Int32P>();
+    Int32P ref = arange<Int32P>() + 10;
     if (offset < Int32P::Size)
         ref.coeff(offset) += 10;
+
+    Int32P result = pointers->func1(index);
     assert(result == ref);
 
     Int32P ref2 = 10;
     if (offset < Int32P::Size)
         ref2.coeff(offset) += 10;
+
+    assert(pointers->get_value() == ref2);
+
     std::pair<Int32P, Int32P> result2 = pointers->func4();
     assert(result2.first == ref2);
     assert(result2.second == ref2+1);
@@ -101,7 +112,6 @@ ENOKI_TEST(test01_call) {
     set_slices(index_x, TestP::Size);
     packet(pointers_x, 0) = pointers;
     packet(index_x, 0) = index;
-    assert(result == ref);
     Int32X result_x = pointers_x->func1(index_x);
     assert(packet(result_x, 0) == ref);
 

@@ -7,12 +7,11 @@ Introduction
 
 **Enoki** is a C++ template library that enables transparent vectorization of
 numerical code. It is implemented as a set of header files with no dependencies
-other than a sufficiently C++14-capable compiler (GCC, Clang, Intel C++
-Compiler 2016, Visual Studio 2017). Enoki code reduces to efficient SIMD
-instructions available on modern processor architectures (**Intel**: AVX512,
-AVX2, AVX, FMA, BMI, F16C, and SSE4.2, **ARM**: NEON & VFPV4 on armv7-a,
-Advanced SIMD on armv8-a), and it generates scalar fallback code if no vector
-instructions are present.
+other than a sufficiently C++17-capable compiler (GCC >= 8.2, Clang >= 7.0,
+Visual Studio 2017). Enoki code reduces to efficient SIMD instructions
+available on modern processor architectures (**Intel**: AVX512, AVX2, AVX, and
+SSE4.2, **ARM**: NEON/VFPV4 on armv7-a, Advanced SIMD on 64-bit armv8-a), and
+it generates scalar fallback code if no vector instructions are present.
 
 Motivation
 ----------
