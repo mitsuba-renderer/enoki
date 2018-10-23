@@ -99,7 +99,7 @@
 #    error Enoki requires a very recent version of AppleClang (XCode >= 10.0)
 #  endif
 #elif defined(__clang__)
-#  if __clang_major__ < 7
+#  if __clang_major__ < 7 && !defined(EMSCRIPTEN)
 #    error Enoki requires a very recent version of Clang/LLVM (>= 7.0)
 #  endif
 #elif defined(__GNUC__)
