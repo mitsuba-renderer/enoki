@@ -897,13 +897,14 @@ ENOKI_INLINE decltype(auto) do_recursive(const Func &func, const Index1 &offset1
         CombinedIndex combined_offset =
             CombinedIndex(offset2) +
             enoki::full<Index2>(offset1) * scalar_t<Index1>(Mult1 == 0 ? Mult2 : Mult1);
+        std::cout << "Combined offset: " << combined_offset << " from " << offset1 << " and " << Mult2 << " " << Mult1 << std::endl;
 
         return func(combined_offset, full<Index2>(mask));
     }
 }
 
 template <typename T> constexpr size_t fix_stride(size_t Stride) {
-    if (has_avx2 && (T::IsNative || T::IsRecursive)) {
+    if (has_avx2) {
        if (Stride % 8 == 0)      return 8;
        else if (Stride % 4 == 0) return 4;
        else                      return 1;
@@ -914,10 +915,11 @@ template <typename T> constexpr size_t fix_stride(size_t Stride) {
 NAMESPACE_END(detail)
 
 /// Masked prefetch operation
-template <typename Array, bool Write = false, size_t Level = 2, size_t Stride = sizeof(scalar_t<Array>),
+template <typename Array, bool Write = false, size_t Level = 2, size_t Stride_ = 0,
           typename Index, typename Mask = mask_t<replace_scalar_t<Index, scalar_t<Array>>>>
 ENOKI_INLINE void prefetch(const void *mem, const Index &index, const detail::identity_t<Mask> &mask = true) {
     static_assert(is_std_int_v<scalar_t<Index>>, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
+    constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(scalar_t<Array>);
 
     if constexpr (!is_array_v<Array> && !is_array_v<Index>) {
         /* Scalar case */
@@ -932,13 +934,14 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index, const detail::id
         #endif
     } else if constexpr (std::is_same_v<array_shape_t<Array>, array_shape_t<Index>>) {
         /* Forward to the array-specific implementation */
-        constexpr size_t Stride2 = detail::fix_stride<Array>(Stride);
+        constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(scalar_t<Array>),
+                         Stride2 = detail::fix_stride<Array>(Stride);
         Index index2 = Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index;
         Array::template prefetch_<Write, Level, Stride2>(mem, index2, mask);
     } else if constexpr (array_depth_v<Array> > array_depth_v<Index>) {
         static_assert(Stride == sizeof(scalar_t<Array>), "Stride != sizeof(scalar_t<Array>) in nested prefetch!");
         /* Dimension mismatch, reduce to a sequence of gather operations */
-        detail::do_recursive<Array>(
+        detail::do_recursive<Array, Stride_>(
             [mem](const auto &index2, const auto &mask2) ENOKI_INLINE_LAMBDA {
                 prefetch<Array, Write, Level, Stride>(mem, index2, mask2);
             },
@@ -949,21 +952,24 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index, const detail::id
 }
 
 /// Masked gather operation
-template <typename Array, size_t Stride = sizeof(scalar_t<Array>), bool Masked = true,
+template <typename Array, size_t Stride_ = 0, bool Masked = true,
           typename Index, typename Mask = mask_t<replace_scalar_t<Index, scalar_t<Array>>>>
 ENOKI_INLINE Array gather(const void *mem, const Index &index, const detail::identity_t<Mask> &mask) {
     static_assert(is_std_int_v<scalar_t<Index>>, "gather(): expected a signed 32/64-bit integer as 'index' argument!");
 
     if constexpr (!is_array_v<Array> && !is_array_v<Index>) {
         /* Scalar case */
+        constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(scalar_t<Array>);
         const Array *ptr = (const Array *) ((const uint8_t *) mem + index * Index(Stride));
         return mask ? *ptr : Array(0);
     } else if constexpr (std::is_same_v<array_shape_t<Array>, array_shape_t<Index>>) {
         /* Forward to the array-specific implementation */
-        constexpr size_t Stride2 = detail::fix_stride<Array>(Stride);
+        constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(scalar_t<Array>),
+                         Stride2 = detail::fix_stride<Array>(Stride);
         Index index2 = Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index;
         return Array::template gather_<Stride2>(mem, index2, mask);
     } else if constexpr (array_depth_v<Array> == 1 && array_depth_v<Index> == 0) {
+        constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(Array);
         /* Turn into a load */
         if constexpr (Masked)
             return load_unaligned<Array>((uint8_t *) mem + Stride * (size_t) index, mask);
@@ -971,10 +977,9 @@ ENOKI_INLINE Array gather(const void *mem, const Index &index, const detail::ide
             return load_unaligned<Array>((uint8_t *) mem + Stride * (size_t) index);
     } else if constexpr (array_depth_v<Array> > array_depth_v<Index>) {
         /* Dimension mismatch, reduce to a sequence of gather operations */
-        static_assert(Stride == sizeof(scalar_t<Array>), "Stride != sizeof(scalar_t<Array>) in nested gather!");
         return detail::do_recursive<Array>(
             [mem](const auto &index2, const auto &mask2) ENOKI_INLINE_LAMBDA {
-                return gather<Array, Stride>(mem, index2, mask2);
+                return gather<Array, Stride_ == 0 ? sizeof(scalar_t<Array>) : 1>(mem, index2, mask2);
             },
             index, scalar_t<Index>(0), mask);
     } else {
@@ -996,7 +1001,8 @@ ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index, con
             *ptr = value;
     } else if constexpr (std::is_same_v<array_shape_t<Array>, array_shape_t<Index>>) {
         /* Forward to the array-specific implementation */
-        constexpr size_t Stride2 = detail::fix_stride<Array>(Stride);
+        constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(scalar_t<Array>),
+                         Stride2 = detail::fix_stride<Array>(Stride);
         Index index2 = Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index;
         value.template scatter_<Stride2>(mem, index2, mask);
     } else if constexpr (array_depth_v<Array> == 1 && array_depth_v<Index> == 0) {
@@ -1008,7 +1014,7 @@ ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index, con
     } else if constexpr (array_depth_v<Array> > array_depth_v<Index>) {
         static_assert(Stride == sizeof(scalar_t<Array>), "Stride != sizeof(scalar_t<Array>) in nested scatter!");
         /* Dimension mismatch, reduce to a sequence of scatter operations */
-        detail::do_recursive<Array>(
+        detail::do_recursive<Array, Stride_>(
             [mem, &value](const auto& index2, const auto &mask2) ENOKI_INLINE_LAMBDA {
                 scatter<Stride, Masked>(mem, value, index2, mask2);
             },
@@ -1018,7 +1024,7 @@ ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index, con
     }
 }
 
-template <typename Array, size_t Stride = sizeof(scalar_t<Array>), typename Index>
+template <typename Array, size_t Stride = 0, typename Index>
 ENOKI_INLINE Array gather(const void *mem, const Index &index) {
     return gather<Array, Stride, false>(mem, index, true);
 }
@@ -1073,14 +1079,14 @@ void scatter_add(void *mem, const Index &index, const Arg &value, mask_t<Arg> ma
 }
 
 /// Prefetch operations with an array source
-template <typename Array, size_t Stride = sizeof(scalar_t<Array>), typename Source, typename... Args,
+template <typename Array, size_t Stride = 0, typename Source, typename... Args,
           enable_if_array_t<Source> = 0>
 void prefetch(const Source &source, const Args &... args) {
     prefetch<Array, Stride>(source.data(), args...);
 }
 
 /// Gather operations with an array source
-template <typename Array, size_t Stride = sizeof(scalar_t<Array>), typename Source, typename... Args,
+template <typename Array, size_t Stride = 0, typename Source, typename... Args,
           enable_if_array_t<Source> = 0>
 Array gather(const Source &source, const Args &... args) {
     if constexpr (is_autodiff_array_v<Source>)

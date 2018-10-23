@@ -18,6 +18,7 @@
 #  pragma warning(push)
 #  pragma warning(disable:4146) // warning C4146: unary minus operator applied to unsigned type, result still unsigned
 #  pragma warning(disable:4554) // warning C4554: '>>': check operator precedence for possible error; use parentheses to clarify precedence
+#  pragma warning(disable:4702) // warning C4702: unreachable code
 #endif
 
 #include <enoki/array_generic.h>

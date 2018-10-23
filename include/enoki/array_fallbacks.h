@@ -28,7 +28,7 @@ template <bool Approx, typename T> ENOKI_INLINE T rcp_scalar(const T &a) {
     }
 #endif
 
-    if (Approx && std::is_same_v<T, float>) {
+    if constexpr (Approx && std::is_same_v<T, float>) {
 #if defined(ENOKI_X86_SSE42)
         __m128 v = _mm_set_ss((float) a), r;
 
@@ -68,7 +68,7 @@ template <bool Approx, typename T> ENOKI_INLINE T rcp_scalar(const T &a) {
     }
 
 #if defined(ENOKI_X86_AVX512F) || defined(ENOKI_X86_AVX512ER)
-    if (Approx && std::is_same_v<T, double>) {
+    if constexpr (Approx && std::is_same_v<T, double>) {
         __m128d v = _mm_set_sd((double) a), r;
 
         #if defined(ENOKI_X86_AVX512ER)
@@ -109,7 +109,7 @@ template <bool Approx, typename T> ENOKI_INLINE T rsqrt_scalar(const T &a) {
     }
 #endif
 
-    if (Approx && std::is_same_v<T, float>) {
+    if constexpr (Approx && std::is_same_v<T, float>) {
 #if defined(ENOKI_X86_SSE42)
         __m128 v = _mm_set_ss((float) a), r;
         #if defined(ENOKI_X86_AVX512F)
@@ -150,7 +150,7 @@ template <bool Approx, typename T> ENOKI_INLINE T rsqrt_scalar(const T &a) {
     }
 
 #if defined(ENOKI_X86_AVX512F) || defined(ENOKI_X86_AVX512ER)
-    if (Approx && std::is_same_v<T, double>) {
+    if constexpr (Approx && std::is_same_v<T, double>) {
         __m128d v = _mm_set_sd((double) a), r;
 
         #if defined(ENOKI_X86_AVX512ER)
@@ -449,25 +449,25 @@ template <typename T> auto xor_(const T &a1, const T &a2) {
         return memcpy_cast<T>(memcpy_cast<Int>(a1) ^ memcpy_cast<Int>(a2));
 }
 
-template <typename T, enable_if_t<!std::is_same_v<T, bool>> = 0> auto or_(const T &a, bool b) {
+template <typename T, enable_if_t<!std::is_same_v<T, bool>> = 0> auto or_(const T &a, const bool &b) {
     using Scalar = scalar_t<T>;
     using Int    = int_array_t<Scalar>;
     return or_(a, b ? memcpy_cast<Scalar>(Int(-1)) : memcpy_cast<Scalar>(Int(0)));
 }
 
-template <typename T, enable_if_t<!std::is_same_v<T, bool>> = 0> auto and_(const T &a, bool b) {
+template <typename T, enable_if_t<!std::is_same_v<T, bool>> = 0> auto and_(const T &a, const bool &b) {
     using Scalar = scalar_t<T>;
     using Int    = int_array_t<Scalar>;
     return and_(a, b ? memcpy_cast<Scalar>(Int(-1)) : memcpy_cast<Scalar>(Int(0)));
 }
 
-template <typename T, enable_if_t<!std::is_same_v<T, bool>> = 0> auto andnot_(const T &a, bool b) {
+template <typename T, enable_if_t<!std::is_same_v<T, bool>> = 0> auto andnot_(const T &a, const bool &b) {
     using Scalar = scalar_t<T>;
     using Int    = int_array_t<Scalar>;
     return andnot_(a, b ? memcpy_cast<Scalar>(Int(-1)) : memcpy_cast<Scalar>(Int(0)));
 }
 
-template <typename T, enable_if_t<!std::is_same_v<T, bool>> = 0> auto xor_(const T &a, bool b) {
+template <typename T, enable_if_t<!std::is_same_v<T, bool>> = 0> auto xor_(const T &a, const bool &b) {
     using Scalar = scalar_t<T>;
     using Int    = int_array_t<Scalar>;
     return xor_(a, b ? memcpy_cast<Scalar>(Int(-1)) : memcpy_cast<Scalar>(Int(0)));
