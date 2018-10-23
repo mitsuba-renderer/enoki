@@ -38,7 +38,7 @@ NAMESPACE_BEGIN(detail)
 
 template <bool UseIntrinsic = false>
 std::pair<uint32_t, uint32_t> div_wide(uint32_t u1, uint32_t u0, uint32_t v) {
-#if defined(__GNUC__)
+#if defined(__GNUC__) && (defined(ENOKI_X86_32) || defined(ENOKI_X86_64))
     if constexpr (UseIntrinsic) {
         uint32_t res, rem;
         __asm__("divl %[v]"
@@ -56,7 +56,7 @@ std::pair<uint32_t, uint32_t> div_wide(uint32_t u1, uint32_t u0, uint32_t v) {
 
 template <bool UseIntrinsic = false>
 std::pair<uint64_t, uint64_t> div_wide(uint64_t u1, uint64_t u0, uint64_t d) {
-#if defined(__GNUC__)
+#if defined(__GNUC__) && defined(ENOKI_X86_64)
     if constexpr (UseIntrinsic) {
         uint64_t res, rem;
         __asm__("divq %[v]"
