@@ -203,7 +203,7 @@ struct divisor<T, UseIntrinsic, enable_if_t<std::is_signed_v<T>>> {
            precomputation-based approach */
         assert(d != 1 && d != -1);
 
-        U ud = (U) d, ad = d < 0 ? (U) -ud : ud;
+        U ud = (U) d, ad = d < 0 ? (U) -d : d;
         shift = (uint8_t) log2i(ad);
 
         if ((ad & (ad - 1)) == 0) {

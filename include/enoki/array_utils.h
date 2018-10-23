@@ -103,7 +103,7 @@ template <typename Value> struct range {
         size_t index;
         Packet index_p;
         Size size;
-        divisor<Scalar> div[Dimension != 0 ? (Dimension - 1) : 1];
+        divisor<Scalar> div[Dimension > 1 ? (Dimension - 1) : 1];
     };
 
     template <typename... Args>

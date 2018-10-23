@@ -14,6 +14,12 @@
 
 #pragma once
 
+#if defined(_MSC_VER)
+#  pragma warning(push)
+#  pragma warning(disable:4146) // warning C4146: unary minus operator applied to unsigned type, result still unsigned
+#  pragma warning(disable:4554) // warning C4554: '>>': check operator precedence for possible error; use parentheses to clarify precedence
+#endif
+
 #include <enoki/array_generic.h>
 
 #include <enoki/array_round.h>
@@ -174,3 +180,7 @@ struct PacketMask : StaticArrayImpl<Value_, Size_, Approx_, Mode_, true,
 };
 
 NAMESPACE_END(enoki)
+
+#if defined(_MSC_VER)
+#  pragma warning(pop)
+#endif
