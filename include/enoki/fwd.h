@@ -71,8 +71,9 @@
 #    endif
 #    define ENOKI_REGCALL
 #  endif
-#  define ENOKI_MARK_USED(x) (void) x
 #endif
+
+#define ENOKI_MARK_USED(x) (void) x
 
 #if !defined(NAMESPACE_BEGIN)
 #  define NAMESPACE_BEGIN(name) namespace name {

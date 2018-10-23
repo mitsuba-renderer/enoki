@@ -150,7 +150,8 @@ NAMESPACE_BEGIN(enoki)
         return a1;                                                             \
     }
 
-template <typename T> ENOKI_INLINE decltype(auto) eval(const T& x) {
+template <typename T, enable_if_array_t<T> = 0>
+ENOKI_INLINE decltype(auto) eval(const T& x) {
     if constexpr (std::is_same_v<std::decay_t<T>, expr_t<T>>)
         return x.derived();
     else

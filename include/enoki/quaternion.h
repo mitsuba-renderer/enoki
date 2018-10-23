@@ -27,7 +27,6 @@ template <typename T> using enable_if_not_quaternion_t = enable_if_t<!is_quatern
 template <typename Value_, bool Approx_>
 struct Quaternion : StaticArrayImpl<Value_, 4, Approx_, RoundingMode::Default, false, Quaternion<Value_, Approx_>> {
     using Base = StaticArrayImpl<Value_, 4, Approx_, RoundingMode::Default, false, Quaternion<Value_, Approx_>>;
-    using Base::Depth;
     ENOKI_ARRAY_IMPORT_BASIC(Base, Quaternion);
     using Base::operator=;
 
@@ -45,11 +44,11 @@ struct Quaternion : StaticArrayImpl<Value_, 4, Approx_, RoundingMode::Default, f
     template <typename Value2, bool Approx2>
     ENOKI_INLINE Quaternion(const Quaternion<Value2, Approx2> &z) : Base(z) { }
 
-    template <typename T, enable_if_t<(array_depth_v<T> < Depth && (is_scalar_v<T> || is_array_v<T>))> = 0,
+    template <typename T, enable_if_t<(array_depth_v<T> < Base::Depth && (is_scalar_v<T> || is_array_v<T>))> = 0,
               enable_if_not_quaternion_t<T> = 0>
     ENOKI_INLINE Quaternion(T &&v) : Base(zero<Value_>(), zero<Value_>(), zero<Value_>(), v) { }
 
-    template <typename T, enable_if_t<(array_depth_v<T> == Depth || !(is_scalar_v<T> || is_array_v<T>))> = 0,
+    template <typename T, enable_if_t<(array_depth_v<T> == Base::Depth || !(is_scalar_v<T> || is_array_v<T>))> = 0,
               enable_if_not_quaternion_t<T> = 0>
     ENOKI_INLINE Quaternion(T &&v) : Base(std::forward<T>(v)) { }
 

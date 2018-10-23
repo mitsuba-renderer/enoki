@@ -26,7 +26,6 @@ template <typename T> using enable_if_not_complex_t = enable_if_t<!is_complex_v<
 template <typename Value_, bool Approx_>
 struct Complex : StaticArrayImpl<Value_, 2, Approx_, RoundingMode::Default, false, Complex<Value_, Approx_>> {
     using Base = StaticArrayImpl<Value_, 2, Approx_, RoundingMode::Default, false, Complex<Value_, Approx_>>;
-    using Base::Depth;
     ENOKI_ARRAY_IMPORT_BASIC(Base, Complex);
     using Base::operator=;
 
@@ -44,11 +43,11 @@ struct Complex : StaticArrayImpl<Value_, 2, Approx_, RoundingMode::Default, fals
     template <typename T, enable_if_complex_t<T> = 0>
     ENOKI_INLINE Complex(T&& z) : Base(z) { }
 
-    template <typename T, enable_if_t<(array_depth_v<T> < Depth && (is_scalar_v<T> || is_array_v<T>))> = 0,
+    template <typename T, enable_if_t<(array_depth_v<T> < Base::Depth && (is_scalar_v<T> || is_array_v<T>))> = 0,
                           enable_if_not_complex_t<T> = 0>
     ENOKI_INLINE Complex(T &&v) : Base(v, zero<Value_>()) { }
 
-    template <typename T, enable_if_t<(array_depth_v<T> == Depth || !(is_scalar_v<T> || is_array_v<T>))> = 0,
+    template <typename T, enable_if_t<(array_depth_v<T> == Base::Depth || !(is_scalar_v<T> || is_array_v<T>))> = 0,
                           enable_if_not_complex_t<T> = 0>
     ENOKI_INLINE Complex(T &&v) : Base(std::forward<T>(v)) { }
 

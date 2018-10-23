@@ -283,9 +283,6 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
     ENOKI_ARRAY_IMPORT_BASIC(Base, StaticArrayImpl)
     using typename Base::Array1;
     using typename Base::Array2;
-    using Base::Size1;
-    using Base::Size2;
-    using Base::Depth;
 
     using StorageType =
         std::conditional_t<std::is_reference_v<Value>,
@@ -345,12 +342,12 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
 
     /// Construct from sub-arrays
     template <typename T1, typename T2, typename T = StaticArrayImpl, enable_if_t<
-              array_depth_v<T1> == array_depth_v<T> && array_size_v<T1> == Size1 &&
-              array_depth_v<T2> == array_depth_v<T> && array_size_v<T2> == Size2 &&
-              Size2 != 0> = 0>
+              array_depth_v<T1> == array_depth_v<T> && array_size_v<T1> == Base::Size1 &&
+              array_depth_v<T2> == array_depth_v<T> && array_size_v<T2> == Base::Size2 &&
+              Base::Size2 != 0> = 0>
     StaticArrayImpl(const T1 &a1, const T2 &a2)
-        : StaticArrayImpl(a1, a2, std::make_index_sequence<Size1>(),
-                                  std::make_index_sequence<Size2>()) { }
+        : StaticArrayImpl(a1, a2, std::make_index_sequence<Base::Size1>(),
+                                  std::make_index_sequence<Base::Size2>()) { }
 
 private:
     template <typename T, size_t... Is>

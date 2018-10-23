@@ -29,8 +29,6 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
                                  RoundingMode::Default, IsMask_, Derived_>;
 
     ENOKI_ARRAY_DEFAULTS(StaticArrayImpl);
-    using Base::Size1;
-    using Base::Size2;
     using Base::derived;
 
     using Value = std::conditional_t<IsMask_, typename Base::Value, Value_>;
@@ -48,9 +46,9 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
         : Base(b, detail::reinterpret_flag()) { }
 
     template <typename T1, typename T2, typename T = StaticArrayImpl, enable_if_t<
-              array_depth_v<T1> == array_depth_v<T> && array_size_v<T1> == Size1 &&
-              array_depth_v<T2> == array_depth_v<T> && array_size_v<T2> == Size2 &&
-              Size2 != 0> = 0>
+              array_depth_v<T1> == array_depth_v<T> && array_size_v<T1> == Base::Size1 &&
+              array_depth_v<T2> == array_depth_v<T> && array_size_v<T2> == Base::Size2 &&
+              Base::Size2 != 0> = 0>
     StaticArrayImpl(const T1 &a1, const T2 &a2)
         : Base(a1, a2) { }
 

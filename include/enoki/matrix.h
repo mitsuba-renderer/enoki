@@ -40,7 +40,6 @@ struct Matrix : StaticArrayImpl<Array<Value_, Size_, Approx_>, Size_, Approx_,
     using Base = StaticArrayImpl<Column, Size_, Approx_,
                                  RoundingMode::Default, false,
                                  Matrix<Value_, Size_, Approx_>>;
-    using Base::Depth;
     using Base::coeff;
 
     ENOKI_ARRAY_IMPORT_BASIC(Base, Matrix);
@@ -83,7 +82,7 @@ struct Matrix : StaticArrayImpl<Array<Value_, Size_, Approx_>, Size_, Approx_,
         }
     }
 
-    template <typename T, enable_if_t<(array_depth_v<T> <= Depth - 2)> = 0,
+    template <typename T, enable_if_t<(array_depth_v<T> <= Base::Depth - 2)> = 0,
                           enable_if_not_matrix_t<T> = 0>
     ENOKI_INLINE Matrix(T&& v) {
         for (size_t i = 0; i < Size; ++i) {
@@ -92,7 +91,7 @@ struct Matrix : StaticArrayImpl<Array<Value_, Size_, Approx_>, Size_, Approx_,
         }
     }
 
-    template <typename T, enable_if_t<(array_depth_v<T> == Depth)> = 0,
+    template <typename T, enable_if_t<(array_depth_v<T> == Base::Depth)> = 0,
                           enable_if_not_matrix_t<T> = 0>
     ENOKI_INLINE Matrix(T&& v) : Base(std::forward<T>(v)) { }
 

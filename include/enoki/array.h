@@ -83,8 +83,6 @@ struct Mask : StaticArrayImpl<Value_, Size_, Approx_, Mode_, true,
 
     using ArrayType = Array<Value_, Size_, Approx_, Mode_>;
     using MaskType = Mask;
-    using Base::Size1;
-    using Base::Size2;
 
     /// Type alias for creating a similar-shaped array over a different type
     template <typename T> using ReplaceValue = Mask<T, Size_>;
@@ -99,9 +97,9 @@ struct Mask : StaticArrayImpl<Value_, Size_, Approx_, Mode_, true,
 
     /// Construct from sub-arrays
     template <typename T1, typename T2, typename T = Mask, enable_if_t<
-              array_depth_v<T1> == array_depth_v<T> && array_size_v<T1> == Size1 &&
-              array_depth_v<T2> == array_depth_v<T> && array_size_v<T2> == Size2 &&
-              Size2 != 0> = 0>
+              array_depth_v<T1> == array_depth_v<T> && array_size_v<T1> == Base::Size1 &&
+              array_depth_v<T2> == array_depth_v<T> && array_size_v<T2> == Base::Size2 &&
+              Base::Size2 != 0> = 0>
     Mask(const T1 &a1, const T2 &a2)
         : Base(a1, a2) { }
 
@@ -147,8 +145,6 @@ struct PacketMask : StaticArrayImpl<Value_, Size_, Approx_, Mode_, true,
 
     using ArrayType = Packet<Value_, Size_, Approx_, Mode_>;
     using MaskType = PacketMask;
-    using Base::Size1;
-    using Base::Size2;
 
     /// Type alias for creating a similar-shaped array over a different type
     template <typename T> using ReplaceValue = PacketMask<T, Size_>;
@@ -163,9 +159,9 @@ struct PacketMask : StaticArrayImpl<Value_, Size_, Approx_, Mode_, true,
 
     /// Construct from sub-arrays
     template <typename T1, typename T2, typename T = PacketMask, enable_if_t<
-              array_depth_v<T1> == array_depth_v<T> && array_size_v<T1> == Size1 &&
-              array_depth_v<T2> == array_depth_v<T> && array_size_v<T2> == Size2 &&
-              Size2 != 0> = 0>
+              array_depth_v<T1> == array_depth_v<T> && array_size_v<T1> == Base::Size1 &&
+              array_depth_v<T2> == array_depth_v<T> && array_size_v<T2> == Base::Size2 &&
+              Base::Size2 != 0> = 0>
     PacketMask(const T1 &a1, const T2 &a2)
         : Base(a1, a2) { }
 
