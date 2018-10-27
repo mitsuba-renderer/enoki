@@ -193,8 +193,17 @@ public:                                                                        \
 #define ENOKI_CALL_SUPPORT_GETTER(name, field)                                 \
     template <                                                                 \
         typename Field = decltype(Class::field),                               \
-        typename Return = replace_scalar_t<Storage, Field, false>              \
-    >                                                                          \
+        typename Return = replace_scalar_t<Storage, Field, false>>             \
+    Return name(const mask_t<Return> &mask = true) {                           \
+        using IntType = replace_scalar_t<Storage, std::uintptr_t, false>;      \
+        auto offset =                                                          \
+            IntType(self) + (std::uintptr_t) &(((Class *) nullptr)->field);    \
+        return gather<Return, 1>(nullptr, offset, mask);                       \
+    }
+
+#define ENOKI_CALL_SUPPORT_GETTER_TYPE(name, field, type)                      \
+    template <                                                                 \
+        typename Return = replace_scalar_t<Storage, type, false>>              \
     Return name(const mask_t<Return> &mask = true) {                           \
         using IntType = replace_scalar_t<Storage, std::uintptr_t, false>;      \
         auto offset =                                                          \
