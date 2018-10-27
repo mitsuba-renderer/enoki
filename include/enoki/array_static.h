@@ -819,6 +819,18 @@ public:
     //! @{ \name Miscellaneous
     // -----------------------------------------------------------------------
 
+    /// Return the size in bytes
+    ENOKI_INLINE size_t nbytes() const {
+        if constexpr (is_dynamic_v<Derived>) {
+            size_t result = 0;
+            for (size_t i = 0; i < Derived::Size; ++i)
+                result += derived().coeff(i).nbytes();
+            return result;
+        } else {
+            return sizeof(Derived);
+        }
+    }
+
     static ENOKI_INLINE Derived load_(const void *mem) {
         Derived result;
         if constexpr (is_scalar_v<Value>) {

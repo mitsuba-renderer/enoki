@@ -174,3 +174,23 @@ ENOKI_TEST_ALL(test06_range_2d) {
         assert(mem[i] == 1);
     }
 }
+
+ENOKI_TEST_ALL(test07_nested_gather_strides) {
+    using Vector4x = Array<Value, 4>;
+    using Vector4xP = Array<T, 4>;
+    using Int = int_array_t<T>;
+
+    Value x[100];
+    memset(x, 0, sizeof(x));
+    for (int i = 0; i < 8; ++i) {
+        x[i] = (Value) i;
+        x[i + 60] = (Value) (i + 10);
+    }
+
+    assert((gather<Vector4x>(x, 0) == Vector4x(0, 1, 2, 3)));
+    assert((gather<Vector4x>(x, 1) == Vector4x(4, 5, 6, 7)));
+    assert((gather<Vector4x, 60*sizeof(Value)>(x, 1) == Vector4x(10, 11, 12, 13)));
+    assert((gather<Vector4xP>(x, Int(0)) == Vector4xP(0, 1, 2, 3)));
+    assert((gather<Vector4xP>(x, Int(1)) == Vector4xP(4, 5, 6, 7)));
+    assert((gather<Vector4xP, 60*sizeof(Value)>(x, Int(1)) == Vector4xP(10, 11, 12, 13)));
+}

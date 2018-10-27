@@ -158,9 +158,6 @@ template <typename Value_, typename Derived_> struct ArrayBase {
     /// Dot product fallback implementation
     ENOKI_INLINE auto dot_(const Derived &a) const { return hsum(derived() * a); }
 
-    /// Return the size in bytes
-    ENOKI_INLINE size_t nbytes() const { return derived().size() * sizeof(Value); }
-
     template <size_t Stride, typename Index, typename Mask>
     ENOKI_INLINE void scatter_add_(void *mem, const Index &index,
                                    const Mask &mask) const {

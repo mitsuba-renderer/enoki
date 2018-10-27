@@ -291,6 +291,12 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
     /// Trivial constructor
     ENOKI_TRIVIAL_CONSTRUCTOR(Value)
 
+#if defined(__GNUC__)
+// Don't be so noisy about sign conversion in constructor
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wsign-conversion"
+#endif
+
     /// Construct from component values
     template <typename... Ts, enable_if_t<sizeof...(Ts) == Size_ && Size_ != 1 &&
               std::conjunction_v<detail::is_constructible<StorageType, Ts>...>> = 0>
@@ -298,6 +304,10 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
         : m_data{{ (StorageType) std::forward<Ts>(ts)... }} {
         ENOKI_CHKSCALAR("Constructor (component values)");
     }
+
+#if defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#endif
 
     /// Construct from a scalar or another array
     template <typename T, typename ST = StorageType,
