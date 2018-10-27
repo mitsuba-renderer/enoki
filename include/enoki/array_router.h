@@ -786,40 +786,44 @@ template <typename T> ENOKI_INLINE void store_unaligned(void *mem, const T &valu
 
 template <typename T1, typename T2,
           enable_if_array_any_t<T1, T2> = 0> auto concat(const T1 &a1, const T2 &a2) {
-    static_assert(std::is_same_v<value_t<T1>, value_t<T2>>,
-                  "concat(): Value types must be identical");
+    static_assert(std::is_same_v<scalar_t<T1>, scalar_t<T2>>,
+                  "concat(): Scalar types must be identical");
 
     constexpr size_t Depth1 = array_depth_v<T1>,
                      Depth2 = array_depth_v<T2>,
+                     Depth = std::max(Depth1, Depth2),
                      Size1 = array_size_v<T1>,
                      Size2 = array_size_v<T2>,
                      Size  = Size1 + Size2;
 
-    using Result = Array<value_t<T1>, Size>;
-    if constexpr (Depth2 < Depth1) {
-        Result result;
-        if constexpr(T1::ActualSize == Size) {
-            result = Result(a1);
-            #if defined(ENOKI_X86_SSE42)
-                if constexpr (std::is_same_v<value_t<T1>, float>)
-                    result.m = _mm_insert_ps(result.m, _mm_set_ss(a2), 0b00110000);
-                else
-            #endif
-            result.coeff(Size1) = a2;
-        } else {
-            for (size_t i = 0; i < Size1; ++i)
-                result.coeff(i) = a1.derived().coeff(i);
-            result.coeff(Size1) = a2;
-        }
-        return result;
-    } else if constexpr (Result::Size1 == Size1 && Result::Size2 == Size2) {
+    using Value = expr_t<value_t<T1>, value_t<T2>>;
+    using Result = Array<Value, Size>;
+    if constexpr (Result::Size1 == Size1 && Result::Size2 == Size2 &&
+                  Depth1 == 1 && Depth2 == 1) {
         return Result(a1, a2);
+    } else if constexpr (Depth1 == 1 && Depth2 == 0 && T1::ActualSize == Size) {
+        Result result(a1);
+        #if defined(ENOKI_X86_SSE42)
+            if constexpr (std::is_same_v<value_t<T1>, float>)
+                result.m = _mm_insert_ps(result.m, _mm_set_ss(a2), 0b00110000);
+            else
+        #endif
+        result.coeff(Size1) = a2;
+        return result;
     } else {
         Result result;
-        for (size_t i = 0; i < Size1; ++i)
-            result.coeff(i) = a1.derived().coeff(i);
-        for (size_t i = 0; i < Size2; ++i)
-            result.coeff(i + Size1) = a2.derived().coeff(i);
+        if constexpr (Depth1 == Depth) {
+            for (size_t i = 0; i < Size1; ++i)
+                result.coeff(i) = a1.derived().coeff(i);
+        } else {
+            result.coeff(0) = a1;
+        }
+        if constexpr (Depth2 == Depth) {
+            for (size_t i = 0; i < Size2; ++i)
+                result.coeff(i + Size1) = a2.derived().coeff(i);
+        } else {
+            result.coeff(Size1) = a2;
+        }
         return result;
     }
 }
