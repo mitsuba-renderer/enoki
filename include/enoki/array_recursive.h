@@ -64,7 +64,7 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, IsMask_, Derived_,
         : a1(low(a)), a2(high(a)) { }
 
     /// Reinterpret another array
-    template <size_t Size2, typename Value2, bool Approx2, RoundingMode Mode2,
+    template <typename Value2, size_t Size2, bool Approx2, RoundingMode Mode2,
               bool IsMask2, typename Derived2, enable_if_t<Derived2::Size == Size_> = 0>
     ENOKI_INLINE StaticArrayImpl(
         const StaticArrayBase<Value2, Size2, Approx2, Mode2, IsMask2, Derived2> &a,

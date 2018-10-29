@@ -1077,7 +1077,7 @@ void transform(void *mem, const Index &index, Func &&func, Args&&... args) {
 
 /// Conflict-free scatter-add update
 template <size_t Stride_ = 0, typename Arg, typename Index>
-void scatter_add(void *mem, const Index &index, const Arg &value, mask_t<Arg> mask = true) {
+ENOKI_INLINE void scatter_add(void *mem, const Index &index, const Arg &value, mask_t<Arg> mask = true) {
     constexpr size_t Stride = Stride_ == 0 ? sizeof(scalar_t<Arg>) : Stride_;
 
     if constexpr (is_array_v<Arg>) {
@@ -1092,14 +1092,14 @@ void scatter_add(void *mem, const Index &index, const Arg &value, mask_t<Arg> ma
 /// Prefetch operations with an array source
 template <typename Array, size_t Stride = 0, typename Source, typename... Args,
           enable_if_array_t<Source> = 0>
-void prefetch(const Source &source, const Args &... args) {
+ENOKI_INLINE void prefetch(const Source &source, const Args &... args) {
     prefetch<Array, Stride>(source.data(), args...);
 }
 
 /// Gather operations with an array source
 template <typename Array, size_t Stride = 0, typename Source, typename... Args,
           enable_if_array_t<Source> = 0>
-Array gather(const Source &source, const Args &... args) {
+ENOKI_INLINE Array gather(const Source &source, const Args &... args) {
     if constexpr (is_autodiff_array_v<Source>)
         Source::set_scatter_gather_source_(source.index_(), source.size());
 
@@ -1113,7 +1113,7 @@ Array gather(const Source &source, const Args &... args) {
 
 /// Scatter operations with an array target
 template <size_t Stride = 0, typename Target, typename... Args, enable_if_array_t<Target> = 0>
-void scatter(Target &target, const Args &... args) {
+ENOKI_INLINE void scatter(Target &target, const Args &... args) {
     if constexpr (is_autodiff_array_v<Target>)
         Target::set_scatter_gather_source_(target.index_(), target.size());
 
@@ -1127,7 +1127,7 @@ void scatter(Target &target, const Args &... args) {
 /// Scatter operations with an array target
 template <size_t Stride = 0, typename Target, typename... Args,
           enable_if_array_t<Target> = 0>
-void scatter_add(Target &target, const Args &... args) {
+ENOKI_INLINE void scatter_add(Target &target, const Args &... args) {
     if constexpr (is_autodiff_array_v<Target>)
         Target::set_scatter_gather_source_(target.index(), target.size());
 

@@ -448,7 +448,7 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
 
         func(values, args...);
 
-        while (ENOKI_UNLIKELY(!_mm512_kortestz(todo, todo))) {
+        ENOKI_NOUNROLL while (ENOKI_UNLIKELY(!_mm512_kortestz(todo, todo))) {
             __mmask16 cur = _mm512_mask_testn_epi32_mask(
                 todo, conflicts, _mm512_broadcastmw_epi32(todo));
             values.m = _mm512_mask_permutexvar_ps(values.m, cur, perm_idx, values.m);
@@ -909,7 +909,7 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
 
         func(values, args...);
 
-        while (ENOKI_UNLIKELY(todo)) {
+        ENOKI_NOUNROLL while (ENOKI_UNLIKELY(todo)) {
             __mmask8 cur = _mm512_mask_testn_epi64_mask(
                 todo, conflicts, _mm512_broadcastmb_epi64(todo));
             values.m = _mm512_mask_permutexvar_pd(values.m, cur, perm_idx, values.m);
@@ -1328,7 +1328,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
 
         func(values, args...);
 
-        while (ENOKI_UNLIKELY(!_mm512_kortestz(todo, todo))) {
+        ENOKI_NOUNROLL while (ENOKI_UNLIKELY(!_mm512_kortestz(todo, todo))) {
             __mmask16 cur = _mm512_mask_testn_epi32_mask(
                 todo, conflicts, _mm512_broadcastmw_epi32(todo));
             values.m = _mm512_mask_permutexvar_epi32(values.m, cur, perm_idx, values.m);
@@ -1779,7 +1779,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
 
         func(values, args...);
 
-        while (ENOKI_UNLIKELY(todo)) {
+        ENOKI_NOUNROLL while (ENOKI_UNLIKELY(todo)) {
             __mmask8 cur = _mm512_mask_testn_epi64_mask(
                 todo, conflicts, _mm512_broadcastmb_epi64(todo));
             values.m = _mm512_mask_permutexvar_epi64(values.m, cur, perm_idx, values.m);

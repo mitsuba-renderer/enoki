@@ -563,9 +563,11 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     /// Masked scatter_add-add fallback
     template <size_t Stride, typename Index, typename Mask>
     ENOKI_INLINE void scatter_add_(void *mem, const Index &index, const Mask &mask) const {
-        ENOKI_CHKSCALAR("scatter_add");
-        for (size_t i = 0; i < Derived::Size; ++i)
-            scatter_add<Stride>(mem, index.coeff(i), (const Value &) derived().coeff(i), mask.coeff(i));
+        transform<Derived, Stride>(mem, index,
+            [](auto &&a, auto &&b, auto &&) { a += b; },
+            derived(),
+            mask
+        );
     }
 
     /// Ternary operator -- select between to values based on mask
