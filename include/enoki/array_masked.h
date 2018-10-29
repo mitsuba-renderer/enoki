@@ -79,9 +79,13 @@ struct Array<detail::MaskedArray<Value_>, Size_, Approx_, Mode_>
     Array(const Base &b) : Base(b) { }
 };
 
-template <typename Array, typename Mask>
-ENOKI_INLINE auto masked(Array &value, const Mask &mask) {
-    return struct_support_t<Array>::masked(value, mask);
+template <typename T, typename Mask>
+ENOKI_INLINE auto masked(T &value, const Mask &mask) {
+    if constexpr (std::is_same_v<Mask, bool>) {
+        return detail::MaskedValue<T>{ value, mask };
+    } else {
+        return struct_support_t<T>::masked(value, mask);
+    }
 }
 
 //! @}

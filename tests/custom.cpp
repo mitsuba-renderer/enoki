@@ -18,19 +18,26 @@ template <typename Value_> struct Custom {
     using Value = Value_;
     using FloatVector = Array<Value, 3>;
     using DoubleVector = float64_array_t<FloatVector>;
+    using IntVector = int32_array_t<Value>;
 
     FloatVector o;
     DoubleVector d;
+    IntVector i = 0;
 
     template <typename T>
     bool operator==(const Custom<T> &other) const {
-        return other.o == o && other.d == d;
+        return other.o == o && other.d == d && other.i == i;
     }
 
-    ENOKI_STRUCT(Custom, o, d)
+    template <typename T>
+    bool operator!=(const Custom<T> &other) const {
+        return !operator==(other);
+    }
+
+    ENOKI_STRUCT(Custom, o, d, i)
 };
 
-ENOKI_STRUCT_SUPPORT(Custom, o, d)
+ENOKI_STRUCT_SUPPORT(Custom, o, d, i)
 
 ENOKI_TEST(test01_mask_slice_custom) {
     using FloatP = Packet<float>;
@@ -47,7 +54,20 @@ ENOKI_TEST(test01_mask_slice_custom) {
 
     masked(x, mask) = y;
 
-    assert((slice(x, 0) == Custom3f(Vector3f(0, 0, 0), Vector3f(0, 0, 0))));
+    assert((slice(x, 0) == Custom3f(Vector3f(0, 0, 0), Vector3f(0, 0, 0), 0)));
     if (FloatP::Size > 1)
-        assert((slice(x, 1) == Custom3f(Vector3f(1, 2, 3), Vector3f(4, 5, 6))));
+        assert((slice(x, 1) == Custom3f(Vector3f(1, 2, 3), Vector3f(4, 5, 6), 0)));
+}
+
+ENOKI_TEST(test02_mask_slice_custom_scalar) {
+    using Custom3f = Custom<float>;
+    using Vector3f = Array<float, 3>;
+
+    Custom3f x = zero<Custom3f>();
+    Custom3f y(Vector3f(1, 2, 3), Vector3f(4, 5, 6), 0);
+    Custom3f z = zero<Custom3f>();
+    masked(z, true) = y;
+
+    assert(y != x);
+    assert(y == y);
 }
