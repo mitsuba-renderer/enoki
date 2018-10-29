@@ -210,9 +210,9 @@
 
 #if defined(ENOKI_ALLOC_VERBOSE)
 #  define ENOKI_TRACK_ALLOC(ptr, size)                                         \
-      printf("Enoki: %p: alloc(%llu)\n", (ptr), (uint64_t)(size));
+      printf("Enoki: %p: alloc(%llu)\n", (ptr), (uint64_t) (size));
 #  define ENOKI_TRACK_DEALLOC(ptr, size)                                       \
-      printf("Enoki: %p: dealloc(%llu)\n", (ptr), (uint64_t)(size));
+      printf("Enoki: %p: dealloc(%llu)\n", (ptr), (uint64_t) (size));
 #endif
 
 #if !defined(ENOKI_TRACK_ALLOC)

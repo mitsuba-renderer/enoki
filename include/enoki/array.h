@@ -116,6 +116,7 @@ struct Mask : StaticArrayImpl<Value_, Size_, Approx_, Mode_, true,
     Mask(Ts&&... ts) : Base(std::forward<Ts>(ts)...) { }
 
     ENOKI_ARRAY_IMPORT_BASIC(Base, Mask);
+    using Base::operator=;
 };
 
 template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
@@ -178,6 +179,7 @@ struct PacketMask : StaticArrayImpl<Value_, Size_, Approx_, Mode_, true,
     PacketMask(Ts&&... ts) : Base(std::forward<Ts>(ts)...) { }
 
     ENOKI_ARRAY_IMPORT_BASIC(Base, PacketMask);
+    using Base::operator=;
 };
 
 NAMESPACE_END(enoki)

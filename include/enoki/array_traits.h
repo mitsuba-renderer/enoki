@@ -278,24 +278,48 @@ namespace detail {
 template <typename T> using scalar_t = typename detail::scalar<T>::type;
 
 namespace detail {
-    template <typename T, typename = int> struct mask { using type = bool; };
+    /// Copy modifier flags (const/pointer/lvalue/rvalue reference from 'S' to 'T')
+    template <typename S, typename T> struct copy_flags {
+    private:
+        using R = std::remove_reference_t<S>;
+        using T1 = std::conditional_t<std::is_const<R>::value, std::add_const_t<T>, T>;
+        using T2 = std::conditional_t<std::is_pointer<S>::value,
+                                      std::add_pointer_t<T1>, T1>;
+        using T3 = std::conditional_t<std::is_lvalue_reference<S>::value,
+                                      std::add_lvalue_reference_t<T2>, T2>;
+        using T4 = std::conditional_t<std::is_rvalue_reference<S>::value,
+                                      std::add_rvalue_reference_t<T3>, T3>;
 
-    template <typename T> struct mask<T, enable_if_array_t<T>> {
-        using type = typename std::decay_t<T>::Derived::MaskType;
+    public:
+        using type = T4;
     };
 
-    template <typename T, typename = int> struct array { };
+    template <typename S, typename T>
+    using copy_flags_t = typename detail::copy_flags<S, T>::type;
+    template <typename T, bool CopyFlags, typename = int> struct mask { using type = bool; };
 
-    template <typename T> struct array<T, enable_if_array_t<T>> {
-        using type = typename std::decay_t<T>::Derived::ArrayType;
+    template <typename T, bool CopyFlags> struct mask<T, CopyFlags, enable_if_array_t<T>> {
+    private:
+        using Mask = copy_flags_t<T, typename std::decay_t<T>::Derived::MaskType>;
+    public:
+        using type = std::conditional_t<CopyFlags, detail::copy_flags_t<T, Mask>, Mask>;
+    };
+
+    template <typename T, bool CopyFlags, typename = int> struct array { };
+
+    template <typename T, bool CopyFlags> struct array<T, CopyFlags, enable_if_array_t<T>> {
+    private:
+        using Array = copy_flags_t<T, typename std::decay_t<T>::Derived::ArrayType>;
+    public:
+        using type = std::conditional_t<CopyFlags, detail::copy_flags_t<T, Array>, Array>;
     };
 }
 
 /// Type trait to access the mask type underlying an array
-template <typename T> using mask_t = typename detail::mask<T>::type;
+template <typename T, bool CopyFlags = true> using mask_t = typename detail::mask<T, CopyFlags>::type;
 
 /// Type trait to access the array type underlying a mask
-template <typename T> using array_t = typename detail::array<T>::type;
+template <typename T, bool CopyFlags = true> using array_t = typename detail::array<T, CopyFlags>::type;
 
 /// Extract the most deeply nested Enoki array type from a list of arguments
 template <typename... Args> struct deepest_array;
@@ -374,6 +398,16 @@ template <typename T> struct array_approx<T, enable_if_array_t<T>> {
 };
 
 namespace detail {
+    template <typename T, typename = int> struct array_broadcast_outer {
+        static constexpr bool value = true;
+    };
+
+    template <typename T> struct array_broadcast_outer<T, enable_if_array_t<T>> {
+        static constexpr bool value = std::decay_t<T>::Derived::BroadcastPreferOuter;
+    };
+
+    template <typename T> constexpr bool array_broadcast_outer_v = array_broadcast_outer<T>::value;
+
     /// Convenience class to choose an arithmetic type based on its size and flavor
     template <size_t Size> struct type_chooser { };
 
@@ -399,25 +433,6 @@ namespace detail {
         using UInt = uint64_t;
         using Float = double;
     };
-
-    /// Copy modifier flags (const/pointer/lvalue/rvalue reference from 'S' to 'T')
-    template <typename S, typename T> struct copy_flags {
-    private:
-        using R = std::remove_reference_t<S>;
-        using T1 = std::conditional_t<std::is_const<R>::value, std::add_const_t<T>, T>;
-        using T2 = std::conditional_t<std::is_pointer<S>::value,
-                                      std::add_pointer_t<T1>, T1>;
-        using T3 = std::conditional_t<std::is_lvalue_reference<S>::value,
-                                      std::add_lvalue_reference_t<T2>, T2>;
-        using T4 = std::conditional_t<std::is_rvalue_reference<S>::value,
-                                      std::add_rvalue_reference_t<T3>, T3>;
-
-    public:
-        using type = T4;
-    };
-
-    template <typename S, typename T>
-    using copy_flags_t = typename detail::copy_flags<S, T>::type;
 };
 
 /// Replace the base scalar type of a (potentially nested) array

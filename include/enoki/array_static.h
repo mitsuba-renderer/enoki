@@ -29,7 +29,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     using typename Base::Scalar;
     using Base::derived;
 
-    static_assert(is_std_float<Scalar>::value || !Approx_ || IsMask_,
+    static_assert(is_std_float<Scalar>::value || !Approx_ || IsMask_ || std::is_same_v<Scalar, bool>,
                   "Approximate math library functions are only supported for "
                   "single and double precision arrays!");
 

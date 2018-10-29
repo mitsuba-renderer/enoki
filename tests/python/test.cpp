@@ -53,7 +53,6 @@ void c4(Complex<Packet<float>> value) {
 
 template <typename Float> Float atan(Float x) {
     return enoki::atan(x);
-
 }
 
 PYBIND11_MODULE(test, m) {

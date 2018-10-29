@@ -66,12 +66,8 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
 
     DynamicArrayImpl() = default;
 
-    ENOKI_NOINLINE ~DynamicArrayImpl() {
-        if (is_mapped()) {
-            m_packets.release();
-        } else if (!empty()) {
-            ENOKI_TRACK_DEALLOC(m_packets.get(), packets_allocated() * sizeof(Packet));
-        }
+    ENOKI_INLINE ~DynamicArrayImpl() {
+        reset();
     }
 
     /// Initialize from a list of component values
@@ -116,8 +112,10 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
         packet(0) = Packet(value);
     }
 
-    DynamicArrayImpl(const Value &value) {
-        operator=(value);
+    template <typename T, enable_if_t<is_scalar_v<T>> = 0>
+    DynamicArrayImpl(const T &value) {
+        resize(1);
+        packet(0) = Packet(value);
     }
 
     //! @}
@@ -127,7 +125,8 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
     //! @{ \name Assignment operators
     // -----------------------------------------------------------------------
 
-    ENOKI_NOINLINE DynamicArrayImpl &operator=(const Value &value) {
+    template <typename T, enable_if_t<is_scalar_v<T>> = 0>
+    ENOKI_NOINLINE DynamicArrayImpl &operator=(const T &value) {
         if (empty())
             resize(1);
         Packet p(value);
@@ -161,6 +160,10 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
     }
 
     ENOKI_INLINE DynamicArrayImpl &operator=(DynamicArrayImpl &&other) {
+        if (is_mapped())
+            m_packets.release();
+        else if (m_packets.get())
+            ENOKI_TRACK_DEALLOC(m_packets.get(), packets_allocated() * sizeof(Packet));
         m_packets = std::move(other.m_packets);
         m_packets_allocated = other.m_packets_allocated;
         m_size = other.m_size;
@@ -169,10 +172,12 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
     }
 
     void reset() {
-        if (is_mapped())
+        if (is_mapped()) {
             m_packets.release();
-        else
+        } else if (m_packets.get()) {
+            ENOKI_TRACK_DEALLOC(m_packets.get(), packets_allocated() * sizeof(Packet));
             m_packets.reset();
+        }
 
         m_size = m_packets_allocated = 0;
     }
@@ -640,9 +645,8 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
         size_t n_packets = (size + PacketSize - 1) / PacketSize;
 
         if (n_packets > packets_allocated()) {
-            if (!empty()) {
+            if (!empty())
                 ENOKI_TRACK_DEALLOC(m_packets.get(), packets_allocated() * sizeof(Packet));
-            }
             m_packets = PacketHolder(new Packet[n_packets]);
             m_packets_allocated = (Size) n_packets;
             ENOKI_TRACK_ALLOC(m_packets.get(),

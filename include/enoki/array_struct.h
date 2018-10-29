@@ -168,7 +168,7 @@ struct struct_support<T, enable_if_static_array_t<T>> {
     }
 
     template <typename Mem>
-    static ENOKI_INLINE size_t compress(Mem &mem, const T& value, const mask_t<T> &mask) {
+    static ENOKI_INLINE size_t compress(Mem &mem, const expr_t<T>& value, const mask_t<expr_t<T>> &mask) {
         if constexpr (is_array_v<Mem>) {
             size_t result = 0;
             for (size_t i = 0; i < Size; ++i)

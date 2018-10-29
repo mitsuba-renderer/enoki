@@ -26,19 +26,12 @@ namespace detail {
     using is_not_reinterpret_flag = std::bool_constant<
         !std::is_same_v<std::decay_t<T>, reinterpret_flag>>;
 
-    template <typename Target, size_t I, typename Source>
-    static decltype(auto) broadcast(Source& source) {
-        if constexpr (is_static_array_v<Source> && array_size_v<Source> == Target::Size) {
-            if constexpr ((std::decay_t<Source>::BroadcastPreferOuter &&
-                           array_depth_v<Source> < array_depth_v<Target>) ||
-                          array_depth_v<Source> == array_depth_v<Target>)
-                return source.coeff(I);
-            else
-                return source;
-        } else {
-            return source;
-        }
-    }
+    template <typename Source, typename Target>
+    constexpr bool broadcast =
+        !is_static_array_v<Source> || array_size_v<Source> != Target::Size ||
+        !(array_depth_v<Source> == array_depth_v<Target> ||
+          (array_depth_v<Source> < array_depth_v<Target> &&
+           detail::array_broadcast_outer_v<Source>));
 
     template <typename Value, size_t Size,
               RoundingMode Mode = RoundingMode::Default, typename = int>
@@ -276,17 +269,30 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
                        enable_if_t<detail::array_config<Value_, Size_>::use_generic_impl>>
     : StaticArrayBase<std::conditional_t<IsMask_, mask_t<Value_>, Value_>,
                       Size_, Approx_, RoundingMode::Default, IsMask_, Derived_> {
+
     using Base = StaticArrayBase<
         std::conditional_t<IsMask_, mask_t<Value_>, Value_>,
         Size_, Approx_, RoundingMode::Default, IsMask_, Derived_>;
 
-    ENOKI_ARRAY_IMPORT_BASIC(Base, StaticArrayImpl)
+    using typename Base::Derived;
+    using typename Base::Value;
+    using typename Base::Scalar;
     using typename Base::Array1;
     using typename Base::Array2;
+
+    using Base::Size;
+    using Base::Mode;
+    using Base::derived;
 
     using StorageType =
         std::conditional_t<std::is_reference_v<Value>,
                            std::reference_wrapper<std::remove_reference_t<Value>>, Value>;
+
+    using Ref = std::remove_reference_t<Value> &;
+    using ConstRef = const std::remove_reference_t<Value> &;
+
+    StaticArrayImpl(const StaticArrayImpl &) = default;
+    StaticArrayImpl(StaticArrayImpl &&) = default;
 
     /// Trivial constructor
     ENOKI_TRIVIAL_CONSTRUCTOR(Value)
@@ -301,13 +307,9 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
     template <typename... Ts, enable_if_t<sizeof...(Ts) == Size_ && Size_ != 1 &&
               std::conjunction_v<detail::is_constructible<StorageType, Ts>...>> = 0>
     ENOKI_INLINE StaticArrayImpl(Ts&&... ts)
-        : m_data{{ (StorageType) std::forward<Ts>(ts)... }} {
+        : m_data{{ (std::conditional_t<std::is_same_v<Ts, StorageType>, StorageType&&, const StorageType &>) ts... }} {
         ENOKI_CHKSCALAR("Constructor (component values)");
     }
-
-#if defined(__GNUC__)
-#  pragma GCC diagnostic pop
-#endif
 
     /// Construct from a scalar or another array
     template <typename T, typename ST = StorageType,
@@ -332,7 +334,8 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
     }
 
     /// Reinterpret another array (potential optimizations)
-    template <typename T>
+    template <typename T, typename ST = StorageType,
+              enable_if_t<std::is_default_constructible_v<ST>> = 0>
     ENOKI_INLINE StaticArrayImpl(T&& value, detail::reinterpret_flag) {
         if constexpr (is_recursive_array_v<T> &&
                       array_depth_v<T> == array_depth_v<Derived>) {
@@ -350,6 +353,21 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
         return *this;
     }
 
+    StaticArrayImpl& operator=(const StaticArrayImpl& value) {
+        assign_(value, std::make_index_sequence<Derived::Size>());
+        return *this;
+    }
+
+    StaticArrayImpl& operator=(StaticArrayImpl& value) {
+        assign_(value, std::make_index_sequence<Derived::Size>());
+        return *this;
+    }
+
+    StaticArrayImpl& operator=(StaticArrayImpl&& value) {
+        assign_(std::move(value), std::make_index_sequence<Derived::Size>());
+        return *this;
+    }
+
     /// Construct from sub-arrays
     template <typename T1, typename T2, typename T = StaticArrayImpl, enable_if_t<
               array_depth_v<T1> == array_depth_v<T> && array_size_v<T1> == Base::Size1 &&
@@ -360,10 +378,16 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
                                   std::make_index_sequence<Base::Size2>()) { }
 
 private:
-    template <typename T, size_t... Is>
+    template <typename T, size_t... Is, enable_if_t<!detail::broadcast<T, Derived>> = 0>
     ENOKI_INLINE StaticArrayImpl(T&& value, std::index_sequence<Is...>)
-        : m_data{{ detail::broadcast<Derived, Is>(value)... }} {
+        : m_data{{ value.coeff(Is)... }} {
         ENOKI_CHKSCALAR("Copy constructor");
+    }
+
+    template <typename T, size_t... Is, enable_if_t<detail::broadcast<T, Derived>> = 0>
+    ENOKI_INLINE StaticArrayImpl(T&& value, std::index_sequence<Is...>)
+        : m_data{{ (Is, value)... }} {
+        ENOKI_CHKSCALAR("Copy constructor (broadcast)");
     }
 
     template <typename T1, typename T2, size_t... Index1, size_t... Index2>
@@ -409,13 +433,19 @@ private:
             #endif
         }
 
-        ENOKI_CHKSCALAR("Copy constructor");
-        if constexpr (std::is_default_constructible_v<StorageType>) {
-            bool unused[] = { (coeff(Is) = (const StorageType &) detail::broadcast<Derived, Is>(value), false)... };
+        constexpr bool Move = !std::is_lvalue_reference_v<T> && !is_scalar_v<Value>;
+
+        if constexpr(detail::broadcast<T, Derived>) {
+            bool unused[] = { (coeff(Is) = (const StorageType &) value, false)... };
             (void) unused;
         } else {
-            bool unused[] = { (coeff(Is) = detail::broadcast<Derived, Is>(value), false)... };
-            (void) unused;
+            if constexpr (Move) {
+                bool unused[] = { (coeff(Is) = std::move(value.derived().coeff(Is)), false)... };
+                (void) unused;
+            } else {
+                bool unused[] = { (coeff(Is) = (const StorageType &) value.derived().coeff(Is), false)... };
+                (void) unused;
+            }
         }
     }
 
@@ -459,12 +489,18 @@ private:
             #endif
         }
 
-        ENOKI_CHKSCALAR("Copy constructor");
-        bool unused[] = { (coeff(Is) = reinterpret_array<Value>(
-                               detail::broadcast<Derived, Is>(value)), false)... };
-        (void) unused;
+        if constexpr(detail::broadcast<T, Derived>) {
+            bool unused[] = { (coeff(Is) = reinterpret_array<Value>(value), false)... };
+            (void) unused;
+        } else {
+            bool unused[] = { (coeff(Is) = reinterpret_array<Value>(value.coeff(Is)), false)... };
+            (void) unused;
+        }
     }
 
+#if defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#endif
 
 public:
     /// Return the size in bytes
@@ -502,13 +538,13 @@ public:
     }
 
     /// Array indexing operator
-    ENOKI_INLINE std::remove_reference_t<Value> &coeff(size_t i) {
+    ENOKI_INLINE Ref coeff(size_t i) {
         ENOKI_CHKSCALAR("coeff");
         return m_data[i];
     }
 
     /// Array indexing operator (const)
-    ENOKI_INLINE const std::remove_reference_t<Value> &coeff(size_t i) const {
+    ENOKI_INLINE ConstRef coeff(size_t i) const {
         ENOKI_CHKSCALAR("coeff");
         return m_data[i];
     }

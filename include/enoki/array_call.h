@@ -72,6 +72,10 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
         using BaseType = std::decay_t<std::remove_pointer_t<scalar_t<Derived_>>>;
         return call_support<BaseType, Derived_>(derived());
     }
+
+    template <typename T> Derived_& operator=(T&& t) {
+        return (Derived_ &) Base::operator=(std::forward<T>(t));
+    }
 };
 
 NAMESPACE_BEGIN(detail)
