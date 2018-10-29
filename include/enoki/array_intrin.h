@@ -16,7 +16,16 @@
 #include <enoki/fwd.h>
 
 #if defined(ENOKI_X86_64) || defined(ENOKI_X86_32)
+#  if defined(__GNUC__) && !defined(__clang__)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wconversion"
+#    pragma GCC diagnostic ignored "-Wuninitialized"
+#    pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#  endif
 #  include <immintrin.h>
+#  if defined(__GNUC__) && !defined(__clang__)
+#    pragma GCC diagnostic pop
+#  endif
 #endif
 
 #if defined(ENOKI_ARM_NEON)
@@ -26,6 +35,7 @@
 #if defined(_MSC_VER)
 #  include <intrin.h>
 #endif
+
 
 NAMESPACE_BEGIN(enoki)
 

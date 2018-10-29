@@ -381,13 +381,13 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
         constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if constexpr (sizeof(scalar_t<Index>) == 4) {
             if constexpr (Write)
-                _mm512_mask_prefetch_i32scatter_ps(ptr, mask.k, index.m, Stride, Hint);
+                _mm512_mask_prefetch_i32scatter_ps((void *) ptr, mask.k, index.m, Stride, Hint);
             else
                 _mm512_mask_prefetch_i32gather_ps(index.m, mask.k, ptr, Stride, Hint);
         } else {
             if constexpr (Write) {
-                _mm512_mask_prefetch_i64scatter_ps(ptr, low(mask).k, low(index).m, Stride, Hint);
-                _mm512_mask_prefetch_i64scatter_ps(ptr, high(mask).k, high(index).m, Stride, Hint);
+                _mm512_mask_prefetch_i64scatter_ps((void *) ptr, low(mask).k, low(index).m, Stride, Hint);
+                _mm512_mask_prefetch_i64scatter_ps((void *) ptr, high(mask).k, high(index).m, Stride, Hint);
             } else {
                 _mm512_mask_prefetch_i64gather_ps(low(index).m, low(mask).k, ptr, Stride, Hint);
                 _mm512_mask_prefetch_i64gather_ps(high(index).m, high(mask).k, ptr, Stride, Hint);
@@ -850,12 +850,12 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
         constexpr auto Hint = Level == 1 ? _MM_HINT_T0 : _MM_HINT_T1;
         if constexpr (sizeof(scalar_t<Index>) == 4) {
             if (Write)
-                _mm512_mask_prefetch_i32scatter_pd(ptr, mask.k, index.m, Stride, Hint);
+                _mm512_mask_prefetch_i32scatter_pd((void *) ptr, mask.k, index.m, Stride, Hint);
             else
                 _mm512_mask_prefetch_i32gather_pd(index.m, mask.k, ptr, Stride, Hint);
         } else {
             if (Write)
-                _mm512_mask_prefetch_i64scatter_pd(ptr, mask.k, index.m, Stride, Hint);
+                _mm512_mask_prefetch_i64scatter_pd((void *) ptr, mask.k, index.m, Stride, Hint);
             else
                 _mm512_mask_prefetch_i64gather_pd(index.m, mask.k, ptr, Stride, Hint);
         }
@@ -1261,13 +1261,13 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
 
         if constexpr (sizeof(scalar_t<Index>) == 4) {
             if (Write)
-                _mm512_mask_prefetch_i32scatter_ps(ptr, mask.k, index.m, Stride, Hint);
+                _mm512_mask_prefetch_i32scatter_ps((void *) ptr, mask.k, index.m, Stride, Hint);
             else
                 _mm512_mask_prefetch_i32gather_ps(index.m, mask.k, ptr, Stride, Hint);
         } else {
             if (Write) {
-                _mm512_mask_prefetch_i64scatter_ps(ptr, low(mask).k, low(index).m, Stride, Hint);
-                _mm512_mask_prefetch_i64scatter_ps(ptr, high(mask).k, high(index).m, Stride, Hint);
+                _mm512_mask_prefetch_i64scatter_ps((void *) ptr, low(mask).k, low(index).m, Stride, Hint);
+                _mm512_mask_prefetch_i64scatter_ps((void *) ptr, high(mask).k, high(index).m, Stride, Hint);
             } else {
                 _mm512_mask_prefetch_i64gather_ps(low(index).m, low(mask).k, ptr, Stride, Hint);
                 _mm512_mask_prefetch_i64gather_ps(high(index).m, high(mask).k, ptr, Stride, Hint);
@@ -1719,12 +1719,12 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
 
         if constexpr (sizeof(scalar_t<Index>) == 4) {
             if constexpr (Write)
-                _mm512_mask_prefetch_i32scatter_pd(ptr, mask.k, index.m, Stride, Hint);
+                _mm512_mask_prefetch_i32scatter_pd((void *) ptr, mask.k, index.m, Stride, Hint);
             else
                 _mm512_mask_prefetch_i32gather_pd(index.m, mask.k, ptr, Stride, Hint);
         } else {
             if constexpr (Write)
-                _mm512_mask_prefetch_i64scatter_pd(ptr, mask.k, index.m, Stride, Hint);
+                _mm512_mask_prefetch_i64scatter_pd((void *) ptr, mask.k, index.m, Stride, Hint);
             else
                 _mm512_mask_prefetch_i64gather_pd(index.m, mask.k, ptr, Stride, Hint);
         }

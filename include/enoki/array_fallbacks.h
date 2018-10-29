@@ -434,6 +434,8 @@ template <typename T> auto andnot_(const T &a1, const T &a2) {
 
     if constexpr (is_array_v<T>)
         return andnot(a1, a2);
+    else if constexpr (std::is_same_v<T, bool>)
+        return a1 && !a2;
     else if constexpr (std::is_integral_v<T>)
         return a1 & ~a2;
     else

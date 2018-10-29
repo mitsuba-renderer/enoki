@@ -31,7 +31,7 @@ else()
   if (${CMAKE_SYSTEM_PROCESSOR} MATCHES armv7)
     set(ENOKI_NEON_FLAGS -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -mfp16-format=ieee)
   elseif (${CMAKE_SYSTEM_PROCESSOR} MATCHES aarch64)
-    set(ENOKI_NEON_FLAGS -march=armv8-a+simd -mtune=cortex-a53 )
+    set(ENOKI_NEON_FLAGS -march=armv8-a+simd -mtune=cortex-a53)
   endif()
 endif()
 

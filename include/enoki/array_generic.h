@@ -434,6 +434,7 @@ private:
         }
 
         constexpr bool Move = !std::is_lvalue_reference_v<T> && !is_scalar_v<Value>;
+        ENOKI_MARK_USED(Move);
 
         if constexpr(detail::broadcast<T, Derived>) {
             bool unused[] = { (coeff(Is) = (const StorageType &) value, false)... };

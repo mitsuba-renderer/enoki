@@ -1,7 +1,25 @@
+/*
+    enoki/dynamic.h -- Dynamic heap-allocated array
+
+    Enoki is a C++ template library that enables transparent vectorization
+    of numerical kernels using SIMD instruction sets available on current
+    processor architectures.
+
+    Copyright (c) 2018 Wenzel Jakob <wenzel.jakob@epfl.ch>
+
+    All rights reserved. Use of this source code is governed by a BSD-style
+    license that can be found in the LICENSE file.
+*/
+
 #pragma once
 
 #include <enoki/array.h>
 #include <memory>
+
+#if defined(__GNUC__) && !defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wclass-memaccess"
+#endif
 
 NAMESPACE_BEGIN(enoki)
 
@@ -160,10 +178,11 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
     }
 
     ENOKI_INLINE DynamicArrayImpl &operator=(DynamicArrayImpl &&other) {
-        if (is_mapped())
+        if (is_mapped()) {
             m_packets.release();
-        else if (m_packets.get())
+        } else if (m_packets.get()) {
             ENOKI_TRACK_DEALLOC(m_packets.get(), packets_allocated() * sizeof(Packet));
+        }
         m_packets = std::move(other.m_packets);
         m_packets_allocated = other.m_packets_allocated;
         m_size = other.m_size;
@@ -645,8 +664,9 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
         size_t n_packets = (size + PacketSize - 1) / PacketSize;
 
         if (n_packets > packets_allocated()) {
-            if (!empty())
+            if (!empty()) {
                 ENOKI_TRACK_DEALLOC(m_packets.get(), packets_allocated() * sizeof(Packet));
+            }
             m_packets = PacketHolder(new Packet[n_packets]);
             m_packets_allocated = (Size) n_packets;
             ENOKI_TRACK_ALLOC(m_packets.get(),
@@ -926,3 +946,7 @@ auto vectorize_safe(Func &&f, Args &&... args)
 }
 
 NAMESPACE_END(enoki)
+
+#if defined(__GNUC__) && !defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
