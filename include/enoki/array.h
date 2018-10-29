@@ -54,6 +54,10 @@
 #  include <enoki/array_avx512.h>
 #endif
 
+#if defined(ENOKI_ARM_NEON)
+#  include <enoki/array_neon.h>
+#endif
+
 #include <enoki/array_idiv.h>
 #include <enoki/array_call.h>
 #include <enoki/array_utils.h>

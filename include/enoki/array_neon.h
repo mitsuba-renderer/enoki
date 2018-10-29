@@ -18,14 +18,17 @@
 NAMESPACE_BEGIN(enoki)
 NAMESPACE_BEGIN(detail)
 
-template <> struct is_native<float, 4> : std::true_type { } ;
+template <> struct is_native<float, 4> : std::true_type { };
 template <> struct is_native<float, 3> : std::true_type { };
-template <typename Value>    struct is_native<Value, 4, RoundingMode::Default, enable_if_int32_t<Value>> : std::true_type { };
-template <typename Value>    struct is_native<Value, 3, RoundingMode::Default, enable_if_int32_t<Value>> : std::true_type { };
+template <typename Value> struct is_native<Value, 4, RoundingMode::Default,
+                                           enable_if_int32_t<Value>> : std::true_type { };
+template <typename Value> struct is_native<Value, 3, RoundingMode::Default,
+                                           enable_if_int32_t<Value>> : std::true_type { };
 
 #if defined(ENOKI_ARM_64)
     template <> struct is_native<double, 2> : std::true_type { };
-    template <typename Value>    struct is_native<Value, 2, RoundingMode::Default, enable_if_int64_t<Value>> : std::true_type { };
+    template <typename Value>    struct is_native<Value, 2, RoundingMode::Default,
+                                                  enable_if_int64_t<Value>> : std::true_type { };
 #endif
 
 static constexpr uint64_t arm_shuffle_helper_(int i) {
@@ -134,10 +137,10 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     //! @{ \name Vertical operations
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE Derived add_(Arg a) const { return vaddq_f32(m, a.m); }
-    ENOKI_INLINE Derived sub_(Arg a) const { return vsubq_f32(m, a.m); }
-    ENOKI_INLINE Derived mul_(Arg a) const { return vmulq_f32(m, a.m); }
-    ENOKI_INLINE Derived div_(Arg a) const {
+    ENOKI_INLINE Derived add_(Ref a) const { return vaddq_f32(m, a.m); }
+    ENOKI_INLINE Derived sub_(Ref a) const { return vsubq_f32(m, a.m); }
+    ENOKI_INLINE Derived mul_(Ref a) const { return vmulq_f32(m, a.m); }
+    ENOKI_INLINE Derived div_(Ref a) const {
         #if defined(ENOKI_ARM_64)
             return vdivq_f32(m, a.m);
         #else
@@ -149,35 +152,35 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     }
 
 #if defined(ENOKI_ARM_FMA)
-    ENOKI_INLINE Derived fmadd_(Arg b, Arg c) const { return vfmaq_f32(c.m, m, b.m); }
-    ENOKI_INLINE Derived fnmadd_(Arg b, Arg c) const { return vfmsq_f32(c.m, m, b.m); }
-    ENOKI_INLINE Derived fmsub_(Arg b, Arg c) const { return vfmaq_f32(vnegq_f32(c.m), m, b.m); }
-    ENOKI_INLINE Derived fnmsub_(Arg b, Arg c) const { return vfmsq_f32(vnegq_f32(c.m), m, b.m); }
+    ENOKI_INLINE Derived fmadd_(Ref b, Ref c) const { return vfmaq_f32(c.m, m, b.m); }
+    ENOKI_INLINE Derived fnmadd_(Ref b, Ref c) const { return vfmsq_f32(c.m, m, b.m); }
+    ENOKI_INLINE Derived fmsub_(Ref b, Ref c) const { return vfmaq_f32(vnegq_f32(c.m), m, b.m); }
+    ENOKI_INLINE Derived fnmsub_(Ref b, Ref c) const { return vfmsq_f32(vnegq_f32(c.m), m, b.m); }
 #else
-    ENOKI_INLINE Derived fmadd_(Arg b, Arg c) const { return vmlaq_f32(c.m, m, b.m); }
-    ENOKI_INLINE Derived fnmadd_(Arg b, Arg c) const { return vmlsq_f32(c.m, m, b.m); }
-    ENOKI_INLINE Derived fmsub_(Arg b, Arg c) const { return vmlaq_f32(vnegq_f32(c.m), m, b.m); }
-    ENOKI_INLINE Derived fnmsub_(Arg b, Arg c) const { return vmlsq_f32(vnegq_f32(c.m), m, b.m); }
+    ENOKI_INLINE Derived fmadd_(Ref b, Ref c) const { return vmlaq_f32(c.m, m, b.m); }
+    ENOKI_INLINE Derived fnmadd_(Ref b, Ref c) const { return vmlsq_f32(c.m, m, b.m); }
+    ENOKI_INLINE Derived fmsub_(Ref b, Ref c) const { return vmlaq_f32(vnegq_f32(c.m), m, b.m); }
+    ENOKI_INLINE Derived fnmsub_(Ref b, Ref c) const { return vmlsq_f32(vnegq_f32(c.m), m, b.m); }
 #endif
 
-    ENOKI_INLINE Derived or_ (Arg a) const { return vreinterpretq_f32_s32(vorrq_s32(vreinterpretq_s32_f32(m), vreinterpretq_s32_f32(a.m))); }
-    ENOKI_INLINE Derived and_(Arg a) const { return vreinterpretq_f32_s32(vandq_s32(vreinterpretq_s32_f32(m), vreinterpretq_s32_f32(a.m))); }
-    ENOKI_INLINE Derived andnot_(Arg a) const { return vreinterpretq_f32_s32(vbicq_s32(vreinterpretq_s32_f32(m), vreinterpretq_s32_f32(a.m))); }
-    ENOKI_INLINE Derived xor_(Arg a) const { return vreinterpretq_f32_s32(veorq_s32(vreinterpretq_s32_f32(m), vreinterpretq_s32_f32(a.m))); }
+    ENOKI_INLINE Derived or_ (Ref a) const { return vreinterpretq_f32_s32(vorrq_s32(vreinterpretq_s32_f32(m), vreinterpretq_s32_f32(a.m))); }
+    ENOKI_INLINE Derived and_(Ref a) const { return vreinterpretq_f32_s32(vandq_s32(vreinterpretq_s32_f32(m), vreinterpretq_s32_f32(a.m))); }
+    ENOKI_INLINE Derived andnot_(Ref a) const { return vreinterpretq_f32_s32(vbicq_s32(vreinterpretq_s32_f32(m), vreinterpretq_s32_f32(a.m))); }
+    ENOKI_INLINE Derived xor_(Ref a) const { return vreinterpretq_f32_s32(veorq_s32(vreinterpretq_s32_f32(m), vreinterpretq_s32_f32(a.m))); }
 
-    ENOKI_INLINE auto lt_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f32_u32(vcltq_f32(m, a.m))); }
-    ENOKI_INLINE auto gt_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f32_u32(vcgtq_f32(m, a.m))); }
-    ENOKI_INLINE auto le_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f32_u32(vcleq_f32(m, a.m))); }
-    ENOKI_INLINE auto ge_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f32_u32(vcgeq_f32(m, a.m))); }
+    ENOKI_INLINE auto lt_ (Ref a) const { return mask_t<Derived>(vreinterpretq_f32_u32(vcltq_f32(m, a.m))); }
+    ENOKI_INLINE auto gt_ (Ref a) const { return mask_t<Derived>(vreinterpretq_f32_u32(vcgtq_f32(m, a.m))); }
+    ENOKI_INLINE auto le_ (Ref a) const { return mask_t<Derived>(vreinterpretq_f32_u32(vcleq_f32(m, a.m))); }
+    ENOKI_INLINE auto ge_ (Ref a) const { return mask_t<Derived>(vreinterpretq_f32_u32(vcgeq_f32(m, a.m))); }
 
-    ENOKI_INLINE auto eq_ (Arg a) const {
+    ENOKI_INLINE auto eq_ (Ref a) const {
         if constexpr (!IsMask_)
             return mask_t<Derived>(vreinterpretq_f32_u32(vceqq_f32(m, a.m)));
         else
             return mask_t<Derived>(vceqq_u32(vreinterpretq_f32_u32(m), vreinterpretq_f32_u32(a.m)));
     }
 
-    ENOKI_INLINE auto neq_ (Arg a) const {
+    ENOKI_INLINE auto neq_ (Ref a) const {
         if constexpr (!IsMask_)
             return mask_t<Derived>(vreinterpretq_f32_u32(vmvnq_u32(vceqq_f32(m, a.m))));
         else
@@ -188,8 +191,8 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     ENOKI_INLINE Derived neg_()      const { return vnegq_f32(m); }
     ENOKI_INLINE Derived not_()      const { return vreinterpretq_f32_s32(vmvnq_s32(vreinterpretq_s32_f32(m))); }
 
-    ENOKI_INLINE Derived min_(Arg b) const { return vminq_f32(b.m, m); }
-    ENOKI_INLINE Derived max_(Arg b) const { return vmaxq_f32(b.m, m); }
+    ENOKI_INLINE Derived min_(Ref b) const { return vminq_f32(b.m, m); }
+    ENOKI_INLINE Derived max_(Ref b) const { return vmaxq_f32(b.m, m); }
 
 #if defined(ENOKI_ARM_64)
     ENOKI_INLINE Derived round_()    const { return vrndnq_f32(m);     }
@@ -238,7 +241,7 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     }
 
     template <typename Mask_>
-    static ENOKI_INLINE Derived select_(const Mask_ &m, Arg t, Arg f) {
+    static ENOKI_INLINE Derived select_(const Mask_ &m, Ref t, Ref f) {
         return vbslq_f32(vreinterpretq_u32_f32(m.m), t.m, f.m);
     }
 
@@ -418,41 +421,41 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     //! @{ \name Vertical operations
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE Derived add_(Arg a) const { return vaddq_f64(m, a.m); }
-    ENOKI_INLINE Derived sub_(Arg a) const { return vsubq_f64(m, a.m); }
-    ENOKI_INLINE Derived mul_(Arg a) const { return vmulq_f64(m, a.m); }
-    ENOKI_INLINE Derived div_(Arg a) const { return vdivq_f64(m, a.m); }
+    ENOKI_INLINE Derived add_(Ref a) const { return vaddq_f64(m, a.m); }
+    ENOKI_INLINE Derived sub_(Ref a) const { return vsubq_f64(m, a.m); }
+    ENOKI_INLINE Derived mul_(Ref a) const { return vmulq_f64(m, a.m); }
+    ENOKI_INLINE Derived div_(Ref a) const { return vdivq_f64(m, a.m); }
 
 #if defined(ENOKI_ARM_FMA)
-    ENOKI_INLINE Derived fmadd_(Arg b, Arg c) const { return vfmaq_f64(c.m, m, b.m); }
-    ENOKI_INLINE Derived fnmadd_(Arg b, Arg c) const { return vfmsq_f64(c.m, m, b.m); }
-    ENOKI_INLINE Derived fmsub_(Arg b, Arg c) const { return vfmaq_f64(vnegq_f64(c.m), m, b.m); }
-    ENOKI_INLINE Derived fnmsub_(Arg b, Arg c) const { return vfmsq_f64(vnegq_f64(c.m), m, b.m); }
+    ENOKI_INLINE Derived fmadd_(Ref b, Ref c) const { return vfmaq_f64(c.m, m, b.m); }
+    ENOKI_INLINE Derived fnmadd_(Ref b, Ref c) const { return vfmsq_f64(c.m, m, b.m); }
+    ENOKI_INLINE Derived fmsub_(Ref b, Ref c) const { return vfmaq_f64(vnegq_f64(c.m), m, b.m); }
+    ENOKI_INLINE Derived fnmsub_(Ref b, Ref c) const { return vfmsq_f64(vnegq_f64(c.m), m, b.m); }
 #else
-    ENOKI_INLINE Derived fmadd_(Arg b, Arg c) const { return vmlaq_f64(c.m, m, b.m); }
-    ENOKI_INLINE Derived fnmadd_(Arg b, Arg c) const { return vmlsq_f64(c.m, m, b.m); }
-    ENOKI_INLINE Derived fmsub_(Arg b, Arg c) const { return vmlaq_f64(vnegq_f64(c.m), m, b.m); }
-    ENOKI_INLINE Derived fnmsub_(Arg b, Arg c) const { return vmlsq_f64(vnegq_f64(c.m), m, b.m); }
+    ENOKI_INLINE Derived fmadd_(Ref b, Ref c) const { return vmlaq_f64(c.m, m, b.m); }
+    ENOKI_INLINE Derived fnmadd_(Ref b, Ref c) const { return vmlsq_f64(c.m, m, b.m); }
+    ENOKI_INLINE Derived fmsub_(Ref b, Ref c) const { return vmlaq_f64(vnegq_f64(c.m), m, b.m); }
+    ENOKI_INLINE Derived fnmsub_(Ref b, Ref c) const { return vmlsq_f64(vnegq_f64(c.m), m, b.m); }
 #endif
 
-    ENOKI_INLINE Derived or_ (Arg a) const { return vreinterpretq_f64_s64(vorrq_s64(vreinterpretq_s64_f64(m), vreinterpretq_s64_f64(a.m))); }
-    ENOKI_INLINE Derived and_(Arg a) const { return vreinterpretq_f64_s64(vandq_s64(vreinterpretq_s64_f64(m), vreinterpretq_s64_f64(a.m))); }
-    ENOKI_INLINE Derived andnot_(Arg a) const { return vreinterpretq_f64_s64(vbicq_s64(vreinterpretq_s64_f64(m), vreinterpretq_s64_f64(a.m))); }
-    ENOKI_INLINE Derived xor_(Arg a) const { return vreinterpretq_f64_s64(veorq_s64(vreinterpretq_s64_f64(m), vreinterpretq_s64_f64(a.m))); }
+    ENOKI_INLINE Derived or_ (Ref a) const { return vreinterpretq_f64_s64(vorrq_s64(vreinterpretq_s64_f64(m), vreinterpretq_s64_f64(a.m))); }
+    ENOKI_INLINE Derived and_(Ref a) const { return vreinterpretq_f64_s64(vandq_s64(vreinterpretq_s64_f64(m), vreinterpretq_s64_f64(a.m))); }
+    ENOKI_INLINE Derived andnot_(Ref a) const { return vreinterpretq_f64_s64(vbicq_s64(vreinterpretq_s64_f64(m), vreinterpretq_s64_f64(a.m))); }
+    ENOKI_INLINE Derived xor_(Ref a) const { return vreinterpretq_f64_s64(veorq_s64(vreinterpretq_s64_f64(m), vreinterpretq_s64_f64(a.m))); }
 
-    ENOKI_INLINE auto lt_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f64_u64(vcltq_f64(m, a.m))); }
-    ENOKI_INLINE auto gt_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f64_u64(vcgtq_f64(m, a.m))); }
-    ENOKI_INLINE auto le_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f64_u64(vcleq_f64(m, a.m))); }
-    ENOKI_INLINE auto ge_ (Arg a) const { return mask_t<Derived>(vreinterpretq_f64_u64(vcgeq_f64(m, a.m))); }
+    ENOKI_INLINE auto lt_ (Ref a) const { return mask_t<Derived>(vreinterpretq_f64_u64(vcltq_f64(m, a.m))); }
+    ENOKI_INLINE auto gt_ (Ref a) const { return mask_t<Derived>(vreinterpretq_f64_u64(vcgtq_f64(m, a.m))); }
+    ENOKI_INLINE auto le_ (Ref a) const { return mask_t<Derived>(vreinterpretq_f64_u64(vcleq_f64(m, a.m))); }
+    ENOKI_INLINE auto ge_ (Ref a) const { return mask_t<Derived>(vreinterpretq_f64_u64(vcgeq_f64(m, a.m))); }
 
-    ENOKI_INLINE auto eq_ (Arg a) const {
+    ENOKI_INLINE auto eq_ (Ref a) const {
         if constexpr (!IsMask_)
             return mask_t<Derived>(vreinterpretq_f64_u64(vceqq_f64(m, a.m)));
         else
             return mask_t<Derived>(vceqq_u64(vreinterpretq_f64_u64(m), vreinterpretq_f64_u64(a.m)));
     }
 
-    ENOKI_INLINE auto neq_ (Arg a) const {
+    ENOKI_INLINE auto neq_ (Ref a) const {
         if constexpr (!IsMask_)
             return mask_t<Derived>(vreinterpretq_f64_u64(vmvnq_u64(vceqq_f64(m, a.m))));
         else
@@ -463,8 +466,8 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     ENOKI_INLINE Derived neg_()      const { return vnegq_f64(m); }
     ENOKI_INLINE Derived not_()      const { return vreinterpretq_f64_s64(vmvnq_s64(vreinterpretq_s64_f64(m))); }
 
-    ENOKI_INLINE Derived min_(Arg b) const { return vminq_f64(b.m, m); }
-    ENOKI_INLINE Derived max_(Arg b) const { return vmaxq_f64(b.m, m); }
+    ENOKI_INLINE Derived min_(Ref b) const { return vminq_f64(b.m, m); }
+    ENOKI_INLINE Derived max_(Ref b) const { return vmaxq_f64(b.m, m); }
 
 #if defined(ENOKI_ARM_64)
     ENOKI_INLINE Derived sqrt_()     const { return vsqrtq_f64(m);     }
@@ -498,7 +501,7 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     }
 
     template <typename Mask_>
-    static ENOKI_INLINE Derived select_(const Mask_ &m, Arg t, Arg f) {
+    static ENOKI_INLINE Derived select_(const Mask_ &m, Ref t, Ref f) {
         return vbslq_f64(vreinterpretq_u64_f64(m.m), t.m, f.m);
     }
 
@@ -633,45 +636,45 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     //! @{ \name Vertical operations
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE Derived add_(Arg a) const { return vaddq_u32(m, a.m); }
-    ENOKI_INLINE Derived sub_(Arg a) const { return vsubq_u32(m, a.m); }
-    ENOKI_INLINE Derived mul_(Arg a) const { return vmulq_u32(m, a.m); }
+    ENOKI_INLINE Derived add_(Ref a) const { return vaddq_u32(m, a.m); }
+    ENOKI_INLINE Derived sub_(Ref a) const { return vsubq_u32(m, a.m); }
+    ENOKI_INLINE Derived mul_(Ref a) const { return vmulq_u32(m, a.m); }
 
-    ENOKI_INLINE Derived or_ (Arg a) const { return vorrq_u32(m, a.m); }
-    ENOKI_INLINE Derived and_(Arg a) const { return vandq_u32(m, a.m); }
-    ENOKI_INLINE Derived andnot_(Arg a) const { return vbicq_u32(m, a.m); }
-    ENOKI_INLINE Derived xor_(Arg a) const { return veorq_u32(m, a.m); }
+    ENOKI_INLINE Derived or_ (Ref a) const { return vorrq_u32(m, a.m); }
+    ENOKI_INLINE Derived and_(Ref a) const { return vandq_u32(m, a.m); }
+    ENOKI_INLINE Derived andnot_(Ref a) const { return vbicq_u32(m, a.m); }
+    ENOKI_INLINE Derived xor_(Ref a) const { return veorq_u32(m, a.m); }
 
-    ENOKI_INLINE auto lt_(Arg a) const {
+    ENOKI_INLINE auto lt_(Ref a) const {
         if constexpr (std::is_signed_v<Value>)
             return mask_t<Derived>(vcltq_s32(vreinterpretq_s32_u32(m), vreinterpretq_s32_u32(a.m)));
         else
             return mask_t<Derived>(vcltq_u32(m, a.m));
     }
 
-    ENOKI_INLINE auto gt_(Arg a) const {
+    ENOKI_INLINE auto gt_(Ref a) const {
         if constexpr (std::is_signed_v<Value>)
             return mask_t<Derived>(vcgtq_s32(vreinterpretq_s32_u32(m), vreinterpretq_s32_u32(a.m)));
         else
             return mask_t<Derived>(vcgtq_u32(m, a.m));
     }
 
-    ENOKI_INLINE auto le_(Arg a) const {
+    ENOKI_INLINE auto le_(Ref a) const {
         if constexpr (std::is_signed_v<Value>)
             return mask_t<Derived>(vcleq_s32(vreinterpretq_s32_u32(m), vreinterpretq_s32_u32(a.m)));
         else
             return mask_t<Derived>(vcleq_u32(m, a.m));
     }
 
-    ENOKI_INLINE auto ge_(Arg a) const {
+    ENOKI_INLINE auto ge_(Ref a) const {
         if constexpr (std::is_signed_v<Value>)
             return mask_t<Derived>(vcgeq_s32(vreinterpretq_s32_u32(m), vreinterpretq_s32_u32(a.m)));
         else
             return mask_t<Derived>(vcgeq_u32(m, a.m));
     }
 
-    ENOKI_INLINE auto eq_ (Arg a) const { return mask_t<Derived>(vceqq_u32(m, a.m)); }
-    ENOKI_INLINE auto neq_(Arg a) const { return mask_t<Derived>(vmvnq_u32(vceqq_u32(m, a.m))); }
+    ENOKI_INLINE auto eq_ (Ref a) const { return mask_t<Derived>(vceqq_u32(m, a.m)); }
+    ENOKI_INLINE auto neq_(Ref a) const { return mask_t<Derived>(vmvnq_u32(vceqq_u32(m, a.m))); }
 
     ENOKI_INLINE Derived abs_() const {
         if (!std::is_signed<Value>())
@@ -685,14 +688,14 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
 
     ENOKI_INLINE Derived not_()      const { return vmvnq_u32(m); }
 
-    ENOKI_INLINE Derived max_(Arg b) const {
+    ENOKI_INLINE Derived max_(Ref b) const {
         if constexpr (std::is_signed_v<Value>)
             return vreinterpretq_u32_s32(vmaxq_s32(vreinterpretq_s32_u32(b.m), vreinterpretq_s32_u32(m)));
         else
             return vmaxq_u32(b.m, m);
     }
 
-    ENOKI_INLINE Derived min_(Arg b) const {
+    ENOKI_INLINE Derived min_(Ref b) const {
         if constexpr (std::is_signed_v<Value>)
             return vreinterpretq_u32_s32(vminq_s32(vreinterpretq_s32_u32(b.m), vreinterpretq_s32_u32(m)));
         else
@@ -700,7 +703,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     }
 
     template <typename Mask_>
-    static ENOKI_INLINE Derived select_(const Mask_ &m, Arg t, Arg f) {
+    static ENOKI_INLINE Derived select_(const Mask_ &m, Ref t, Ref f) {
         return vbslq_u32(m.m, t.m, f.m);
     }
 
@@ -735,7 +738,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
         return vshlq_u32(m, vdupq_n_s32((int) k));
     }
 
-    ENOKI_INLINE Derived srv_(Arg a) const {
+    ENOKI_INLINE Derived srv_(Ref a) const {
         if constexpr (std::is_signed_v<Value>)
             return vreinterpretq_u32_s32(
                 vshlq_s32(vreinterpretq_s32_u32(m),
@@ -744,12 +747,12 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
             return vshlq_u32(m, vnegq_s32(vreinterpretq_s32_u32(a.m)));
     }
 
-    ENOKI_INLINE Derived slv_(Arg a) const {
+    ENOKI_INLINE Derived slv_(Ref a) const {
         return vshlq_u32(m, vreinterpretq_s32_u32(a.m));
     }
 
 #if defined(ENOKI_ARM_64)
-    ENOKI_INLINE Derived mulhi_(Arg a) const {
+    ENOKI_INLINE Derived mulhi_(Ref a) const {
     uint32x4_t ll, hh;
         if constexpr (std::is_signed_v<Value>) {
             int64x2_t l = vmull_s32(vreinterpret_s32_u32(vget_low_u32(m)),
@@ -968,9 +971,9 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     //! @{ \name Vertical operations
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE Derived add_(Arg a) const { return vaddq_u64(m, a.m); }
-    ENOKI_INLINE Derived sub_(Arg a) const { return vsubq_u64(m, a.m); }
-    ENOKI_INLINE Derived mul_(Arg a_) const {
+    ENOKI_INLINE Derived add_(Ref a) const { return vaddq_u64(m, a.m); }
+    ENOKI_INLINE Derived sub_(Ref a) const { return vsubq_u64(m, a.m); }
+    ENOKI_INLINE Derived mul_(Ref a_) const {
 #if 1
         // Native ARM instructions + cross-domain penalities still
         // seem to be faster than the NEON approach below
@@ -996,41 +999,41 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
 #endif
     }
 
-    ENOKI_INLINE Derived or_ (Arg a) const { return vorrq_u64(m, a.m); }
-    ENOKI_INLINE Derived and_(Arg a) const { return vandq_u64(m, a.m); }
-    ENOKI_INLINE Derived andnot_(Arg a) const { return vbicq_u64(m, a.m); }
-    ENOKI_INLINE Derived xor_(Arg a) const { return veorq_u64(m, a.m); }
+    ENOKI_INLINE Derived or_ (Ref a) const { return vorrq_u64(m, a.m); }
+    ENOKI_INLINE Derived and_(Ref a) const { return vandq_u64(m, a.m); }
+    ENOKI_INLINE Derived andnot_(Ref a) const { return vbicq_u64(m, a.m); }
+    ENOKI_INLINE Derived xor_(Ref a) const { return veorq_u64(m, a.m); }
 
-    ENOKI_INLINE auto lt_(Arg a) const {
+    ENOKI_INLINE auto lt_(Ref a) const {
         if constexpr (std::is_signed_v<Value>)
             return mask_t<Derived>(vcltq_s64(vreinterpretq_s64_u64(m), vreinterpretq_s64_u64(a.m)));
         else
             return mask_t<Derived>(vcltq_u64(m, a.m));
     }
 
-    ENOKI_INLINE auto gt_(Arg a) const {
+    ENOKI_INLINE auto gt_(Ref a) const {
         if constexpr (std::is_signed_v<Value>)
             return mask_t<Derived>(vcgtq_s64(vreinterpretq_s64_u64(m), vreinterpretq_s64_u64(a.m)));
         else
             return mask_t<Derived>(vcgtq_u64(m, a.m));
     }
 
-    ENOKI_INLINE auto le_(Arg a) const {
+    ENOKI_INLINE auto le_(Ref a) const {
         if constexpr (std::is_signed_v<Value>)
             return mask_t<Derived>(vcleq_s64(vreinterpretq_s64_u64(m), vreinterpretq_s64_u64(a.m)));
         else
             return mask_t<Derived>(vcleq_u64(m, a.m));
     }
 
-    ENOKI_INLINE auto ge_(Arg a) const {
+    ENOKI_INLINE auto ge_(Ref a) const {
         if constexpr (std::is_signed_v<Value>)
             return mask_t<Derived>(vcgeq_s64(vreinterpretq_s64_u64(m), vreinterpretq_s64_u64(a.m)));
         else
             return mask_t<Derived>(vcgeq_u64(m, a.m));
     }
 
-    ENOKI_INLINE auto eq_ (Arg a) const { return mask_t<Derived>(vceqq_u64(m, a.m)); }
-    ENOKI_INLINE auto neq_(Arg a) const { return mask_t<Derived>(vmvnq_u64(vceqq_u64(m, a.m))); }
+    ENOKI_INLINE auto eq_ (Ref a) const { return mask_t<Derived>(vceqq_u64(m, a.m)); }
+    ENOKI_INLINE auto neq_(Ref a) const { return mask_t<Derived>(vmvnq_u64(vceqq_u64(m, a.m))); }
 
     ENOKI_INLINE Derived abs_() const {
         if (!std::is_signed<Value>())
@@ -1044,11 +1047,11 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
 
     ENOKI_INLINE Derived not_()      const { return vmvnq_u64(m); }
 
-    ENOKI_INLINE Derived min_(Arg b) const { return Derived(min(coeff(0), b.coeff(0)), min(coeff(1), b.coeff(1))); }
-    ENOKI_INLINE Derived max_(Arg b) const { return Derived(max(coeff(0), b.coeff(0)), max(coeff(1), b.coeff(1))); }
+    ENOKI_INLINE Derived min_(Ref b) const { return Derived(min(coeff(0), b.coeff(0)), min(coeff(1), b.coeff(1))); }
+    ENOKI_INLINE Derived max_(Ref b) const { return Derived(max(coeff(0), b.coeff(0)), max(coeff(1), b.coeff(1))); }
 
     template <typename Mask_>
-    static ENOKI_INLINE Derived select_(const Mask_ &m, Arg t, Arg f) {
+    static ENOKI_INLINE Derived select_(const Mask_ &m, Ref t, Ref f) {
         return vbslq_u64(m.m, t.m, f.m);
     }
 
@@ -1083,7 +1086,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
         return vshlq_u64(m, vdupq_n_s64((int) k));
     }
 
-    ENOKI_INLINE Derived srv_(Arg a) const {
+    ENOKI_INLINE Derived srv_(Ref a) const {
         if constexpr (std::is_signed_v<Value>)
             return vreinterpretq_u64_s64(
                 vshlq_s64(vreinterpretq_s64_u64(m),
@@ -1092,7 +1095,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
             return vshlq_u64(m, vnegq_s64(vreinterpretq_s64_u64(a.m)));
     }
 
-    ENOKI_INLINE Derived slv_(Arg a) const {
+    ENOKI_INLINE Derived slv_(Ref a) const {
         return vshlq_u64(m, vreinterpretq_s64_u64(a.m));
     }
 
@@ -1153,7 +1156,7 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
 
     template <bool Approx2, RoundingMode Mode2, typename Derived2>
     ENOKI_INLINE StaticArrayImpl(
-        const StaticArrayBase<half, 3, Approx2, Mode2, Derived2> &a) {
+        const StaticArrayBase<half, 3, Approx2, Mode2, IsMask_, Derived2> &a) {
         float16x4_t value;
         memcpy(&value, a.data(), sizeof(uint16_t)*3);
         m = vcvt_f32_f16(value);

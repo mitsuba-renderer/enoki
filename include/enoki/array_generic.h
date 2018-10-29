@@ -99,11 +99,11 @@ namespace detail {
     ENOKI_INLINE StaticArrayImpl() { }
 #else
 #define ENOKI_TRIVIAL_CONSTRUCTOR(Value)                                       \
-    template <typename T = Value, enable_if_t<is_scalar_v<T>> = 0>             \
+    template <typename T = Value, enable_if_t<std::is_scalar_v<T>> = 0>        \
     ENOKI_INLINE StaticArrayImpl()                                             \
-        : StaticArrayImpl(memcpy_cast<T>(int_array_t<T, false>(-1))) { }       \
+        : StaticArrayImpl(memcpy_cast<T>(int_array_t<T>(-1))) { }              \
     template <typename T = Value,                                              \
-              enable_if_t<!is_scalar_v<T> &&                                   \
+              enable_if_t<!std::is_scalar_v<T> &&                              \
                            std::is_default_constructible_v<T>> = 0>            \
     ENOKI_INLINE StaticArrayImpl() {}
 #endif
