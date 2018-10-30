@@ -76,7 +76,7 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
     template <typename T> Derived_& operator=(T&& t) {
         if constexpr (std::is_same_v<T, std::nullptr_t>)
             return (Derived_ &) Base::operator=(UnderlyingType(0));
-        else if constexpr (std::is_same_v<T, Value>)
+        else if constexpr (std::is_convertible_v<T, Value>)
             return (Derived_ &) Base::operator=(UnderlyingType(t));
         else
             return (Derived_ &) Base::operator=(std::forward<T>(t));
@@ -203,20 +203,22 @@ public:                                                                        \
     template <                                                                 \
         typename Field = decltype(Class::field),                               \
         typename Return = replace_scalar_t<Storage, Field, false>>             \
-    Return name(const mask_t<Return> &mask = true) const {                     \
+    Return name(Mask mask = true) const {                                      \
         using IntType = replace_scalar_t<Storage, std::uintptr_t, false>;      \
         auto offset =                                                          \
             IntType(self) + (std::uintptr_t) &(((Class *) nullptr)->field);    \
+        mask &= neq(self, nullptr);                                            \
         return gather<Return, 1>(nullptr, offset, mask);                       \
     }
 
 #define ENOKI_CALL_SUPPORT_GETTER_TYPE(name, field, type)                      \
     template <                                                                 \
         typename Return = replace_scalar_t<Storage, type, false>>              \
-    Return name(const mask_t<Return> &mask = true) const {                     \
+    Return name(Mask mask = true) const {                                      \
         using IntType = replace_scalar_t<Storage, std::uintptr_t, false>;      \
         auto offset =                                                          \
             IntType(self) + (std::uintptr_t) &(((Class *) nullptr)->field);    \
+        mask &= neq(self, nullptr);                                            \
         return gather<Return, 1>(nullptr, offset, mask);                       \
     }
 

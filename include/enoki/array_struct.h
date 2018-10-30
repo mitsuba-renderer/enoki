@@ -36,6 +36,9 @@ struct struct_support {
     }
 };
 
+template <typename T> using is_dynamic = std::bool_constant<struct_support_t<T>::IsDynamic>;
+template <typename T> constexpr bool is_dynamic_v = is_dynamic<T>::value;
+
 template <>
 struct struct_support<void, int> { using Dynamic = void; };
 
@@ -56,11 +59,15 @@ template <typename T> ENOKI_INLINE size_t slices(const T &value) {
 }
 
 template <typename T> ENOKI_NOINLINE void set_slices(T &value, size_t size) {
-    struct_support_t<T>::set_slices(value, size);
+    if constexpr (is_dynamic_v<T>)
+        struct_support_t<T>::set_slices(value, size);
 }
 
 template <typename T> ENOKI_INLINE decltype(auto) packet(T &value, size_t i) {
-    return struct_support_t<T>::packet(value, i);
+    if constexpr (is_dynamic_v<T>)
+        return struct_support_t<T>::packet(value, i);
+    else
+        return value;
 }
 
 template <typename T> ENOKI_INLINE decltype(auto) slice(T &value, size_t i) {
@@ -72,7 +79,10 @@ template <typename T> ENOKI_INLINE decltype(auto) slice_ptr(T &value, size_t i) 
 }
 
 template <typename T> ENOKI_INLINE decltype(auto) ref_wrap(T &value) {
-    return struct_support_t<T>::ref_wrap(value);
+    if constexpr (is_dynamic_v<T>)
+        return struct_support_t<T>::ref_wrap(value);
+    else
+        return value;
 }
 
 template <typename Mem, typename Value, typename Mask>
@@ -80,8 +90,6 @@ ENOKI_INLINE size_t compress(Mem &mem, const Value &value, const Mask& mask) {
     return struct_support_t<Value>::compress(mem, value, mask);
 }
 
-template <typename T> using is_dynamic = std::bool_constant<struct_support_t<T>::IsDynamic>;
-template <typename T> constexpr bool is_dynamic_v = is_dynamic<T>::value;
 template <typename T> using enable_if_dynamic_t = enable_if_t<is_dynamic_v<T>>;
 template <typename T> using enable_if_static_t = enable_if_t<!is_dynamic_v<T>>;
 
@@ -137,7 +145,7 @@ struct struct_support<T, enable_if_static_array_t<T>> {
     template <typename T2>
     static ENOKI_INLINE decltype(auto) packet(T2 &value, size_t i) {
         ENOKI_MARK_USED(i);
-        if constexpr (array_depth_v<T> == 1)
+        if constexpr (!is_dynamic_v<T>)
             return value;
         else
             return packet(value, i, std::make_index_sequence<Size>());
@@ -161,7 +169,7 @@ struct struct_support<T, enable_if_static_array_t<T>> {
 
     template <typename T2>
     static ENOKI_INLINE decltype(auto) ref_wrap(T2 &value) {
-        if constexpr (array_depth_v<T> == 1)
+        if constexpr (!is_dynamic_v<T>)
             return value;
         else
             return ref_wrap(value, std::make_index_sequence<Size>());
@@ -270,8 +278,8 @@ namespace detail {
     }
 
     template <typename T>
-    ENOKI_INLINE void set_shape_recursive(T &a, const size_t *shape) {
-        if constexpr(is_array_v<T>) {
+    ENOKI_INLINE void set_shape_recursive(T &&a, const size_t *shape) {
+        if constexpr (is_array_v<T>) {
             size_t size = a.derived().size();
             a.resize(*shape);
             if (is_dynamic_v<value_t<T>>) {

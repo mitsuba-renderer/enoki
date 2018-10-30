@@ -71,7 +71,9 @@ NAMESPACE_BEGIN(enoki)
         using E = expr_t<T1, T2>;                                              \
         if constexpr (std::is_same_v<T1, E> && std::is_same_v<T2, E>)          \
             return a1.derived().func##_(a2.derived());                         \
-        else if constexpr (is_mask_v<T2>)                                      \
+        else if constexpr (is_mask_v<T2> && !is_array_v<T2>)                   \
+            return a1.derived().func##_((const mask_t<T1> &) a2);              \
+        else if constexpr (is_mask_v<T2> && is_array_v<T2>)                    \
             return a1.derived().func##_((const mask_t<T1> &) a2.derived());    \
         else                                                                   \
             return name(static_cast<const E &>(a1),                            \

@@ -301,13 +301,21 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
 // Don't be so noisy about sign conversion in constructor
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wsign-conversion"
+#  pragma GCC diagnostic ignored "-Wunused-value"
 #endif
+
+    template <typename Src>
+    using cast_t = std::conditional_t<
+        std::is_scalar_v<Value> ||
+            !std::is_same_v<std::decay_t<Value>, std::decay_t<Src>>,
+        expr_t<Value>,
+        std::conditional_t<std::is_reference_v<Src>, Src, Src &&>>;
 
     /// Construct from component values
     template <typename... Ts, enable_if_t<sizeof...(Ts) == Size_ && Size_ != 1 &&
               std::conjunction_v<detail::is_constructible<StorageType, Ts>...>> = 0>
     ENOKI_INLINE StaticArrayImpl(Ts&&... ts)
-        : m_data{{ (std::conditional_t<std::is_same_v<Ts, StorageType>, StorageType&&, const StorageType &>) ts... }} {
+        : m_data{{ cast_t<Ts>(ts)... }} {
         ENOKI_CHKSCALAR("Constructor (component values)");
     }
 
@@ -380,7 +388,7 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
 private:
     template <typename T, size_t... Is, enable_if_t<!detail::broadcast<T, Derived>> = 0>
     ENOKI_INLINE StaticArrayImpl(T&& value, std::index_sequence<Is...>)
-        : m_data{{ value.coeff(Is)... }} {
+        : m_data{{ cast_t<decltype(value.coeff(0))>(value.coeff(Is))... }} {
         ENOKI_CHKSCALAR("Copy constructor");
     }
 
@@ -394,8 +402,7 @@ private:
     ENOKI_INLINE StaticArrayImpl(const T1 &a1, const T2 &a2,
                                  std::index_sequence<Index1...>,
                                  std::index_sequence<Index2...>)
-        : m_data{{ a1.coeff(Index1)...,
-                   a2.coeff(Index2)... }} {
+        : m_data{{ a1.coeff(Index1)..., a2.coeff(Index2)... }} {
         ENOKI_CHKSCALAR("Copy constructor (from 2 components)");
     }
 
@@ -437,14 +444,16 @@ private:
         ENOKI_MARK_USED(Move);
 
         if constexpr(detail::broadcast<T, Derived>) {
-            bool unused[] = { (coeff(Is) = (const StorageType &) value, false)... };
+            auto s = static_cast<cast_t<T>>(value);
+            bool unused[] = { (coeff(Is) = s, false)... };
             (void) unused;
         } else {
             if constexpr (Move) {
                 bool unused[] = { (coeff(Is) = std::move(value.derived().coeff(Is)), false)... };
                 (void) unused;
             } else {
-                bool unused[] = { (coeff(Is) = (const StorageType &) value.derived().coeff(Is), false)... };
+                using Src = decltype(value.derived().coeff(0));
+                bool unused[] = { (coeff(Is) = cast_t<Src>(value.derived().coeff(Is)), false)... };
                 (void) unused;
             }
         }

@@ -385,6 +385,8 @@ namespace detail {
     template <typename T> struct expr_n<void, T*, const T*> { using type = const T*; };
     template <typename T> struct expr_n<void, const T*, T*> { using type = const T*; };
     template <typename T> struct expr_n<void, T*, std::nullptr_t> { using type = T*; };
+    template <typename T> struct expr_n<void, T*, unsigned long long> { using type = T*; };
+    template <typename T> struct expr_n<void, T*, unsigned long> { using type = T*; };
     template <typename T> struct expr_n<void, std::nullptr_t, T*> { using type = T*; };
 
     /// Type trait to compute the result of arbitrary expressions
