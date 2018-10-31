@@ -392,7 +392,7 @@ private:
         ENOKI_CHKSCALAR("Copy constructor");
     }
 
-    template <typename T, size_t... Is, enable_if_t<detail::broadcast<T, Derived>> = 0>
+    template <typename T, enable_if_t<detail::broadcast<T, Derived>> = 0, size_t... Is>
     ENOKI_INLINE StaticArrayImpl(T&& value, std::index_sequence<Is...>)
         : m_data{{ (Is, value)... }} {
         ENOKI_CHKSCALAR("Copy constructor (broadcast)");
