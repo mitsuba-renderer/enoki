@@ -691,7 +691,7 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
     ENOKI_INLINE auto eq_ (Ref a) const { return mask_t<Derived>::from_k(_mm512_cmp_pd_mask(m, a.m, _CMP_EQ_OQ));  }
     ENOKI_INLINE auto neq_(Ref a) const { return mask_t<Derived>::from_k(_mm512_cmp_pd_mask(m, a.m, _CMP_NEQ_UQ)); }
 
-    ENOKI_INLINE Derived abs_() const { return andnot_(Derived(_mm512_set1_pd(-0.f))); }
+    ENOKI_INLINE Derived abs_() const { return andnot_(Derived(_mm512_set1_pd(-0.0))); }
 
     ENOKI_INLINE Derived min_(Ref b) const { return _mm512_min_pd(b.m, m); }
     ENOKI_INLINE Derived max_(Ref b) const { return _mm512_max_pd(b.m, m); }
