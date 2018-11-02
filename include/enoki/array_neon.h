@@ -738,7 +738,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
         return vshlq_u32(m, vdupq_n_s32((int) k));
     }
 
-    ENOKI_INLINE Derived srv_(Ref a) const {
+    ENOKI_INLINE Derived sr_(Ref a) const {
         if constexpr (std::is_signed_v<Value>)
             return vreinterpretq_u32_s32(
                 vshlq_s32(vreinterpretq_s32_u32(m),
@@ -747,7 +747,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
             return vshlq_u32(m, vnegq_s32(vreinterpretq_s32_u32(a.m)));
     }
 
-    ENOKI_INLINE Derived slv_(Ref a) const {
+    ENOKI_INLINE Derived sl_(Ref a) const {
         return vshlq_u32(m, vreinterpretq_s32_u32(a.m));
     }
 
@@ -1086,7 +1086,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
         return vshlq_u64(m, vdupq_n_s64((int) k));
     }
 
-    ENOKI_INLINE Derived srv_(Ref a) const {
+    ENOKI_INLINE Derived sr_(Ref a) const {
         if constexpr (std::is_signed_v<Value>)
             return vreinterpretq_u64_s64(
                 vshlq_s64(vreinterpretq_s64_u64(m),
@@ -1095,7 +1095,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
             return vshlq_u64(m, vnegq_s64(vreinterpretq_s64_u64(a.m)));
     }
 
-    ENOKI_INLINE Derived slv_(Ref a) const {
+    ENOKI_INLINE Derived sl_(Ref a) const {
         return vshlq_u64(m, vreinterpretq_s64_u64(a.m));
     }
 

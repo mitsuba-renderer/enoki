@@ -297,7 +297,12 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
     /// Trivial constructor
     ENOKI_TRIVIAL_CONSTRUCTOR(Value)
 
-#if defined(__GNUC__)
+#if defined(_MSC_VER)
+#  pragma warning(push)
+#  pragma warning(disable:4244) // warning C4244: 'argument': conversion from 'int' to 'Value_', possible loss of data 
+#  pragma warning(disable:4554) // warning C4554: '>>': check operator precedence for possible error; use parentheses to clarify precedence
+#  pragma warning(disable:4702) // warning C4702: unreachable code
+#elif defined(__GNUC__)
 // Don't be so noisy about sign conversion in constructor
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wsign-conversion"
@@ -509,7 +514,9 @@ private:
         }
     }
 
-#if defined(__GNUC__)
+#if defined(_MSC_VER)
+#  pragma warning(pop)
+#elif defined(__GNUC__)
 #  pragma GCC diagnostic pop
 #endif
 
