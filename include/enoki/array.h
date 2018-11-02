@@ -19,6 +19,7 @@
 #  pragma warning(disable:4146) // warning C4146: unary minus operator applied to unsigned type, result still unsigned
 #  pragma warning(disable:4554) // warning C4554: '>>': check operator precedence for possible error; use parentheses to clarify precedence
 #  pragma warning(disable:4702) // warning C4702: unreachable code
+#  pragma warning(disable:4522) // warning C4522: multiple assignment operators specified
 #elif defined(__GNUC__) && !defined(__clang__)
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wclass-memaccess"
