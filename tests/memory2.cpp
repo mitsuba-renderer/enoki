@@ -15,6 +15,16 @@
 #include <enoki/matrix.h>
 #include <enoki/dynamic.h>
 
+#if defined(_MSC_VER)
+#  define NOMINMAX
+#  include <windows.h>
+// MSVC sometimes reorders scatter/gather operations and plain array reads/writes.
+// This macro is necessary to stop the behavior.
+#  define MEMORY_BARRIER() MemoryBarrier()
+#else
+#  define MEMORY_BARRIER()
+#endif
+
 ENOKI_TEST_ALL(test01_extract) {
     auto idx = arange<T>();
     for (size_t i = 0; i < Size; ++i)
@@ -154,10 +164,11 @@ ENOKI_TEST_ALL(test05_range) {
     for (size_t i = 0; i < Size*10; ++i)
         mem[i] = 1;
     using Index = uint_array_t<T>;
+    MEMORY_BARRIER();
     T sum = zero<T>();
     for (auto pair : range<Index>((10*Size)/3))
         sum += gather<T>(mem, pair.first, pair.second);
-    assert((10*Size/3) == hsum(sum));
+    assert(((10*Size)/3) == hsum(sum));
 }
 
 ENOKI_TEST_ALL(test06_range_2d) {
@@ -170,6 +181,7 @@ ENOKI_TEST_ALL(test06_range_2d) {
                      pair.first[1] * 4u + pair.first[2] * 20u;
         scatter(mem, T(1), index, pair.second);
     }
+    MEMORY_BARRIER();
     for (size_t i = 0; i < 4*5*6; ++i) {
         assert(mem[i] == 1);
     }
@@ -186,6 +198,7 @@ ENOKI_TEST_ALL(test07_nested_gather_strides) {
         x[i] = (Value) i;
         x[i + 60] = (Value) (i + 10);
     }
+    MEMORY_BARRIER();
 
     assert((gather<Vector4x>(x, 0) == Vector4x(0, 1, 2, 3)));
     assert((gather<Vector4x>(x, 1) == Vector4x(4, 5, 6, 7)));
