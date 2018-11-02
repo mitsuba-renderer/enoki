@@ -19,12 +19,12 @@ NAMESPACE_BEGIN(enoki)
 
 template <typename Matrix, typename Vector> ENOKI_INLINE Matrix translate(const Vector &v) {
     Matrix trafo = identity<Matrix>();
-    trafo.coeff(Matrix::Size - 1) = concat(v, 1.f);
+    trafo.coeff(Matrix::Size - 1) = concat(v, scalar_t<Matrix>(1));
     return trafo;
 }
 
 template <typename Matrix, typename Vector> ENOKI_INLINE Matrix scale(const Vector &v) {
-    return diag<Matrix>(concat(v, 1.f));
+    return diag<Matrix>(concat(v, scalar_t<Matrix>(1)));
 }
 
 template <typename Matrix, enable_if_t<Matrix::IsMatrix && Matrix::Size == 3> = 0>
@@ -132,11 +132,12 @@ Matrix look_at(const Point &origin, const Point &target, const Vector &up) {
     auto dir = normalize(target - origin);
     auto left = normalize(cross(dir, up));
     auto new_up = cross(left, dir);
+    using Scalar = scalar_t<Matrix>;
 
     return Matrix(
-        concat(left, 0.f),
-        concat(new_up, 0.f),
-        concat(-dir, 0.f),
+        concat(left, Scalar(0)),
+        concat(new_up, Scalar(0)),
+        concat(-dir, Scalar(0)),
         column_t<Matrix>(
             -dot(left, origin),
             -dot(up, origin),
@@ -178,7 +179,7 @@ Matrix4 transform_compose(const Matrix<T, 3, Approx> &S,
                           const Quaternion<T, Approx> &q,
                           const Vector3 &t) {
     Matrix4 result = Matrix4(quat_to_matrix<Matrix3>(q) * S);
-    result.coeff(3) = concat(t, 1.f);
+    result.coeff(3) = concat(t, scalar_t<Matrix4>(1));
     return result;
 }
 
@@ -192,7 +193,7 @@ Matrix4 transform_compose_inverse(const Matrix<T, 3, Approx> &S,
                                   const Vector3 &t) {
     auto inv_m = inverse(quat_to_matrix<Matrix3>(q) * S);
     Matrix4 result = Matrix4(inv_m);
-    result.coeff(3) = concat(inv_m * -t, 1.f);
+    result.coeff(3) = concat(inv_m * -t, scalar_t<Matrix4>(1));
     return result;
 }
 

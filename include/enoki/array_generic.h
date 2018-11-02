@@ -440,7 +440,8 @@ private:
             #endif
         }
 
-        constexpr bool Move = !std::is_lvalue_reference_v<T> && !is_scalar_v<Value>;
+        constexpr bool Move = !std::is_lvalue_reference_v<T> && !is_scalar_v<Value> &&
+                               std::is_same_v<value_t<T>, value_t<Derived>>;
         ENOKI_MARK_USED(Move);
 
         if constexpr(detail::broadcast<T, Derived>) {
