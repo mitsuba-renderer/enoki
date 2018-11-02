@@ -179,7 +179,7 @@ namespace detail {
     template <typename Stream, typename Array, size_t N, typename... Indices>
     Stream &print(Stream &os, const Array &a,
                   const std::array<size_t, N> &size, Indices... indices) {
-
+        ENOKI_MARK_USED(size);
         if constexpr (sizeof...(Indices) == N) {
             os << a.derived().coeff(indices...);
         } else {

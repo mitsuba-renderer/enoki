@@ -59,11 +59,13 @@ template <typename T> ENOKI_INLINE size_t slices(const T &value) {
 }
 
 template <typename T> ENOKI_NOINLINE void set_slices(T &value, size_t size) {
+    ENOKI_MARK_USED(value); ENOKI_MARK_USED(size);
     if constexpr (is_dynamic_v<T>)
         struct_support_t<T>::set_slices(value, size);
 }
 
 template <typename T> ENOKI_INLINE decltype(auto) packet(T &value, size_t i) {
+    ENOKI_MARK_USED(i);
     if constexpr (is_dynamic_v<T>)
         return struct_support_t<T>::packet(value, i);
     else
@@ -251,6 +253,7 @@ namespace detail {
     /// Recursive helper function used by enoki::shape
     template <typename T>
     void extract_shape_recursive(size_t *out, size_t i, const T &array) {
+        ENOKI_MARK_USED(out); ENOKI_MARK_USED(i); ENOKI_MARK_USED(array);
         if constexpr (is_array_v<T>) {
             *out = array.derived().size();
             if constexpr (is_array_v<value_t<T>>)
@@ -260,6 +263,7 @@ namespace detail {
 
     template <typename T>
     bool is_ragged_recursive(const T &a, const size_t *shape) {
+        ENOKI_MARK_USED(shape);
         if constexpr(is_array_v<T>) {
             size_t size = a.derived().size();
             if (*shape != size)

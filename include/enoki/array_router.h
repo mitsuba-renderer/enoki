@@ -978,6 +978,7 @@ ENOKI_INLINE Array gather(const void *mem, const Index &index, const detail::ide
         Index index2 = Stride != Stride2 ? index * scalar_t<Index>(Stride / Stride2) : index;
         return Array::template gather_<Stride2>(mem, index2, mask);
     } else if constexpr (array_depth_v<Array> == 1 && array_depth_v<Index> == 0) {
+        ENOKI_MARK_USED(mask);
         /* Turn into a load */
         constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(Array);
         if constexpr (Masked)
@@ -1020,6 +1021,7 @@ ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index, con
         value.template scatter_<Stride2>(mem, index2, mask);
     } else if constexpr (array_depth_v<Array> == 1 && array_depth_v<Index> == 0) {
         /* Turn into a store */
+        ENOKI_MARK_USED(mask);
         constexpr size_t Stride = (Stride_ != 0) ? Stride_ : sizeof(Array);
         if constexpr (Masked)
             return store_unaligned((uint8_t *) mem + Stride * (size_t) index, value, mask);

@@ -136,6 +136,8 @@ template <typename T, size_t Size = array_size_v<T>> struct PCG32 {
     /// Generate a uniformly distributed integer r, where 0 <= r < bound
     UInt32 next_uint32_bounded(uint32_t bound, UInt64Mask mask = true) {
         if constexpr (is_scalar_v<T>) {
+            ENOKI_MARK_USED(mask);
+
             // To avoid bias, we need to make the range of the RNG a multiple of
             // bound, which we do by dropping output less than a threshold.
             // A naive scheme to calculate the threshold would be to do
@@ -186,6 +188,8 @@ template <typename T, size_t Size = array_size_v<T>> struct PCG32 {
     /// Generate a uniformly distributed integer r, where 0 <= r < bound
     UInt64 next_uint64_bounded(uint64_t bound, UInt64Mask mask = true) {
         if constexpr (is_scalar_v<T>) {
+            ENOKI_MARK_USED(mask);
+
             const uint64_t threshold = (~bound + (uint64_t) 1) % bound;
 
             while (true) {
