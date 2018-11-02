@@ -153,7 +153,7 @@ inline constexpr bool last_of(Ts... values) { return (false, ..., values); }
 
 NAMESPACE_END(detail)
 
-#define ENOKI_CALL_SUPPORT()                                                   \
+#define ENOKI_CALL_SUPPORT_FRIEND()                                            \
     template <typename, typename> friend struct enoki::call_support;
 
 #define ENOKI_CALL_SUPPORT_BEGIN(Class_)                                       \

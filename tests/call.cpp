@@ -36,7 +36,7 @@ using Ray3fP    = Ray<Vector3fP>;
 
 
 struct Test {
-    ENOKI_CALL_SUPPORT()
+    ENOKI_CALL_SUPPORT_FRIEND()
 
     Test(int32_t value) : value(value) { }
     virtual ~Test() { }
