@@ -323,7 +323,7 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     using Base::store_unaligned_;
 
     ENOKI_INLINE void store_(void *ptr) const {
-        vst1q_f32((Value *) ENOKI_ASSUME_ALIGNED_S(ptr, 16), m);
+        vst1q_f32((Value *) ENOKI_ASSUME_ALIGNED(ptr, 16), m);
     }
 
     ENOKI_INLINE void store_unaligned_(void *ptr) const {
@@ -331,7 +331,7 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
-        return vld1q_f32((const Value *) ENOKI_ASSUME_ALIGNED_S(ptr, 16));
+        return vld1q_f32((const Value *) ENOKI_ASSUME_ALIGNED(ptr, 16));
     }
 
     static ENOKI_INLINE Derived load_unaligned_(const void *ptr) {
@@ -529,7 +529,7 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     using Base::store_unaligned_;
 
     ENOKI_INLINE void store_(void *ptr) const {
-        vst1q_f64((Value *) ENOKI_ASSUME_ALIGNED_S(ptr, 16), m);
+        vst1q_f64((Value *) ENOKI_ASSUME_ALIGNED(ptr, 16), m);
     }
 
     ENOKI_INLINE void store_unaligned_(void *ptr) const {
@@ -537,7 +537,7 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
-        return vld1q_f64((const Value *) ENOKI_ASSUME_ALIGNED_S(ptr, 16));
+        return vld1q_f64((const Value *) ENOKI_ASSUME_ALIGNED(ptr, 16));
     }
 
     static ENOKI_INLINE Derived load_unaligned_(const void *ptr) {
@@ -870,7 +870,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     using Base::store_unaligned_;
 
     ENOKI_INLINE void store_(void *ptr) const {
-        vst1q_u32((uint32_t *) ENOKI_ASSUME_ALIGNED_S(ptr, 16), m);
+        vst1q_u32((uint32_t *) ENOKI_ASSUME_ALIGNED(ptr, 16), m);
     }
 
     ENOKI_INLINE void store_unaligned_(void *ptr) const {
@@ -878,7 +878,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
-        return vld1q_u32((const uint32_t *) ENOKI_ASSUME_ALIGNED_S(ptr, 16));
+        return vld1q_u32((const uint32_t *) ENOKI_ASSUME_ALIGNED(ptr, 16));
     }
 
     static ENOKI_INLINE Derived load_unaligned_(const void *ptr) {
@@ -1126,7 +1126,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     using Base::store_unaligned_;
 
     ENOKI_INLINE void store_(void *ptr) const {
-        vst1q_u64((uint64_t *) ENOKI_ASSUME_ALIGNED_S(ptr, 16), m);
+        vst1q_u64((uint64_t *) ENOKI_ASSUME_ALIGNED(ptr, 16), m);
     }
 
     ENOKI_INLINE void store_unaligned_(void *ptr) const {
@@ -1134,7 +1134,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
-        return vld1q_u64((const uint64_t *) ENOKI_ASSUME_ALIGNED_S(ptr, 16));
+        return vld1q_u64((const uint64_t *) ENOKI_ASSUME_ALIGNED(ptr, 16));
     }
 
     static ENOKI_INLINE Derived load_unaligned_(const void *ptr) {

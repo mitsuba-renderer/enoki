@@ -420,7 +420,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     // -----------------------------------------------------------------------
 
     ENOKI_INLINE void store_(void *ptr) const {
-        _mm256_store_si256((__m256i *) ENOKI_ASSUME_ALIGNED_S(ptr, 32), m);
+        _mm256_store_si256((__m256i *) ENOKI_ASSUME_ALIGNED(ptr, 32), m);
     }
 
     template <typename Mask>
@@ -446,7 +446,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
-        return _mm256_load_si256((const __m256i *) ENOKI_ASSUME_ALIGNED_S(ptr, 32));
+        return _mm256_load_si256((const __m256i *) ENOKI_ASSUME_ALIGNED(ptr, 32));
     }
 
     template <typename Mask>
@@ -973,7 +973,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     // -----------------------------------------------------------------------
 
     ENOKI_INLINE void store_(void *ptr) const {
-        _mm256_store_si256((__m256i *) ENOKI_ASSUME_ALIGNED_S(ptr, 32), m);
+        _mm256_store_si256((__m256i *) ENOKI_ASSUME_ALIGNED(ptr, 32), m);
     }
 
     template <typename Mask>
@@ -999,7 +999,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
-        return _mm256_load_si256((const __m256i *) ENOKI_ASSUME_ALIGNED_S(ptr, 32));
+        return _mm256_load_si256((const __m256i *) ENOKI_ASSUME_ALIGNED(ptr, 32));
     }
 
     template <typename Mask>

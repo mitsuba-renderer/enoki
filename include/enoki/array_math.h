@@ -268,6 +268,8 @@ namespace detail {
         using IntArray = int_array_t<Value>;
         using Int = scalar_t<IntArray>;
         using Mask = mask_t<Value>;
+        ENOKI_MARK_USED(s_out);
+        ENOKI_MARK_USED(c_out);
 
         /* Joint sine & cosine function approximation based on CEPHES.
            Excellent accuracy in the domain |x| < 8192

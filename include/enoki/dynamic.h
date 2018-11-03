@@ -38,11 +38,11 @@ struct DynamicArrayReference : ArrayBase<value_t<Packet_>, DynamicArrayReference
     DynamicArrayReference(Packet *packets) : m_packets(packets) { }
 
     ENOKI_INLINE Packet &packet(size_t i) {
-        return ((Packet *) ENOKI_ASSUME_ALIGNED(m_packets))[i];
+        return ((Packet *) ENOKI_ASSUME_ALIGNED(m_packets, alignof(Packet)))[i];
     }
 
     ENOKI_INLINE const Packet &packet(size_t i) const {
-        return ((const Packet *) ENOKI_ASSUME_ALIGNED(m_packets))[i];
+        return ((const Packet *) ENOKI_ASSUME_ALIGNED(m_packets, alignof(Packet)))[i];
     }
 
     template <typename T>
@@ -221,19 +221,19 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
     }
 
     ENOKI_INLINE const Value *data() const {
-        return (const Value *) ENOKI_ASSUME_ALIGNED(m_packets.get());
+        return (const Value *) ENOKI_ASSUME_ALIGNED(m_packets.get(), alignof(Packet));
     }
 
     ENOKI_INLINE Value *data() {
-        return (Value *) ENOKI_ASSUME_ALIGNED(m_packets.get());
+        return (Value *) ENOKI_ASSUME_ALIGNED(m_packets.get(), alignof(Packet));
     }
 
     ENOKI_INLINE const Packet *packet_ptr() const {
-        return (const Packet *) ENOKI_ASSUME_ALIGNED(m_packets.get());
+        return (const Packet *) ENOKI_ASSUME_ALIGNED(m_packets.get(), alignof(Packet));
     }
 
     ENOKI_INLINE Packet *packet_ptr() {
-        return (Packet *) ENOKI_ASSUME_ALIGNED(m_packets.get());
+        return (Packet *) ENOKI_ASSUME_ALIGNED(m_packets.get(), alignof(Packet));
     }
 
     ENOKI_INLINE decltype(auto) coeff(size_t i) {
@@ -252,7 +252,7 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
                     std::to_string(i) + " in an array of size " +
                     std::to_string(packets()) + ")");
         #endif
-        return ((Packet *) ENOKI_ASSUME_ALIGNED(m_packets.get()))[i];
+        return ((Packet *) ENOKI_ASSUME_ALIGNED(m_packets.get(), alignof(Packet)))[i];
     }
 
     ENOKI_INLINE const Packet &packet(size_t i) const {
@@ -263,7 +263,7 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
                     std::to_string(i) + " in an array of size " +
                     std::to_string(packets()) + ")");
         #endif
-        return ((const Packet *) ENOKI_ASSUME_ALIGNED(m_packets.get()))[i];
+        return ((const Packet *) ENOKI_ASSUME_ALIGNED(m_packets.get(), alignof(Packet)))[i];
     }
 
     //! @}

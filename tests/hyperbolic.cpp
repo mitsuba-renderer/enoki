@@ -107,6 +107,8 @@ ENOKI_TEST_FLOAT(test09_asinh) {
 }
 
 ENOKI_TEST_FLOAT(test11_acosh) {
+    if (Size == 2 && has_avx512er)
+        return; /// Skip for KNL, Clang 7 generates an unsupported SKX+ instruction :(
     test::probe_accuracy<T>(
         [](const T &a) -> T { return acosh(a); },
         [](double a) { return std::acosh(a); },

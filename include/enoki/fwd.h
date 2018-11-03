@@ -29,8 +29,7 @@
 #  define ENOKI_NOINLINE               __declspec(noinline)
 #  define ENOKI_MALLOC                 __declspec(restrict)
 #  define ENOKI_MAY_ALIAS
-#  define ENOKI_ASSUME_ALIGNED(x)      x
-#  define ENOKI_ASSUME_ALIGNED_S(x, s) x
+#  define ENOKI_ASSUME_ALIGNED(x, s)   x
 #  define ENOKI_UNROLL
 #  define ENOKI_NOUNROLL
 #  define ENOKI_IVDEP                  __pragma(loop(ivdep))
@@ -43,8 +42,7 @@
 #  define ENOKI_INLINE                 __attribute__ ((always_inline)) inline
 #  define ENOKI_INLINE_LAMBDA          __attribute__ ((always_inline))
 #  define ENOKI_MALLOC                 __attribute__ ((malloc))
-#  define ENOKI_ASSUME_ALIGNED(x)      __builtin_assume_aligned(x, ::enoki::max_packet_size)
-#  define ENOKI_ASSUME_ALIGNED_S(x, s) __builtin_assume_aligned(x, s)
+#  define ENOKI_ASSUME_ALIGNED(x, s)   __builtin_assume_aligned(x, s)
 #  define ENOKI_LIKELY(x)              __builtin_expect(!!(x), 1)
 #  define ENOKI_UNLIKELY(x)            __builtin_expect(!!(x), 0)
 #  define ENOKI_PACK                   __attribute__ ((packed))
@@ -210,9 +208,9 @@
 
 #if defined(ENOKI_ALLOC_VERBOSE)
 #  define ENOKI_TRACK_ALLOC(ptr, size)                                         \
-      printf("Enoki: %p: alloc(%llu)\n", (ptr), (uint64_t) (size));
+      printf("Enoki: %p: alloc(%llu)\n", (ptr), (unsigned long long) (size));
 #  define ENOKI_TRACK_DEALLOC(ptr, size)                                       \
-      printf("Enoki: %p: dealloc(%llu)\n", (ptr), (uint64_t) (size));
+      printf("Enoki: %p: dealloc(%llu)\n", (ptr), (unsigned long long) (size));
 #endif
 
 #if !defined(ENOKI_TRACK_ALLOC)
