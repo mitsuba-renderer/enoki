@@ -204,7 +204,7 @@ Finally, the following initialization methods also exist:
     f1 = zero<MyFloat>();
 
     /* Initialize entries with index sequence 0, 1, 2, ... */
-    f1 = index_sequence<MyFloat>();
+    f1 = arange<MyFloat>();
 
     /* Initialize entries with a linearly increasing sequence with endpoints 0 and 1 */
     f1 = linspace<MyFloat>(0.f, 1.f);

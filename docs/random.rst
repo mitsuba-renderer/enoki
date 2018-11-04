@@ -102,7 +102,7 @@ Constructors
 ************
 
 .. cpp:function:: PCG32(const UInt64 &initstate = PCG32_DEFAULT_STATE, \
-                        const UInt64 &initseq = PCG32_DEFAULT_STREAM + index_sequence<UInt64>())
+                        const UInt64 &initseq = PCG32_DEFAULT_STREAM + arange<UInt64>())
 
      Seeds the PCG32 with the default state. When ``T`` is an array, every
      entry by default uses a different stream index, which yields an

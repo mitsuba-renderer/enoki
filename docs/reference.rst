@@ -563,11 +563,11 @@ Miscellaneous initialization
     Allocates and returns a dynamic array of type ``DArray`` that is filled
     with zeros.
 
-.. cpp:function:: template <typename Array> Array index_sequence()
+.. cpp:function:: template <typename Array> Array arange()
 
     Return an array initialized with an index sequence, i.e. ``0, 1, .., Array::Size-1``.
 
-.. cpp:function:: template <typename DArray> DArray index_sequence(size_t size)
+.. cpp:function:: template <typename DArray> DArray arange(size_t size)
 
     Allocates and returns a dynamic array of type ``DArray`` that is filled an
     index sequence ``0..size-1``.
@@ -577,7 +577,7 @@ Miscellaneous initialization
     Return an array initialized with linear linearly spaced entries including
     the endpoints ``min`` and ``max``.
 
-.. cpp:function:: template <typename DArray> DArray linspace(size_t size, scalar_t<DArray> min, scalar_t<DArray> max)
+.. cpp:function:: template <typename DArray> DArray linspace(scalar_t<DArray> min, scalar_t<DArray> max, size_t size)
 
     Allocates and returns a dynamic array initialized with ``size`` linear
     linearly spaced entries including the endpoints ``min`` and ``max``.
@@ -592,8 +592,8 @@ Miscellaneous initialization
         using FloatP = Array<float>;
         using FloatX = DynamicArray<FloatP>;
 
-        auto x = linspace<FloatX>(4, 0.f, 1.f);
-        auto y = linspace<FloatX>(4, 2.f, 3.f);
+        auto x = linspace<FloatX>(0.f, 1.f, 4);
+        auto y = linspace<FloatX>(2.f, 3.f, 4);
         Array<FloatX, 2> grid = meshgrid(x, y);
 
         std::cout << grid << std::endl;

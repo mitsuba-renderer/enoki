@@ -131,10 +131,10 @@ A few convenience initialization methods also exist:
     x = zero<FloatX>(size);
 
     /* Initialize entries with index sequence 0, 1, 2, ... */
-    x = index_sequence<FloatX>(size);
+    x = arange<FloatX>(size);
 
     /* Initialize entries with a linearly increasing sequence with endpoints 0 and 1 */
-    x = linspace<FloatX>(size, 0.f, 1.f);
+    x = linspace<FloatX>(0.f, 1.f, size);
 
 Custom dynamic data structures
 ------------------------------

@@ -58,8 +58,8 @@ arbitrarily large inputs.
     using ReturnX = Return<FloatX>;
 
     int main(int argc, char *argv[]) {
-        FloatX theta = linspace<FloatX>(10, -10.f, 10.f);
-        FloatX phi = linspace<FloatX>(10, 0.f, 60.f);
+        FloatX theta = linspace<FloatX>(-10.f, 10.f, 10);
+        FloatX phi = linspace<FloatX>(0.f, 60.f, 10);
 
         ReturnX result = vectorize(my_function<FloatP>, theta, phi);
 
