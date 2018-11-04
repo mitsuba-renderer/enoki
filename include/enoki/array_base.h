@@ -188,7 +188,7 @@ namespace detail {
             for (size_t i = 0; i < size[k]; ++i) {
                 print(os, a, size, i, indices...);
                 if (i + 1 < size[k]) {
-                    if (k == 0) {
+                    if constexpr (k == 0) {
                         os << ", ";
                     } else {
                         os << ",\n";

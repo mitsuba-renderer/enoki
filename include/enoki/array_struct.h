@@ -283,6 +283,7 @@ namespace detail {
 
     template <typename T>
     ENOKI_INLINE void set_shape_recursive(T &&a, const size_t *shape) {
+        ENOKI_MARK_USED(shape);
         if constexpr (is_array_v<T>) {
             size_t size = a.derived().size();
             a.resize(*shape);

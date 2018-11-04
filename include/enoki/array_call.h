@@ -74,6 +74,7 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
     }
 
     template <typename T> Derived_& operator=(T&& t) {
+        ENOKI_MARK_USED(t);
         if constexpr (std::is_same_v<T, std::nullptr_t>)
             return (Derived_ &) Base::operator=(UnderlyingType(0));
         else if constexpr (std::is_convertible_v<T, Value>)

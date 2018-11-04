@@ -21,9 +21,8 @@
 NAMESPACE_BEGIN(enoki)
 
 template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_>
-struct alignas(max_packet_size)
-    StaticArrayImpl<Value_, Size_, Approx_, Mode_, IsMask_, Derived_,
-                    enable_if_t<detail::array_config<Value_, Size_, Mode_>::use_recursive_impl>>
+struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, IsMask_, Derived_,
+                       enable_if_t<detail::array_config<Value_, Size_, Mode_>::use_recursive_impl>>
     : StaticArrayBase<Value_, Size_, Approx_, Mode_, IsMask_, Derived_> {
 
     using Base = StaticArrayBase<Value_, Size_, Approx_, Mode_, IsMask_, Derived_>;
