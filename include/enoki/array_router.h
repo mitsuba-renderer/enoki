@@ -950,7 +950,7 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index, const detail::id
                       "Stride must be divisible by sizeof(Scalar)");
         return detail::do_recursive<Array, Stride_ / ScalarSize>(
             [mem](const auto &index2, const auto &mask2) ENOKI_INLINE_LAMBDA {
-				constexpr size_t ScalarSize2 = sizeof(scalar_t<Array>); // needed for MSVC
+                constexpr size_t ScalarSize2 = sizeof(scalar_t<Array>); // needed for MSVC
                 prefetch<Array, Write, Level, ScalarSize2>(mem, index2, mask2);
             },
             index, scalar_t<Index>(0), mask);
@@ -991,7 +991,7 @@ ENOKI_INLINE Array gather(const void *mem, const Index &index, const detail::ide
                       "Stride must be divisible by sizeof(Scalar)");
         return detail::do_recursive<Array, Stride_ / ScalarSize>(
             [mem](const auto &index2, const auto &mask2) ENOKI_INLINE_LAMBDA {
-			    constexpr size_t ScalarSize2 = sizeof(scalar_t<Array>); // needed for MSVC
+                constexpr size_t ScalarSize2 = sizeof(scalar_t<Array>); // needed for MSVC
                 return gather<Array, ScalarSize2>(mem, index2, mask2);
             },
             index, scalar_t<Index>(0), mask);
@@ -1033,7 +1033,7 @@ ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index, con
                       "Stride must be divisible by sizeof(Scalar)");
         detail::do_recursive<Array, Stride_ / ScalarSize>(
             [mem, &value](const auto &index2, const auto &mask2) ENOKI_INLINE_LAMBDA {
-				constexpr size_t ScalarSize2 = sizeof(scalar_t<Array>); // needed for MSVC
+                constexpr size_t ScalarSize2 = sizeof(scalar_t<Array>); // needed for MSVC
                 scatter<ScalarSize2, Masked>(mem, value, index2, mask2);
             },
             index, scalar_t<Index>(0), mask);

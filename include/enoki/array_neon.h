@@ -308,6 +308,20 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     ENOKI_INLINE Value hmax_() const { return vmaxvq_f32(m); }
     ENOKI_INLINE Value hmin_() const { return vminvq_f32(m); }
     ENOKI_INLINE Value hsum_() const { return vaddvq_f32(m); }
+
+    bool all_() const {
+        if constexpr (Derived::Size == 4)
+            return vmaxvq_s32(vreinterpretq_s32_f32(m)) < 0;
+        else
+            return Base::all_();
+    }
+
+    bool any_() const {
+        if constexpr (Derived::Size == 4)
+            return vminvq_s32(vreinterpretq_s32_f32(m)) < 0;
+        else
+            return Base::any_();
+    }
 #endif
 
     //! @}
@@ -337,6 +351,8 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     static ENOKI_INLINE Derived load_unaligned_(const void *ptr) {
         return vld1q_f32((const Value *) ptr);
     }
+
+    static ENOKI_INLINE Derived zero_() { return vdupq_n_f32(0.f); }
 
     //! @}
     // -----------------------------------------------------------------------
@@ -543,6 +559,8 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     static ENOKI_INLINE Derived load_unaligned_(const void *ptr) {
         return vld1q_f64((const Value *) ptr);
     }
+
+    static ENOKI_INLINE Derived zero_() { return vdupq_n_f64(0.0); }
 
     //! @}
     // -----------------------------------------------------------------------
@@ -855,6 +873,20 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     }
 
     ENOKI_INLINE Value hsum_() const { return Value(vaddvq_u32(m)); }
+
+    bool all_() const {
+        if constexpr (Derived::Size == 4)
+            return vmaxvq_s32(vreinterpretq_s32_u32(m)) < 0;
+        else
+            return Base::all_();
+    }
+
+    bool any_() const {
+        if constexpr (Derived::Size == 4)
+            return vminvq_s32(vreinterpretq_s32_u32(m)) < 0;
+        else
+            return Base::any_();
+    }
 #endif
 
     //! @}
@@ -884,6 +916,8 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     static ENOKI_INLINE Derived load_unaligned_(const void *ptr) {
         return vld1q_u32((const uint32_t *) ptr);
     }
+
+    static ENOKI_INLINE Derived zero_() { return vdupq_n_u32(0); }
 
     //! @}
     // -----------------------------------------------------------------------
@@ -1140,6 +1174,8 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     static ENOKI_INLINE Derived load_unaligned_(const void *ptr) {
         return vld1q_u64((const uint64_t *) ptr);
     }
+
+    static ENOKI_INLINE Derived zero_() { return vdupq_n_u64(0); }
 
     //! @}
     // -----------------------------------------------------------------------

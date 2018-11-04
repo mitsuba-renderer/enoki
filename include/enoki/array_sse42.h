@@ -413,13 +413,8 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
 
     #undef ENOKI_HORIZONTAL_OP
 
-#if defined(ENOKI_X86_AVX)
-    ENOKI_INLINE bool all_()  const { return _mm_testc_ps(m, _mm_castsi128_ps(_mm_set1_epi32(-1))); }
-    ENOKI_INLINE bool any_()  const { return !_mm_testz_ps(m, m); }
-#else
     ENOKI_INLINE bool all_()  const { return _mm_movemask_ps(m) == 0xF;}
     ENOKI_INLINE bool any_()  const { return _mm_movemask_ps(m) != 0x0; }
-#endif
 
     ENOKI_INLINE uint32_t bitmask_() const { return (uint32_t) _mm_movemask_ps(m); }
     ENOKI_INLINE size_t count_() const { return (size_t) _mm_popcnt_u32(bitmask_()); }
@@ -892,13 +887,8 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     #undef ENOKI_HORIZONTAL_OP
     #undef ENOKI_SHUFFLE_PD
 
-#if defined(ENOKI_X86_AVX)
-    ENOKI_INLINE bool all_()  const { return _mm_testc_pd(m, _mm_castsi128_pd(_mm_set1_epi32(-1))); }
-    ENOKI_INLINE bool any_()  const { return !_mm_testz_pd(m, m); }
-#else
     ENOKI_INLINE bool all_()  const { return _mm_movemask_pd(m) == 0x3;}
     ENOKI_INLINE bool any_()  const { return _mm_movemask_pd(m) != 0x0; }
-#endif
 
     ENOKI_INLINE uint32_t bitmask_() const { return (uint32_t) _mm_movemask_pd(m); }
     ENOKI_INLINE size_t count_() const { return (size_t) _mm_popcnt_u32(bitmask_()); }
@@ -1422,13 +1412,8 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     #undef ENOKI_HORIZONTAL_OP
     #undef ENOKI_HORIZONTAL_OP_SIGNED
 
-#if defined(ENOKI_X86_AVX)
-    ENOKI_INLINE bool all_()  const { return _mm_testc_si128(m, _mm_set1_epi32(-1)); }
-    ENOKI_INLINE bool any_()  const { return !_mm_testz_si128(m, m); }
-#else
     ENOKI_INLINE bool all_()  const { return _mm_movemask_ps(_mm_castsi128_ps(m)) == 0xF;}
     ENOKI_INLINE bool any_()  const { return _mm_movemask_ps(_mm_castsi128_ps(m)) != 0x0; }
-#endif
 
     ENOKI_INLINE uint32_t bitmask_() const { return (uint32_t) _mm_movemask_ps(_mm_castsi128_ps(m)); }
     ENOKI_INLINE size_t count_() const { return (size_t) _mm_popcnt_u32(bitmask_()); }
@@ -1996,13 +1981,8 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
 
     #undef ENOKI_HORIZONTAL_OP
 
-#if defined(ENOKI_X86_AVX)
-    ENOKI_INLINE bool all_()  const { return _mm_testc_si128(m, _mm_set1_epi32(-1)); }
-    ENOKI_INLINE bool any_()  const { return !_mm_testz_si128(m, m); }
-#else
     ENOKI_INLINE bool all_()  const { return _mm_movemask_pd(_mm_castsi128_pd(m)) == 0x3;}
     ENOKI_INLINE bool any_()  const { return _mm_movemask_pd(_mm_castsi128_pd(m)) != 0x0; }
-#endif
 
     ENOKI_INLINE uint32_t bitmask_() const { return (uint32_t) _mm_movemask_pd(_mm_castsi128_pd(m)); }
     ENOKI_INLINE size_t count_() const { return (size_t) _mm_popcnt_u32(bitmask_()); }

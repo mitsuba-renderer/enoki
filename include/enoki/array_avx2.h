@@ -382,8 +382,8 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     ENOKI_INLINE Value hmin_()  const { return hmin(min(low_(), high_())); }
     ENOKI_INLINE Value hmax_()  const { return hmax(max(low_(), high_())); }
 
-    ENOKI_INLINE bool all_()  const { return _mm256_testc_si256(m, _mm256_set1_epi32(-1)); }
-    ENOKI_INLINE bool any_()  const { return !_mm256_testz_si256(m, m); }
+    ENOKI_INLINE bool all_() const { return _mm256_movemask_ps(_mm256_castsi256_ps(m)) == 0xFF; }
+    ENOKI_INLINE bool any_() const { return _mm256_movemask_ps(_mm256_castsi256_ps(m)) != 0; }
 
     ENOKI_INLINE uint32_t bitmask_() const { return (uint32_t) _mm256_movemask_ps(_mm256_castsi256_ps(m)); }
     ENOKI_INLINE size_t count_() const { return (size_t) _mm_popcnt_u32(bitmask_()); }
@@ -959,8 +959,8 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     ENOKI_INLINE Value hmin_()  const { return hmin(min(low_(), high_())); }
     ENOKI_INLINE Value hmax_()  const { return hmax(max(low_(), high_())); }
 
-    ENOKI_INLINE bool all_()  const { return _mm256_testc_si256(m, _mm256_set1_epi32(-1)); }
-    ENOKI_INLINE bool any_()  const { return !_mm256_testz_si256(m, m); }
+    ENOKI_INLINE bool all_() const { return _mm256_movemask_pd(_mm256_castsi256_pd(m)) == 0xF; }
+    ENOKI_INLINE bool any_() const { return _mm256_movemask_pd(_mm256_castsi256_pd(m)) != 0; }
 
     ENOKI_INLINE uint32_t bitmask_() const { return (uint32_t) _mm256_movemask_pd(_mm256_castsi256_pd(m)); }
     ENOKI_INLINE size_t count_() const { return (size_t) _mm_popcnt_u32(bitmask_()); }
