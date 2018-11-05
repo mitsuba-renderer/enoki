@@ -68,6 +68,11 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
             return Base::coeff(i);
     }
 
+    template <typename T, typename Mask>
+    ENOKI_INLINE size_t compress_(T *&ptr, const Mask &mask) const {
+        return Base::compress_((UnderlyingType *&) ptr, mask);
+    }
+
     auto operator->() const {
         using BaseType = std::decay_t<std::remove_pointer_t<scalar_t<Derived_>>>;
         return call_support<BaseType, Derived_>(derived());
