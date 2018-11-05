@@ -215,7 +215,7 @@ ENOKI_ROUTE_TERNARY_SCALAR(fnmsub, fnmsub, detail::fmadd_scalar((E) -a1, (E) a2,
 ENOKI_ROUTE_TERNARY_SCALAR(fmaddsub, fmaddsub, fmsub(a1, a2, a3))
 ENOKI_ROUTE_TERNARY_SCALAR(fmsubadd, fmsubadd, fmadd(a1, a2, a3))
 
-ENOKI_ROUTE_UNARY_SCALAR(rcp, rcp, detail::rcp_scalar<Approx>(a))
+ENOKI_ROUTE_UNARY_SCALAR(rcp, rcp, 1 / a)
 ENOKI_ROUTE_UNARY_SCALAR(rsqrt, rsqrt, detail::rsqrt_scalar<Approx>(a))
 
 ENOKI_ROUTE_UNARY_SCALAR(popcnt, popcnt, detail::popcnt_scalar(a))
