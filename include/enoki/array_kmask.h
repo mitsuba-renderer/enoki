@@ -46,7 +46,11 @@ struct KMaskBase : StaticArrayBase<Value_, Size_, Approx_, Mode_, true, Derived_
 
     ENOKI_ARRAY_DEFAULTS(KMaskBase)
 
+#if defined(NDEBUG)
     KMaskBase() = default;
+#else
+    KMaskBase() : k(BitMask) { }
+#endif
 
     template <typename Array, enable_if_t<std::is_same_v<Register, typename Array::Derived::Register>> = 0>
     ENOKI_INLINE KMaskBase(const Array &other, detail::reinterpret_flag) : k(other.derived().k) { }
