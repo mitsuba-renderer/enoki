@@ -57,8 +57,8 @@ ENOKI_TEST_FLOAT(test01_div_fp) {
     if (std::is_same<Value, float>::value && T::Approx && has_sse42) {
         using T2 = Array<float, T::Size, false>;
         // Make sure that division optimization is used in approximate mode
-        assert(T (3.f) / 3.f != T (1.f));
-        assert(T2(3.f) / 3.f == T2(1.f));
+        assert(T (123.f) / 123.f != T (1.f));
+        assert(T2(123.f) / 123.f == T2(1.f));
     }
 #endif
 }

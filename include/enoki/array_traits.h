@@ -23,6 +23,7 @@
 #include <string>
 #include <stdexcept>
 #include <tuple>
+#include <memory>
 
 NAMESPACE_BEGIN(enoki)
 
@@ -180,6 +181,10 @@ template <typename T, typename = int> struct is_mask {
     static constexpr bool value = std::is_same_v<std::decay_t<T>, bool>;
 };
 
+template <typename T> struct is_mask<MaskBit<T>> {
+    static constexpr bool value = true;
+};
+
 template <typename T> struct is_mask<T, enable_if_array_t<T>> {
     static constexpr bool value = std::decay_t<T>::Derived::IsMask;
 };
@@ -277,6 +282,8 @@ namespace detail {
 /// Type trait to access the base scalar type underlying a potentially nested array
 template <typename T> using scalar_t = typename detail::scalar<T>::type;
 
+struct BitRef;
+
 namespace detail {
     /// Copy modifier flags (const/pointer/lvalue/rvalue reference from 'S' to 'T')
     template <typename S, typename T> struct copy_flags {
@@ -296,7 +303,14 @@ namespace detail {
 
     template <typename S, typename T>
     using copy_flags_t = typename detail::copy_flags<S, T>::type;
-    template <typename T, bool CopyFlags, typename = int> struct mask { using type = bool; };
+
+    template <typename T, bool CopyFlags, typename = int> struct mask {
+        using type = bool;
+    };
+
+    template <typename T, bool CopyFlags> struct mask<T&, CopyFlags, enable_if_t<is_scalar_v<T>>> {
+        using type = BitRef;
+    };
 
     template <typename T, bool CopyFlags> struct mask<T, CopyFlags, enable_if_array_t<T>> {
     private:

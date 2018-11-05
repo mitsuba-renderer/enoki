@@ -59,7 +59,7 @@
 #    define ENOKI_IVDEP                _Pragma("ivdep")
 #    define ENOKI_REGCALL              __attribute__ ((regcall))
 #  else
-#    define ENOKI_MAY_ALIAS
+#    define ENOKI_MAY_ALIAS            __attribute__ ((may_alias))
 #    define ENOKI_UNROLL
 #    define ENOKI_NOUNROLL
 #    if defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 9))
@@ -333,6 +333,8 @@ struct struct_support;
 
 /// Half-precision floating point value
 struct half;
+
+template <typename T> struct MaskBit;
 
 namespace detail {
     struct reinterpret_flag { };
