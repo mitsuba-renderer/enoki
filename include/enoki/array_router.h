@@ -521,6 +521,15 @@ template <typename T> ENOKI_INLINE auto log2i(T value) {
     return scalar_t<T>(sizeof(scalar_t<T>) * 8 - 1) - lzcnt(value);
 }
 
+template <typename T> struct MaskBit {
+    MaskBit(T &mask, size_t index) : mask(mask), index(index) { }
+    operator bool() const { return mask.bit_(index); }
+    MaskBit &operator=(bool b) { mask.set_bit_(index, b); return *this; }
+private:
+    T mask;
+    size_t index;
+};
+
 template <typename Target, typename Source>
 ENOKI_INLINE Target reinterpret_array(const Source &src) {
     if constexpr (std::is_same_v<Source, Target>) {
@@ -541,6 +550,11 @@ ENOKI_INLINE Target reinterpret_array(const Source &src) {
     } else {
         static_assert(detail::false_v<Source, Target>, "reinterpret_array(): don't know what to do!");
     }
+}
+
+template <typename Target, typename T>
+ENOKI_INLINE Target reinterpret_array(const MaskBit<T> &src) {
+    return reinterpret_array<Target>((bool) src);
 }
 
 /// Element-wise test for NaN values

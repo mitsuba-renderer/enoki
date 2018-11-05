@@ -71,3 +71,32 @@ ENOKI_TEST(test02_mask_slice_custom_scalar) {
     assert(y != x);
     assert(y == y);
 }
+
+struct Test { };
+
+template <typename T> struct TrickyStruct {
+    using Ptr = replace_scalar_t<T, Test *>;
+    using Mask = mask_t<T>;
+
+    Ptr ptr;
+    Mask mask;
+
+    ENOKI_STRUCT(TrickyStruct, ptr, mask);
+};
+
+ENOKI_STRUCT_SUPPORT(TrickyStruct, ptr, mask);
+
+ENOKI_TEST(test03_tricky) {
+    using FloatP = Packet<float>;
+    using Tricky = TrickyStruct<float>;
+    using TrickyP = TrickyStruct<FloatP>;
+
+    TrickyP x;
+    for (size_t i = 0; i<FloatP::Size; ++i)
+        slice(x, i) = Tricky((Test *) (0xdeadbeef + i), (i & 1) != 0);
+
+    for (size_t i = 0; i<FloatP::Size; ++i) {
+        assert(x.mask.coeff(i) == ((i & 1) != 0));
+        assert(x.ptr.coeff(i) == (Test *) (0xdeadbeef + i));
+    }
+}

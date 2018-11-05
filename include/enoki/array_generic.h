@@ -181,27 +181,37 @@ namespace detail {
     template <typename T> ENOKI_INLINE StaticArrayImpl &operator=(const T &v) {\
         return operator=(Derived(v)); return *this;                            \
     }                                                                          \
-    ENOKI_INLINE decltype(auto) coeff(size_t i) {                              \
+    ENOKI_INLINE Value& raw_coeff_(size_t i) {                                 \
         union Data {                                                           \
             Register value;                                                    \
             Value data[Size_];                                                 \
         };                                                                     \
-        Value &ref = ((Data *) &m)->data[i];                                   \
+        return ((Data *) &m)->data[i];                                         \
+    }                                                                          \
+    ENOKI_INLINE const Value& raw_coeff_(size_t i) const {                     \
+        union Data {                                                           \
+            Register value;                                                    \
+            Value data[Size_];                                                 \
+        };                                                                     \
+        return ((const Data *) &m)->data[i];                                   \
+    }                                                                          \
+    ENOKI_INLINE decltype(auto) coeff(size_t i) {                              \
         if constexpr (Derived::IsMask)                                         \
-            return detail::convert_mask(ref);                                  \
+            return MaskBit<Derived &>(derived(), i);                           \
         else                                                                   \
-            return ref;                                                        \
+            return raw_coeff_(i);                                              \
     }                                                                          \
     ENOKI_INLINE decltype(auto) coeff(size_t i) const {                        \
-        union Data {                                                           \
-            Register value;                                                    \
-            Value data[Size_];                                                 \
-        };                                                                     \
-        const Value &ref = ((const Data *) &m)->data[i];                       \
         if constexpr (Derived::IsMask)                                         \
-            return detail::convert_mask(ref);                                  \
+            return MaskBit<const Derived &>(derived(), i);                     \
         else                                                                   \
-            return ref;                                                        \
+            return raw_coeff_(i);                                              \
+    }                                                                          \
+    ENOKI_INLINE bool bit_(size_t i) const {                                   \
+        return detail::convert_mask(raw_coeff_(i));                            \
+    }                                                                          \
+    ENOKI_INLINE void set_bit_(size_t i, bool value) {                         \
+        raw_coeff_(i) = reinterpret_array<Value>(value);                       \
     }
 
 /// Internal macro for native StaticArrayImpl overloads -- 3D special case
@@ -449,7 +459,7 @@ private:
                                std::is_same_v<value_t<T>, value_t<Derived>>;
         ENOKI_MARK_USED(Move);
 
-        if constexpr(detail::broadcast<T, Derived>) {
+        if constexpr (detail::broadcast<T, Derived>) {
             auto s = static_cast<cast_t<T>>(value);
             bool unused[] = { (coeff(Is) = s, false)... };
             (void) unused;
@@ -584,6 +594,41 @@ public:
 
 private:
     std::array<StorageType, Size> m_data;
+};
+
+struct BitRef {
+private:
+    struct BitWrapper {
+        virtual bool get() = 0;
+        virtual void set(bool value) = 0;
+        virtual ~BitWrapper() = default;
+    };
+
+    std::unique_ptr<BitWrapper> accessor;
+public:
+    BitRef(bool &b) {
+        struct BoolWrapper : BitWrapper {
+            BoolWrapper(bool& data) : data(data) { }
+            bool get() override { return data; }
+            void set(bool value) override { data = value; }
+            bool &data;
+        };
+        accessor = std::make_unique<BoolWrapper>(b);
+    }
+
+    template <typename T>
+    BitRef(MaskBit<T> b) {
+        struct MaskBitWrapper : BitWrapper {
+            MaskBitWrapper(MaskBit<T> data) : data(data) { }
+            bool get() override { return (bool) data; }
+            void set(bool value) override { data = value; }
+            MaskBit<T> data;
+        };
+        accessor = std::make_unique<MaskBitWrapper>(b);
+    }
+
+    operator bool() const { return accessor->get(); }
+    BitRef& operator=(bool value) { accessor->set(value); return *this; }
 };
 
 NAMESPACE_END(enoki)

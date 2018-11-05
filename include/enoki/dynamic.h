@@ -14,7 +14,6 @@
 #pragma once
 
 #include <enoki/array.h>
-#include <memory>
 
 #if defined(__GNUC__) && !defined(__clang__)
 #  pragma GCC diagnostic push
@@ -657,8 +656,7 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
         if (is_mapped())
             throw std::runtime_error("Can't resize a mapped dynamic array!");
 
-        /// Determine what coeff() actually returns -- might be 'bool' e.g. for masks
-        using CoeffValue = std::decay_t<decltype(coeff(0))>;
+        using CoeffValue = std::conditional_t<IsMask, bool, Value>;
 
         CoeffValue scalar = (m_size == 1) ? coeff(0) : zero<CoeffValue>();
         size_t n_packets = (size + PacketSize - 1) / PacketSize;

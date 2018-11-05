@@ -20,7 +20,7 @@ NAMESPACE_BEGIN(enoki)
     template <typename Value2, bool Approx2, RoundingMode Mode2,               \
               typename Derived2, bool IsMask2,                                 \
               enable_if_t<detail::is_same_v<Value2, Value>> = 0>               \
-    ENOKI_INLINE KMaskBase(                                                        \
+    ENOKI_INLINE KMaskBase(                                                    \
         const StaticArrayBase<Value2, Size, Approx2, Mode2, IsMask2, Derived2> \
             &a, detail::reinterpret_flag)
 
@@ -28,7 +28,7 @@ NAMESPACE_BEGIN(enoki)
     template <typename Value2, bool Approx2, RoundingMode Mode2,               \
               typename Derived2, bool IsMask2,                                 \
               enable_if_t<detail::is_same_v<Value2, Value>> = 0>               \
-    ENOKI_INLINE KMaskBase(                                                        \
+    ENOKI_INLINE KMaskBase(                                                    \
         const StaticArrayBase<Value2, Size, Approx2, Mode2, IsMask2, Derived2> \
             &a, detail::reinterpret_flag)
 
@@ -40,6 +40,7 @@ struct KMaskBase : StaticArrayBase<Value_, Size_, Approx_, Mode_, true, Derived_
     using Derived = Derived_;
     using Base = StaticArrayBase<Value_, Size_, Approx_, Mode_, true, Derived_>;
     using Base::Size;
+    using Base::derived;
     static constexpr bool IsNative = true;
     static constexpr bool IsKMask = true;
     static constexpr Register BitMask = Register((1 << Size_) - 1);
@@ -182,8 +183,20 @@ struct KMaskBase : StaticArrayBase<Value_, Size_, Approx_, Mode_, true, Derived_
         return (size_t) _mm_popcnt_u32(bitmask_());
     }
 
-    ENOKI_INLINE bool coeff(size_t i) const {
+    ENOKI_INLINE bool bit_(size_t i) const {
         return (k & ((Register) 1 << i)) != 0;
+    }
+
+    ENOKI_INLINE void set_bit_(size_t i, bool value) {
+        k ^= (-value ^ k) & ((Register) 1 << i);
+    }
+
+    ENOKI_INLINE auto coeff(size_t i) const {
+        return MaskBit<const Derived &>(derived(), i);
+    }
+
+    ENOKI_INLINE auto coeff(size_t i) {
+        return MaskBit<Derived &>(derived(), i);
     }
 
     static Derived zero_() { return Derived::from_k(0); }
