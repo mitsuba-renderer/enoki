@@ -732,29 +732,32 @@ public:
     /// all() fallback implementation
     ENOKI_INLINE auto all_() const {
         ENOKI_CHKSCALAR("all");
-        auto result = derived().coeff(0);
-        if constexpr (std::is_same_v<Value_, bool>) {
+        if constexpr (Derived::IsMask && std::is_scalar_v<Value_>) {
+            bool result = derived().coeff(0);
             for (size_t i = 1; i < Derived::Size; ++i)
                 result = result && derived().coeff(i);
+            return result;
         } else {
+            auto result = derived().coeff(0);
             for (size_t i = 1; i < Derived::Size; ++i)
                 result &= derived().coeff(i);
+            return result;
         }
-        return result;
     }
 
     /// any() fallback implementation
     ENOKI_INLINE auto any_() const {
         ENOKI_CHKSCALAR("any");
-        auto result = derived().coeff(0);
-        if constexpr (std::is_same_v<Value_, bool>) {
+        if constexpr (Derived::IsMask && std::is_scalar_v<Value_>) {
+            bool result = derived().coeff(0);
             for (size_t i = 1; i < Derived::Size; ++i)
                 result = result || derived().coeff(i);
+            return result;
         } else {
+            auto result = derived().coeff(0);
             for (size_t i = 1; i < Derived::Size; ++i)
                 result |= derived().coeff(i);
         }
-        return result;
     }
 
     /// count() fallback implementation
