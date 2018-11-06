@@ -757,6 +757,7 @@ public:
             auto result = derived().coeff(0);
             for (size_t i = 1; i < Derived::Size; ++i)
                 result |= derived().coeff(i);
+            return result;
         }
     }
 
