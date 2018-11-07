@@ -212,16 +212,16 @@ template <typename T> constexpr bool is_recursive_array_v = is_recursive_array<T
 template <typename T> using enable_if_recursive_t = enable_if_t<is_recursive_array_v<T>>;
 
 /// Does this array compute derivatives using automatic differentiation?
-template <typename T, typename = int> struct is_autodiff_array {
+template <typename T, typename = int> struct is_diff_array {
     static constexpr bool value = false;
 };
 
-template <typename T> struct is_autodiff_array<T, enable_if_array_t<T>> {
-    static constexpr bool value = std::decay_t<T>::Derived::IsAutoDiff;
+template <typename T> struct is_diff_array<T, enable_if_array_t<T>> {
+    static constexpr bool value = std::decay_t<T>::Derived::IsDiff;
 };
 
-template <typename T> constexpr bool is_autodiff_array_v = is_autodiff_array<T>::value;
-template <typename T> using enable_if_autodiff_t = enable_if_t<is_autodiff_array_v<T>>;
+template <typename T> constexpr bool is_diff_array_v = is_diff_array<T>::value;
+template <typename T> using enable_if_diff_t = enable_if_t<is_diff_array_v<T>>;
 
 /// Determine the depth of a nested Enoki array (scalars evaluate to zero)
 template <typename T, typename = int> struct array_depth {

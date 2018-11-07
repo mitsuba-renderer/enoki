@@ -346,7 +346,7 @@ ENOKI_INLINE Expr sign(const T &a) {
         return result;
     } else if constexpr (!std::is_signed_v<Scalar>) {
         return Expr(Scalar(1));
-    } else if constexpr (!std::is_floating_point_v<Scalar> || is_autodiff_array_v<Expr>) {
+    } else if constexpr (!std::is_floating_point_v<Scalar> || is_diff_array_v<Expr>) {
         return select(a < Scalar(0), Expr(Scalar(-1)), Expr(Scalar(1)));
     } else if constexpr (is_scalar_v<Expr>) {
         return std::copysign(Scalar(1), a);
@@ -374,7 +374,7 @@ ENOKI_INLINE Expr copysign(const T1 &a1, const T2 &a2) {
         return select((a1 ^ a2) < Scalar1(0), a1, -a1);
     } else if constexpr (is_scalar_v<Expr>) {
         return std::copysign(a1, a2);
-    } else if constexpr (is_autodiff_array_v<Expr>) {
+    } else if constexpr (is_diff_array_v<Expr>) {
         return abs(a1) * sign(a2);
     } else {
         return abs(a1) | (sign_mask<Expr>() & a2);
@@ -400,7 +400,7 @@ ENOKI_INLINE Expr copysign_neg(const T1 &a1, const T2 &a2) {
         return select((a1 ^ a2) < Scalar1(0), -a1, a1);
     } else if constexpr (is_scalar_v<Expr>) {
         return std::copysign(a1, -a2);
-    } else if constexpr (is_autodiff_array_v<Expr>) {
+    } else if constexpr (is_diff_array_v<Expr>) {
         return abs(a1) * -sign(a2);
     } else {
         return abs(a1) | andnot(sign_mask<Expr>(), a2);
@@ -426,7 +426,7 @@ ENOKI_INLINE Expr mulsign(const T1 &a1, const T2 &a2) {
         return select(a2 < Scalar1(0), -a1, a1);
     } else if constexpr (is_scalar_v<Expr>) {
         return a1 * std::copysign(Scalar1(1), a2);
-    } else if constexpr (is_autodiff_array_v<Expr>) {
+    } else if constexpr (is_diff_array_v<Expr>) {
         return a1 * sign(a2);
     } else {
         return a1 ^ (sign_mask<Expr>() & a2);
@@ -452,7 +452,7 @@ ENOKI_INLINE Expr mulsign_neg(const T1 &a1, const T2 &a2) {
         return select(a2 < Scalar1(0), a1, -a1);
     } else if constexpr (is_scalar_v<Expr>) {
         return a1 * std::copysign(Scalar1(1), -a2);
-    } else if constexpr (is_autodiff_array_v<Expr>) {
+    } else if constexpr (is_diff_array_v<Expr>) {
         return a1 * -sign(a2);
     } else {
         return a1 ^ andnot(sign_mask<Expr>(), a2);
@@ -669,7 +669,7 @@ ENOKI_INLINE auto mean(const Array &a) {
 }
 
 template <typename T> decltype(auto) detach(const T &a) {
-    if constexpr (!is_autodiff_array_v<T>) {
+    if constexpr (!is_diff_array_v<T>) {
         return a;
     } else if constexpr (array_depth_v<T> >= 2) {
         using Value = decltype(detach(a.coeff(0)));
@@ -1149,6 +1149,8 @@ void transform(void *mem, const Index &index, Func &&func, Args&&... args) {
 /// Conflict-free scatter-add update
 template <size_t Stride_ = 0, typename Arg, typename Index>
 ENOKI_INLINE void scatter_add(void *mem, const Index &index, const Arg &value, mask_t<Arg> mask = true) {
+    static_assert(is_std_int_v<scalar_t<Index>>,
+                  "scatter_add(): index argument must be a 32/64-bit integer array!");
     constexpr size_t Stride = Stride_ == 0 ? sizeof(scalar_t<Arg>) : Stride_;
 
     if constexpr (is_array_v<Arg>) {
@@ -1172,13 +1174,13 @@ ENOKI_INLINE void prefetch(const Source &source, const Args &... args) {
 template <typename Array, size_t Stride = 0, bool Packed = true,
           typename Source, typename... Args, enable_if_t<array_depth_v<Source> == 1> = 0>
 ENOKI_INLINE Array gather(const Source &source, const Args &... args) {
-    if constexpr (is_autodiff_array_v<Source>)
-        Source::set_scatter_gather_source_(source.index_(), source.size());
+    if constexpr (is_diff_array_v<Source>)
+        Source::set_scatter_gather_source_(source);
 
    Array result = gather<Array, Stride, Packed>(source.data(), args...);
 
-    if constexpr (is_autodiff_array_v<Source>)
-        Source::set_scatter_gather_source_(0);
+    if constexpr (is_diff_array_v<Source>)
+        Source::clear_scatter_gather_source_();
 
    return result;
 }
@@ -1187,26 +1189,26 @@ ENOKI_INLINE Array gather(const Source &source, const Args &... args) {
 template <size_t Stride = 0, bool Packed = true, typename Target,
           typename... Args, enable_if_t<array_depth_v<Target> == 1> = 0>
 ENOKI_INLINE void scatter(Target &target, const Args &... args) {
-    if constexpr (is_autodiff_array_v<Target>)
-        Target::set_scatter_gather_source_(target.index_(), target.size());
+    if constexpr (is_diff_array_v<Target>)
+        Target::set_scatter_gather_source_(target);
 
     scatter<Stride, Packed>(target.data(), args...);
 
-    if constexpr (is_autodiff_array_v<Target>)
-        Target::set_scatter_gather_source_(0);
+    if constexpr (is_diff_array_v<Target>)
+        Target::clear_scatter_gather_source_();
 }
 
 /// Scatter operations with an array target
 template <size_t Stride = 0, typename Target, typename... Args,
           enable_if_t<array_depth_v<Target> == 1> = 0>
 ENOKI_INLINE void scatter_add(Target &target, const Args &... args) {
-    if constexpr (is_autodiff_array_v<Target>)
-        Target::set_scatter_gather_source_(target.index(), target.size());
+    if constexpr (is_diff_array_v<Target>)
+        Target::set_scatter_gather_source_(target);
 
     scatter_add<Stride>(target.data(), args...);
 
-    if constexpr (is_autodiff_array_v<Target>)
-        Target::set_scatter_gather_source_(0);
+    if constexpr (is_diff_array_v<Target>)
+        Target::clear_scatter_gather_source_();
 }
 
 

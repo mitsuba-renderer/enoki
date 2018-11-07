@@ -54,7 +54,7 @@ template <typename Value_, typename Derived_> struct ArrayBase {
     static constexpr bool IsDynamic = is_dynamic_v<Value_>;
 
     /// Does this array compute derivatives using automatic differentation?
-    static constexpr bool IsAutoDiff = is_autodiff_array_v<Value_>;
+    static constexpr bool IsDiff = is_diff_array_v<Value_>;
 
     /// Does this array map operations onto native vector instructions?
     static constexpr bool IsNative = false;

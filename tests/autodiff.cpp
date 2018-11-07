@@ -19,12 +19,12 @@
 using Float  = float;
 using FloatP = Packet<Float>;
 using FloatX = DynamicArray<FloatP>;
-using FloatD = AutoDiffArray<FloatX>;
+using FloatD = DiffArray<FloatX>;
 
 using UInt32  = uint32_t;
 using UInt32P = Packet<UInt32>;
 using UInt32X = DynamicArray<UInt32P>;
-using UInt32D = AutoDiffArray<UInt32X>;
+using UInt32D = DiffArray<UInt32X>;
 
 using Vector2f  = Array<Float, 2>;
 using Vector2fP = Array<FloatP, 2>;
@@ -349,6 +349,38 @@ ENOKI_TEST(test29_gather) {
     assert(allclose(gradient(x), FloatX(0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0)));
 }
 
+ENOKI_TEST(test30_scatter_add) {
+    clear_graph<FloatD>();
+
+    UInt32D idx1 = arange<UInt32D>(5);
+    UInt32D idx2 = arange<UInt32D>(4)+3;
+
+    FloatD x = linspace<FloatD>(0, 1, 5);
+    FloatD y = linspace<FloatD>(1, 2, 4);
+
+    requires_gradient(x);
+    requires_gradient(y);
+
+    FloatD buf = zero<FloatD>(10);
+    scatter_add(buf, idx1, x);
+    scatter_add(buf, idx2, y);
+
+    FloatD ref_buf { 0.0000f, 0.2500f, 0.5000f, 1.7500f, 2.3333f,
+                     1.6667f, 2.0000f, 0.0000f, 0.0000f, 0.0000f };
+
+    assert(allclose(ref_buf, buf, 1e-4f, 1e-4f));
+
+    FloatD s = dot(buf, buf);
+
+    backward(s);
+
+    FloatD ref_x {0.0000f, 0.5000f, 1.0000f, 3.5000f, 4.6667f};
+    FloatD ref_y {3.5000f, 4.6667f, 3.3333f, 4.0000f};
+
+    assert(allclose(gradient(y), ref_y, 1e-4f, 1e-4f));
+    assert(allclose(gradient(x), ref_x, 1e-4f, 1e-4f));
+}
+
 template <typename Vector2>
 Vector2 square_to_uniform_disk_concentric(Vector2 sample) {
     using Value  = value_t<Vector2>;
@@ -390,7 +422,7 @@ Vector3 square_to_beckmann(const Vector2 &sample, const value_t<Vector2> &alpha)
     return Vector3(p.x(), p.y(), cos_theta_m);
 }
 
-ENOKI_TEST(test30_sample_disk) {
+ENOKI_TEST(test31_sample_disk) {
     clear_graph<FloatD>();
     Vector2f x(.2f, .3f);
     std::cout << square_to_beckmann(x, .4f) << std::endl;

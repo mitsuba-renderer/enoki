@@ -69,7 +69,7 @@ namespace detail {
 };
 
 template <typename Value>
-struct AutoDiffArray : ArrayBase<value_t<Value>, AutoDiffArray<Value>> {
+struct DiffArray : ArrayBase<value_t<Value>, DiffArray<Value>> {
 private:
     // -----------------------------------------------------------------------
     //! @{ \name Forward declarations
@@ -96,24 +96,24 @@ private:
 
 public:
     static_assert(array_depth_v<Value> <= 1,
-                  "AutoDiffArray requires a scalar or (non-nested) static or "
+                  "DiffArray requires a scalar or (non-nested) static or "
                   "dynamic Enoki array as template parameter.");
 
     // -----------------------------------------------------------------------
     //! @{ \name Basic declarations
     // -----------------------------------------------------------------------
 
-    using Base = ArrayBase<value_t<Value>, AutoDiffArray<Value>>;
+    using Base = ArrayBase<value_t<Value>, DiffArray<Value>>;
     using typename Base::Scalar;
 
-    using MaskType = AutoDiffArray<mask_t<Value>>;
+    using MaskType = DiffArray<mask_t<Value>>;
     using UnderlyingType = Value;
     using Index = uint32_t;
-    using RefIndex = detail::ReferenceCountedIndex<AutoDiffArray, Index>;
+    using RefIndex = detail::ReferenceCountedIndex<DiffArray, Index>;
 
     static constexpr bool Approx = array_approx_v<Value>;
     static constexpr bool IsMask = is_mask_v<Value>;
-    static constexpr bool IsAutoDiff = true;
+    static constexpr bool IsDiff = true;
     static constexpr bool ComputeGradients = std::is_floating_point_v<scalar_t<Value>>;
     static constexpr size_t Size = is_scalar_v<Value> ? 1 : array_size_v<Value>;
     static constexpr size_t Depth = is_scalar_v<Value> ? 1 : array_depth_v<Value>;
@@ -125,26 +125,26 @@ public:
     //! @{ \name Array interface (constructors, component access, ...)
     // -----------------------------------------------------------------------
 
-    AutoDiffArray() = default;
-    AutoDiffArray(const AutoDiffArray &) = default;
-    AutoDiffArray(AutoDiffArray &&) = default;
-    AutoDiffArray& operator=(const AutoDiffArray &) = default;
-    AutoDiffArray& operator=(AutoDiffArray &&) = default;
+    DiffArray() = default;
+    DiffArray(const DiffArray &) = default;
+    DiffArray(DiffArray &&) = default;
+    DiffArray& operator=(const DiffArray &) = default;
+    DiffArray& operator=(DiffArray &&) = default;
 
     template <typename Value2, enable_if_t<!std::is_same_v<Value, Value2>> = 0>
-    AutoDiffArray(const AutoDiffArray<Value2> &a) : value(a.value_()) { }
+    DiffArray(const DiffArray<Value2> &a) : value(a.value_()) { }
 
     template <typename Value2>
-    AutoDiffArray(const AutoDiffArray<Value2> &a, detail::reinterpret_flag)
+    DiffArray(const DiffArray<Value2> &a, detail::reinterpret_flag)
         : value(a.value_(), detail::reinterpret_flag()) { }
 
     template <typename... Args,
               enable_if_t<std::conjunction_v<
-                  std::bool_constant<!is_autodiff_array_v<Args>>...>> = 0>
-    AutoDiffArray(Args &&... args) : value(std::forward<Args>(args)...) { }
+                  std::bool_constant<!is_diff_array_v<Args>>...>> = 0>
+    DiffArray(Args &&... args) : value(std::forward<Args>(args)...) { }
 
     template <typename T>
-    using ReplaceValue = AutoDiffArray<replace_scalar_t<Value, T>>;
+    using ReplaceValue = DiffArray<replace_scalar_t<Value, T>>;
 
     ENOKI_INLINE size_t size() const {
         if constexpr (is_scalar_v<Value>)
@@ -186,15 +186,15 @@ public:
     }
 
     template <typename... Args>
-    static AutoDiffArray empty_(Args... args) { return empty<Value>(args...); }
+    static DiffArray empty_(Args... args) { return empty<Value>(args...); }
     template <typename... Args>
-    static AutoDiffArray zero_(Args... args) { return zero<Value>(args...); }
+    static DiffArray zero_(Args... args) { return zero<Value>(args...); }
     template <typename... Args>
-    static AutoDiffArray arange_(Args... args) { return arange<Value>(args...); }
+    static DiffArray arange_(Args... args) { return arange<Value>(args...); }
     template <typename... Args>
-    static AutoDiffArray linspace_(Args... args) { return linspace<Value>(args...); }
+    static DiffArray linspace_(Args... args) { return linspace<Value>(args...); }
     template <typename... Args>
-    static AutoDiffArray full_(Args... args) { return full<Value>(args...); }
+    static DiffArray full_(Args... args) { return full<Value>(args...); }
 
     //! @}
     // -----------------------------------------------------------------------
@@ -203,136 +203,136 @@ public:
     //! @{ \name Vertical operations
     // -----------------------------------------------------------------------
 
-    AutoDiffArray add_(const AutoDiffArray &a) const {
+    DiffArray add_(const DiffArray &a) const {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = binary("add", index, a.index, 1.f, 1.f);
-        return AutoDiffArray::create(index_new, value + a.value);
+        return DiffArray::create(index_new, value + a.value);
     }
 
-    AutoDiffArray sub_(const AutoDiffArray &a) const {
+    DiffArray sub_(const DiffArray &a) const {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = binary("sub", index, a.index, 1.f, -1.f);
-        return AutoDiffArray::create(index_new, value - a.value);
+        return DiffArray::create(index_new, value - a.value);
     }
 
-    AutoDiffArray mul_(const AutoDiffArray &a) const {
+    DiffArray mul_(const DiffArray &a) const {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = binary("mul", index, a.index, a.value, value);
-        return AutoDiffArray::create(index_new, value * a.value);
+        return DiffArray::create(index_new, value * a.value);
     }
 
-    AutoDiffArray div_(const AutoDiffArray &a) const {
+    DiffArray div_(const DiffArray &a) const {
         Value rcp_a = rcp(a.value);
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = binary("div", index, a.index, rcp_a, -value*sqr(rcp_a));
-        return AutoDiffArray::create(index_new, value / a.value);
+        return DiffArray::create(index_new, value / a.value);
     }
 
-    AutoDiffArray sqrt_() const {
+    DiffArray sqrt_() const {
         Value sqrt_value = sqrt(value);
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("sqrt", index, .5f / sqrt_value);
-        return AutoDiffArray::create(index_new, sqrt_value);
+        return DiffArray::create(index_new, sqrt_value);
     }
 
-    AutoDiffArray floor_() const {
-        return AutoDiffArray::create(0, floor(value));
+    DiffArray floor_() const {
+        return DiffArray::create(0, floor(value));
     }
 
-    AutoDiffArray ceil_() const {
-        return AutoDiffArray::create(0, ceil(value));
+    DiffArray ceil_() const {
+        return DiffArray::create(0, ceil(value));
     }
 
-    AutoDiffArray trunc_() const {
-        return AutoDiffArray::create(0, trunc(value));
+    DiffArray trunc_() const {
+        return DiffArray::create(0, trunc(value));
     }
 
-    AutoDiffArray round_() const {
-        return AutoDiffArray::create(0, round(value));
+    DiffArray round_() const {
+        return DiffArray::create(0, round(value));
     }
 
-    AutoDiffArray abs_() const {
+    DiffArray abs_() const {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("abs", index, sign(value));
-        return AutoDiffArray::create(index_new, abs(value));
+        return DiffArray::create(index_new, abs(value));
     }
 
-    AutoDiffArray neg_() const {
+    DiffArray neg_() const {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("neg", index, -1.f);
-        return AutoDiffArray::create(index_new, -value);
+        return DiffArray::create(index_new, -value);
     }
 
-    AutoDiffArray rcp_() const {
+    DiffArray rcp_() const {
         Value rcp_value = rcp(value);
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("rcp", index, -sqr(rcp_value));
-        return AutoDiffArray::create(index_new, rcp_value);
+        return DiffArray::create(index_new, rcp_value);
     }
 
-    AutoDiffArray rsqrt_() const {
+    DiffArray rsqrt_() const {
         Value rsqrt_1 = rsqrt(value),
               rsqrt_2 = sqr(rsqrt_1),
               rsqrt_3 = rsqrt_1 * rsqrt_2;
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("rsqrt", index, -.5f * rsqrt_3);
-        return AutoDiffArray::create(index_new, rsqrt_1);
+        return DiffArray::create(index_new, rsqrt_1);
     }
 
-    AutoDiffArray fmadd_(const AutoDiffArray &a, const AutoDiffArray &b) const {
+    DiffArray fmadd_(const DiffArray &a, const DiffArray &b) const {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = ternary("fmadd", index, a.index, b.index, a.value, value, 1.f);
-        return AutoDiffArray::create(index_new, fmadd(value, a.value, b.value));
+        return DiffArray::create(index_new, fmadd(value, a.value, b.value));
     }
 
-    AutoDiffArray fmsub_(const AutoDiffArray &a, const AutoDiffArray &b) const {
+    DiffArray fmsub_(const DiffArray &a, const DiffArray &b) const {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = ternary("fmsub", index, a.index, b.index, a.value, value, -1.f);
-        return AutoDiffArray::create(index_new, fmsub(value, a.value, b.value));
+        return DiffArray::create(index_new, fmsub(value, a.value, b.value));
     }
 
-    AutoDiffArray fnmadd_(const AutoDiffArray &a, const AutoDiffArray &b) const {
+    DiffArray fnmadd_(const DiffArray &a, const DiffArray &b) const {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = ternary("fnmadd", index, a.index, b.index, -a.value, -value, 1.f);
-        return AutoDiffArray::create(index_new, fnmadd(value, a.value, b.value));
+        return DiffArray::create(index_new, fnmadd(value, a.value, b.value));
     }
 
-    AutoDiffArray fnmsub_(const AutoDiffArray &a, const AutoDiffArray &b) const {
+    DiffArray fnmsub_(const DiffArray &a, const DiffArray &b) const {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = ternary("fnmsub", index, a.index, b.index, -a.value, -value, -1.f);
-        return AutoDiffArray::create(index_new, fnmsub(value, a.value, b.value));
+        return DiffArray::create(index_new, fnmsub(value, a.value, b.value));
     }
 
-    AutoDiffArray sin_() const {
+    DiffArray sin_() const {
         auto [s, c] = sincos(value);
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("sin", index, c);
-        return AutoDiffArray::create(index_new, s);
+        return DiffArray::create(index_new, s);
     }
 
-    AutoDiffArray cos_() const {
+    DiffArray cos_() const {
         auto [s, c] = sincos(value);
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("cos", index, -s);
-        return AutoDiffArray::create(index_new, c);
+        return DiffArray::create(index_new, c);
     }
 
-    std::pair<AutoDiffArray, AutoDiffArray> sincos_() const {
+    std::pair<DiffArray, DiffArray> sincos_() const {
         auto [s, c] = sincos(value);
         Index index_new_s = 0;
         Index index_new_c = 0;
@@ -341,169 +341,169 @@ public:
             index_new_c = unary("cos", index, -s);
         }
         return {
-            AutoDiffArray::create(index_new_s, s),
-            AutoDiffArray::create(index_new_c, c)
+            DiffArray::create(index_new_s, s),
+            DiffArray::create(index_new_c, c)
         };
     }
 
-    AutoDiffArray tan_() const {
+    DiffArray tan_() const {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("tan", index, sqr(sec(value)));
-        return AutoDiffArray::create(index_new, tan(value));
+        return DiffArray::create(index_new, tan(value));
     }
 
-    AutoDiffArray csc_() const {
+    DiffArray csc_() const {
         Index index_new = 0;
         Value csc_value = csc(value);
         if constexpr (ComputeGradients)
             index_new = unary("csc", index, -csc_value * cot(value));
-        return AutoDiffArray::create(index_new, csc_value);
+        return DiffArray::create(index_new, csc_value);
     }
 
-    AutoDiffArray sec_() const {
+    DiffArray sec_() const {
         Index index_new = 0;
         Value sec_value = sec(value);
         if constexpr (ComputeGradients)
             index_new = unary("sec", index, sec_value * tan(value));
-        return AutoDiffArray::create(index_new, sec_value);
+        return DiffArray::create(index_new, sec_value);
     }
 
-    AutoDiffArray cot_() const {
+    DiffArray cot_() const {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("cot", index, -sqr(csc(value)));
-        return AutoDiffArray::create(index_new, cot(value));
+        return DiffArray::create(index_new, cot(value));
     }
 
-    AutoDiffArray asin_() const {
+    DiffArray asin_() const {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("asin", index, rsqrt(1-sqr(value)));
-        return AutoDiffArray::create(index_new, asin(value));
+        return DiffArray::create(index_new, asin(value));
     }
 
-    AutoDiffArray acos_() const {
+    DiffArray acos_() const {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("acos", index, -rsqrt(1-sqr(value)));
-        return AutoDiffArray::create(index_new, acos(value));
+        return DiffArray::create(index_new, acos(value));
     }
 
-    AutoDiffArray atan_() const {
+    DiffArray atan_() const {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("atan", index, rcp(1 + sqr(value)));
-        return AutoDiffArray::create(index_new, atan(value));
+        return DiffArray::create(index_new, atan(value));
     }
 
-    AutoDiffArray sinh_() const {
+    DiffArray sinh_() const {
         auto [s, c] = sincosh(value);
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("sinh", index, c);
-        return AutoDiffArray::create(index_new, s);
+        return DiffArray::create(index_new, s);
     }
 
-    AutoDiffArray cosh_() const {
+    DiffArray cosh_() const {
         auto [s, c] = sincosh(value);
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("cosh", index, s);
-        return AutoDiffArray::create(index_new, c);
+        return DiffArray::create(index_new, c);
     }
 
-    AutoDiffArray csch_() const {
+    DiffArray csch_() const {
         Index index_new = 0;
         Value csch_value = csch(value);
         if constexpr (ComputeGradients)
             index_new = unary("csch", index, -csch_value * coth(value));
-        return AutoDiffArray::create(index_new, csch_value);
+        return DiffArray::create(index_new, csch_value);
     }
 
-    AutoDiffArray sech_() const {
+    DiffArray sech_() const {
         Index index_new = 0;
         Value sech_value = sech(value);
         if constexpr (ComputeGradients)
             index_new = unary("sech", index, -sech_value * tanh(value));
-        return AutoDiffArray::create(index_new, sech_value);
+        return DiffArray::create(index_new, sech_value);
     }
 
-    AutoDiffArray tanh_() const {
+    DiffArray tanh_() const {
         Index index_new = 0;
         Value tanh_value = tanh(value);
         if constexpr (ComputeGradients)
             index_new = unary("index", index, sqr(sech(value)));
-        return AutoDiffArray::create(index_new, tanh_value);
+        return DiffArray::create(index_new, tanh_value);
     }
 
-    AutoDiffArray asinh_() const {
+    DiffArray asinh_() const {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("asinh", index, rsqrt(1 + sqr(value)));
-        return AutoDiffArray::create(index_new, asinh(value));
+        return DiffArray::create(index_new, asinh(value));
     }
 
-    AutoDiffArray acosh_() const {
+    DiffArray acosh_() const {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("acosh", index, rsqrt(sqr(value) - 1));
-        return AutoDiffArray::create(index_new, acosh(value));
+        return DiffArray::create(index_new, acosh(value));
     }
 
-    AutoDiffArray atanh_() const {
+    DiffArray atanh_() const {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("atanh", index, rcp(1 - sqr(value)));
-        return AutoDiffArray::create(index_new, atanh(value));
+        return DiffArray::create(index_new, atanh(value));
     }
 
-    AutoDiffArray exp_() const {
+    DiffArray exp_() const {
         Value exp_value = exp(value);
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("exp", index, exp_value);
-        return AutoDiffArray::create(index_new, exp_value);
+        return DiffArray::create(index_new, exp_value);
     }
 
-    AutoDiffArray log_() const {
+    DiffArray log_() const {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = unary("log", index, rcp(value));
-        return AutoDiffArray::create(index_new, log(value));
+        return DiffArray::create(index_new, log(value));
     }
 
     template <typename Mask>
-    AutoDiffArray or_(const Mask &m) const {
+    DiffArray or_(const Mask &m) const {
         Index index_new = 0;
         if constexpr (ComputeGradients && is_mask_v<Mask>)
             index_new = unary("or", index, 1.f);
-        return AutoDiffArray::create(index_new, value | m.value_());
+        return DiffArray::create(index_new, value | m.value_());
     }
 
     template <typename Mask>
-    AutoDiffArray and_(const Mask &m) const {
+    DiffArray and_(const Mask &m) const {
         Index index_new = 0;
         if constexpr (ComputeGradients && is_mask_v<Mask>)
             index_new = unary("and", index, select(m.value_(), Value(1), Value(0)));
-        return AutoDiffArray::create(index_new, value & m.value_());
+        return DiffArray::create(index_new, value & m.value_());
     }
 
     template <typename Mask>
-    AutoDiffArray xor_(const Mask &m) const {
+    DiffArray xor_(const Mask &m) const {
         if (ComputeGradients && index != 0)
-            throw std::runtime_error("AutoDiffArray::xor_(): gradients are not implemented!");
-        return AutoDiffArray(value ^ m.value_());
+            throw std::runtime_error("DiffArray::xor_(): gradients are not implemented!");
+        return DiffArray(value ^ m.value_());
     }
 
     template <typename Mask>
-    AutoDiffArray andnot_(const Mask &m) const {
+    DiffArray andnot_(const Mask &m) const {
         if (ComputeGradients && index != 0)
-            throw std::runtime_error("AutoDiffArray::andnot_(): gradients are not implemented!");
-        return AutoDiffArray(andnot(value, m.value_()));
+            throw std::runtime_error("DiffArray::andnot_(): gradients are not implemented!");
+        return DiffArray(andnot(value, m.value_()));
     }
 
-    AutoDiffArray max_(const AutoDiffArray &a) const {
+    DiffArray max_(const DiffArray &a) const {
         Index index_new = 0;
         if constexpr (ComputeGradients) {
             mask_t<Value> m = value > a.value;
@@ -511,10 +511,10 @@ public:
                                select(m, Value(1), Value(0)),
                                select(m, Value(0), Value(1)));
         }
-        return AutoDiffArray::create(index_new, max(value, a.value));
+        return DiffArray::create(index_new, max(value, a.value));
     }
 
-    AutoDiffArray min_(const AutoDiffArray &a) const {
+    DiffArray min_(const DiffArray &a) const {
         Index index_new = 0;
         if constexpr (ComputeGradients) {
             mask_t<Value> m = value < a.value;
@@ -522,19 +522,19 @@ public:
                                select(m, Value(1), Value(0)),
                                select(m, Value(0), Value(1)));
         }
-        return AutoDiffArray::create(index_new, min(value, a.value));
+        return DiffArray::create(index_new, min(value, a.value));
     }
 
     template <typename Mask>
-    static AutoDiffArray select_(const Mask &m,
-                                 const AutoDiffArray &t,
-                                 const AutoDiffArray &f) {
+    static DiffArray select_(const Mask &m,
+                                 const DiffArray &t,
+                                 const DiffArray &f) {
         Index index_new = 0;
         if constexpr (ComputeGradients)
             index_new = binary("select", t.index, f.index,
                                select(m.value_(), Value(1), Value(0)),
                                select(m.value_(), Value(0), Value(1)));
-        return AutoDiffArray::create(index_new,
+        return DiffArray::create(index_new,
                                select(m.value_(), t.value, f.value));
     }
 
@@ -555,7 +555,7 @@ public:
     //! @}
     // -----------------------------------------------------------------------
 
-    AutoDiffArray hsum_() const {
+    DiffArray hsum_() const {
         Index index_new = 0;
         if (ComputeGradients && index != 0) {
             struct HorizontalAddition : Special {
@@ -585,33 +585,33 @@ public:
             ha->target = index_new = special("hadd", ha);
         }
 
-        return AutoDiffArray::create(index_new, hsum(value));
+        return DiffArray::create(index_new, hsum(value));
     }
 
-    AutoDiffArray hprod_() const {
+    DiffArray hprod_() const {
         Index index_new = 0;
         Value prod = hprod(value);
         if constexpr (ComputeGradients)
-            index_new = unary(index, select(eq(value, 0.f), 0.f, prod / value));
-        return AutoDiffArray::create(index_new, prod);
+            index_new = unary("hprod", index, select(eq(value, 0.f), 0.f, prod / value));
+        return DiffArray::create(index_new, prod);
     }
 
-    AutoDiffArray hmax_() const {
+    DiffArray hmax_() const {
         if (ComputeGradients && index != 0)
             throw std::runtime_error("hmax(): gradients not yet implemented!");
-        return AutoDiffArray::create(0, hmax(value));
+        return DiffArray::create(0, hmax(value));
     }
 
-    AutoDiffArray hmin_() const {
+    DiffArray hmin_() const {
         if (ComputeGradients && index != 0)
             throw std::runtime_error("hmin(): gradients not yet implemented!");
-        return AutoDiffArray::create(0, hmin(value));
+        return DiffArray::create(0, hmin(value));
     }
 
     template <size_t Stride, typename Offset, typename Mask>
-    static ENOKI_NOINLINE AutoDiffArray gather_(const void *ptr,
-                                              const Offset &offset,
-                                              const Mask &mask) {
+    static ENOKI_NOINLINE DiffArray gather_(const void *ptr,
+                                            const Offset &offset,
+                                            const Mask &mask) {
         static_assert(Stride == sizeof(Scalar), "Unsupported stride!");
         using OffsetType = typename Offset::UnderlyingType;
         using MaskType = typename Mask::UnderlyingType;
@@ -622,7 +622,8 @@ public:
         if constexpr (ComputeGradients) {
             const Tape &tape = get_tape();
 
-            if (tape.scatter_gather_source != 0) {
+            if (tape.scatter_gather_source != nullptr &&
+                tape.scatter_gather_source->index != 0) {
                 struct Gather : Special {
                     RefIndex source;
                     Index target, size;
@@ -633,7 +634,7 @@ public:
                         const Value &grad_target = tape.nodes[target].gradient;
                         Value &grad_source = tape.nodes[source].gradient;
                         grad_source.resize(size);
-                        scatter_add(grad_source, grad_target, offset, mask);
+                        scatter_add(grad_source.data(), offset, grad_target, mask);
                     }
 
                     size_t nbytes() const { return sizeof(Gather); }
@@ -646,40 +647,89 @@ public:
                 };
 
                 Gather *g = new Gather();
-                g->source = tape.scatter_gather_source;
-                g->size = tape.scatter_gather_size;
+                g->source = tape.scatter_gather_source->index;
+                g->size = (Index) tape.scatter_gather_source->size();
                 g->offset = offset.value_();
                 g->mask = mask.value_();
                 g->target = index_new = special("gather", g);
             }
         }
 
-        return AutoDiffArray::create(
+        return DiffArray::create(
             index_new, gather<Value>(ptr, offset.value_(), mask.value_()));
+    }
+
+    template <size_t Stride, typename Offset, typename Mask>
+    ENOKI_NOINLINE void scatter_add_(void *ptr, const Offset &offset, const Mask &mask) const {
+        static_assert(Stride == sizeof(Scalar), "Unsupported stride!");
+        using OffsetType = typename Offset::UnderlyingType;
+        using MaskType = typename Mask::UnderlyingType;
+
+        if constexpr (ComputeGradients) {
+            const Tape &tape = get_tape();
+
+            if (tape.scatter_gather_source != nullptr &&
+                index != 0) {
+                struct ScatterAdd : Special {
+                    RefIndex source;
+                    Index target, size;
+                    OffsetType offset;
+                    MaskType mask;
+
+                    void compute_gradients(Tape &tape) const {
+                        Value &grad_target = tape.nodes[target].gradient;
+                        const Value &grad_source = tape.nodes[source].gradient;
+                        std::cout << "Yes: Gather from " << grad_target << " " << grad_source << ", offset=" << offset << ", mask=" << mask << std::endl;
+                        grad_target = gather<Value>(grad_source.data(), offset, mask);
+                    }
+
+                    size_t nbytes() const { return sizeof(ScatterAdd); }
+
+                    std::string graphviz() const {
+                        return std::to_string(target) + " [shape=doubleoctagon];\n    " +
+                               std::to_string(target) + " -> " +
+                               std::to_string(source) + ";\n";
+                    }
+                };
+
+                DiffArray& target = const_cast<DiffArray &>(*tape.scatter_gather_source);
+                ScatterAdd *sa = new ScatterAdd();
+                sa->source = special("scatter_add", sa);
+                sa->target = index;
+                sa->offset = offset.value_();
+                sa->mask = mask.value_();
+                if (target.index == 0)
+                    target.index = sa->source;
+                else
+                    target.index = binary("add", sa->source, target.index, 1.f, 1.f);
+            }
+        }
+
+        scatter_add(ptr, offset.value_(), value_(), mask.value_());
     }
 
     // -----------------------------------------------------------------------
     //! @{ \name s that don't require derivatives
     // -----------------------------------------------------------------------
 
-    AutoDiffArray not_() const { return AutoDiffArray::create(0, ~value); }
+    DiffArray not_() const { return DiffArray::create(0, ~value); }
 
-    template <size_t Imm> AutoDiffArray sl_() const { return AutoDiffArray::create(0, sl<Imm>(value)); }
-    template <size_t Imm> AutoDiffArray sr_() const { return AutoDiffArray::create(0, sr<Imm>(value)); }
-    template <size_t Imm> AutoDiffArray rol_() const { return AutoDiffArray::create(0, rol<Imm>(value)); }
-    template <size_t Imm> AutoDiffArray ror_() const { return AutoDiffArray::create(0, ror<Imm>(value)); }
+    template <size_t Imm> DiffArray sl_() const { return DiffArray::create(0, sl<Imm>(value)); }
+    template <size_t Imm> DiffArray sr_() const { return DiffArray::create(0, sr<Imm>(value)); }
+    template <size_t Imm> DiffArray rol_() const { return DiffArray::create(0, rol<Imm>(value)); }
+    template <size_t Imm> DiffArray ror_() const { return DiffArray::create(0, ror<Imm>(value)); }
 
-    AutoDiffArray sl_(const AutoDiffArray &a) const { return AutoDiffArray::create(0, sl(value, a)); }
-    AutoDiffArray sr_(const AutoDiffArray &a) const { return AutoDiffArray::create(0, sr(value, a)); }
-    AutoDiffArray rol_(const AutoDiffArray &a) const { return AutoDiffArray::create(0, rol(value, a)); }
-    AutoDiffArray ror_(const AutoDiffArray &a) const { return AutoDiffArray::create(0, ror(value, a)); }
+    DiffArray sl_(const DiffArray &a) const { return DiffArray::create(0, sl(value, a)); }
+    DiffArray sr_(const DiffArray &a) const { return DiffArray::create(0, sr(value, a)); }
+    DiffArray rol_(const DiffArray &a) const { return DiffArray::create(0, rol(value, a)); }
+    DiffArray ror_(const DiffArray &a) const { return DiffArray::create(0, ror(value, a)); }
 
-    auto eq_ (const AutoDiffArray &d) const { return MaskType(eq(value, d.value)); }
-    auto neq_(const AutoDiffArray &d) const { return MaskType(neq(value, d.value)); }
-    auto lt_ (const AutoDiffArray &d) const { return MaskType(value < d.value); }
-    auto le_ (const AutoDiffArray &d) const { return MaskType(value <= d.value); }
-    auto gt_ (const AutoDiffArray &d) const { return MaskType(value > d.value); }
-    auto ge_ (const AutoDiffArray &d) const { return MaskType(value >= d.value); }
+    auto eq_ (const DiffArray &d) const { return MaskType(eq(value, d.value)); }
+    auto neq_(const DiffArray &d) const { return MaskType(neq(value, d.value)); }
+    auto lt_ (const DiffArray &d) const { return MaskType(value < d.value); }
+    auto le_ (const DiffArray &d) const { return MaskType(value <= d.value); }
+    auto gt_ (const DiffArray &d) const { return MaskType(value > d.value); }
+    auto ge_ (const DiffArray &d) const { return MaskType(value >= d.value); }
 
     //! @}
     // -----------------------------------------------------------------------
@@ -774,8 +824,7 @@ private:
         std::vector<Edge> edges;
         std::vector<Node> nodes;
         std::vector<Index> free_nodes;
-        Index scatter_gather_source = 0,
-              scatter_gather_size = 0;
+        const DiffArray *scatter_gather_source = nullptr;
         size_t operations = 0,
                contractions = 0;
         bool ready;
@@ -928,8 +977,8 @@ private:
         return node_index;
     }
 
-    ENOKI_INLINE static AutoDiffArray create(Index index, const Value &value) {
-        AutoDiffArray result(value);
+    ENOKI_INLINE static DiffArray create(Index index, const Value &value) {
+        DiffArray result(value);
         result.index = index;
         return result;
     }
@@ -940,10 +989,14 @@ private:
     // -----------------------------------------------------------------------
 
 public:
-    static void set_scatter_gather_source_(Index index, size_t size = 0) {
+    static void set_scatter_gather_source_(const DiffArray &t) {
         Tape &tape = get_tape();
-        tape.scatter_gather_source = index;
-        tape.scatter_gather_size = (Index) size;
+        tape.scatter_gather_source = &t;
+    }
+
+    static void clear_scatter_gather_source_() {
+        Tape &tape = get_tape();
+        tape.scatter_gather_source = nullptr;
     }
 
     static void inc_ref_(Index index) {
@@ -1112,7 +1165,7 @@ template <typename T> void clear_graph() {
 }
 
 template <typename T> ENOKI_INLINE void requires_gradient(T& a, const char *label) {
-    if constexpr (is_autodiff_array_v<T>) {
+    if constexpr (is_diff_array_v<T>) {
         if constexpr (array_depth_v<T> >= 2) {
             for (size_t i = 0; i < a.size(); ++i) {
                 #if defined(NDEBUG)
@@ -1129,7 +1182,7 @@ template <typename T> ENOKI_INLINE void requires_gradient(T& a, const char *labe
 }
 
 template <typename T> ENOKI_INLINE void requires_gradient(T& a) {
-    if constexpr (is_autodiff_array_v<T>) {
+    if constexpr (is_diff_array_v<T>) {
         if constexpr (array_depth_v<T> >= 2) {
             for (size_t i = 0; i < a.size(); ++i)
                 requires_gradient(a.coeff(i));
@@ -1156,7 +1209,7 @@ template <typename T> auto gradient(const T &a) {
         for (size_t i = 0; i < T::Size; ++i)
             result.coeff(i) = gradient(a.coeff(i));
         return result;
-    } else if constexpr (is_autodiff_array_v<T>) {
+    } else if constexpr (is_diff_array_v<T>) {
         return a.gradient_();
     } else {
         static_assert(detail::false_v<T>, "The given array does not have derivatives.");
