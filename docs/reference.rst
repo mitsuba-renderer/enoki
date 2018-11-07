@@ -683,13 +683,11 @@ Elementary Arithmetic Operators
 
 .. cpp:function:: template <typename Array> Array operator<<(Array x, Array y)
 
-    Left shift operator. See also: :cpp:func:`sli`, :cpp:func:`rol`, and
-    :cpp:func:`roli`.
+    Left shift operator. See also: :cpp:func:`sl` and :cpp:func:`rol`.
 
 .. cpp:function:: template <typename Array> Array operator>>(Array x, Array y)
 
-    Right shift operator. See also: :cpp:func:`sri`, :cpp:func:`ror`, and
-    :cpp:func:`rori`.
+    Right shift operator. See also: :cpp:func:`sr` and :cpp:func:`ror`.
 
 .. cpp:function:: template <typename Array> mask_t<Array> operator<(Array x, Array y)
 
@@ -715,11 +713,11 @@ Elementary Arithmetic Operators
 
     Inequality operator (vertical operation).
 
-.. cpp:function:: template <size_t Imm, typename Array> Array sli(Array x)
+.. cpp:function:: template <size_t Imm, typename Array> Array sl(Array x)
 
     Left shift by an immediate amount ``Imm``.
 
-.. cpp:function:: template <size_t Imm, typename Array> Array sri(Array x)
+.. cpp:function:: template <size_t Imm, typename Array> Array sr(Array x)
 
     Right shift by an immediate amount ``Imm``.
 
@@ -731,11 +729,11 @@ Elementary Arithmetic Operators
 
     Right shift with rotation.
 
-.. cpp:function:: template <size_t Imm, typename Array> Array roli(Array x)
+.. cpp:function:: template <size_t Imm, typename Array> Array rol(Array x)
 
     Left shift with rotation by an immediate amount ``Imm``.
 
-.. cpp:function:: template <size_t Imm, typename Array> Array rori(Array x)
+.. cpp:function:: template <size_t Imm, typename Array> Array ror(Array x)
 
     Right shift with rotation by an immediate amount ``Imm``.
 
@@ -907,10 +905,14 @@ Elementary Arithmetic Functions
     power of 2. Analogous to ``std::frexp`` except that both return values are
     floating point values.
 
-.. cpp:function:: template <typename Array> Aray lerp(Array a, Array b, Array t)
+.. cpp:function:: template <typename Array> Array lerp(Array a, Array b, Array t)
 
     Blends between the values :math:`a` and :math:`b` using the expression
     :math:`a(1-t) + t*b`.
+
+.. cpp:function:: template <typename Array> Array clip(Array a, Array min, Array max)
+
+    Clips :math:`a` to the specified interval.
 
 Horizontal operations
 ---------------------
@@ -1760,7 +1762,7 @@ Rearranging contents of arrays
 
     Returns a new array containing the trailing ``Size`` elements of ``a``.
 
-.. cpp:function:: template <typename Outer, typename Inner> like_t<Outer, Inner> fill(const Inner &inner)
+.. cpp:function:: template <typename Outer, typename Inner> replace_scalar_t<Outer, Inner> fill(const Inner &inner)
 
     Given an array type ``Outer`` and a value of type ``Inner``, this function
     returns a new composite type of shape ``[<shape of Outer>, <shape of
@@ -1981,35 +1983,35 @@ Accessing types related to Enoki arrays
 Replacing the scalar type of an array
 *************************************
 
-The :cpp:type:`enoki::like_t` type trait and various aliases construct arrays
+The :cpp:type:`enoki::replace_scalar_t` type trait and various aliases construct arrays
 matching a certain layout, but with different-flavored data. This is often
 helpful when defining custom data structures or function inputs. See the
 section on :ref:`custom data structures <custom-structures>` for an example
 usage.
 
-.. cpp:type:: template <typename Array, typename Scalar> like_t
+.. cpp:type:: template <typename Array, typename Scalar> replace_scalar_t
 
     Replaces the scalar type underlying an array. For instance,
-    ``like_t<Array<Array<float, 16>, 32>, int>`` is equal to ``Array<Array<int,
+    ``replace_scalar_t<Array<Array<float, 16>, 32>, int>`` is equal to ``Array<Array<int,
     16>, 32>``.
 
     The type trait also works for scalar arguments. Pointers and reference
-    arguments are copied---for instance, ``like_t<const float *, int>`` is
+    arguments are copied---for instance, ``replace_scalar_t<const float *, int>`` is
     equal to ``const int *``.
 
-.. cpp:type:: template <typename Array> uint32_array_t = like_t<Array, uint32_t>
+.. cpp:type:: template <typename Array> uint32_array_t = replace_scalar_t<Array, uint32_t>
 
     Create a 32-bit unsigned integer array matching the layout of ``Array``.
 
-.. cpp:type:: template <typename Array> int32_array_t = like_t<Array, int32_t>
+.. cpp:type:: template <typename Array> int32_array_t = replace_scalar_t<Array, int32_t>
 
     Create a 32-bit signed integer array matching the layout of ``Array``.
 
-.. cpp:type:: template <typename Array> uint64_array_t = like_t<Array, uint64_t>
+.. cpp:type:: template <typename Array> uint64_array_t = replace_scalar_t<Array, uint64_t>
 
     Create a 64-bit unsigned integer array matching the layout of ``Array``.
 
-.. cpp:type:: template <typename Array> int64_array_t = like_t<Array, int64_t>
+.. cpp:type:: template <typename Array> int64_array_t = replace_scalar_t<Array, int64_t>
 
     Create a 64-bit signed integer array matching the layout of ``Array``.
 
@@ -2023,15 +2025,15 @@ usage.
     Create an unsigned integer array (with the same number of bits per entry as
     the input) matching the layout of ``Array``.
 
-.. cpp:type:: template <typename Array> float16_array_t = like_t<Array, half>
+.. cpp:type:: template <typename Array> float16_array_t = replace_scalar_t<Array, half>
 
     Create a half precision array matching the layout of ``Array``.
 
-.. cpp:type:: template <typename Array> float32_array_t = like_t<Array, float>
+.. cpp:type:: template <typename Array> float32_array_t = replace_scalar_t<Array, float>
 
     Create a single precision array matching the layout of ``Array``.
 
-.. cpp:type:: template <typename Array> float64_array_t = like_t<Array, double>
+.. cpp:type:: template <typename Array> float64_array_t = replace_scalar_t<Array, double>
 
     Create a double precision array matching the layout of ``Array``.
 
@@ -2040,15 +2042,15 @@ usage.
     Create a floating point array (with the same number of bits per entry as
     the input) matching the layout of ``Array``.
 
-.. cpp:type:: template <typename Array> bool_array_t = like_t<Array, bool>
+.. cpp:type:: template <typename Array> bool_array_t = replace_scalar_t<Array, bool>
 
     Create a boolean array matching the layout of ``Array``.
 
-.. cpp:type:: template <typename Array> size_array_t = like_t<Array, size_t>
+.. cpp:type:: template <typename Array> size_array_t = replace_scalar_t<Array, size_t>
 
     Create a ``size_t``-valued array matching the layout of ``Array``.
 
-.. cpp:type:: template <typename Array> ssize_array_t = like_t<Array, ssize_t>
+.. cpp:type:: template <typename Array> ssize_array_t = replace_scalar_t<Array, ssize_t>
 
     Create a ``ssize_t``-valued array matching the layout of ``Array``.
 

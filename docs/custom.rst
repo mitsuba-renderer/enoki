@@ -78,7 +78,7 @@ involve the type traits :cpp:type:`enoki::uint64_array_t` and
 :cpp:type:`enoki::bool_array_t`, which "compute" the type of an Enoki array
 that has the same configuration as their input parameter, but with
 ``uint64_t``- and ``bool``-valued entries, respectively. Both are
-specializations of the more general :cpp:type:`enoki::like_t` trait that works
+specializations of the more general :cpp:type:`enoki::replace_scalar_t` trait that works
 for any type.
 
 With these declarations, we can now create a packet type ``GPSCoord2fP`` that

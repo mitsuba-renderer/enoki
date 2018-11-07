@@ -294,9 +294,9 @@ that they are independently applied to all array elements.
     f2 = i0e(f1); f2 = dawson(f1);
 
     /* Bit shifts and rotations (only for integer arrays) */
-    i1 = sli<3>(i1);   i1 = sri<3>(i1);   /* Shift by a compile-time constant ("immediate") */
+    i1 = sl<3>(i1);   i1 = sr<3>(i1);   /* Shift by a compile-time constant ("immediate") */
     i1 = i1 >> i2;     i1 = i1 << i2;     /* Element-wise shift by a variable amount */
-    i1 = roli<3>(i1);  i1 = rori<3>(i1);  /* Rotate by a compile-time constant ("immediate") */
+    i1 = rol<3>(i1);  i1 = ror<3>(i1);  /* Rotate by a compile-time constant ("immediate") */
     i1 = rol(i1, i2);  i1 = ror(i1, i2);  /* Element-wise rotation by a variable amount */
 
     /* Trailing/leading zero count, population count (only for integer arrays) */

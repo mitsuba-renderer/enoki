@@ -578,7 +578,7 @@ same way as :cpp:class:`Array` and supports all regular Enoki operations.
                                             Spectrum<Value, Size>>;
 
         /// Helper alias used to transition between vector types (used by enoki::vectorize)
-        template <typename T> using ReplaceType = Spectrum<T, Size>;
+        template <typename T> using ReplaceValue = Spectrum<T, Size>;
 
         /// Mask type associated with this custom type
         using MaskType = enoki::Mask<Value, Size, true, RoundingMode::Default>;
@@ -710,8 +710,7 @@ the routing templates in ``enoki/enoki_router.h``.
   * Other elementary operations: ``abs_``, ``ceil_``, ``floor_``, ``max_``,
     ``min_``, ``round_``, ``sqrt_``.
 
-  * Shift operations for integers: ``sl_``, ``sli_``, ``slv_``, ``sr_``, ``sri_``,
-    ``srv_``.
+  * Shift operations for integers: ``sl_``, ``sr_``.
 
   * Horizontal operations: ``none_``, ``all_``, ``any_``, ``hprod_``, ``hsum_``,
     ``hmax_``, ``hmin_``, ``count_``.
@@ -760,7 +759,7 @@ the routing templates in ``enoki/enoki_router.h``.
     functions: ``log_``, ``exp_``, ``pow_`` ``frexp_``, ``ldexp_``.
 
   * Optional bit-level rotation operations (reduced to shifts by default):
-    ``rol_``, ``roli_``, ``rolv_``, ``ror_``, ``rori_``, ``rorv_``.
+    ``rol_``,  ``ror_``.
 
   * Optional array rotation operations (reduced to shuffles by default):
     ``rol_array_``, ``ror_array_``.
