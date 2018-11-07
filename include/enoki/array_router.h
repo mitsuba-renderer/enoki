@@ -1075,11 +1075,14 @@ ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index) {
 template <typename Arg, size_t Stride = sizeof(scalar_t<Arg>),
           typename Func, typename Index, typename... Args>
 void transform(void *mem, const Index &index, Func &&func, Args&&... args) {
+    static_assert(is_std_int_v<scalar_t<Index>>,
+                  "transform(): index argument must be a 32/64-bit integer array!");
     if constexpr (is_array_v<Arg>) {
+        using Int = int_array_t<Arg>;
         if constexpr ((false, ..., is_mask_v<Args>))
-            Arg::template transform_<Stride>(mem, index, (..., args), func, args...);
+            Arg::template transform_<Stride>(mem, (const Int &) index, (..., args), func, args...);
         else
-            Arg::template transform_<Stride>(mem, index, mask_t<Arg>(true),
+            Arg::template transform_<Stride>(mem, (const Int &) index, mask_t<Arg>(true),
                                              func, args..., mask_t<Arg>(true));
     } else {
         Arg& ref = *(Arg *) ((uint8_t *) mem + index * Index(Stride));
