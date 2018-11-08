@@ -74,7 +74,98 @@ ENOKI_TEST_ALL(test03_transform) {
 #else
   template <typename T, std::enable_if_t<T::Size != 31, int> = 0>
 #endif
-void test04_nested_gather_impl() {
+void test04_nested_gather_packed_impl() {
+    using Value = value_t<T>;
+    using UInt32P = Packet<uint32_t, T::Size>;
+    using Vector4 = Array<Value, 4>;
+    using Matrix4 = Matrix<Value, 4>;
+    using Matrix4P = Matrix<T, 4>;
+    using Array44 = Array<Vector4, 4>;
+
+    Matrix4 x[32];
+    for (size_t i = 0; i<32; ++i)
+        for (size_t k = 0; k<Matrix4::Size; ++k)
+            for (size_t j = 0; j<Matrix4::Size; ++j)
+                x[i /* slice */ ][k /* col */ ][j /* row */ ] = Value(i*100+k*10+j);
+
+    for (size_t i = 0; i<32; ++i) {
+        /* Direct load */
+        Matrix4 q = gather<Matrix4>(x, i);
+        Matrix4 q2 = Array44(Matrix4(
+            0, 10, 20, 30,
+            1, 11, 21, 31,
+            2, 12, 22, 32,
+            3, 13, 23, 33
+        )) + Value(100*i);
+        assert(q == q2);
+    }
+
+    /* Variant 2 */
+    for (size_t i = 0; i < 32; ++i)
+        assert(gather<Matrix4>(x, i) == x[i]);
+
+    /* Nested gather + slice */
+    auto q = gather<Matrix4P>(x, arange<UInt32P>());
+    for (size_t i = 0; i < T::Size; ++i)
+        assert(slice(q, i) == x[i]);
+
+    /* Masked nested gather */
+    q = gather<Matrix4P>(x, arange<UInt32P>(), arange<UInt32P>() < 2u);
+    for (size_t i = 0; i < T::Size; ++i) {
+        if (i < 2u)
+            assert(slice(q, i) == x[i]);
+        else
+            assert(slice(q, i) == zero<Matrix4>());
+    }
+
+    /* Nested scatter */
+    q = gather<Matrix4P>(x, arange<UInt32P>());
+    scatter(x, q + full<Matrix4>(Value(1000)), arange<UInt32P>());
+    scatter(x, q + full<Matrix4>(Value(2000)), arange<UInt32P>(), arange<UInt32P>() < 2u);
+    for (size_t i = 0; i < T::Size; ++i) {
+        if (i < 2u)
+            assert(slice(q, i) + full<Matrix4>(Value(2000)) == x[i]);
+        else
+            assert(slice(q, i) + full<Matrix4>(Value(1000)) == x[i]);
+    }
+
+    /* Nested prefetch -- doesn't do anything here, let's just make sure it compiles */
+    prefetch<Matrix4P>(x, arange<UInt32P>());
+    prefetch<Matrix4P>(x, arange<UInt32P>(), arange<UInt32P>() < 2u);
+
+    /* Nested gather + slice for dynamic arrays */
+    using UInt32X   = DynamicArray<UInt32P>;
+    using TX        = DynamicArray<T>;
+    using Matrix4X  = Matrix<TX, 4>;
+    auto q2 = gather<Matrix4X>(x, arange<UInt32X>(2));
+    q2 = q2 + full<Matrix4>(Value(1000));
+    scatter(x, q2, arange<UInt32X>(2));
+
+    for (size_t i = 0; i < T::Size; ++i) {
+        if (i < 2u)
+            assert(slice(q, i) + full<Matrix4>(Value(3000)) == x[i]);
+        else
+            assert(slice(q, i) + full<Matrix4>(Value(1000)) == x[i]);
+    }
+}
+
+#if defined(_MSC_VER)
+  template <typename T, std::enable_if_t<T::Size != 8, int> = 0>
+#else
+  template <typename T, std::enable_if_t<T::Size == 31, int> = 0>
+#endif
+void test04_nested_gather_packed_impl() { }
+
+ENOKI_TEST_ALL(test04_nested_gather_packed) {
+    test04_nested_gather_packed_impl<T>();
+}
+
+#if defined(_MSC_VER)
+  template <typename T, std::enable_if_t<T::Size == 8, int> = 0>
+#else
+  template <typename T, std::enable_if_t<T::Size != 31, int> = 0>
+#endif
+void test05_nested_gather_nonpacked_impl() {
     using Value = value_t<T>;
     using UInt32P = Packet<uint32_t, T::Size>;
     using Vector3 = Array<Value, 3>;
@@ -90,7 +181,7 @@ void test04_nested_gather_impl() {
 
     for (size_t i = 0; i<32; ++i) {
         /* Direct load */
-        Matrix3 q = gather<Matrix3>(x, i);
+        Matrix3 q = gather<Matrix3, 0, false>(x, i);
         Matrix3 q2 = Array33(Matrix3(
             0, 10, 20,
             1, 11, 21,
@@ -101,15 +192,15 @@ void test04_nested_gather_impl() {
 
     /* Variant 2 */
     for (size_t i = 0; i < 32; ++i)
-        assert(gather<Matrix3>(x, i) == x[i]);
+        assert((gather<Matrix3, 0, false>(x, i)) == x[i]);
 
     /* Nested gather + slice */
-    auto q = gather<Matrix3P>(x, arange<UInt32P>());
+    auto q = gather<Matrix3P, 0, false>(x, arange<UInt32P>());
     for (size_t i = 0; i < T::Size; ++i)
         assert(slice(q, i) == x[i]);
 
     /* Masked nested gather */
-    q = gather<Matrix3P>(x, arange<UInt32P>(), arange<UInt32P>() < 2u);
+    q = gather<Matrix3P, 0, false>(x, arange<UInt32P>(), arange<UInt32P>() < 2u);
     for (size_t i = 0; i < T::Size; ++i) {
         if (i < 2u)
             assert(slice(q, i) == x[i]);
@@ -118,9 +209,9 @@ void test04_nested_gather_impl() {
     }
 
     /* Nested scatter */
-    q = gather<Matrix3P>(x, arange<UInt32P>());
-    scatter(x, q + full<Matrix3>(Value(1000)), arange<UInt32P>());
-    scatter(x, q + full<Matrix3>(Value(2000)), arange<UInt32P>(), arange<UInt32P>() < 2u);
+    q = gather<Matrix3P, 0, false>(x, arange<UInt32P>());
+    scatter<0, false>(x, q + full<Matrix3>(Value(1000)), arange<UInt32P>());
+    scatter<0, false>(x, q + full<Matrix3>(Value(2000)), arange<UInt32P>(), arange<UInt32P>() < 2u);
     for (size_t i = 0; i < T::Size; ++i) {
         if (i < 2u)
             assert(slice(q, i) + full<Matrix3>(Value(2000)) == x[i]);
@@ -129,16 +220,16 @@ void test04_nested_gather_impl() {
     }
 
     /* Nested prefetch -- doesn't do anything here, let's just make sure it compiles */
-    prefetch<Matrix3P>(x, arange<UInt32P>());
-    prefetch<Matrix3P>(x, arange<UInt32P>(), arange<UInt32P>() < 2u);
+    prefetch<Matrix3P, false, 2, 0, false>(x, arange<UInt32P>());
+    prefetch<Matrix3P, false, 2, 0, false>(x, arange<UInt32P>(), arange<UInt32P>() < 2u);
 
     /* Nested gather + slice for dynamic arrays */
     using UInt32X   = DynamicArray<UInt32P>;
     using TX        = DynamicArray<T>;
     using Matrix3X  = Matrix<TX, 3>;
-    auto q2 = gather<Matrix3X>(x, arange<UInt32X>(2));
+    auto q2 = gather<Matrix3X, 0, false>(x, arange<UInt32X>(2));
     q2 = q2 + full<Matrix3>(Value(1000));
-    scatter(x, q2, arange<UInt32X>(2));
+    scatter<0, false>(x, q2, arange<UInt32X>(2));
 
     for (size_t i = 0; i < T::Size; ++i) {
         if (i < 2u)
@@ -153,13 +244,13 @@ void test04_nested_gather_impl() {
 #else
   template <typename T, std::enable_if_t<T::Size == 31, int> = 0>
 #endif
-void test04_nested_gather_impl() { }
+void test05_nested_gather_nonpacked_impl() { }
 
-ENOKI_TEST_ALL(test04_nested_gather) {
-    test04_nested_gather_impl<T>();
+ENOKI_TEST_ALL(test05_nested_gather_nonpacked) {
+    test05_nested_gather_nonpacked_impl<T>();
 }
 
-ENOKI_TEST_ALL(test05_range) {
+ENOKI_TEST_ALL(test06_range) {
     alignas(alignof(T)) Value mem[Size*10];
     for (size_t i = 0; i < Size*10; ++i)
         mem[i] = 1;
@@ -171,7 +262,7 @@ ENOKI_TEST_ALL(test05_range) {
     assert(((10*Size)/3) == hsum(sum));
 }
 
-ENOKI_TEST_ALL(test06_range_2d) {
+ENOKI_TEST_ALL(test07_range_2d) {
     alignas(alignof(T)) Value mem[4*5*6];
     for (size_t i = 0; i < 4*5*6; ++i)
         mem[i] = 0;
@@ -187,7 +278,7 @@ ENOKI_TEST_ALL(test06_range_2d) {
     }
 }
 
-ENOKI_TEST_ALL(test07_nested_gather_strides) {
+ENOKI_TEST_ALL(test08_nested_gather_strides) {
     using Vector4x = Array<Value, 4>;
     using Vector4xP = Array<T, 4>;
     using Int = int_array_t<T>;

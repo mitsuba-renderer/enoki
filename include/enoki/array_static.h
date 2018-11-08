@@ -615,23 +615,23 @@ private:
         return shuffle<(Is + Imm) % Derived::Size...>(derived());
     }
 
+    template <typename T, size_t Offset, size_t... Is>
+    ENOKI_INLINE T sub_array_(std::index_sequence<Is...>) const {
+        return T((typename Derived::Value) derived().coeff(Offset + Is)...);
+    }
+
 public:
     /// Return the low array part (always a power of two)
-    auto low_() const {
-        typename Derived::Array1 result;
-        ENOKI_CHKSCALAR("low");
-        for (size_t i = 0; i < Derived::Size1; ++i)
-            result.coeff(i) = derived().coeff(i);
-        return result;
+    ENOKI_INLINE auto low_() const {
+        return sub_array_<typename Derived::Array1, 0>(
+            std::make_index_sequence<Derived::Size1>());
     }
 
     /// Return the high array part
-    auto high_() const {
-        typename Derived::Array2 result;
-        ENOKI_CHKSCALAR("high");
-        for (size_t i = 0; i < Derived::Size2; ++i)
-            result.coeff(i) = derived().coeff(Size1 + i);
-        return result;
+    template <typename T = Derived, enable_if_t<T::Size2 != 0> = 0>
+    ENOKI_INLINE auto high_() const {
+        return sub_array_<typename Derived::Array2, Derived::Size1>(
+            std::make_index_sequence<Derived::Size2>());
     }
 
     //! @}
