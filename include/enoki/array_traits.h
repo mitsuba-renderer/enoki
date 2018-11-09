@@ -352,8 +352,8 @@ private:
     using T1 = typename deepest_array<Args...>::type;
 
     // Give precedence to dynamic arrays
-    static constexpr size_t D0 = array_depth_v<T0> + (is_dynamic_array_v<T0> ? 1 : 0);
-    static constexpr size_t D1 = array_depth_v<T1> + (is_dynamic_array_v<T1> ? 1 : 0);
+    static constexpr size_t D0 = array_depth_v<T0>;
+    static constexpr size_t D1 = array_depth_v<T1>;
 
 public:
     using type = std::conditional_t<(D1 > D0 || D0 == 0), T1, T0>;

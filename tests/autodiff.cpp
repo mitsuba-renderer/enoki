@@ -433,3 +433,32 @@ ENOKI_TEST(test31_sample_disk) {
     std::cout << graphviz(sum) << std::endl;
     backward(sum);
 }
+
+ENOKI_TEST(test32_bcast) {
+    clear_graph<FloatD>();
+    FloatD x(5.f);
+    FloatD y = arange<FloatD>(10);
+
+    requires_gradient(x, y);
+    FloatD z = hsum(sqr(sin(x)*cos(y)));
+    backward(z);
+
+    assert(allclose(hsum(gradient(x)), -2.8803, 1e-4f, 1e-4f));
+    assert(allclose(gradient(y),
+                    FloatX(-0.0000, -0.8361, 0.6959, 0.2569, -0.9098, 0.5002,
+                           0.4934, -0.9109, 0.2647, 0.6906), 1e-4, 1e-4f));
+}
+
+ENOKI_TEST(test34_gradient_descent) {
+    FloatD x = zero<FloatD>(10);
+    float loss_f = 0.f;
+    for (size_t i = 0; i < 10; ++i) {
+        clear_graph<FloatD>();
+        requires_gradient(x, "x");
+        FloatD loss = norm(x - linspace<FloatD>(0, 1, 10));
+        backward(loss);
+        detach(x) -= gradient(x)*2e-1f;
+        loss_f = detach(loss)[0];
+    }
+    assert(loss_f < 1e-1f);
+}

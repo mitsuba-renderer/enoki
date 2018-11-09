@@ -114,7 +114,8 @@ public:
     static constexpr bool Approx = array_approx_v<Value>;
     static constexpr bool IsMask = is_mask_v<Value>;
     static constexpr bool IsDiff = true;
-    static constexpr bool ComputeGradients = std::is_floating_point_v<scalar_t<Value>>;
+    static constexpr bool ComputeGradients = std::is_floating_point_v<scalar_t<Value>> &&
+                                            !is_mask_v<Value>;
     static constexpr size_t Size = is_scalar_v<Value> ? 1 : array_size_v<Value>;
     static constexpr size_t Depth = is_scalar_v<Value> ? 1 : array_depth_v<Value>;
 
@@ -134,6 +135,9 @@ public:
     template <typename Value2, enable_if_t<!std::is_same_v<Value, Value2>> = 0>
     DiffArray(const DiffArray<Value2> &a) : value(a.value_()) { }
 
+    template <typename Value2, enable_if_t<!std::is_same_v<Value, Value2>> = 0>
+    DiffArray(DiffArray<Value2> &&a) : value(std::move(a.value_())) { }
+
     template <typename Value2>
     DiffArray(const DiffArray<Value2> &a, detail::reinterpret_flag)
         : value(a.value_(), detail::reinterpret_flag()) { }
@@ -141,7 +145,7 @@ public:
     template <typename... Args,
               enable_if_t<std::conjunction_v<
                   std::bool_constant<!is_diff_array_v<Args>>...>> = 0>
-    DiffArray(Args &&... args) : value(std::forward<Args>(args)...) { }
+    DiffArray(Args&&... args) : value(std::forward<Args>(args)...) { }
 
     template <typename T>
     using ReplaceValue = DiffArray<replace_scalar_t<Value, T>>;
@@ -563,8 +567,8 @@ public:
                 Index target, size;
 
                 void compute_gradients(Tape &tape) const {
-                    const Value &grad = tape.nodes[target].gradient;
-                    Value &grad_source = tape.nodes[source].gradient;
+                    const Value &grad = tape.node(target).gradient;
+                    Value &grad_source = tape.node(source).gradient;
                     Value grad_hsum = hsum(grad);
                     grad_hsum.resize(size);
                     grad_source += grad_hsum;
@@ -631,8 +635,8 @@ public:
                     MaskType mask;
 
                     void compute_gradients(Tape &tape) const {
-                        const Value &grad_target = tape.nodes[target].gradient;
-                        Value &grad_source = tape.nodes[source].gradient;
+                        const Value &grad_target = tape.node(target).gradient;
+                        Value &grad_source = tape.node(source).gradient;
                         grad_source.resize(size);
                         scatter_add(grad_source.data(), offset, grad_target, mask);
                     }
@@ -677,9 +681,8 @@ public:
                     MaskType mask;
 
                     void compute_gradients(Tape &tape) const {
-                        Value &grad_target = tape.nodes[target].gradient;
-                        const Value &grad_source = tape.nodes[source].gradient;
-                        std::cout << "Yes: Gather from " << grad_target << " " << grad_source << ", offset=" << offset << ", mask=" << mask << std::endl;
+                        Value &grad_target = tape.node(target).gradient;
+                        const Value &grad_source = tape.node(source).gradient;
                         grad_target = gather<Value>(grad_source.data(), offset, mask);
                     }
 
@@ -824,7 +827,11 @@ private:
         std::vector<Edge> edges;
         std::vector<Node> nodes;
         std::vector<Index> free_nodes;
+
+        Index offset = 0;
+
         const DiffArray *scatter_gather_source = nullptr;
+
         size_t operations = 0,
                contractions = 0;
         bool ready;
@@ -838,12 +845,26 @@ private:
             return result;
         }
 
-        size_t edge_count(size_t k) const {
+        size_t edge_count(Index k) const {
             size_t count = 0;
-            for (size_t i = nodes[k].edge_offset;
+            for (size_t i = node(k).edge_offset;
                  i < edges.size() && edges[i].target == k; ++i)
                 ++count;
             return count;
+        }
+
+        Node &node(Index i) {
+            if (i == 0)
+                return nodes[0];
+            assert(i - offset < nodes.size());
+            return nodes[i - offset];
+        }
+
+        const Node &node(Index i) const {
+            if (i == 0)
+                return nodes[0];
+            assert(i - offset < nodes.size());
+            return nodes[i - offset];
         }
     };
 
@@ -860,13 +881,13 @@ private:
         if (source == 0)
             return;
 
-        assert(!tape.nodes[source].is_collected());
+        assert(!tape.node(source).is_collected());
         auto &edges = tape.edges;
 
         size_t deg = tape.edge_count(source);
         if (deg != 0 && deg <= ENOKI_AUTODIFF_EXPAND_LIMIT) {
             for (size_t i = 0; i < tape.edge_count(source); ++i) {
-                const Edge &e = edges[tape.nodes[source].edge_offset + i];
+                const Edge &e = edges[tape.node(source).edge_offset + i];
                 assert (!e.is_special());
                 add_edge(tape, e.source, target,
                          select(eq(weight, 0) || eq(e.weight, 0), 0,
@@ -886,7 +907,7 @@ private:
                 if (i != size) {
                     Edge &et = edges[size];
                     et = std::move(es);
-                    Index &ei = tape.nodes[et.target].edge_offset;
+                    Index &ei = tape.node(et.target).edge_offset;
                     ei = std::min(ei, size);
                 }
                 size++;
@@ -907,12 +928,12 @@ private:
             }
         }
 
-        tape.nodes[source].ref_count++;
+        tape.node(source).ref_count++;
         edges.emplace_back(source, target, weight);
     }
 
     ENOKI_INLINE static Index add_node(Label label, Tape &tape) {
-        Index node_index = (Index) tape.nodes.size();
+        Index node_index = (Index) tape.nodes.size() + tape.offset;
         if (!tape.free_nodes.empty()) {
             node_index = tape.free_nodes.back();
             tape.free_nodes.pop_back();
@@ -920,10 +941,10 @@ private:
             tape.nodes.emplace_back();
         }
 
-        tape.nodes[node_index].edge_offset = (Index) tape.edges.size();
+        tape.node(node_index).edge_offset = (Index) tape.edges.size();
 
         #if !defined(NDEBUG)
-            tape.nodes[node_index].label = label;
+            tape.node(node_index).label = label;
         #endif
 
         return node_index;
@@ -1003,14 +1024,16 @@ public:
         if (index == 0)
             return;
         Tape &tape = get_tape();
-        tape.nodes[index].ref_count++;
+        tape.node(index).ref_count++;
     }
 
     static void dec_ref_(Index index) {
         if (index == 0)
             return;
         Tape &tape = get_tape();
-        Node &node = tape.nodes[index];
+        if (index < tape.offset)
+            return;
+        Node &node = tape.node(index);
         if (node.ref_count == 0)
             throw std::runtime_error("Reference counting error!");
         if (--node.ref_count == 0) {
@@ -1031,6 +1054,7 @@ public:
 
     ENOKI_NOINLINE static void clear_graph_() {
         Tape &tape = get_tape();
+        tape.offset += tape.nodes.size();
         tape.edges.clear();
         tape.nodes.clear();
         tape.nodes.emplace_back();
@@ -1041,8 +1065,6 @@ public:
     }
 
     ENOKI_NOINLINE void requires_gradient_(Label label = nullptr) {
-        if (index != 0)
-            return;
         #if !defined(NDEBUG)
             std::string label_quotes =
                 "\\\"" + std::string(label ? label : "unnamed") + "\\\"";
@@ -1073,7 +1095,7 @@ public:
             }
         }
 
-        tape.nodes[index].gradient = 1.f;
+        tape.node(index).gradient = 1.f;
 
         for (ssize_t i = (ssize_t) tape.edges.size() - 1; i >= 0; --i) {
             const Edge &edge = tape.edges[(size_t) i];
@@ -1081,8 +1103,8 @@ public:
                 continue;
 
             if (ENOKI_LIKELY(!edge.is_special())) {
-                const Node &target  = tape.nodes[edge.target];
-                Node       &source  = tape.nodes[edge.source];
+                const Node &target  = tape.node(edge.target);
+                Node       &source  = tape.node(edge.source);
                 const Value &weight = edge.weight;
                 assert(!source.is_collected());
 
@@ -1135,6 +1157,7 @@ public:
 
     ENOKI_NOINLINE Index index_() const { return index; }
     ENOKI_NOINLINE const Value &value_() const { return value; }
+    ENOKI_NOINLINE Value &value_() { return value; }
 
     ENOKI_NOINLINE const Value &gradient_() const {
         Tape &tape = get_tape();
@@ -1142,10 +1165,10 @@ public:
             throw std::runtime_error(
                 "No gradient was computed for this variable! (a call to "
                 "requires_gradient() is necessary.)");
-        else if (index >= tape.nodes.size())
+        else if (index - tape.offset >= tape.nodes.size())
             throw std::runtime_error("Gradient index is out of bounds!");
 
-        return tape.nodes[index].gradient;
+        return tape.node(index).gradient;
     }
 
     // -----------------------------------------------------------------------

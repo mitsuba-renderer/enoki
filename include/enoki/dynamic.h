@@ -123,6 +123,12 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
             packet(i) = reinterpret_array<Packet>(other.packet(i));
     }
 
+#if defined(__GNUC__)
+// Don't be so noisy about sign conversion in constructor
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wsign-conversion"
+#endif
+
     template <typename T = Packet_, enable_if_mask_t<T> = 0>
     DynamicArrayImpl(bool value, detail::reinterpret_flag) {
         resize(1);
@@ -134,6 +140,10 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
         resize(1);
         packet(0) = Packet((Scalar) value);
     }
+
+#if defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#endif
 
     //! @}
     // -----------------------------------------------------------------------
