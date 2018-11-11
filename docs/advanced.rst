@@ -145,26 +145,25 @@ is clearly not supported by standard C++.
 
 Enoki provides a support layer that can handle such vectorized method calls. It
 performs as many method calls as there are unique instances in the ``sensor``
-array while using modern vector instruction sets to do so efficiently. A mask
+array while using modern vector instruction sets to do so efficiently. An optional mask
 is forwarded to the callee indicating which SIMD lanes are currently active.
-Null pointers in the ``data`` array are legal are considered as masked entries.
+Null pointers in the ``data`` array are legal and are considered as masked entries.
 The return value of masked entries is always zero (or a zero-filled
 array/structure, depending on the method's return type).
 
-To support a vector method calls, the interface of the vectorized ``decode()``
-method must be changed to take a mask its as last input. The
-:c:macro:`ENOKI_CALL_SUPPORT` macro below is also required---this generates the
-Enoki support layer that intercepts and carries out the function call.
+The :c:macro:`ENOKI_CALL_SUPPORT_METHOD` macro below is also required---this
+generates the Enoki support layer that intercepts and carries out the function
+call.
 
 .. code-block:: cpp
-    :emphasize-lines: 7, 13, 14, 15, 16
+    :emphasize-lines: 7, 13, 14, 15, 17
 
     class Sensor {
     public:
         // Scalar version
         virtual float decode(float input) = 0;
 
-        // Vector version
+        // Vector version with optional mask argument
         virtual FloatP decode(FloatP input, mask_t<SensorP> mask) = 0;
 
         /// Return sensor's serial number
@@ -172,7 +171,8 @@ Enoki support layer that intercepts and carries out the function call.
     };
 
     ENOKI_CALL_SUPPORT_BEGIN(SensorP)
-    ENOKI_CALL_SUPPORT(decode)
+    ENOKI_CALL_SUPPORT_METHOD(decode)
+    ENOKI_CALL_SUPPORT_METHOD(serial_number)
     /// .. potentially other methods ..
     ENOKI_CALL_SUPPORT_END(SensorP)
 
@@ -180,55 +180,82 @@ Here is a hypothetical implementation of the ``Sensor`` interface:
 
 .. code-block:: cpp
 
-    class Sensor1 : Sensor {
+    class MySensor : Sensor {
     public:
         /// Vector version
         virtual FloatP decode(FloatP input, mask_t<SensorP> active) override {
             /// Keep track of invalid samples
-            n_invalid += count(isnan(input) & mask_t<FloatP>(active));
+            n_invalid += count(isnan(input) && active);
 
-            /* Transform e.g. from log domain. Inactive entries are automatically
-               discarded from this return value by Enoki's support layer, so
-               there is no need to mask the result. */
+            /* Transform e.g. from log domain. */
             return log(input);
         }
 
         /// Return sensor's serial number
-        uint32_t serial_number() {
-            return 363436u;
-        }
+        uint32_t serial_number() { return 363436u; }
 
         // ...
 
         size_t n_invalid = 0;
     };
 
+With this interface, the following vectorized expressions are now valid:
+
+.. code-block:: cpp
+
+    SensorP sensor = ...;
+    FloatP data = ...;
+
+    /* Unmasked version */
+    data = sensor->decode(data);
+
+    /* Masked version */
+    auto mask = sensor->serial_number() > 1000;
+    data = sensor->decode(data, mask);
+
+Note how both functions with scalar and vector return values are vectorized
+automatically.
+
 Supporting scalar *getter* functions
 ************************************
 
-It often makes little sense to add a separate vectorized and masked version of
-simple *getter* functions like as ``serial_number()`` in the above example.
-Enoki provides a :c:macro:`ENOKI_CALL_SUPPORT_SCALAR()` macro for such cases,
-which would be used as follows:
+The above way of vectorizing a scalar *getter* function may involve multiple
+virtual method calls and is not particularly efficient. Enoki provides an
+alternative macro :c:macro:`ENOKI_CALL_SUPPORT_GETTER` that turns any attribute
+lookup into a more efficient *gather* operation. The macro takes the getter
+name and field name as arguments. The macro
+:c:macro:`ENOKI_CALL_SUPPORT_FRIEND` is needed in case the field in question is
+a private member.
 
 .. code-block:: cpp
-    :emphasize-lines: 3
+    :emphasize-lines: 2, 16
+
+    class Sensor {
+        ENOKI_CALL_SUPPORT_FRIEND()
+    public:
+        /// ...
+
+        /// Return sensor's serial number
+        uint32_t serial_number() {
+            return m_serial_number;
+        }
+
+    private:
+        uint32_t m_serial_number;
+    };
 
     ENOKI_CALL_SUPPORT_BEGIN(SensorP)
-    ENOKI_CALL_SUPPORT(decode)
-    ENOKI_CALL_SUPPORT_SCALAR(serial_number)
+    ENOKI_CALL_SUPPORT_GETTER(serial_number, m_serial_number)
     ENOKI_CALL_SUPPORT_END(SensorP)
 
-Afterwards, it is possible to efficiently acquire all serial numbers in a
-packet at once.
+The usage is identical to before, i.e.:
 
 .. code-block:: cpp
 
-    using UInt32P = Packet<uint32_t, 8>;
+    using UInt32P = Packet<uint32_t, >8;
 
     SensorP sensor = ...;
     UInt32P serial = sensor->serial_number();
-
 
 Vectorized for loops
 --------------------
@@ -241,14 +268,11 @@ computes :math:`\sum_{i=0}^{1000}i^2` using brute force addition (but with only
 .. code-block:: cpp
     :emphasize-lines: 4
 
-    using Index = Array<uint32_t, 16>;
+    using Index = Packet<uint32_t, 8>;
 
     Index result(0);
 
-    for (auto pair : range<Index>(0, 1000)) {
-        Index index = pair.first;
-        mask_t<Index> mask = pair.second;
-
+    for (auto [index, mask]: range<Index>(0, 1000)) {
         result += select(
             mask,
             index * index,
@@ -259,7 +283,30 @@ computes :math:`\sum_{i=0}^{1000}i^2` using brute force addition (but with only
     assert(hsum(result) == 332833500);
 
 The mask is necessary to communicate the fact that the last loop iteration has
-several disabled entries.
+several disabled entries. An extended version of the range statement enables
+iteration over multi-dimensional grids.
+
+.. code-block:: cpp
+
+    using Index3 = Array<Packet<uint32_t, 8>, 3>;
+
+    for (auto [index, mask] : range<Index3>(4u, 5u, 6u))
+        std::cout << index << std::endl;
+
+
+    /* Output:
+        [[0, 0, 0],
+         [1, 0, 0],
+         [2, 0, 0],
+         [3, 0, 0],
+         [0, 1, 0],
+         [1, 1, 0],
+         [2, 1, 0],
+         [3, 1, 0]]
+         ....
+    */
+
+Here, it is assumed that the range along each dimension starts from zero.
 
 .. _scatter-gather:
 
@@ -577,14 +624,14 @@ same way as :cpp:class:`Array` and supports all regular Enoki operations.
                                             RoundingMode::Default,
                                             Spectrum<Value, Size>>;
 
-        /// Helper alias used to transition between vector types (used by enoki::vectorize)
+        /// Helper alias used to transition between vector types (used by enoki::replace_scalar_t)
         template <typename T> using ReplaceValue = Spectrum<T, Size>;
 
         /// Mask type associated with this custom type
         using MaskType = enoki::Mask<Value, Size, true, RoundingMode::Default>;
 
         /// Import constructors, assignment operators, etc.
-        ENOKI_DECLARE_ARRAY(Base, Spectrum)
+        ENOKI_IMPORT_ARRAY(Base, Spectrum)
     };
 
 The main reason for declaring custom arrays is to tag (and preserve) the type
@@ -712,7 +759,7 @@ the routing templates in ``enoki/enoki_router.h``.
 
   * Shift operations for integers: ``sl_``, ``sr_``.
 
-  * Horizontal operations: ``none_``, ``all_``, ``any_``, ``hprod_``, ``hsum_``,
+  * Horizontal operations: ``all_``, ``any_``, ``hprod_``, ``hsum_``,
     ``hmax_``, ``hmin_``, ``count_``.
 
   * Masked blending operation: ``select_``.
@@ -731,7 +778,7 @@ the routing templates in ``enoki/enoki_router.h``.
     ``shuffle_``.
 
   * Compressed stores (emulated using scalar operations by default):
-    ``store_compress_``.
+    ``compress_``.
 
   * Extracting an element based on a mask (emulated using scalar operations by default):
     ``extract_``.
@@ -741,11 +788,6 @@ the routing templates in ``enoki/enoki_router.h``.
 
   * Prefetch operations (no-op by default): ``prefetch_``.
 
-  * Trigonometric and hyperbolic functions: ``sin_``, ``sinh_``, ``sincos_``,
-    ``sincosh_``, ``cos_``, ``cosh_``, ``tan_``, ``tanh_``, ``csc_``,
-    ``csch_``, ``sec_``, ``sech_``, ``cot_``, ``coth_``, ``asin_``,
-    ``asinh_``, ``acos_``, ``acosh_``, ``atan_``, ``atanh_``.
-
   * Fused multiply-add routines (reduced to ``add_``/``sub_`` and ``mul_`` by
     default): ``fmadd_``, ``fmsub_``, ``fnmadd_``, ``fnmsub_``,
     ``fmaddsub_``, ``fmsubadd_``.
@@ -754,9 +796,6 @@ the routing templates in ``enoki/enoki_router.h``.
     by default): ``rcp_``, ``rsqrt_``.
 
   * Dot product (reduced to ``mul_`` and ``hsum_`` by default): ``dot_``.
-
-  * Exponentials, logarithms, powers, floating point exponent manipulation
-    functions: ``log_``, ``exp_``, ``pow_`` ``frexp_``, ``ldexp_``.
 
   * Optional bit-level rotation operations (reduced to shifts by default):
     ``rol_``,  ``ror_``.

@@ -18,6 +18,12 @@ destruction when the dynamic array goes out of scope (similar to
 involving data that is much larger than the maximum SIMD width supported by the
 underlying hardware.
 
+Note that its implementation is contained in a separate header file that must be included:
+
+.. code-block:: cpp
+
+    #include <enoki/dynamic.h>
+
 The class requires a single template argument, which can be any kind of
 :cpp:class:`enoki::Array`. This is the *packet type* that will be used to used
 to realize vectorized computations involving the array contents. The following
@@ -35,10 +41,9 @@ vectorizes using 4-wide SSE arithmetic.
 .. note::
 
     In contrast to the array types discussed so far, a
-    :cpp:class:`enoki::DynamicArray` instance *should never* be part of an
+    :cpp:class:`enoki::DynamicArray` instance *should not* be part of an
     arithmetic expression. For instance, the following will compile and yield
-    the expected result, but this style of using dynamic arrays is *strongly*
-    disouraged.
+    the expected result, but this style of using dynamic arrays is disouraged.
 
     .. code-block:: cpp
         :emphasize-lines: 4
@@ -129,6 +134,9 @@ A few convenience initialization methods also exist:
 
     /* Efficient way to create an array filled with zero entries */
     x = zero<FloatX>(size);
+
+    /* .. or an unitialized array */
+    x = empty<FloatX>(size);
 
     /* Initialize entries with index sequence 0, 1, 2, ... */
     x = arange<FloatX>(size);

@@ -229,7 +229,7 @@ Static arrays
 -------------
 
 .. cpp:class:: template <typename Value, size_t Size = max_packet_size / sizeof(Value), \
-                         bool Approx = detail::approx_default<Value>::value, \
+                         bool Approx = detail::array_approx_v<Value>, \
                          RoundingMode Mode = RoundingMode::Default> \
                Array : StaticArrayImpl<Value, Size, Approx, Mode, Array<Value, Size, Approx, Mode>>
 
@@ -265,7 +265,7 @@ Static arrays
     evaluate array expressions. See :ref:`custom-arrays` for details.
 
 .. cpp:class:: template <typename Value, size_t Size = max_packet_size / sizeof(Value), \
-                         bool Approx = detail::approx_default<Value>::value, \
+                         bool Approx = detail::array_approx_v<Value>, \
                          RoundingMode Mode = RoundingMode::Default> \
                Packet : StaticArrayImpl<Value, Size, Approx, Mode, Array<Value, Size, Approx, Mode>>
 
@@ -510,6 +510,22 @@ Memory operations
     ``mem`` uses a packed memory layout (i.e. a stride value of
     ``sizeof(Value)``); other values override this behavior.
 
+.. cpp:function:: template <typename Array, typename Index> \
+                  void scatter_add(const void *mem, Array array, Index index, mask_t<Array> mask = true)
+
+    Performs a scatter-add operation that is equivalent to the following scalar
+    loop (mapped to efficient hardware instructions if supported by the target
+    hardware).
+
+    .. code-block:: cpp
+
+        for (size_t i = 0; i < Array::Size; ++i)
+            if (mask[i])
+                ((Value *) mem)[index[i]] += array[i];
+
+    The implementation avoids conflicts in case multiple indices refer to the
+    same entry.
+
 .. cpp:function:: template <typename Output, typename Input, typename Mask> \
                   size_t compress(Output output, Input input, Mask mask)
 
@@ -551,6 +567,15 @@ Memory operations
 
 Miscellaneous initialization
 ----------------------------
+
+.. cpp:function:: template <typename Array> Array empty()
+
+    Returns an unitialized static array.
+
+.. cpp:function:: template <typename DArray> DArray empty(size_t size)
+
+    Allocates and returns a dynamic array of type ``DArray`` of size ``size``.
+    The array contents are uninitialized.
 
 .. cpp:function:: template <typename Array> Array zero()
 
@@ -912,7 +937,7 @@ Elementary Arithmetic Functions
 
 .. cpp:function:: template <typename Array> Array clip(Array a, Array min, Array max)
 
-    Clips :math:`a` to the specified interval.
+    Clips :math:`a` to the specified interval :math:`[\texttt{min}, \texttt{max}]`.
 
 Horizontal operations
 ---------------------
@@ -1071,6 +1096,33 @@ Horizontal operations
 .. cpp:function:: template <typename Mask> size_t count_nested(Mask value)
 
     Recursive version of :cpp:func:`count`, which always returns a ``size_t`` value.
+
+.. cpp:function:: template <typename Array> value_t<Array> dot(Array value1, Array value2)
+
+    Efficiently computes the dot products of ``value1`` and ``value2``, i.e.:
+
+    .. code-block:: cpp
+
+        value1[0]*value2[0] + .. + value1[Array::Size-1]*value2[Array::Size-1];
+
+    The return value is of type ``value_t<Array>``, which is a scalar (e.g.
+    ``float``) for ordinary inputs and an array for nested array inputs.
+
+.. cpp:function:: template <typename Array> value_t<Array> norm(Array value)
+
+    Computes the 2-norm of the input array. The return value is of type
+    ``value_t<Array>``, which is a scalar (e.g. ``float``) for ordinary inputs
+    and an array for nested array inputs.
+
+.. cpp:function:: template <typename Array> value_t<Array> squared_norm(Array value)
+
+    Computes the squared 2-norm of the input array. The return value is of type
+    ``value_t<Array>``, which is a scalar (e.g. ``float``) for ordinary inputs
+    and an array for nested array inputs.
+
+.. cpp:function:: template <typename Array> Array normalize(Array value)
+
+    Normalizes the input array by multiplying by the inverse of ``norm(value)``.
 
 Transcendental functions
 ------------------------
@@ -1762,7 +1814,7 @@ Rearranging contents of arrays
 
     Returns a new array containing the trailing ``Size`` elements of ``a``.
 
-.. cpp:function:: template <typename Outer, typename Inner> replace_scalar_t<Outer, Inner> fill(const Inner &inner)
+.. cpp:function:: template <typename Outer, typename Inner> replace_scalar_t<Outer, Inner> full(const Inner &inner)
 
     Given an array type ``Outer`` and a value of type ``Inner``, this function
     returns a new composite type of shape ``[<shape of Outer>, <shape of
@@ -1775,7 +1827,7 @@ Rearranging contents of arrays
 
         using Vector4f = Array<float, 4>;
         using MyMatrix = Array<Vector4f, 4>;
-        MyMatrix result = fill<MyMatrix>(10.f);
+        MyMatrix result = full<MyMatrix>(10.f);
         std::cout << result << std::endl;
 
         /* Prints:
@@ -1791,7 +1843,7 @@ Rearranging contents of arrays
 
     .. code-block:: cpp
 
-        result = fill<Vector4f>(Vector4f(1, 2, 3, 4))
+        result = full<Vector4f>(Vector4f(1, 2, 3, 4))
         std::cout << result << std::endl;
 
         /* Prints:
@@ -1820,14 +1872,12 @@ Rearranging contents of arrays
              [1, 2, 3, 4]]
         */
 
-.. cpp:function:: template <typename Mask> Mask disable_mask_if_scalar(const Mask &mask)
+.. cpp:function:: template <typename Array> std::array<size_t, array_depth_v<Array>> shape(const Array &a)
 
-    This function returns ``true`` if ``Mask`` is a boolean scalar. Otherwise, it
-    returns its input parameter unchanged. This function is convenient when a piece
-    of vectorization-aware template code uses masks that aren't really needed for
-    the scalar version. If all masks are passed through this function, the compiler
-    can inline ``disable_mask_if_scalar`` and use constant propagation to disable
-    masking in the scalar variant.
+    Returns a ``std::array``, whose entries describe the shape of the
+    (potentially multi-dimensional) input array along each dimension. It works
+    for both static and dynamic arrays.
+
 
 Operations for dynamic arrays
 -----------------------------
@@ -1883,13 +1933,13 @@ Accessing types related to Enoki arrays
         using Vector4fPr = Array<FloatP&, 4>;
 
         /* Non-array input */
-        static_assert(std::is_same<value_t<float>, float>::value);
+        static_assert(std::is_same_v<value_t<float>, float>);
 
         /* Array input */
-        static_assert(std::is_same<value_t<Vector4f>,   float>::value);
-        static_assert(std::is_same<value_t<Vector4fr>,  float&>::value);
-        static_assert(std::is_same<value_t<Vector4fP>,  FloatP>::value);
-        static_assert(std::is_same<value_t<Vector4fPr>, FloatP&>::value);
+        static_assert(std::is_same_v<value_t<Vector4f>,   float>);
+        static_assert(std::is_same_v<value_t<Vector4fr>,  float&>);
+        static_assert(std::is_same_v<value_t<Vector4fP>,  FloatP>);
+        static_assert(std::is_same_v<value_t<Vector4fPr>, FloatP&>);
 
 
 .. cpp:type:: template <typename... Args> expr_t
@@ -1919,19 +1969,19 @@ Accessing types related to Enoki arrays
         using Vector4dP  = Array<DoubleP, 4>;
 
         /* Non-array input */
-        static_assert(std::is_same<expr_t<float>,               float>::value);
-        static_assert(std::is_same<expr_t<float&>,              float>::value);
-        static_assert(std::is_same<expr_t<float, double>,       double>::value);
-        static_assert(std::is_same<expr_t<float&, double&>,     double>::value);
+        static_assert(std::is_same_v<expr_t<float>,               float>);
+        static_assert(std::is_same_v<expr_t<float&>,              float>);
+        static_assert(std::is_same_v<expr_t<float, double>,       double>);
+        static_assert(std::is_same_v<expr_t<float&, double&>,     double>);
 
         /* Array input */
-        static_assert(std::is_same<expr_t<Vector4f>,            Vector4f>::value);
-        static_assert(std::is_same<expr_t<Vector4fr>,           Vector4f>::value);
-        static_assert(std::is_same<expr_t<Vector4fP>,           Vector4fP>::value);
-        static_assert(std::is_same<expr_t<Vector4fPr>,          Vector4fP>::value);
+        static_assert(std::is_same_v<expr_t<Vector4f>,            Vector4f>);
+        static_assert(std::is_same_v<expr_t<Vector4fr>,           Vector4f>);
+        static_assert(std::is_same_v<expr_t<Vector4fP>,           Vector4fP>);
+        static_assert(std::is_same_v<expr_t<Vector4fPr>,          Vector4fP>);
 
-        static_assert(std::is_same<expr_t<Vector4f, double>,    Vector4d>::value);
-        static_assert(std::is_same<expr_t<Vector4fPr, double&>, Vector4dP>::value);
+        static_assert(std::is_same_v<expr_t<Vector4f, double>,    Vector4d>);
+        static_assert(std::is_same_v<expr_t<Vector4fPr, double&>, Vector4dP>);
 
 .. cpp:type:: template <typename T> scalar_t
 
@@ -1953,14 +2003,14 @@ Accessing types related to Enoki arrays
         using Vector4fPr = Array<FloatP&, 4>;
 
         /* Non-array input */
-        static_assert(std::is_same<scalar_t<float>,               float>::value);
-        static_assert(std::is_same<scalar_t<float&>,              float>::value);
+        static_assert(std::is_same_v<scalar_t<float>,               float>);
+        static_assert(std::is_same_v<scalar_t<float&>,              float>);
 
         /* Array input */
-        static_assert(std::is_same<scalar_t<Vector4f>,            float>::value);
-        static_assert(std::is_same<scalar_t<Vector4fr>,           float>::value);
-        static_assert(std::is_same<scalar_t<Vector4fP>,           float>::value);
-        static_assert(std::is_same<scalar_t<Vector4fPr>,          float>::value);
+        static_assert(std::is_same_v<scalar_t<Vector4f>,            float>);
+        static_assert(std::is_same_v<scalar_t<Vector4fr>,           float>);
+        static_assert(std::is_same_v<scalar_t<Vector4fP>,           float>);
+        static_assert(std::is_same_v<scalar_t<Vector4fPr>,          float>);
 
 .. cpp:type:: template <typename T> mask_t
 
@@ -2082,12 +2132,12 @@ Detecting Enoki arrays
 
         Equal to ``true`` iff ``T`` is a static or dynamic Enoki array type.
 
-.. cpp:type:: template <typename T> enable_if_array_t = std::enable_if_t<is_array<T>::value, int>
+.. cpp:type:: template <typename T> enable_if_array_t = std::enable_if_t<is_array_v<T>, int>
 
     SFINAE alias to selectively enable a class or function definition for Enoki
     array types.
 
-.. cpp:type:: template <typename T> enable_if_not_array_t = std::enable_if_t<!is_array<T>::value, int>
+.. cpp:type:: template <typename T> enable_if_not_array_t = std::enable_if_t<!is_array_v<T>, int>
 
     SFINAE alias to selectively enable a class or function definition for types
     that are not Enoki arrays.
@@ -2102,12 +2152,12 @@ Detecting Enoki masks
 
         Equal to ``true`` iff ``T`` is a static or dynamic Enoki mask type.
 
-.. cpp:type:: template <typename T> enable_if_mask_t = std::enable_if_t<is_mask<T>::value, int>
+.. cpp:type:: template <typename T> enable_if_mask_t = std::enable_if_t<is_mask_v<T>, int>
 
     SFINAE alias to selectively enable a class or function definition for Enoki
     mask types.
 
-.. cpp:type:: template <typename T> enable_if_not_mask_t = std::enable_if_t<!is_mask<T>::value, int>
+.. cpp:type:: template <typename T> enable_if_not_mask_t = std::enable_if_t<!is_mask_v<T>, int>
 
     SFINAE alias to selectively enable a class or function definition for types
     that are not Enoki masks.
@@ -2121,12 +2171,12 @@ Detecting static Enoki arrays
 
         Equal to ``true`` iff ``T`` is a static Enoki array type.
 
-.. cpp:type:: template <typename T> enable_if_static_array_t = std::enable_if_t<is_static_array<T>::value, int>
+.. cpp:type:: template <typename T> enable_if_static_array_t = std::enable_if_t<is_static_array_v<T>, int>
 
     SFINAE alias to selectively enable a class or function definition for
     static Enoki array types.
 
-.. cpp:type:: template <typename T> enable_if_not_static_array_t = std::enable_if_t<!is_static_array<T>::value, int>
+.. cpp:type:: template <typename T> enable_if_not_static_array_t = std::enable_if_t<!is_static_array_v<T>, int>
 
     SFINAE alias to selectively enable a class or function definition for
     static Enoki array types.
@@ -2140,17 +2190,17 @@ Detecting dynamic Enoki arrays
 
         Equal to ``true`` iff ``T`` is a dynamic Enoki array type.
 
-.. cpp:type:: template <typename T> enable_if_dynamic_array_t = std::enable_if_t<is_dynamic_array<T>::value, int>
+.. cpp:type:: template <typename T> enable_if_dynamic_array_t = std::enable_if_t<is_dynamic_array_v<T>, int>
 
     SFINAE alias to selectively enable a class or function definition for
     dynamic Enoki array types.
 
-.. cpp:type:: template <typename T> enable_if_not_dynamic_array_t = std::enable_if_t<!is_dynamic_array<T>::value, int>
+.. cpp:type:: template <typename T> enable_if_not_dynamic_array_t = std::enable_if_t<!is_dynamic_array_v<T>, int>
 
     SFINAE alias to selectively enable a class or function definition for
     dynamic Enoki array types.
 
-.. cpp:class:: template <typename T> is_dynamic_nested
+.. cpp:class:: template <typename T> is_dynamic
 
     .. cpp:member:: static constexpr bool value
 
@@ -2159,7 +2209,7 @@ Detecting dynamic Enoki arrays
 
         This is different from :cpp:class:`is_dynamic_array`, which only cares
         about the outermost level -- for instance, given static array ``T``
-        containing a nested dynamic array, ``is_dynamic_array<T>::value ==
-        false``, while ``is_dynamic_nested<T>::value == true``.
+        containing a nested dynamic array, ``is_dynamic_array_v<T> ==
+        false``, while ``is_dynamic_v<T> == true``.
 
 
