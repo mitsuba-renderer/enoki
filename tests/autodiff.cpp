@@ -439,11 +439,12 @@ ENOKI_TEST(test32_bcast) {
     FloatD x(5.f);
     FloatD y = arange<FloatD>(10);
 
-    requires_gradient(x, y);
+    requires_gradient(x, "x");
+    requires_gradient(y, "y");
     FloatD z = hsum(sqr(sin(x)*cos(y)));
     backward(z);
 
-    assert(allclose(hsum(gradient(x)), -2.8803, 1e-4f, 1e-4f));
+    assert(allclose(gradient(x), -2.8803, 1e-4f, 1e-4f));
     assert(allclose(gradient(y),
                     FloatX(-0.0000, -0.8361, 0.6959, 0.2569, -0.9098, 0.5002,
                            0.4934, -0.9109, 0.2647, 0.6906), 1e-4, 1e-4f));

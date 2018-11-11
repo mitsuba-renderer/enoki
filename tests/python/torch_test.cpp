@@ -1,165 +1,82 @@
-#include <enoki/python.h>
+#include <enoki/pytorch.h>
 #include <enoki/autodiff.h>
 #include <enoki/dynamic.h>
-#include <pybind11/stl.h>
 
 using namespace enoki;
 
 namespace py = pybind11;
 
-namespace enoki {
-
-template <typename Forward, typename Backward>
-void pytorch_register_function(pybind11::module &m, const std::string &op_name,
-                               const std::string &fn_name, Forward forward,
-                               Backward backward) {
-    namespace py = pybind11;
-
-    py::object autograd = py::module::import("torch.autograd");
-    py::object parent_class = autograd.attr("Function");
-    py::object parent_metaclass =
-        autograd.attr("function").attr("FunctionMeta");
-    py::object staticmethod =
-        py::reinterpret_borrow<py::object>((PyObject *) &PyStaticMethod_Type);
-    py::dict attributes;
-
-    attributes["forward"] = staticmethod(py::cpp_function(forward));
-    attributes["backward"] = staticmethod(py::cpp_function(backward));
-
-    auto cls = parent_metaclass(op_name, py::make_tuple(parent_class), attributes);
-
-    m.add_object(op_name.c_str(), cls);
-    m.add_object(fn_name.c_str(), cls.attr("apply"));
-}
-
-namespace detail {
-    template <typename T> py::object torch_dtype() {
-        auto torch = py::module::import("torch");
-        const char *name = nullptr;
-
-        if (std::is_same_v<T, half>) {
-            name = "float16";
-        } else if (std::is_same_v<T, float>) {
-            name = "float32";
-        } else if (std::is_same_v<T, double>) {
-            name = "float64";
-        } else if (std::is_integral_v<T>) {
-            if (sizeof(T) == 1)
-                name = std::is_signed_v<T> ? "int8" : "uint8";
-            else if (sizeof(T) == 2)
-                name = "int16";
-            else if (sizeof(T) == 4)
-                name = "int32";
-            else if (sizeof(T) == 8)
-                name = "int64";
-        }
-
-        if (name == nullptr)
-            throw std::runtime_error("pytorch_dtype(): Unsupported type");
-
-        return torch.attr(name);
-    }
-}
-
-
-template <size_t Index, size_t Dim, typename Source, typename Target>
-void copy_array(const std::array<size_t, Dim> &shape,
-                const std::array<size_t, Dim> &strides,
-                const Source *source,
-                Target &target) {
-    if constexpr (Index == Dim) {
-        target = *source;
-    } else {
-        const size_t step = strides[Index];
-        for (size_t i = 0; i < shape[Index]; ++i) {
-            copy_array<Index + 1, Dim>(shape, strides, source, target.coeff(i));
-            source += step;
-        }
-    }
-}
-
-template <size_t Index, size_t Dim, typename Source, typename Target>
-void copy_array(const std::array<size_t, Dim> &shape,
-                const std::array<size_t, Dim> &strides,
-                const Source &source,
-                Target *target) {
-    if constexpr (Index == Dim) {
-        *target = source;
-    } else {
-        const size_t step = strides[Index];
-        for (size_t i = 0; i < shape[Index]; ++i) {
-            copy_array<Index + 1, Dim>(shape, strides, source.coeff(i), target);
-            target += step;
-        }
-    }
-}
-
-template <typename T> T torch_to_enoki(py::object x) {
-    using Scalar = scalar_t<T>;
-    constexpr size_t Depth = array_depth_v<T>;
-
-    py::tuple shape_obj = x.attr("shape");
-    py::object dtype_obj = x.attr("dtype");
-    py::object target_dtype = detail::torch_dtype<Scalar>();
-
-    if (shape_obj.size() != Depth)
-        throw std::runtime_error("torch_to_enoki(): Input array is of invalid dimension!");
-
-    if (!dtype_obj.is(target_dtype))
-        throw std::runtime_error("torch_to_enoki(): Input array has an invalid dtype!");
-
-    auto shape = py::cast<std::array<size_t, Depth>>(shape_obj);
-    auto strides = py::cast<std::array<size_t, Depth>>(x.attr("stride")());
-    std::reverse(shape.begin(), shape.end());
-    std::reverse(strides.begin(), strides.end());
-
-    T result;
-    set_shape(result, shape);
-
-    const Scalar *source = (const Scalar *) py::cast<uintptr_t>(x.attr("data_ptr")());
-    copy_array<0>(shape, strides, source, result);
-    return result;
-}
-
-template <typename T> py::object enoki_to_torch(const T &t) {
-    using Scalar = scalar_t<T>;
-    constexpr size_t Depth = array_depth_v<T>;
-
-    std::array<size_t, Depth> shape = enoki::shape(t), shape_rev = shape, strides;
-    std::reverse(shape_rev.begin(), shape_rev.end());
-
-    auto torch = py::module::import("torch");
-    py::object dtype = detail::torch_dtype<scalar_t<T>>();
-    auto result = torch.attr("empty")(py::cast(shape_rev), py::arg("dtype") = dtype);
-    strides = py::cast<std::array<size_t, Depth>>(result.attr("stride")());
-    std::reverse(strides.begin(), strides.end());
-    Scalar *target = (Scalar *) py::cast<uintptr_t>(result.attr("data_ptr")());
-
-    copy_array<0>(shape, strides, t, target);
-    return result;
-}
-}
-
 using Float  = float;
 using FloatX = DynamicArray<Packet<Float>>;
+using FloatD = DiffArray<FloatX>;
 using Vector3fX = Array<FloatX, 3>;
-
+using Vector3fD = Array<FloatD, 3>;
 
 PYBIND11_MODULE(torch_test, m) {
+    using IndexIn = std::array<uint32_t, 3>;
+    using IndexOut = std::array<uint32_t, 3>;
+
+    m.def("clear_graph", [](){ clear_graph<FloatD>(); });
+
     pytorch_register_function(
         m,
-        "Square",
-        "square",
+        "Normalize",
+        "normalize",
 
-        [](py::object ctx, py::object x_) {
-            Vector3fX x = torch_to_enoki<Vector3fX>(x_);
-            enoki::requires_gradient(x);
-            return enoki_to_torch(x * x);
+        [](py::object ctx, py::object in_ /* Potentially more input parameters */) {
+            // PyTorch tensor -> Enoki array
+            Vector3fD in = torch_to_enoki<Vector3fD>(in_);
+
+            if (py::cast<bool>(in_.attr("requires_grad")))
+                requires_gradient(in, "in");
+
+            // Perform the (differentiable) operation using Enoki
+            Vector3fD out = normalize(in);
+
+            // Record the output indices for the reverse impl.
+            IndexIn  in_indices  = gradient_index(in);
+            IndexOut out_indices = gradient_index(out);
+
+            ctx.attr("in_indices")  = in_indices;
+            ctx.attr("out_indices") = out_indices;
+            ctx.attr("tape_ptr") = FloatD::get_tape_ptr();
+
+            // Increase the reference count keep the associated tape nodes from being collected
+            gradient_inc_ref<FloatD>(in_indices);
+            gradient_inc_ref<FloatD>(out_indices);
+
+            // Debug output of the computation graph
+            std::cout << graphviz(out) << std::endl;
+
+            // In the case of multiple outputs, return std::make_tuple(...)
+            return enoki_to_torch(out);
         },
 
-        [](py::object ctx, py::object grad_output) {
-            //py::object y = ctx.attr("saved_tensors")[py::int_(0)];
-            //return grad_output * y * py::int_(2);
+        [](py::object ctx, py::object grad_output_1 /* Potentially more output parameters */) {
+            // Look up stored context fields
+            IndexIn  in_indices  = py::cast<IndexIn> (ctx.attr("in_indices"));
+            IndexOut out_indices = py::cast<IndexOut>(ctx.attr("out_indices"));
+
+            // PyTorch runs the backward pass on a different thread. The following ensures
+            // that Enoki accesses the right tape data structure
+            TapeScope<FloatD> scope(py::cast<void *>(ctx.attr("tape_ptr")));
+
+            // Clear all gradients
+            clear_gradients<FloatD>();
+
+            // Forward output gradients from PyTorch to Enoki
+            set_gradient(out_indices, torch_to_enoki<Vector3fD>(grad_output_1));
+
+            // Propagate derivatives through the tape recorded by Enoki
+            backward<FloatD>();
+
+            Vector3fD result = gradient<Vector3fD>(in_indices);
+
+            // Undo the previous reference count change
+            gradient_dec_ref<FloatD>(out_indices);
+            gradient_dec_ref<FloatD>(in_indices);
+
+            return enoki_to_torch(result);
         }
     );
 }

@@ -154,11 +154,8 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
 
     template <typename T, enable_if_t<is_scalar_v<T>> = 0>
     ENOKI_NOINLINE DynamicArrayImpl &operator=(const T &value) {
-        if (empty())
-            resize(1);
-        Packet p(value);
-        for (size_t i = 0; i < packets(); ++i)
-            packet(i) = p;
+        resize(1);
+        packet(0) = Packet(value);
         return derived();
     }
 

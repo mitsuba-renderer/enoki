@@ -318,6 +318,9 @@ struct PacketMask;
 template <typename Packet_> struct DynamicArray;
 template <typename Packet_> struct DynamicMask;
 
+/// Reverse-mode autodiff array
+template <typename Value> struct DiffArray;
+
 template <typename Value_, size_t Size_, bool Approx_ = array_approx_v<Value_>>
 struct Matrix;
 
