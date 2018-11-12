@@ -1563,7 +1563,7 @@ The following special functions require including the header
 
     Requires a real-valued input array ``x``.
 
-.. cpp:function:: template <typename Array> Array erf(Array x)
+.. cpp:function:: template <typename Array> Array erfi(Array x)
 
     Evaluates the imaginary error function defined as
 
@@ -1903,7 +1903,12 @@ Operations for dynamic arrays
 .. cpp:function:: template <typename DArray> void set_slices(DArray &a, size_t size)
 
     Resize the given dynamic array or data structure so that there is space for
-    ``size`` slices. Old values are preserved if the array is enlarged.
+    ``size`` slices. When reducing the size of the array, any memory allocated
+    so far is kept. Since there's no exponential allocation mechanism, it is not
+    recommended to call ``set_slices`` repeatedly to append elements.
+
+    Unlike ``std::vector::resize()``, previous values are *not* preserved when
+    enlarging the array.
 
 .. _type-traits:
 
