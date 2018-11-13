@@ -658,7 +658,7 @@ ENOKI_BINARY_OPERATION(atan2, std::atan2(x, y)) {
     t = select(abs_y > abs_x, Scalar(M_PI_2) - t, t);
     t = select(x_ < zero<Value>(), Scalar(M_PI) - t, t);
     Value r = select(y_ < zero<Value>(), -t, t);
-    r &= neq(max_val, 0.f);
+    r &= neq(max_val, 0);
     return r;
 }
 
@@ -890,7 +890,7 @@ ENOKI_UNARY_OPERATION(log, std::log(x)) {
     const Scalar p_inf(std::numeric_limits<Scalar>::infinity());
 
     r[eq(input, p_inf)] = p_inf;
-    r[eq(input, 0.f)] = n_inf;
+    r[eq(input, 0)] = n_inf;
 
     return r | ~valid_mask;
 }

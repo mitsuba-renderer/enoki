@@ -100,7 +100,7 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
         operator=(value);
     }
 
-    DynamicArrayImpl(DynamicArrayImpl &&value) {
+    ENOKI_INLINE DynamicArrayImpl(DynamicArrayImpl &&value) {
         operator=(std::move(value));
     }
 
@@ -184,15 +184,9 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
     }
 
     ENOKI_INLINE DynamicArrayImpl &operator=(DynamicArrayImpl &&other) {
-        if (is_mapped()) {
-            m_packets.release();
-        } else if (m_packets.get()) {
-            ENOKI_TRACK_DEALLOC(m_packets.get(), packets_allocated() * sizeof(Packet));
-        }
-        m_packets = std::move(other.m_packets);
-        m_packets_allocated = other.m_packets_allocated;
-        m_size = other.m_size;
-        other.m_packets_allocated = other.m_size = 0;
+        m_packets.swap(other.m_packets);
+        std::swap(m_packets_allocated, other.m_packets_allocated);
+        std::swap(m_size, other.m_size);
         return derived();
     }
 
@@ -369,6 +363,8 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
     ENOKI_FWD_BINARY_OPERATION(mod, Derived, a1 % a2)
     ENOKI_FWD_BINARY_OPERATION(sl,  Derived, a1 << a2)
     ENOKI_FWD_BINARY_OPERATION(sr,  Derived, a1 >> a2)
+    ENOKI_FWD_BINARY_OPERATION(rol, Derived, rol(a1, a2))
+    ENOKI_FWD_BINARY_OPERATION(ror, Derived, ror(a1, a2))
 
     ENOKI_FWD_UNARY_OPERATION_IMM(sl,  Derived, sl<Imm>(a))
     ENOKI_FWD_UNARY_OPERATION_IMM(sr,  Derived, sr<Imm>(a))
@@ -405,6 +401,7 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
     ENOKI_FWD_UNARY_OPERATION(floor, Derived, floor(a));
     ENOKI_FWD_UNARY_OPERATION(sqrt,  Derived, sqrt(a));
     ENOKI_FWD_UNARY_OPERATION(round, Derived, round(a));
+    ENOKI_FWD_UNARY_OPERATION(trunc, Derived, trunc(a));
 
     ENOKI_FWD_UNARY_OPERATION(rsqrt, Derived, rsqrt(a));
     ENOKI_FWD_UNARY_OPERATION(rcp,   Derived, rcp(a));
@@ -630,11 +627,11 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
         size_t result = 0;
         if (!empty()) {
             for (size_t i = 0, count = packets() - (PacketSize > 1 ? 1 : 0); i < count; ++i)
-                result += count(packet(i));
+                result += enoki::count(packet(i));
 
             if constexpr (PacketSize > 1) {
                 auto mask = arange<IndexPacket>() <= IndexScalar((size() - 1) % PacketSize);
-                result += count(packet(packets() - 1) & mask);
+                result += enoki::count(packet(packets() - 1) & mask);
             }
         }
         return result;

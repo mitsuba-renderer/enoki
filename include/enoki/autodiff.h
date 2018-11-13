@@ -62,6 +62,8 @@ namespace detail {
             Base::dec_ref_(index);
         }
 
+        void swap(ReferenceCountedIndex &o) { std::swap(index, o.index); }
+
         operator Index () const { return index; }
 
     private:
@@ -130,11 +132,29 @@ public:
     //! @{ \name Array interface (constructors, component access, ...)
     // -----------------------------------------------------------------------
 
-    DiffArray() = default;
-    DiffArray(const DiffArray &) = default;
-    DiffArray(DiffArray &&) = default;
-    DiffArray& operator=(const DiffArray &) = default;
-    DiffArray& operator=(DiffArray &&) = default;
+    ENOKI_INLINE DiffArray() { }
+
+    ENOKI_NOINLINE ~DiffArray() { }
+
+    ENOKI_NOINLINE DiffArray(const DiffArray &a)
+        : value(a.value), index(a.index) { }
+
+    ENOKI_INLINE DiffArray(DiffArray &&a)
+        : value(std::move(a.value)), index(a.index) {
+        a.index = 0;
+    }
+
+    ENOKI_NOINLINE DiffArray &operator=(const DiffArray &a) {
+        value = a.value;
+        index = a.index;
+        return *this;
+    }
+
+    ENOKI_INLINE DiffArray &operator=(DiffArray &&a) {
+        value = std::move(a.value);
+        index.swap(a.index);
+        return *this;
+    }
 
     template <typename Value2, enable_if_t<!std::is_same_v<Value, Value2>> = 0>
     DiffArray(const DiffArray<Value2> &a) : value(a.value_()) { }
@@ -151,6 +171,9 @@ public:
                   std::bool_constant<!is_diff_array_v<Args>>...>> = 0>
     DiffArray(Args&&... args) : value(std::forward<Args>(args)...) { }
 
+    ENOKI_NOINLINE DiffArray(const Value &value) : value(value) { }
+    ENOKI_NOINLINE DiffArray(Value &&value) : value(std::move(value)) { }
+
     template <typename T>
     using ReplaceValue = DiffArray<replace_scalar_t<Value, T>>;
 
@@ -161,7 +184,7 @@ public:
             return value.size();
     }
 
-    ENOKI_INLINE void resize(size_t size) {
+    ENOKI_NOINLINE void resize(size_t size) {
         ENOKI_MARK_USED(size);
         if constexpr (!is_scalar_v<Value>)
             value.resize(size);
@@ -223,318 +246,486 @@ public:
     }
 
     DiffArray add_(const DiffArray &a) const {
-        Value result = value + a.value;
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_(a))
-                index_new = binary("add", index, a.index, 1.f, 1.f, result.size());
-        return DiffArray::create(index_new, std::move(result));
+        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+            throw std::runtime_error("DiffArray::add_(): unsupported operation!");
+        } else {
+            Value result = value + a.value;
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_(a))
+                    index_new = binary("add", index, a.index, 1, 1, result.size());
+            return DiffArray::create(index_new, std::move(result));
+        }
     }
 
     DiffArray sub_(const DiffArray &a) const {
-        Value result = value - a.value;
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_(a))
-                index_new = binary("sub", index, a.index, 1.f, -1.f, result.size());
-        return DiffArray::create(index_new, std::move(result));
+        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+            throw std::runtime_error("DiffArray::sub_(): unsupported operation!");
+        } else {
+            Value result = value - a.value;
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_(a))
+                    index_new = binary("sub", index, a.index, 1, -1, result.size());
+            return DiffArray::create(index_new, std::move(result));
+        }
     }
 
     DiffArray mul_(const DiffArray &a) const {
-        Value result = value * a.value;
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_(a))
-                index_new = binary("mul", index, a.index, a.value, value, result.size());
-        return DiffArray::create(index_new, std::move(result));
+        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+            throw std::runtime_error("DiffArray::mul_(): unsupported operation!");
+        } else {
+            Value result = value * a.value;
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_(a))
+                    index_new = binary("mul", index, a.index, a.value, value, result.size());
+            return DiffArray::create(index_new, std::move(result));
+        }
     }
 
     DiffArray div_(const DiffArray &a) const {
-        Value result = value / a.value;
-        Index index_new = 0;
-        if constexpr (ComputeGradients) {
-            if (needs_gradients_(a)) {
-                Value rcp_a = rcp(a.value);
-                index_new = binary("div", index, a.index, rcp_a, -value*sqr(rcp_a), result.size());
+        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+            throw std::runtime_error("DiffArray::div_(): unsupported operation!");
+        } else {
+            Value result = value / a.value;
+            Index index_new = 0;
+            if constexpr (ComputeGradients) {
+                if (needs_gradients_(a)) {
+                    Value rcp_a = rcp(a.value);
+                    index_new = binary("div", index, a.index, rcp_a, -value*sqr(rcp_a), result.size());
+                }
             }
+            return DiffArray::create(index_new, std::move(result));
         }
-        return DiffArray::create(index_new, std::move(result));
     }
 
     DiffArray sqrt_() const {
-        Value result = sqrt(value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("sqrt", index, .5f / result, result.size());
-        return DiffArray::create(index_new, std::move(result));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::sqrt_(): unsupported operation!");
+        } else {
+            Value result = sqrt(value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("sqrt", index, .5f / result, result.size());
+            return DiffArray::create(index_new, std::move(result));
+        }
     }
 
-    DiffArray floor_() const { return DiffArray::create(0, floor(value)); }
-    DiffArray ceil_()  const { return DiffArray::create(0,  ceil(value)); }
-    DiffArray trunc_() const { return DiffArray::create(0, trunc(value)); }
-    DiffArray round_() const { return DiffArray::create(0, round(value)); }
+    DiffArray floor_() const {
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>)
+            throw std::runtime_error("DiffArray::floor_(): unsupported operation!");
+        else
+            return DiffArray::create(0, floor(value));
+    }
+
+    DiffArray ceil_() const {
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>)
+            throw std::runtime_error("DiffArray::ceil_(): unsupported operation!");
+        else
+            return DiffArray::create(0, ceil(value));
+    }
+
+    DiffArray trunc_() const {
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>)
+            throw std::runtime_error("DiffArray::trunc_(): unsupported operation!");
+        else
+            return DiffArray::create(0, trunc(value));
+    }
+
+    DiffArray round_() const {
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>)
+            throw std::runtime_error("DiffArray::round_(): unsupported operation!");
+        else
+            return DiffArray::create(0, round(value));
+    }
 
     DiffArray abs_() const {
-        Value result = abs(value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("abs", index, sign(value), result.size());
-        return DiffArray::create(index_new, std::move(result));
+        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+            throw std::runtime_error("DiffArray::abs_(): unsupported operation!");
+        } else {
+            Value result = abs(value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("abs", index, sign(value), result.size());
+            return DiffArray::create(index_new, std::move(result));
+        }
     }
 
     DiffArray neg_() const {
-        Value result = -value;
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("neg", index, -1.f, result.size());
-        return DiffArray::create(index_new, std::move(result));
+        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+            throw std::runtime_error("DiffArray::abs_(): unsupported operation!");
+        } else {
+            Value result = -value;
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("neg", index, -1, result.size());
+            return DiffArray::create(index_new, std::move(result));
+        }
     }
 
     DiffArray rcp_() const {
-        Value result = rcp(value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("rcp", index, -sqr(result), result.size());
-        return DiffArray::create(index_new, std::move(result));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::rcp_(): unsupported operation!");
+        } else {
+            Value result = rcp(value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("rcp", index, -sqr(result), result.size());
+            return DiffArray::create(index_new, std::move(result));
+        }
     }
 
     DiffArray rsqrt_() const {
-        Value result = rsqrt(value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients) {
-            if (needs_gradients_()) {
-                Value rsqrt_2 = sqr(result), rsqrt_3 = result * rsqrt_2;
-                index_new = unary("rsqrt", index, -.5f * rsqrt_3, result.size());
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::rsqrt_(): unsupported operation!");
+        } else {
+            Value result = rsqrt(value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients) {
+                if (needs_gradients_()) {
+                    Value rsqrt_2 = sqr(result), rsqrt_3 = result * rsqrt_2;
+                    index_new = unary("rsqrt", index, -.5f * rsqrt_3, result.size());
+                }
             }
+            return DiffArray::create(index_new, std::move(result));
         }
-        return DiffArray::create(index_new, std::move(result));
     }
 
     DiffArray fmadd_(const DiffArray &a, const DiffArray &b) const {
-        Value result = fmadd(value, a.value, b.value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_(a, b))
-                index_new = ternary("fmadd", index, a.index, b.index, a.value, value, 1.f, result.size());
-        return DiffArray::create(index_new, std::move(result));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::fmadd_(): unsupported operation!");
+        } else {
+            Value result = fmadd(value, a.value, b.value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_(a, b))
+                    index_new = ternary("fmadd", index, a.index, b.index, a.value, value, 1, result.size());
+            return DiffArray::create(index_new, std::move(result));
+        }
     }
 
     DiffArray fmsub_(const DiffArray &a, const DiffArray &b) const {
-        Value result = fmsub(value, a.value, b.value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_(a, b))
-                index_new = ternary("fmsub", index, a.index, b.index, a.value, value, -1.f, result.size());
-        return DiffArray::create(index_new, std::move(result));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::fmsub_(): unsupported operation!");
+        } else {
+            Value result = fmsub(value, a.value, b.value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_(a, b))
+                    index_new = ternary("fmsub", index, a.index, b.index, a.value, value, -1, result.size());
+            return DiffArray::create(index_new, std::move(result));
+        }
     }
 
     DiffArray fnmadd_(const DiffArray &a, const DiffArray &b) const {
-        Value result = fnmadd(value, a.value, b.value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_(a, b))
-                index_new = ternary("fnmadd", index, a.index, b.index, -a.value, -value, 1.f, result.size());
-        return DiffArray::create(index_new, std::move(result));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::fmsub_(): unsupported operation!");
+        } else {
+            Value result = fnmadd(value, a.value, b.value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_(a, b))
+                    index_new = ternary("fnmadd", index, a.index, b.index, -a.value, -value, 1, result.size());
+            return DiffArray::create(index_new, std::move(result));
+        }
     }
 
     DiffArray fnmsub_(const DiffArray &a, const DiffArray &b) const {
-        Value result = fnmsub(value, a.value, b.value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_(a, b))
-                index_new = ternary("fnmsub", index, a.index, b.index, -a.value, -value, -1.f, result.size());
-        return DiffArray::create(index_new, std::move(result));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::fnmsub_(): unsupported operation!");
+        } else {
+            Value result = fnmsub(value, a.value, b.value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_(a, b))
+                    index_new = ternary("fnmsub", index, a.index, b.index, -a.value, -value, -1, result.size());
+            return DiffArray::create(index_new, std::move(result));
+        }
     }
 
     DiffArray sin_() const {
-        auto [s, c] = sincos(value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("sin", index, c, value.size());
-        return DiffArray::create(index_new, std::move(s));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::sin(): unsupported operation!");
+        } else {
+            auto [s, c] = sincos(value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("sin", index, c, value.size());
+            return DiffArray::create(index_new, std::move(s));
+        }
     }
 
     DiffArray cos_() const {
-        auto [s, c] = sincos(value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("cos", index, -s, value.size());
-        return DiffArray::create(index_new, std::move(c));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::cos_(): unsupported operation!");
+        } else {
+            auto [s, c] = sincos(value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("cos", index, -s, value.size());
+            return DiffArray::create(index_new, std::move(c));
+        }
     }
 
     std::pair<DiffArray, DiffArray> sincos_() const {
-        auto [s, c] = sincos(value);
-        Index index_new_s = 0;
-        Index index_new_c = 0;
-        if constexpr (ComputeGradients) {
-            if (needs_gradients_()) {
-                index_new_s = unary("sin", index,  c, value.size());
-                index_new_c = unary("cos", index, -s, value.size());
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::sincos_(): unsupported operation!");
+        } else {
+            auto [s, c] = sincos(value);
+            Index index_new_s = 0;
+            Index index_new_c = 0;
+            if constexpr (ComputeGradients) {
+                if (needs_gradients_()) {
+                    index_new_s = unary("sin", index,  c, value.size());
+                    index_new_c = unary("cos", index, -s, value.size());
+                }
             }
+            return {
+                DiffArray::create(index_new_s, std::move(s)),
+                DiffArray::create(index_new_c, std::move(c))
+            };
         }
-        return {
-            DiffArray::create(index_new_s, std::move(s)),
-            DiffArray::create(index_new_c, std::move(c))
-        };
     }
 
     DiffArray tan_() const {
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("tan", index, sqr(sec(value)), value.size());
-        return DiffArray::create(index_new, tan(value));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::tan_(): unsupported operation!");
+        } else {
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("tan", index, sqr(sec(value)), value.size());
+            return DiffArray::create(index_new, tan(value));
+        }
     }
 
     DiffArray csc_() const {
-        Index index_new = 0;
-        Value csc_value = csc(value);
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("csc", index, -csc_value * cot(value), value.size());
-        return DiffArray::create(index_new, std::move(csc_value));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::csc_(): unsupported operation!");
+        } else {
+            Index index_new = 0;
+            Value csc_value = csc(value);
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("csc", index, -csc_value * cot(value), value.size());
+            return DiffArray::create(index_new, std::move(csc_value));
+        }
     }
 
     DiffArray sec_() const {
-        Index index_new = 0;
-        Value sec_value = sec(value);
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("sec", index, sec_value * tan(value), value.size());
-        return DiffArray::create(index_new, std::move(sec_value));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::sec_(): unsupported operation!");
+        } else {
+            Index index_new = 0;
+            Value sec_value = sec(value);
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("sec", index, sec_value * tan(value), value.size());
+            return DiffArray::create(index_new, std::move(sec_value));
+        }
     }
 
     DiffArray cot_() const {
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("cot", index, -sqr(csc(value)), value.size());
-        return DiffArray::create(index_new, cot(value));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::cot_(): unsupported operation!");
+        } else {
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("cot", index, -sqr(csc(value)), value.size());
+            return DiffArray::create(index_new, cot(value));
+        }
     }
 
     DiffArray asin_() const {
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("asin", index, rsqrt(1 - sqr(value)), value.size());
-        return DiffArray::create(index_new, asin(value));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::asin_(): unsupported operation!");
+        } else {
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("asin", index, rsqrt(1 - sqr(value)), value.size());
+            return DiffArray::create(index_new, asin(value));
+        }
     }
 
     DiffArray acos_() const {
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("acos", index, -rsqrt(1 - sqr(value)), value.size());
-        return DiffArray::create(index_new, acos(value));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::acos_(): unsupported operation!");
+        } else {
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("acos", index, -rsqrt(1 - sqr(value)), value.size());
+            return DiffArray::create(index_new, acos(value));
+        }
     }
 
     DiffArray atan_() const {
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("atan", index, rcp(1 + sqr(value)), value.size());
-        return DiffArray::create(index_new, atan(value));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::atan_(): unsupported operation!");
+        } else {
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("atan", index, rcp(1 + sqr(value)), value.size());
+            return DiffArray::create(index_new, atan(value));
+        }
     }
 
     DiffArray sinh_() const {
-        auto [s, c] = sincosh(value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("sinh", index, c, value.size());
-        return DiffArray::create(index_new, std::move(s));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::sinh_(): unsupported operation!");
+        } else {
+            auto [s, c] = sincosh(value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("sinh", index, c, value.size());
+            return DiffArray::create(index_new, std::move(s));
+        }
     }
 
     DiffArray cosh_() const {
-        auto [s, c] = sincosh(value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("cosh", index, s, value.size());
-        return DiffArray::create(index_new, std::move(c));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::cosh_(): unsupported operation!");
+        } else {
+            auto [s, c] = sincosh(value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("cosh", index, s, value.size());
+            return DiffArray::create(index_new, std::move(c));
+        }
     }
 
     DiffArray csch_() const {
-        Value result = csch(value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("csch", index, -result * coth(value), result.size());
-        return DiffArray::create(index_new, std::move(result));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::csch_(): unsupported operation!");
+        } else {
+            Value result = csch(value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("csch", index, -result * coth(value), result.size());
+            return DiffArray::create(index_new, std::move(result));
+        }
     }
 
     DiffArray sech_() const {
-        Value result = sech(value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("sech", index, -result * tanh(value), result.size());
-        return DiffArray::create(index_new, std::move(result));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::sech_(): unsupported operation!");
+        } else {
+            Value result = sech(value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("sech", index, -result * tanh(value), result.size());
+            return DiffArray::create(index_new, std::move(result));
+        }
     }
 
     DiffArray tanh_() const {
-        Value result = tanh(value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("index", index, sqr(sech(value)), result.size());
-        return DiffArray::create(index_new, std::move(result));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::tanh_(): unsupported operation!");
+        } else {
+            Value result = tanh(value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("index", index, sqr(sech(value)), result.size());
+            return DiffArray::create(index_new, std::move(result));
+        }
     }
 
     DiffArray asinh_() const {
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("asinh", index, rsqrt(1 + sqr(value)), value.size());
-        return DiffArray::create(index_new, asinh(value));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::asinh_(): unsupported operation!");
+        } else {
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("asinh", index, rsqrt(1 + sqr(value)), value.size());
+            return DiffArray::create(index_new, asinh(value));
+        }
     }
 
     DiffArray acosh_() const {
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("acosh", index, rsqrt(sqr(value) - 1), value.size());
-        return DiffArray::create(index_new, acosh(value));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::acosh_(): unsupported operation!");
+        } else {
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("acosh", index, rsqrt(sqr(value) - 1), value.size());
+            return DiffArray::create(index_new, acosh(value));
+        }
     }
 
     DiffArray atanh_() const {
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("atanh", index, rcp(1 - sqr(value)), value.size());
-        return DiffArray::create(index_new, atanh(value));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::atanh_(): unsupported operation!");
+        } else {
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("atanh", index, rcp(1 - sqr(value)), value.size());
+            return DiffArray::create(index_new, atanh(value));
+        }
     }
 
     DiffArray exp_() const {
-        Value result = exp(value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("exp", index, result, value.size());
-        return DiffArray::create(index_new, std::move(result));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::exp_(): unsupported operation!");
+        } else {
+            Value result = exp(value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("exp", index, result, value.size());
+            return DiffArray::create(index_new, std::move(result));
+        }
     }
 
     DiffArray log_() const {
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("log", index, rcp(value), value.size());
-        return DiffArray::create(index_new, log(value));
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            throw std::runtime_error("DiffArray::log_(): unsupported operation!");
+        } else {
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("log", index, rcp(value), value.size());
+            return DiffArray::create(index_new, log(value));
+        }
     }
 
-    template <typename Mask>
-    DiffArray or_(const Mask &m) const {
+    DiffArray or_(const DiffArray &m) const {
+        if constexpr (!is_mask_v<Value> && !std::is_integral_v<Scalar>)
+            throw std::runtime_error("DiffArray::or_(): unsupported operation!");
+        else
+            return DiffArray::create(0, value | m.value_());
+    }
+
+    template <typename Mask> DiffArray or_(const Mask &m) const {
         Index index_new = 0;
         if constexpr (ComputeGradients && is_mask_v<Mask>)
             if (needs_gradients_())
-                index_new = unary("or", index, 1.f, value.size());
+                index_new = unary("or", index, 1, value.size());
         return DiffArray::create(index_new, value | m.value_());
+    }
+
+    DiffArray and_(const DiffArray &m) const {
+        if constexpr (!is_mask_v<Value> && !std::is_integral_v<Scalar>)
+            throw std::runtime_error("DiffArray::and_(): unsupported operation!");
+        else
+            return DiffArray::create(0, value & m.value_());
     }
 
     template <typename Mask>
@@ -546,11 +737,25 @@ public:
         return DiffArray::create(index_new, value & m.value_());
     }
 
+    DiffArray xor_(const DiffArray &m) const {
+        if constexpr (!is_mask_v<Value> && !std::is_integral_v<Scalar>)
+            throw std::runtime_error("DiffArray::xor_(): unsupported operation!");
+        else
+            return DiffArray::create(0, value ^ m.value_());
+    }
+
     template <typename Mask>
     DiffArray xor_(const Mask &m) const {
         if (ComputeGradients && index != 0)
             throw std::runtime_error("DiffArray::xor_(): gradients are not implemented!");
         return DiffArray(value ^ m.value_());
+    }
+
+    DiffArray andnot_(const DiffArray &m) const {
+        if constexpr (!is_mask_v<Value> && !std::is_integral_v<Scalar>)
+            throw std::runtime_error("DiffArray::andnot_(): unsupported operation!");
+        else
+            return DiffArray::create(0, andnot(value, m.value_()));
     }
 
     template <typename Mask>
@@ -561,35 +766,42 @@ public:
     }
 
     DiffArray max_(const DiffArray &a) const {
-        Value result = max(value, a.value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients) {
-            mask_t<Value> m = value > a.value;
-            index_new = binary("max", index, a.index,
-                               select(m, Value(1), Value(0)),
-                               select(m, Value(0), Value(1)),
-                               result.size());
-        }
-        return DiffArray::create(index_new, std::move(result));
-    }
-
-    DiffArray min_(const DiffArray &a) const {
-        Value result = min(value, a.value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients) {
-            if (needs_gradients_(a)) {
-                mask_t<Value> m = value < a.value;
-                index_new = binary("min", index, a.index,
+        if constexpr (is_mask_v<Value>) {
+            throw std::runtime_error("DiffArray::max_(): unsupported operation!");
+        } else {
+            Value result = max(value, a.value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients) {
+                mask_t<Value> m = value > a.value;
+                index_new = binary("max", index, a.index,
                                    select(m, Value(1), Value(0)),
                                    select(m, Value(0), Value(1)),
                                    result.size());
             }
+            return DiffArray::create(index_new, std::move(result));
         }
-        return DiffArray::create(index_new, std::move(result));
     }
 
-    template <typename Mask>
-    static DiffArray select_(const Mask &m,
+    DiffArray min_(const DiffArray &a) const {
+        if constexpr (is_mask_v<Value>) {
+            throw std::runtime_error("DiffArray::min_(): unsupported operation!");
+        } else {
+            Value result = min(value, a.value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients) {
+                if (needs_gradients_(a)) {
+                    mask_t<Value> m = value < a.value;
+                    index_new = binary("min", index, a.index,
+                                       select(m, Value(1), Value(0)),
+                                       select(m, Value(0), Value(1)),
+                                       result.size());
+                }
+            }
+            return DiffArray::create(index_new, std::move(result));
+        }
+    }
+
+    static DiffArray select_(const DiffArray<mask_t<Value>> &m,
                              const DiffArray &t,
                              const DiffArray &f) {
         Value result = select(m.value_(), t.value, f.value);
@@ -614,66 +826,98 @@ public:
     // -----------------------------------------------------------------------
 
 
-    auto all_() const { return all(value); }
-    auto any_() const { return any(value); }
-    auto count_() const { return count(value); }
+    auto all_() const {
+        if constexpr (!is_mask_v<Value>)
+            throw std::runtime_error("DiffArray::all_(): unsupported operation!");
+        else
+            return all(value);
+    }
 
+    auto any_() const {
+        if constexpr (!is_mask_v<Value>)
+            throw std::runtime_error("DiffArray::any_(): unsupported operation!");
+        else
+            return any(value);
+    }
+
+    auto count_() const {
+        if constexpr (!is_mask_v<Value>)
+            throw std::runtime_error("DiffArray::count_(): unsupported operation!");
+        else
+            return count(value);
+    }
 
     //! @}
     // -----------------------------------------------------------------------
 
     DiffArray hsum_() const {
-        Index index_new = 0;
-        if (ComputeGradients && index != 0) {
-            struct HorizontalAddition : Special {
-                RefIndex source;
-                Index target, size;
+        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+            throw std::runtime_error("DiffArray::hsum_(): unsupported operation!");
+        } else {
+            Index index_new = 0;
+            if (ComputeGradients && index != 0) {
+                struct HorizontalAddition : Special {
+                    RefIndex source;
+                    Index target, size;
 
-                void compute_gradients(Tape &tape) const {
-                    const Value &grad = tape.node(target).gradient;
-                    Value &grad_source = tape.node(source).gradient;
-                    Value grad_hsum = hsum(grad);
-                    grad_hsum.resize(size);
-                    grad_source += grad_hsum;
-                }
+                    void compute_gradients(Tape &tape) const {
+                        const Value &grad = tape.node(target).gradient;
+                        Value &grad_source = tape.node(source).gradient;
+                        Value grad_hsum = hsum(grad);
+                        grad_hsum.resize(size);
+                        grad_source += grad_hsum;
+                    }
 
-                size_t nbytes() const { return sizeof(HorizontalAddition); }
+                    size_t nbytes() const { return sizeof(HorizontalAddition); }
 
-                std::string graphviz(const Tape &tape) const {
-                    return std::to_string(target - tape.offset) + " [shape=doubleoctagon];\n" +
-                           std::to_string(target - tape.offset) + " -> " +
-                           std::to_string(source - tape.offset) + ";\n";
-                }
-            };
+                    std::string graphviz(const Tape &tape) const {
+                        return std::to_string(target - tape.offset) + " [shape=doubleoctagon];\n" +
+                               std::to_string(target - tape.offset) + " -> " +
+                               std::to_string(source - tape.offset) + ";\n";
+                    }
+                };
 
-            HorizontalAddition *ha = new HorizontalAddition();
-            ha->size = (Index) value.size();
-            ha->source = index;
-            ha->target = index_new = special("hadd", ha, 1);
+                HorizontalAddition *ha = new HorizontalAddition();
+                ha->size = (Index) value.size();
+                ha->source = index;
+                ha->target = index_new = special("hadd", ha, 1);
+            }
+
+            return DiffArray::create(index_new, hsum(value));
         }
-
-        return DiffArray::create(index_new, hsum(value));
     }
 
     DiffArray hprod_() const {
-        Value result = hprod(value);
-        Index index_new = 0;
-        if constexpr (ComputeGradients)
-            if (needs_gradients_())
-                index_new = unary("hprod", index, select(eq(value, 0.f), 0.f, result / value), 1);
-        return DiffArray::create(index_new, std::move(result));
+        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+            throw std::runtime_error("DiffArray::hprod_(): unsupported operation!");
+        } else {
+            Value result = hprod(value);
+            Index index_new = 0;
+            if constexpr (ComputeGradients)
+                if (needs_gradients_())
+                    index_new = unary("hprod", index, select(eq(value, 0), 0.f, result / value), 1);
+            return DiffArray::create(index_new, std::move(result));
+        }
     }
 
     DiffArray hmax_() const {
-        if (ComputeGradients && index != 0)
-            throw std::runtime_error("hmax(): gradients not yet implemented!");
-        return DiffArray::create(0, hmax(value));
+        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+            throw std::runtime_error("DiffArray::hmax_(): unsupported operation!");
+        } else {
+            if (ComputeGradients && index != 0)
+                throw std::runtime_error("hmax(): gradients not yet implemented!");
+            return DiffArray::create(0, hmax(value));
+        }
     }
 
     DiffArray hmin_() const {
-        if (ComputeGradients && index != 0)
-            throw std::runtime_error("hmin(): gradients not yet implemented!");
-        return DiffArray::create(0, hmin(value));
+        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+            throw std::runtime_error("DiffArray::hmin_(): unsupported operation!");
+        } else {
+            if (ComputeGradients && index != 0)
+                throw std::runtime_error("hmin(): gradients not yet implemented!");
+            return DiffArray::create(0, hmin(value));
+        }
     }
 
     template <size_t Stride, typename Offset, typename Mask>
@@ -768,7 +1012,7 @@ public:
                 if (target.index == 0)
                     target.index = sa->source;
                 else
-                    target.index = binary("add", sa->source, target.index, 1.f, 1.f, target.size());
+                    target.index = binary("add", sa->source, target.index, 1, 1, target.size());
             }
         }
 
@@ -779,17 +1023,53 @@ public:
     //! @{ \name s that don't require derivatives
     // -----------------------------------------------------------------------
 
-    DiffArray not_() const { return DiffArray::create(0, ~value); }
+    DiffArray not_() const {
+        if constexpr ((!is_mask_v<Value> && !std::is_integral_v<Scalar>) ||
+                      std::is_pointer_v<Scalar>)
+            throw std::runtime_error("DiffArray::not_(): unsupported operation!");
+        else
+            return DiffArray::create(0, ~value);
+    }
 
-    template <size_t Imm> DiffArray sl_() const { return DiffArray::create(0, sl<Imm>(value)); }
-    template <size_t Imm> DiffArray sr_() const { return DiffArray::create(0, sr<Imm>(value)); }
-    template <size_t Imm> DiffArray rol_() const { return DiffArray::create(0, rol<Imm>(value)); }
-    template <size_t Imm> DiffArray ror_() const { return DiffArray::create(0, ror<Imm>(value)); }
+    template <size_t Imm>
+    DiffArray sl_() const { return DiffArray::create(0, sl<Imm>(value)); }
 
-    DiffArray sl_(const DiffArray &a) const { return DiffArray::create(0, sl(value, a)); }
-    DiffArray sr_(const DiffArray &a) const { return DiffArray::create(0, sr(value, a)); }
-    DiffArray rol_(const DiffArray &a) const { return DiffArray::create(0, rol(value, a)); }
-    DiffArray ror_(const DiffArray &a) const { return DiffArray::create(0, ror(value, a)); }
+    template <size_t Imm>
+    DiffArray sr_() const { return DiffArray::create(0, sr<Imm>(value)); }
+
+    template <size_t Imm>
+    DiffArray rol_() const { return DiffArray::create(0, rol<Imm>(value)); }
+
+    template <size_t Imm>
+    DiffArray ror_() const { return DiffArray::create(0, ror<Imm>(value)); }
+
+    DiffArray sl_(const DiffArray &a) const {
+        if constexpr (is_mask_v<Value> || !std::is_integral_v<Scalar>)
+            throw std::runtime_error("DiffArray::sl_(): unsupported operation!");
+        else
+            return DiffArray::create(0, value << a.value);
+    }
+
+    DiffArray sr_(const DiffArray &a) const {
+        if constexpr (is_mask_v<Value> || !std::is_integral_v<Scalar>)
+            throw std::runtime_error("DiffArray::sr_(): unsupported operation!");
+        else
+            return DiffArray::create(0, value >> a.value);
+    }
+
+    DiffArray rol_(const DiffArray &a) const {
+        if constexpr (is_mask_v<Value> || !std::is_integral_v<Scalar>)
+            throw std::runtime_error("DiffArray::rol_(): unsupported operation!");
+        else
+            return DiffArray::create(0, rol(value, a.value));
+    }
+
+    DiffArray ror_(const DiffArray &a) const {
+        if constexpr (is_mask_v<Value> || !std::is_integral_v<Scalar>)
+            throw std::runtime_error("DiffArray::ror_(): unsupported operation!");
+        else
+            return DiffArray::create(0, ror(value, a.value));
+    }
 
     auto eq_ (const DiffArray &d) const { return MaskType(eq(value, d.value)); }
     auto neq_(const DiffArray &d) const { return MaskType(neq(value, d.value)); }
@@ -807,7 +1087,8 @@ private:
     // -----------------------------------------------------------------------
 
     struct Edge {
-        using UInt = uint_array_t<Scalar>;
+        using UInt = uint_array_t<Scalar, false>;
+
         /// A quiet NaN with a distinct mantissa bit pattern is used to mark 'special' nodes
         static constexpr UInt special_flag =
             sizeof(UInt) == 4 ? UInt(0b0'11111111'10101010101010101010101u) :
@@ -941,88 +1222,100 @@ private:
     };
 
     ENOKI_NOINLINE static Tape &get_tape() {
-        if (ENOKI_UNLIKELY(!s_tape)) {
-            s_tape = new Tape();
-            clear_graph_();
+        if constexpr (ComputeGradients) {
+            if (ENOKI_UNLIKELY(!s_tape)) {
+                s_tape = new Tape();
+                clear_graph_();
+            }
+            return *s_tape;
+        } else {
+            throw std::runtime_error("DiffArray::get_tape(): unsupported operation!");
         }
-        return *s_tape;
     }
 
     ENOKI_NOINLINE static void add_edge(Tape &tape, Index source, Index target,
                                         const Value &weight) {
-        if (source == 0)
-            return;
+        if constexpr (ComputeGradients) {
+            if (source == 0)
+                return;
 
-        assert(!tape.node(source).is_collected());
-        auto &edges = tape.edges;
+            assert(!tape.node(source).is_collected());
+            auto &edges = tape.edges;
 
-        size_t deg = tape.edge_count(source);
-        if (deg != 0 && deg <= ENOKI_AUTODIFF_EXPAND_LIMIT) {
-            for (size_t i = 0; i < tape.edge_count(source); ++i) {
-                const Edge &e = edges[tape.node(source).edge_offset + i];
-                assert (!e.is_special());
-                add_edge(tape, e.source, target,
-                         select(eq(weight, 0) || eq(e.weight, 0), 0,
-                                weight * e.weight));
-                ++tape.contractions;
-            }
-            return;
-        }
-
-        if (edges.size() == edges.capacity()) {
-            /* Edge list compaction */
-            Index size = 0;
-            for (size_t i = 0; i < edges.size(); ++i) {
-                Edge &es = edges[i];
-                if (es.is_collected())
-                    continue;
-                if (i != size) {
-                    Edge &et = edges[size];
-                    et = std::move(es);
-                    Index &ei = tape.node(et.target).edge_offset;
-                    ei = std::min(ei, size);
+            size_t deg = tape.edge_count(source);
+            if (deg != 0 && deg <= ENOKI_AUTODIFF_EXPAND_LIMIT) {
+                for (size_t i = 0; i < tape.edge_count(source); ++i) {
+                    const Edge &e = edges[tape.node(source).edge_offset + i];
+                    assert (!e.is_special());
+                    add_edge(tape, e.source, target,
+                             select(eq(weight, 0) || eq(e.weight, 0), 0,
+                                    weight * e.weight));
+                    ++tape.contractions;
                 }
-                size++;
-            }
-            edges.resize(size);
-
-            if (edges.size() * 2 > edges.capacity())
-                edges.reserve(edges.capacity() * 2);
-        }
-
-        for (ssize_t i = (ssize_t) edges.size() - 1; i >= 0; --i) {
-            Edge &e = edges[(size_t) i];
-            if (e.target != target) {
-                break;
-            } else if (!e.is_special() && e.source == source && e.target == target) {
-                e.weight += weight;
                 return;
             }
-        }
 
-        tape.node(source).ref_count++;
-        edges.emplace_back(source, target, weight);
+            if (edges.size() == edges.capacity()) {
+                /* Edge list compaction */
+                Index size = 0;
+                for (size_t i = 0; i < edges.size(); ++i) {
+                    Edge &es = edges[i];
+                    if (es.is_collected())
+                        continue;
+                    if (i != size) {
+                        Edge &et = edges[size];
+                        et = std::move(es);
+                        Index &ei = tape.node(et.target).edge_offset;
+                        ei = std::min(ei, size);
+                    }
+                    size++;
+                }
+                edges.resize(size);
+
+                if (edges.size() * 2 > edges.capacity())
+                    edges.reserve(edges.capacity() * 2);
+            }
+
+            for (ssize_t i = (ssize_t) edges.size() - 1; i >= 0; --i) {
+                Edge &e = edges[(size_t) i];
+                if (e.target != target) {
+                    break;
+                } else if (!e.is_special() && e.source == source && e.target == target) {
+                    e.weight += weight;
+                    return;
+                }
+            }
+
+            tape.node(source).ref_count++;
+            edges.emplace_back(source, target, weight);
+        } else {
+            throw std::runtime_error("DiffArray::add_edge(): unsupported operation!");
+        }
     }
 
     ENOKI_INLINE static Index add_node(Label label, Tape &tape, size_t size) {
-        Index node_index = (Index) tape.nodes.size() + tape.offset;
-        if (!tape.free_nodes.empty()) {
-            node_index = tape.free_nodes.back();
-            tape.free_nodes.pop_back();
+        if constexpr (ComputeGradients) {
+            Index node_index = (Index) tape.nodes.size() + tape.offset;
+            if (!tape.free_nodes.empty()) {
+                node_index = tape.free_nodes.back();
+                tape.free_nodes.pop_back();
+            } else {
+                tape.nodes.emplace_back();
+            }
+
+            Node &node = tape.node(node_index);
+            node.edge_offset = (Index) tape.edges.size();
+            node.flags = size == 1 ? ScalarNode : 0;
+
+            ENOKI_MARK_USED(label);
+            #if !defined(NDEBUG)
+                node.label = label;
+            #endif
+
+            return node_index;
         } else {
-            tape.nodes.emplace_back();
+            throw std::runtime_error("DiffArray::add_edge(): unsupported operation!");
         }
-
-        Node &node = tape.node(node_index);
-        node.edge_offset = (Index) tape.edges.size();
-        node.flags = size == 1 ? ScalarNode : 0;
-
-        ENOKI_MARK_USED(label);
-        #if !defined(NDEBUG)
-            node.label = label;
-        #endif
-
-        return node_index;
     }
 
     ENOKI_NOINLINE static Index unary(Label label, Index i0, const Value &w0, size_t size) {
@@ -1091,84 +1384,108 @@ public:
     static void set_tape_ptr(void *ptr) { s_tape = (Tape *) ptr; }
 
     static void set_scatter_gather_source_(const DiffArray &t) {
-        Tape &tape = get_tape();
-        tape.scatter_gather_source = &t;
+        if constexpr (ComputeGradients) {
+            Tape &tape = get_tape();
+            tape.scatter_gather_source = &t;
+        }
     }
 
     static void clear_scatter_gather_source_() {
-        Tape &tape = get_tape();
-        tape.scatter_gather_source = nullptr;
+        if constexpr (ComputeGradients) {
+            Tape &tape = get_tape();
+            tape.scatter_gather_source = nullptr;
+        }
     }
 
     static Index tape_offset_() { return get_tape().offset; }
 
     static void inc_ref_(Index index) {
-        if (index == 0)
-            return;
-        Tape &tape = get_tape();
-        tape.node(index).ref_count++;
+        ENOKI_MARK_USED(index);
+
+        if constexpr (ComputeGradients) {
+            if (index == 0)
+                return;
+            Tape &tape = get_tape();
+            tape.node(index).ref_count++;
+        }
     }
 
     static void dec_ref_(Index index) {
-        if (index == 0)
-            return;
-        Tape &tape = get_tape();
-        if (index < tape.offset)
-            return;
-        Node &node = tape.node(index);
-        if (node.ref_count == 0)
-            throw std::runtime_error("Reference counting error!");
-        if (--node.ref_count == 0) {
-            if constexpr (is_dynamic_array_v<Value>)
-                node.gradient.reset();
-            tape.free_nodes.push_back(index);
-            for (size_t i = node.edge_offset; i < tape.edges.size(); ++i) {
-                Edge &edge = tape.edges[i];
-                if (edge.is_special() || edge.target != index)
-                    break;
-                dec_ref_(edge.source);
-                edge.source = edge.target = 0;
+        ENOKI_MARK_USED(index);
+
+        if constexpr (ComputeGradients) {
+            if (index == 0)
+                return;
+            Tape &tape = get_tape();
+            if (index < tape.offset)
+                return;
+            Node &node = tape.node(index);
+            if (node.ref_count == 0)
+                throw std::runtime_error("Reference counting error!");
+            if (--node.ref_count == 0) {
                 if constexpr (is_dynamic_array_v<Value>)
-                    edge.weight.reset();
+                    node.gradient.reset();
+                tape.free_nodes.push_back(index);
+                for (size_t i = node.edge_offset; i < tape.edges.size(); ++i) {
+                    Edge &edge = tape.edges[i];
+                    if (edge.is_special() || edge.target != index)
+                        break;
+                    dec_ref_(edge.source);
+                    edge.source = edge.target = 0;
+                    if constexpr (is_dynamic_array_v<Value>)
+                        edge.weight.reset();
+                }
             }
         }
     }
 
     ENOKI_NOINLINE static void clear_graph_() {
-        Tape &tape = get_tape();
-        tape.offset += tape.nodes.size();
-        tape.edges.clear();
-        tape.nodes.clear();
-        tape.nodes.emplace_back();
-        tape.free_nodes.clear();
-        tape.operations = 0;
-        tape.contractions = 0;
-        tape.processed = false;
+        if constexpr (ComputeGradients) {
+            Tape &tape = get_tape();
+            tape.offset += tape.nodes.size();
+            tape.edges.clear();
+            tape.nodes.clear();
+            tape.nodes.emplace_back();
+            tape.free_nodes.clear();
+            tape.operations = 0;
+            tape.contractions = 0;
+            tape.processed = false;
+        } else {
+            throw std::runtime_error("DiffArray::clear_graph_(): unsupported operation!");
+        }
     }
 
     static void clear_gradients_() {
-        Tape &tape = get_tape();
-        size_t node_count = 0;
-        Value zero = enoki::zero<Value>();
+        if constexpr (ComputeGradients) {
+            Tape &tape = get_tape();
+            size_t node_count = 0;
+            Value zero = enoki::zero<Value>();
 
-        for (size_t i = 1; i < tape.nodes.size(); ++i) {
-            if (!tape.nodes[i].is_collected()) {
-                tape.nodes[i].gradient = zero;
-                node_count++;
+            for (size_t i = 1; i < tape.nodes.size(); ++i) {
+                if (!tape.nodes[i].is_collected()) {
+                    tape.nodes[i].gradient = zero;
+                    node_count++;
+                }
             }
-        }
 
-        tape.active_node_count = node_count;
+            tape.active_node_count = node_count;
+        } else {
+            throw std::runtime_error("DiffArray::clear_gradients_(): unsupported operation!");
+        }
     }
 
     ENOKI_NOINLINE void requires_gradient_(Label label = nullptr) {
-        #if !defined(NDEBUG)
-            std::string label_quotes =
-                "\\\"" + std::string(label ? label : "unnamed") + "\\\"";
-            index = add_node(label_quotes.c_str(), get_tape(), value.size());
-        #else
-            index = add_node(label, get_tape(), value.size());
-        #endif
+        ENOKI_MARK_USED(label);
+
+        if constexpr (ComputeGradients) {
+            #if !defined(NDEBUG)
+                std::string label_quotes =
+                    "\\\"" + std::string(label ? label : "unnamed") + "\\\"";
+                index = add_node(label_quotes.c_str(), get_tape(), value.size());
+            #else
+                index = add_node(label, get_tape(), value.size());
+            #endif
+        }
     }
 
     static void set_gradient_(Index i, const Value &grad) {
@@ -1177,65 +1494,74 @@ public:
     }
 
     static void backward_static_() {
-        Tape &tape = get_tape();
+        if constexpr (ComputeGradients) {
+            Tape &tape = get_tape();
 
-        size_t edge_count = 0;
-        Value zero = enoki::zero<Value>();
+            size_t edge_count = 0;
+            Value zero = enoki::zero<Value>();
 
-        for (ssize_t i = (ssize_t) tape.edges.size() - 1; i >= 0; --i) {
-            const Edge &edge = tape.edges[(size_t) i];
-            if (edge.is_collected())
-                continue;
+            for (ssize_t i = (ssize_t) tape.edges.size() - 1; i >= 0; --i) {
+                const Edge &edge = tape.edges[(size_t) i];
+                if (edge.is_collected())
+                    continue;
 
-            if (ENOKI_LIKELY(!edge.is_special())) {
-                const Value &weight = edge.weight;
-                const Node &target  = tape.node(edge.target);
-                Node       &source  = tape.node(edge.source);
-                assert(!source.is_collected());
+                if (ENOKI_LIKELY(!edge.is_special())) {
+                    const Value &weight = edge.weight;
+                    const Node &target  = tape.node(edge.target);
+                    Node       &source  = tape.node(edge.source);
+                    assert(!source.is_collected());
 
-                masked(source.gradient, neq(weight, zero) & neq(target.gradient, zero)) =
-                    fmadd(weight, target.gradient, source.gradient);
+                    masked(source.gradient, neq(weight, zero) & neq(target.gradient, zero)) =
+                        fmadd(weight, target.gradient, source.gradient);
 
-                if (ENOKI_UNLIKELY((source.flags & NodeFlags::ScalarNode) != 0 &&
-                                    source.gradient.size() != 1)) {
-                    source.gradient = hsum(source.gradient);
+                    if (ENOKI_UNLIKELY((source.flags & NodeFlags::ScalarNode) != 0 &&
+                                        source.gradient.size() != 1)) {
+                        source.gradient = hsum(source.gradient);
+                    }
+                } else {
+                    edge.special->compute_gradients(tape);
                 }
-            } else {
-                edge.special->compute_gradients(tape);
+                edge_count++;
             }
-            edge_count++;
-        }
 
-        std::cout << "Processed " << tape.active_node_count << "/" << tape.nodes.size() - 1
-                  << " nodes, " << edge_count << "/" << tape.edges.size()
-                  << " edges [" << tape.nbytes() << " bytes, "
-                  << tape.operations << " ops and " << tape.contractions
-                  << " contractions].. " << std::endl;
+            std::cout << "Processed " << tape.active_node_count << "/" << tape.nodes.size() - 1
+                      << " nodes, " << edge_count << "/" << tape.edges.size()
+                      << " edges [" << tape.nbytes() << " bytes, "
+                      << tape.operations << " ops and " << tape.contractions
+                      << " contractions].. " << std::endl;
+        } else {
+            throw std::runtime_error("DiffArray::backward_static_(): unsupported operation!");
+        }
     }
 
     ENOKI_NOINLINE void backward_() const {
-        if (index == 0)
-            return;
+        if constexpr (ComputeGradients) {
+            if (index == 0)
+                return;
 
-        Tape &tape = get_tape();
-        if (tape.processed)
-            throw std::runtime_error(
-                "Error: backward() was used twice in a row. A "
-                "prior call to clear_graph() is necessary!");
-        tape.processed = true;
+            Tape &tape = get_tape();
+            if (tape.processed)
+                throw std::runtime_error(
+                    "Error: backward() was used twice in a row. A "
+                    "prior call to clear_graph() is necessary!");
+            tape.processed = true;
 
-        clear_gradients_();
-        tape.node(index).gradient = 1.f;
-        backward_static_();
+            clear_gradients_();
+            tape.node(index).gradient = 1;
+            backward_static_();
+        } else {
+            throw std::runtime_error("DiffArray::backward_(): unsupported operation!");
+        }
     }
 
     ENOKI_NOINLINE static std::string graphviz_() {
-        Tape &tape = get_tape();
-        std::string result;
+        if constexpr (ComputeGradients) {
+            Tape &tape = get_tape();
+            std::string result;
 
-        size_t index = 0;
-        for (const auto &node : tape.nodes) {
             #if !defined(NDEBUG)
+            size_t index = 0;
+            for (const auto &node : tape.nodes) {
                 if (!node.is_collected() && !node.label.empty()) {
                     result += "  ";
                     result += std::to_string(index) + " [label=\"" + node.label;
@@ -1247,32 +1573,33 @@ public:
                         result += " fillcolor=salmon style=filled";
                     result += "];\n";
                 }
+
+                index++;
+            }
             #endif
 
-            index++;
-        }
+            for (const auto &edge : tape.edges) {
+                if (edge.is_collected())
+                    continue;
 
-        for (const auto &edge : tape.edges) {
-            if (edge.is_collected())
-                continue;
-
-            result += "  ";
-            if (!edge.is_special())
-                result += std::to_string(edge.target - tape.offset) + " -> " +
-                          std::to_string(edge.source - tape.offset) + ";\n";
-            else
-                result += edge.special->graphviz(tape);
+                result += "  ";
+                if (!edge.is_special())
+                    result += std::to_string(edge.target - tape.offset) + " -> " +
+                              std::to_string(edge.source - tape.offset) + ";\n";
+                else
+                    result += edge.special->graphviz(tape);
+            }
+            return result;
+        } else {
+            throw std::runtime_error("DiffArray::graphviz_(): unsupported operation!");
         }
-        return result;
     }
 
     ENOKI_NOINLINE Index index_() const { return index; }
     ENOKI_NOINLINE const Value &value_() const { return value; }
     ENOKI_NOINLINE Value &value_() { return value; }
 
-    const Value &gradient_() const {
-        return gradient_static_(index);
-    }
+    const Value &gradient_() const { return gradient_static_(index); }
 
     ENOKI_NOINLINE static const Value &gradient_static_(Index index) {
         Tape &tape = get_tape();
