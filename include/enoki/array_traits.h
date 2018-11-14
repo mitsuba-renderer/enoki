@@ -402,9 +402,7 @@ namespace detail {
         using type = decltype(std::declval<T>() + std::declval<expr_t<Ts...>>());
     };
 
-    template <typename T> struct expr_n<void, T*, T*> { using type = T*; };
-    template <typename T> struct expr_n<void, T*, const T*> { using type = const T*; };
-    template <typename T> struct expr_n<void, const T*, T*> { using type = const T*; };
+    template <typename T1, typename T2> struct expr_n<void, T1*, T2*> { using type = std::common_type_t<T1*, T2*>; };
     template <typename T> struct expr_n<void, T*, std::nullptr_t> { using type = T*; };
     template <typename T> struct expr_n<void, T*, unsigned long long> { using type = T*; };
     template <typename T> struct expr_n<void, T*, unsigned long> { using type = T*; };
