@@ -924,7 +924,6 @@ public:
     static ENOKI_NOINLINE DiffArray gather_(const void *ptr,
                                             const Offset &offset,
                                             const Mask &mask) {
-        static_assert(Stride == sizeof(Scalar), "Unsupported stride!");
         using OffsetType = typename Offset::UnderlyingType;
         using MaskType = typename Mask::UnderlyingType;
 
@@ -936,6 +935,8 @@ public:
 
             if (tape.scatter_gather_source != nullptr &&
                 tape.scatter_gather_source->index != 0) {
+                if (Stride != sizeof(Scalar))
+                    throw std::runtime_error("Differentiable gather: unsupported stride!");
                 struct Gather : Special {
                     RefIndex source;
                     Index target, size;
