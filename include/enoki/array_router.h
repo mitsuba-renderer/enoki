@@ -1118,14 +1118,14 @@ ENOKI_INLINE void scatter_add(void *mem, const Index &index, const Arg &value, m
 /// Prefetch operations with an array source
 template <typename Array, bool Write = false, size_t Level = 2, size_t Stride = 0,
           bool Packed = true, typename Source, typename... Args,
-          enable_if_array_t<Source> = 0>
+          enable_if_t<array_depth_v<Source> == 1> = 0>
 ENOKI_INLINE void prefetch(const Source &source, const Args &... args) {
     prefetch<Array, Write, Level, Stride, Packed>(source.data(), args...);
 }
 
 /// Gather operations with an array source
 template <typename Array, size_t Stride = 0, bool Packed = true,
-          typename Source, typename... Args, enable_if_array_t<Source> = 0>
+          typename Source, typename... Args, enable_if_t<array_depth_v<Source> == 1> = 0>
 ENOKI_INLINE Array gather(const Source &source, const Args &... args) {
     if constexpr (is_autodiff_array_v<Source>)
         Source::set_scatter_gather_source_(source.index_(), source.size());
@@ -1140,7 +1140,7 @@ ENOKI_INLINE Array gather(const Source &source, const Args &... args) {
 
 /// Scatter operations with an array target
 template <size_t Stride = 0, bool Packed = true, typename Target,
-          typename... Args, enable_if_array_t<Target> = 0>
+          typename... Args, enable_if_t<array_depth_v<Target> == 1> = 0>
 ENOKI_INLINE void scatter(Target &target, const Args &... args) {
     if constexpr (is_autodiff_array_v<Target>)
         Target::set_scatter_gather_source_(target.index_(), target.size());
@@ -1153,7 +1153,7 @@ ENOKI_INLINE void scatter(Target &target, const Args &... args) {
 
 /// Scatter operations with an array target
 template <size_t Stride = 0, typename Target, typename... Args,
-          enable_if_array_t<Target> = 0>
+          enable_if_t<array_depth_v<Target> == 1> = 0>
 ENOKI_INLINE void scatter_add(Target &target, const Args &... args) {
     if constexpr (is_autodiff_array_v<Target>)
         Target::set_scatter_gather_source_(target.index(), target.size());

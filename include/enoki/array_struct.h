@@ -189,6 +189,11 @@ struct struct_support<T, enable_if_static_array_t<T>> {
         }
     }
 
+    template <typename Src, typename Index, typename Mask>
+    static ENOKI_INLINE T gather(const Src &src, const Index &index, const Mask &mask) {
+        return gather(src, index, mask, std::make_index_sequence<Size>());
+    }
+
 private:
     template <typename T2, size_t... Is>
     static ENOKI_INLINE decltype(auto) packet(T2 &value, size_t i, std::index_sequence<Is...>) {
@@ -216,6 +221,12 @@ private:
         using Value = decltype(enoki::ref_wrap(value.coeff(0)));
         using Return = typename T::template ReplaceValue<Value>;
         return Return(enoki::ref_wrap(value.coeff(Is))...);
+    }
+
+    template <typename Src, typename Index, typename Mask, size_t... Is>
+    static ENOKI_INLINE T gather(const Src &src, const Index &index, const Mask &mask,
+                                 std::index_sequence<Is...>) {
+        return T(enoki::gather<value_t<T>>(src.coeff(Is), index, mask)...);
     }
 };
 
@@ -312,6 +323,17 @@ void set_shape(T &a, const std::array<size_t, array_depth_v<T>> &value) {
 
 template <typename T> bool ragged(const T &a) {
     return !detail::is_ragged_recursive(a, shape(a).data());
+}
+
+template <
+    typename Array, typename Index,
+    typename Mask = mask_t<replace_scalar_t<Index, scalar_t<Array>>>,
+    typename Source,
+    enable_if_t<!std::is_pointer_v<Source> && !std::is_array_v<Source> &&
+                 array_depth_v<Source> != 1> = 0>
+ENOKI_INLINE Array gather(const Source &source, const Index &index,
+                          const detail::identity_t<Mask> &mask = true) {
+    return struct_support_t<Array>::gather(source, index, mask);
 }
 
 //! @}

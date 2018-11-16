@@ -13,6 +13,7 @@
 
 #include "test.h"
 #include <enoki/array.h>
+#include <enoki/dynamic.h>
 
 template <typename Value_> struct Custom {
     using Value = Value_;
@@ -99,4 +100,47 @@ ENOKI_TEST(test03_tricky) {
         assert(x.mask.coeff(i) == ((i & 1) != 0));
         assert(x.ptr.coeff(i) == (Test *) (0xdeadbeef + i));
     }
+}
+
+ENOKI_TEST(test04_gather_custom_struct) {
+    using FloatP = Packet<float>;
+    using UInt32P = Packet<uint32_t>;
+    using FloatX = DynamicArray<FloatP>;
+    using UInt32X = DynamicArray<UInt32P>;
+    using Custom3f = Custom<float>;
+    using Custom3fP = Custom<FloatP>;
+    using Custom3fX = Custom<FloatX>;
+
+    Custom3fX z;
+    z.o.x() = arange<FloatX>(20) + 1.f;
+    z.o.y() = arange<FloatX>(20) + 100.f;
+    z.o.z() = arange<FloatX>(20) + 1000.f;
+    z.d.x() = arange<FloatX>(20) + 2.f;
+    z.d.y() = arange<FloatX>(20) + 200.f;
+    z.d.z() = arange<FloatX>(20) + 2000.f;
+    z.i = arange<UInt32X>(20) + 1234u;
+
+    Custom3fP p = gather<Custom3fP>(z, arange<UInt32P>() + 1u);
+
+    assert(p.o.x() == arange<FloatP>() + 2.f);
+    assert(p.o.y() == arange<FloatP>() + 101.f);
+    assert(p.o.z() == arange<FloatP>() + 1001.f);
+
+    assert(p.d.x() == arange<FloatP>() + 3.f);
+    assert(p.d.y() == arange<FloatP>() + 201.f);
+    assert(p.d.z() == arange<FloatP>() + 2001.f);
+
+    assert(p.i == arange<UInt32P>() + 1235u);
+
+    Custom3f s = gather<Custom3f>(z, 1u);
+
+    assert(s.o.x() == 2.f);
+    assert(s.o.y() == 101.f);
+    assert(s.o.z() == 1001.f);
+
+    assert(s.d.x() == 3.f);
+    assert(s.d.y() == 201.f);
+    assert(s.d.z() == 2001.f);
+
+    assert(s.i == 1235u);
 }
