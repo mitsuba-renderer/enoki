@@ -1764,6 +1764,14 @@ Miscellaneous operations
 
     Proposed by `Don Hatch <http://www.plunk.org/~hatch/rightway.php>`_.
 
+.. cpp:function:: template <typename Array> auto unit_angle_z(const Array &v)
+
+    Numerically well-behaved routine for computing the angle between the unit
+    vector ``v`` and the Z axis ``[0, 0, 1]``. This should be used wherever one
+    is tempted to compute the arc cosine, i.e. ``acos(v.z())``.
+
+    Proposed by `Don Hatch <http://www.plunk.org/~hatch/rightway.php>`_.
+
 
 Rearranging contents of arrays
 ------------------------------

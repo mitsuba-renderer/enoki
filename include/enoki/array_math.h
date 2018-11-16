@@ -1314,6 +1314,23 @@ Expr unit_angle(const T &a, const T &b) {
     return select(dot_uv >= 0, temp, scalar_t<Expr>(M_PI) - temp);
 }
 
+/**
+ * \brief Numerically well-behaved routine for computing the angle
+ * between the unit direction vector 'v' and the z-axis
+ *
+ * This should be used wherever one is tempted to compute
+ * std::acos(v.z())
+ *
+ * By Don Hatch at http://www.plunk.org/~hatch/rightway.php
+ */
+template <typename T, typename Expr = expr_t<value_t<T>>>
+Expr unit_angle_z(const T &v) {
+    static_assert(T::Size == 3, "unit_angle_z(): input is not a 3D vector");
+    Expr temp = 2.f * asin(.5f * sqrt(sqr(v.x()) + sqr(v.y()) +
+                                      sqr(v.z() - copysign(1.f, v.z()))));
+    return select(v.z() >= 0, temp, scalar_t<Expr>(M_PI) - temp);
+}
+
 //! @}
 // -----------------------------------------------------------------------
 
