@@ -220,7 +220,10 @@
         Base::operator=(std::move(value));                                     \
         ENOKI_MAP_STMT_MOVE(value, StructFields)                               \
         return *this;                                                          \
-    }
+    }                                                                          \
+    template <typename Mask, enoki::enable_if_mask_t<Mask> = 0>                \
+    auto operator[](const Mask &m) { return masked(*this, m); }                \
+
 
 #define ENOKI_STRUCT_SUPPORT(Struct, ...)                                      \
     NAMESPACE_BEGIN(enoki)                                                     \

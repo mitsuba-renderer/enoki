@@ -81,11 +81,10 @@ struct Array<detail::MaskedArray<Value_>, Size_, Approx_, Mode_>
 
 template <typename T, typename Mask>
 ENOKI_INLINE auto masked(T &value, const Mask &mask) {
-    if constexpr (std::is_same_v<Mask, bool>) {
+    if constexpr (std::is_same_v<Mask, bool>)
         return detail::MaskedValue<T>{ value, mask };
-    } else {
+    else
         return struct_support_t<T>::masked(value, mask);
-    }
 }
 
 //! @}
