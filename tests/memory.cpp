@@ -77,7 +77,40 @@ ENOKI_TEST_ALL(test05_gather) {
     memset(dst, 0, sizeof(Value) * Size);
 }
 
-ENOKI_TEST_ALL(test06_gather_mask) {
+ENOKI_TEST_ALL(test06_gather_pointers) {
+    using Scalar   = scalar_t<T>;
+    using ValuePtr = replace_scalar_t<T, const Scalar *>;
+    using UInt32P  = replace_scalar_t<T, uint32_t>;
+    Scalar v1 = 1337, v2 = 42;
+
+    // v1, v2, v1, v2, ...
+    std::vector<Scalar *> pointers(Size, nullptr);
+    for (size_t i = 0; i < Size; ++i)
+        pointers[i] = (i % 2) == 0 ? &v1 : &v2;
+
+    UInt32P indices;
+    constexpr uint32_t middle = (Size+1) / 2;
+    if constexpr (is_array_v<T> && Size > 1) {
+        // v1, v1, ..., v2, v2, ...
+        for (uint32_t i = 0; i < middle; ++i)
+            indices[i] = i * 2;
+        for (uint32_t i = middle; i < Size; ++i)
+            indices[i] = (i - middle) * 2 + 1;
+    } else {
+        indices = 0;
+    }
+
+    auto gathered = gather<ValuePtr>(pointers.data(), indices);
+    static_assert(std::is_same_v<decltype(gathered), ValuePtr>);
+
+    if constexpr (is_array_v<T> && Size > 1)
+        for (size_t i = 0; i < Size; ++i)
+            assert(gathered[i] == (i < middle ? &v1 : &v2));
+    else
+        assert(all(gathered == &v1));
+}
+
+ENOKI_TEST_ALL(test07_gather_mask) {
     alignas(alignof(T)) Value mem[Size], dst[Size];
     uint32_t indices32[Size];
     uint64_t indices64[Size];
@@ -113,7 +146,7 @@ ENOKI_TEST_ALL(test06_gather_mask) {
         assert(dst[i] == ((i % 2 == 0) ? Value(Size - 1 - i) : 0));
 }
 
-ENOKI_TEST_ALL(test07_scatter) {
+ENOKI_TEST_ALL(test08_scatter) {
     alignas(alignof(T)) Value mem[Size], dst[Size];
     uint32_t indices32[Size];
     uint64_t indices64[Size];
@@ -138,7 +171,7 @@ ENOKI_TEST_ALL(test07_scatter) {
     memset(dst, 0, sizeof(Value) * Size);
 }
 
-ENOKI_TEST_ALL(test08_scatter_mask) {
+ENOKI_TEST_ALL(test09_scatter_mask) {
     alignas(alignof(T)) Value mem[Size], dst[Size];
     uint32_t indices32[Size];
     uint64_t indices64[Size];
@@ -164,7 +197,7 @@ ENOKI_TEST_ALL(test08_scatter_mask) {
         assert(dst[i] == (((Size-1-i) % 2 == 0) ? Value(Size - 1 - i) : 0));
 }
 
-ENOKI_TEST_ALL(test09_prefetch) {
+ENOKI_TEST_ALL(test10_prefetch) {
     alignas(alignof(T)) Value mem[Size];
     uint32_t indices32[Size];
     uint64_t indices64[Size];
@@ -186,7 +219,7 @@ ENOKI_TEST_ALL(test09_prefetch) {
     prefetch<T>(mem, id64, even_mask);
 }
 
-ENOKI_TEST_ALL(test10_load_masked) {
+ENOKI_TEST_ALL(test11_load_masked) {
     alignas(alignof(T)) Value mem[Size];
     Value mem_u[Size];
     Value mem2[Size];
@@ -201,7 +234,7 @@ ENOKI_TEST_ALL(test10_load_masked) {
     assert(load_unaligned<T>(mem_u, even_mask) == load_unaligned<T>(mem2));
 }
 
-ENOKI_TEST_ALL(test11_store_masked) {
+ENOKI_TEST_ALL(test12_store_masked) {
     alignas(alignof(T)) Value mem[Size];
     Value mem_u[Size];
     Value mem2[Size];
