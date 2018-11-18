@@ -546,9 +546,14 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     static ENOKI_INLINE Derived gather_(const void *mem, const Index &index, const Mask &mask) {
         ENOKI_CHKSCALAR("gather");
         Derived result;
-        for (size_t i = 0; i < Derived::Size; ++i)
-            (Value &) result.coeff(i) =
-                (const Value &) gather<Value, Stride>(mem, index.coeff(i), mask.coeff(i));
+        for (size_t i = 0; i < Derived::Size; ++i) {
+            if constexpr (!is_mask_v<Derived>) {
+                (Value &) result.coeff(i) =
+                    (const Value &) gather<Value, Stride>(mem, index.coeff(i), mask.coeff(i));
+            } else {
+                result.coeff(i) = gather<Value, Stride>(mem, index.coeff(i), mask.coeff(i));
+            }
+        }
         return result;
     }
 
