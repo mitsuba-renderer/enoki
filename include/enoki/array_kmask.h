@@ -127,7 +127,7 @@ struct KMaskBase : StaticArrayBase<Value_, Size_, Approx_, Mode_, true, Derived_
 
     ENOKI_INLINE Derived andnot_(const Derived &a) const {
         if constexpr (Size_ == 16) /* Use intrinsic if possible */
-            return Derived::from_k(_mm512_kandn(a.k, a));
+            return Derived::from_k(_mm512_kandn(a.k, k));
         else
             return Derived::from_k(k & ~a.k);
     }
