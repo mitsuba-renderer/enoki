@@ -848,6 +848,19 @@ Elementary Arithmetic Functions
 
     Computes the floor of :math:`x` (analogous to ``std::floor``).
 
+
+.. cpp:function:: template <typename Target, typename Array> Array ceil2int(Array x)
+
+    Computes the ceiling of :math:`x` and converts the result to an integer. If
+    supported by the hardware, the combined operation is more efficient than
+    the analogous expression ``Target(ceil(x))``.
+
+.. cpp:function:: template <typename Target, typename Array> Array floor2int(Array x)
+
+    Computes the floor of :math:`x` and converts the result to an integer. If
+    supported by the hardware, the combined operation is more efficient than
+    the analogous expression ``Target(floor(x))``.
+
 .. cpp:function:: template <typename Array> Array round(Array x)
 
     Rounds :math:`x` to the nearest integer using Banker's rounding for

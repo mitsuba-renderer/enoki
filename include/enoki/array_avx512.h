@@ -229,6 +229,59 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
         return _mm512_roundscale_ps(m, _MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC);
     }
 
+    template <typename T>
+    ENOKI_INLINE auto ceil2int_() const {
+        if constexpr (sizeof(scalar_t<T>) == 4) {
+            if constexpr (std::is_signed_v<scalar_t<T>>)
+                return T(_mm512_cvt_roundps_epi32(m, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC));
+            else
+                return T(_mm512_cvt_roundps_epu32(m, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC));
+        } else {
+            #if defined(ENOKI_X86_AVX512DQ)
+                using A = typename T::Array1;
+                if constexpr (std::is_signed_v<scalar_t<T>>)
+                    return T(
+                        A(_mm512_cvt_roundps_epi64(low(derived()).m, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC)),
+                        A(_mm512_cvt_roundps_epi64(high(derived()).m, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC))
+                    );
+                else
+                    return T(
+                        A(_mm512_cvt_roundps_epu64(low(derived()).m, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC)),
+                        A(_mm512_cvt_roundps_epu64(high(derived()).m, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC))
+                    );
+            #else
+                return Base::template ceil2int_<T>();
+            #endif
+        }
+    }
+
+    template <typename T>
+    ENOKI_INLINE auto floor2int_() const {
+        if constexpr (sizeof(scalar_t<T>) == 4) {
+            if constexpr (std::is_signed_v<scalar_t<T>>)
+                return T(_mm512_cvt_roundps_epi32(m, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
+            else
+                return T(_mm512_cvt_roundps_epu32(m, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
+        } else {
+            #if defined(ENOKI_X86_AVX512DQ)
+                using A = typename T::Array1;
+
+                if constexpr (std::is_signed_v<scalar_t<T>>)
+                    return T(
+                        A(_mm512_cvt_roundps_epi64(low(derived()).m, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC)),
+                        A(_mm512_cvt_roundps_epi64(high(derived()).m, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC))
+                    );
+                else
+                    return T(
+                        A(_mm512_cvt_roundps_epu64(low(derived()).m, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC)),
+                        A(_mm512_cvt_roundps_epu64(high(derived()).m, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC))
+                    );
+            #else
+                return Base::template floor2int_<T>();
+            #endif
+        }
+    }
+
     ENOKI_INLINE Derived fmadd_   (Ref b, Ref c) const { return _mm512_fmadd_round_ps   (m, b.m, c.m, (int) Mode); }
     ENOKI_INLINE Derived fmsub_   (Ref b, Ref c) const { return _mm512_fmsub_round_ps   (m, b.m, c.m, (int) Mode); }
     ENOKI_INLINE Derived fnmadd_  (Ref b, Ref c) const { return _mm512_fnmadd_round_ps  (m, b.m, c.m, (int) Mode); }
@@ -699,6 +752,44 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
     ENOKI_INLINE Derived floor_()    const { return _mm512_floor_pd(m);    }
     ENOKI_INLINE Derived sqrt_()     const { return _mm512_sqrt_round_pd(m, (int) Mode); }
 
+    template <typename T>
+    ENOKI_INLINE auto ceil2int_() const {
+        if constexpr (sizeof(scalar_t<T>) == 4) {
+            if constexpr (std::is_signed_v<scalar_t<T>>)
+                return T(_mm512_cvt_roundpd_epi32(m, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC));
+            else
+                return T(_mm512_cvt_roundpd_epu32(m, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC));
+        } else {
+            #if defined(ENOKI_X86_AVX512DQ)
+                if constexpr (std::is_signed_v<scalar_t<T>>)
+                    return T(_mm512_cvt_roundpd_epi64(m, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC));
+                else
+                    return T(_mm512_cvt_roundpd_epu64(m, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC));
+            #else
+                return Base::template ceil2int_<T>();
+            #endif
+        }
+    }
+
+    template <typename T>
+    ENOKI_INLINE auto floor2int_() const {
+        if constexpr (sizeof(scalar_t<T>) == 4) {
+            if constexpr (std::is_signed_v<scalar_t<T>>)
+                return T(_mm512_cvt_roundps_epi32(m, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
+            else
+                return T(_mm512_cvt_roundps_epu32(m, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
+        } else {
+            #if defined(ENOKI_X86_AVX512DQ)
+                if constexpr (std::is_signed_v<scalar_t<T>>)
+                    return T(_mm512_cvt_roundps_epi64(m, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
+                else
+                    return T(_mm512_cvt_roundps_epu64(m, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
+            #else
+                return Base::template floor2int_<T>();
+            #endif
+        }
+    }
+
     ENOKI_INLINE Derived round_() const {
         return _mm512_roundscale_pd(m, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
     }
@@ -871,6 +962,7 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
     }
 
     template <size_t Stride, typename Index, typename Mask>
+
     ENOKI_INLINE void scatter_(void *ptr, const Index &index, const Mask &mask) const {
         if constexpr (sizeof(scalar_t<Index>) == 4)
             _mm512_mask_i32scatter_pd(ptr, mask.k, index.m, m, Stride);

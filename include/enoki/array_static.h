@@ -442,7 +442,6 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     /// Fused multiply-add
     ENOKI_INLINE Derived fmadd_(const Derived &d1, const Derived &d2) const {
         if constexpr (array_depth_v<Value> > 0) {
-            ENOKI_CHKSCALAR("fmadd");
             Derived result;
             for (size_t i = 0; i < Derived::Size; ++i)
                 (Value &) result.coeff(i) = fmadd((const Value &) derived().coeff(i),
@@ -457,7 +456,6 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     /// Fused negative multiply-add
     ENOKI_INLINE Derived fnmadd_(const Derived &d1, const Derived &d2) const {
         if constexpr (array_depth_v<Value> > 0) {
-            ENOKI_CHKSCALAR("fnmadd");
             Derived result;
             for (size_t i = 0; i < Derived::Size; ++i)
                 (Value &) result.coeff(i) = fnmadd((const Value &) derived().coeff(i),
@@ -472,7 +470,6 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     /// Fused multiply-subtract
     ENOKI_INLINE Derived fmsub_(const Derived &d1, const Derived &d2) const {
         if constexpr (array_depth_v<Value> > 0) {
-            ENOKI_CHKSCALAR("fmsub");
             Derived result;
             for (size_t i = 0; i < Derived::Size; ++i)
                 (Value &) result.coeff(i) = fmsub((const Value &) derived().coeff(i),
@@ -607,6 +604,30 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     template <size_t Imm>
     ENOKI_INLINE Derived rol_array_() const {
         return rol_array_<Imm>(std::make_index_sequence<Derived::Size>());
+    }
+
+    template <typename T> T floor2int_() const {
+        if constexpr (array_depth_v<Value> > 0) {
+            Derived result;
+            for (size_t i = 0; i < Derived::Size; ++i)
+                (Value &) result.coeff(i) =
+                    floor2int<value_t<T>>((const Value &) derived().coeff(i));
+            return result;
+        } else {
+            return T(floor(derived()));
+        }
+    }
+
+    template <typename T> T ceil2int_() const {
+        if constexpr (array_depth_v<Value> > 0) {
+            Derived result;
+            for (size_t i = 0; i < Derived::Size; ++i)
+                (Value &) result.coeff(i) =
+                    ceil2int<value_t<T>>((const Value &) derived().coeff(i));
+            return result;
+        } else {
+            return T(ceil(derived()));
+        }
     }
 
 private:

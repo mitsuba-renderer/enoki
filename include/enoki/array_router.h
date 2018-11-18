@@ -581,6 +581,21 @@ auto low(const Array &a) { return a.derived().low_(); }
 template <typename Array, enable_if_static_array_t<Array> = 0>
 auto high(const Array &a) { return a.derived().high_(); }
 
+template <typename T, typename Arg>
+T floor2int(const Arg &a) {
+    if constexpr (is_array_v<Arg>)
+        return a.template floor2int_<T>();
+    else
+        return detail::floor2int_scalar<T>(a);
+}
+
+template <typename T, typename Arg>
+T ceil2int(const Arg &a) {
+    if constexpr (is_array_v<Arg>)
+        return a.template ceil2int_<T>();
+    else
+        return detail::ceil2int_scalar<T>(a);
+}
 
 // -----------------------------------------------------------------------
 //! @{ \name Miscellaneous routines for vector spaces

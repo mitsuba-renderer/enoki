@@ -308,3 +308,10 @@ ENOKI_TEST_FLOAT(test18_fmod) {
     assert(abs(enoki::fmod( a, -b) - c)[0] < 1e-12f);
     assert(abs(enoki::fmod(-a, -b) + c)[0] < 1e-12f);
 }
+
+ENOKI_TEST_FLOAT(test19_ceil2int) {
+    T a = Value(-5.1);
+    using Int = int_array_t<T>;
+    assert(floor2int<Int>(a) == Int(-6));
+    assert(ceil2int<Int>(a) == Int(-5));
+}

@@ -411,6 +411,74 @@ template <typename T1, typename T2, typename T3,
     return (E) a1 * (E) a2 + (E) a3;
 }
 
+template <typename T, typename Arg>
+T ceil2int_scalar(Arg x) {
+#if defined(ENOKI_X86_AVX512F)
+    if constexpr (std::is_same_v<Arg, float>) {
+        __m128 y = _mm_set_ss(x);
+        if constexpr (sizeof(T) == 4) {
+            if constexpr (std::is_signed_v<T>)
+                return _mm_cvt_roundss_i32(y, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC);
+            else
+                return _mm_cvt_roundss_u32(y, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC);
+        } else if constexpr (sizeof(T) == 8) {
+            if constexpr (std::is_signed_v<T>)
+                return _mm_cvt_roundss_i64(y, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC);
+            else
+                return _mm_cvt_roundss_u64(y, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC);
+        }
+    } else if constexpr (std::is_same_v<Arg, double>) {
+        __m128 y = _mm_set_sd(x);
+        if constexpr (sizeof(T) == 4) {
+            if constexpr (std::is_signed_v<T>)
+                return _mm_cvt_roundsd_i32(y, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC);
+            else
+                return _mm_cvt_roundsd_u32(y, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC);
+        } else if constexpr (sizeof(T) == 8) {
+            if constexpr (std::is_signed_v<T>)
+                return _mm_cvt_roundsd_i64(y, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC);
+            else
+                return _mm_cvt_roundsd_u64(y, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC);
+        }
+    }
+#endif
+    return T(std::ceil(x));
+}
+
+template <typename T, typename Arg>
+T floor2int_scalar(Arg x) {
+#if defined(ENOKI_X86_AVX512F)
+    if constexpr (std::is_same_v<Arg, float>) {
+        __m128 y = _mm_set_ss(x);
+        if constexpr (sizeof(T) == 4) {
+            if constexpr (std::is_signed_v<T>)
+                return _mm_cvt_roundss_i32(y, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC);
+            else
+                return _mm_cvt_roundss_u32(y, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC);
+        } else if constexpr (sizeof(T) == 8) {
+            if constexpr (std::is_signed_v<T>)
+                return _mm_cvt_roundss_i64(y, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC);
+            else
+                return _mm_cvt_roundss_u64(y, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC);
+        }
+    } else if constexpr (std::is_same_v<Arg, double>) {
+        __m128 y = _mm_set_sd(x);
+        if constexpr (sizeof(T) == 4) {
+            if constexpr (std::is_signed_v<T>)
+                return _mm_cvt_roundsd_i32(y, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC);
+            else
+                return _mm_cvt_roundsd_u32(y, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC);
+        } else if constexpr (sizeof(T) == 8) {
+            if constexpr (std::is_signed_v<T>)
+                return _mm_cvt_roundsd_i64(y, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC);
+            else
+                return _mm_cvt_roundsd_u64(y, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC);
+        }
+    }
+#endif
+    return T(std::floor(x));
+}
+
 template <typename T> auto or_(const T &a1, const T &a2) {
     using Int = int_array_t<T>;
 

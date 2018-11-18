@@ -260,6 +260,19 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, IsMask_, Derived_,
         );
     }
 
+
+    template <typename T>
+    ENOKI_INLINE auto ceil2int_() const {
+        return T(ceil2int<typename T::Array1>(a1),
+                 ceil2int<typename T::Array2>(a2));
+    }
+
+    template <typename T>
+    ENOKI_INLINE auto floor2int_() const {
+        return T(floor2int<typename T::Array1>(a1),
+                 floor2int<typename T::Array2>(a2));
+    }
+
     Derived lzcnt_() const  { return Derived(lzcnt(a1),  lzcnt(a2));  }
     Derived tzcnt_() const  { return Derived(tzcnt(a1),  tzcnt(a2));  }
     Derived popcnt_() const { return Derived(popcnt(a1), popcnt(a2)); }
