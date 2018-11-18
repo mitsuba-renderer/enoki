@@ -327,6 +327,14 @@ public:
             return DiffArray::create(0, ceil(value));
     }
 
+    template <typename T> T ceil2int_() const {
+        return T(ceil2int<typename T::UnderlyingType>(value));
+    }
+
+    template <typename T> T floor2int_() const {
+        return T(floor2int<typename T::UnderlyingType>(value));
+    }
+
     DiffArray trunc_() const {
         if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>)
             throw std::runtime_error("DiffArray::trunc_(): unsupported operation!");
@@ -1596,9 +1604,9 @@ public:
         }
     }
 
-    ENOKI_NOINLINE Index index_() const { return index; }
-    ENOKI_NOINLINE const Value &value_() const { return value; }
-    ENOKI_NOINLINE Value &value_() { return value; }
+    ENOKI_INLINE Index index_() const { return index; }
+    ENOKI_INLINE const Value &value_() const { return value; }
+    ENOKI_INLINE Value &value_() { return value; }
 
     const Value &gradient_() const { return gradient_static_(index); }
 

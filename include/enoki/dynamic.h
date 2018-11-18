@@ -526,6 +526,29 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
         return count;
     }
 
+
+    template <typename T> T ceil2int_() const {
+        T result;
+        result.resize(size());
+        auto p1 = packet_ptr();
+        auto pr = result.packet_ptr();
+        for (size_t i = 0, n = result.packets();
+             i < n; ++i, ++p1, ++pr)
+            *pr = ceil2int<typename T::Packet>(*p1);
+        return result;
+    }
+
+    template <typename T> T floor2int_() const {
+        T result;
+        result.resize(size());
+        auto p1 = packet_ptr();
+        auto pr = result.packet_ptr();
+        for (size_t i = 0, n = result.packets();
+             i < n; ++i, ++p1, ++pr)
+            *pr = floor2int<typename T::Packet>(*p1);
+        return result;
+    }
+
     //! @}
     // -----------------------------------------------------------------------
 
