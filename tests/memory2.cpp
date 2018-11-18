@@ -298,3 +298,17 @@ ENOKI_TEST_ALL(test08_nested_gather_strides) {
     assert((gather<Vector4xP>(x, Int(1)) == Vector4xP(4, 5, 6, 7)));
     assert((gather<Vector4xP, 60*sizeof(Value)>(x, Int(1)) == Vector4xP(10, 11, 12, 13)));
 }
+
+ENOKI_TEST_INT(test09_gather_mask) {
+    if ((T::Size & (T::Size - 1)) != 0)
+        return;
+    using Scalar = scalar_t<T>;
+    using TX = DynamicArray<T>;
+    using MaskP = mask_t<T>;
+    using MaskX = mask_t<TX>;
+
+    MaskX p = eq(arange<TX>(50) & (Scalar) 1, (Scalar) 0);
+    MaskP result = gather<MaskP>(p, arange<T>() + (Scalar) 1);
+    MaskP target = eq((arange<T>() + (Scalar) 1) & (Scalar) 1, (Scalar) 0);
+    assert(target == result);
+}

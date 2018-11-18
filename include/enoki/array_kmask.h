@@ -232,6 +232,38 @@ struct KMaskBase : StaticArrayBase<Value_, Size_, Approx_, Mode_, true, Derived_
         return result;
     }
 
+    template <size_t Stride, typename Index, typename Mask>
+    static ENOKI_INLINE Derived gather_(const void *ptr, const Index &index_, const Mask &mask) {
+        using UInt32 = Array<uint32_t, Size>;
+
+        UInt32 index_32 = UInt32(index_),
+               index, offset;
+
+        if (Size == 2) {
+            index  = sr<1>(index_32);
+            offset = Index(1) << (index_32 & (uint32_t) 0x1);
+        } else if (Size == 4) {
+            index  = sr<2>(index_32);
+            offset = Index(1) << (index_32 & (uint32_t) 0x3);
+        } else {
+            index  = sr<3>(index_32);
+            offset = Index(1) << (index_32 & (uint32_t) 0x7);
+        }
+
+#if 0
+        const uint8_t *in = (const uint8_t *) ptr;
+        Register bit = 1, accum = 0;
+        for (size_t i = 0; i < Size; ++i) {
+            if ((bool) mask.coeff(i) && (in[index.coeff(i)] & offset.coeff(i)) != 0)
+                accum |= bit;
+            bit <<= 1;
+        }
+        return Derived::from_k(accum);
+#else
+        return Derived(neq(gather<UInt32, 1>(ptr, index, mask) & offset, (uint32_t) 0));
+#endif
+    }
+
     Register k;
 };
 
