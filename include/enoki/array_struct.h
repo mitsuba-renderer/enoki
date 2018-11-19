@@ -19,6 +19,7 @@ struct struct_support {
     template <typename T2> static ENOKI_INLINE decltype(auto) slice_ptr(T2&& value, size_t) { return &value; }
     template <typename T2> static ENOKI_INLINE decltype(auto) packet(T2&& value, size_t) { return value; }
     template <typename T2> static ENOKI_INLINE decltype(auto) ref_wrap(T2&& value) { return value; }
+    template <typename T2> static ENOKI_INLINE decltype(auto) detach(T2&& value) { return value; }
 
     template <typename Mem>
     static ENOKI_INLINE size_t compress(Mem &mem, const T &value, bool mask) {
@@ -154,6 +155,14 @@ struct struct_support<T, enable_if_static_array_t<T>> {
     }
 
     template <typename T2>
+    static ENOKI_INLINE decltype(auto) detach(T2 &value) {
+        if constexpr (!is_diff_array_v<T>)
+            return value;
+        else
+            return detach2(value, std::make_index_sequence<Size>());
+    }
+
+    template <typename T2>
     static ENOKI_INLINE decltype(auto) slice(T2 &value, size_t i) {
         if constexpr (array_depth_v<T> == 1)
             return value.coeff(i);
@@ -228,6 +237,13 @@ private:
                                  std::index_sequence<Is...>) {
         return T(enoki::gather<value_t<T>>(src.coeff(Is), index, mask)...);
     }
+
+    template <typename T2, size_t... Is>
+    static ENOKI_INLINE decltype(auto) detach2(T2 &a, std::index_sequence<Is...>) {
+        using Value = decltype(enoki::detach(a.coeff(0)));
+        using Return = typename T::template ReplaceValue<Value>;
+        return Return(enoki::detach(a.coeff(Is))...);
+    }
 };
 
 template <typename T>
@@ -251,6 +267,8 @@ struct struct_support<T, enable_if_dynamic_array_t<T>> {
     static ENOKI_INLINE decltype(auto) slice(T &value, size_t i) { return value.coeff(i); }
     static ENOKI_INLINE decltype(auto) slice_ptr(const T &value, size_t i) { return value.data() + i; }
     static ENOKI_INLINE decltype(auto) slice_ptr(T &value, size_t i) { return value.data() + i; }
+    static ENOKI_INLINE decltype(auto) detach(const T &value) { return value; }
+    static ENOKI_INLINE decltype(auto) detach(T &value) { return value; }
     static ENOKI_INLINE auto ref_wrap(T &value) { return value.ref_wrap_(); }
     static ENOKI_INLINE auto ref_wrap(const T &value) { return value.ref_wrap_(); }
 

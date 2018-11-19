@@ -293,6 +293,12 @@
             return Value(ENOKI_MAP_EXPR_F1(enoki::ref_wrap, value,             \
                                            __VA_ARGS__));                      \
         }                                                                      \
+        template <typename T> static ENOKI_INLINE auto detach(T &&value) {     \
+            using Value = Struct<decltype(enoki::detach(std::declval<          \
+                ArgType<T, Args>>()))...>;                                     \
+            return Value(ENOKI_MAP_EXPR_F1(enoki::detach, value,               \
+                                           __VA_ARGS__));                      \
+        }                                                                      \
         template <typename T, typename M> static ENOKI_INLINE                  \
         auto masked(T& value, const M & mask) {                                \
             using Value = Struct<decltype(enoki::masked(                       \

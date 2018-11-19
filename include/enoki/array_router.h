@@ -668,21 +668,13 @@ ENOKI_INLINE auto mean(const Array &a) {
     return hsum(a) * (1.f / a.size());
 }
 
-namespace detail {
-    template <typename T, size_t... Is> decltype(auto) detach(T &a, std::index_sequence<Is...>) {
-        using Value = decltype(detach(a.coeff(0)));
-        return Array<Value, T::Size>(detach(a.coeff(Is))...);
-    }
-};
-
-template <typename T> decltype(auto) detach(T &a) {
-    if constexpr (!is_diff_array_v<T>)
-        return a;
-    else if constexpr (array_depth_v<T> >= 2)
-        return detail::detach(a, std::make_index_sequence<T::Size>());
+template <typename T> decltype(auto) detach(T &&value) {
+    if constexpr (is_diff_array_v<T> && array_depth_v<T> == 1)
+        return value.value_();
     else
-        return a.value_();
+        return struct_support_t<T>::detach(value);
 }
+
 
 template <typename T1, typename T2, typename Value = expr_t<T1, T2>>
 bool allclose(const T1 &a1, const T2 &a2,
