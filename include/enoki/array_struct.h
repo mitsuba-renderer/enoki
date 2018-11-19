@@ -349,7 +349,7 @@ template <
     enable_if_t<!std::is_pointer_v<Source> && !std::is_array_v<Source> &&
                  array_depth_v<Source> != 1> = 0>
 ENOKI_INLINE Array gather(const Source &source, const Index &index,
-                          const detail::identity_t<Mask> &mask = true) {
+                          const identity_t<Mask> &mask = true) {
     return struct_support_t<Array>::gather(source, index, mask);
 }
 

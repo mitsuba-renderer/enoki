@@ -38,10 +38,9 @@ constexpr size_t Dynamic = (size_t) -1;
 
 namespace detail {
     /// Identity function for types
-    template <typename T> struct identity {
+    template <typename T, typename...> struct identity {
         using type = T;
     };
-    template <typename T> using identity_t = typename identity<T>::type;
 
     template <template <typename...> typename B, typename T>
     struct is_base_of_impl {
@@ -63,6 +62,8 @@ namespace detail {
 
     template <typename... > constexpr bool false_v = false;
 }
+
+template <typename... Ts> using identity_t = typename detail::identity<Ts...>::type;
 
 template <template<typename ...> class Op, class... Args>
 constexpr bool is_detected_v = detail::detector<void, Op, Args...>::value;

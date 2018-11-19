@@ -975,7 +975,7 @@ NAMESPACE_END(detail)
 /// Masked prefetch operation
 template <typename Array, bool Write = false, size_t Level = 2, size_t Stride_ = 0, bool Packed = true,
           typename Index, typename Mask = mask_t<replace_scalar_t<Index, scalar_t<Array>>>>
-ENOKI_INLINE void prefetch(const void *mem, const Index &index, const detail::identity_t<Mask> &mask = true) {
+ENOKI_INLINE void prefetch(const void *mem, const Index &index, const identity_t<Mask> &mask = true) {
     static_assert(is_std_int_v<scalar_t<Index>>, "prefetch(): expected a signed 32/64-bit integer as 'index' argument!");
     constexpr size_t ScalarSize = sizeof(scalar_t<Array>);
 
@@ -1015,7 +1015,7 @@ ENOKI_INLINE void prefetch(const void *mem, const Index &index, const detail::id
 /// Masked gather operation
 template <typename Array, size_t Stride_ = 0, bool Packed = true, bool Masked = true,
           typename Index, typename Mask = mask_t<replace_scalar_t<Index, scalar_t<Array>>>>
-ENOKI_INLINE Array gather(const void *mem, const Index &index, const detail::identity_t<Mask> &mask) {
+ENOKI_INLINE Array gather(const void *mem, const Index &index, const identity_t<Mask> &mask) {
     static_assert(is_std_int_v<scalar_t<Index>>, "gather(): expected a signed 32/64-bit integer as 'index' argument!");
     constexpr size_t ScalarSize = sizeof(scalar_t<Array>);
 
@@ -1057,7 +1057,7 @@ ENOKI_INLINE Array gather(const void *mem, const Index &index, const detail::ide
 /// Masked scatter operation
 template <size_t Stride_ = 0, bool Packed = true, bool Masked = true, typename Array, typename Index,
           typename Mask = mask_t<replace_scalar_t<Index, scalar_t<Array>>>>
-ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index, const detail::identity_t<Mask> &mask) {
+ENOKI_INLINE void scatter(void *mem, const Array &value, const Index &index, const identity_t<Mask> &mask) {
     static_assert(is_std_int_v<scalar_t<Index>>, "scatter(): expected a signed 32/64-bit integer as 'index' argument!");
     constexpr size_t ScalarSize = sizeof(scalar_t<Array>);
 
