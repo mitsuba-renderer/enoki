@@ -1622,6 +1622,13 @@ public:
     ENOKI_INLINE const Value &value_() const { return value; }
     ENOKI_INLINE Value &value_() { return value; }
 
+    size_t nbytes() const {
+        if constexpr (is_array_v<Value>)
+            return sizeof(DiffArray) - sizeof(Value) + value.nbytes();
+        else
+            return sizeof(DiffArray);
+    }
+
     const Value &gradient_() const { return gradient_static_(index); }
 
     ENOKI_NOINLINE static const Value &gradient_static_(Index index) {
