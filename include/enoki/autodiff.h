@@ -1399,6 +1399,12 @@ private:
 public:
     static void *get_tape_ptr() { return s_tape; }
     static void set_tape_ptr(void *ptr) { s_tape = (Tape *) ptr; }
+    static void ensure_(size_t size) {
+        if constexpr (ComputeGradients) {
+            Tape &tape = get_tape();
+            tape.nodes.reserve(size);
+        }
+    }
 
     static void set_scatter_gather_source_(const DiffArray &t) {
         if constexpr (ComputeGradients) {

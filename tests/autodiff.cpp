@@ -31,6 +31,13 @@ using Vector2fP = Array<FloatP, 2>;
 using Vector2fX = Array<FloatX, 2>;
 using Vector2fD = Array<FloatD, 2>;
 
+/* Ensure that there are enough entries in the 'node' data structure so that
+   returned references to gradients (e.g. 'FloatX &g = gradient(..);') are not
+   invalidated when there is some subsequent computation that causes the list
+   to be resized to the next larger power of two.
+*/
+ENOKI_TEST(test000_setup) { FloatD::ensure_(100); }
+
 ENOKI_TEST(test00_identity) {
     clear_graph<FloatD>();
     FloatD x = 2.f;
