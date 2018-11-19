@@ -175,7 +175,7 @@ public:
     ENOKI_NOINLINE DiffArray(Value &&value) : value(std::move(value)) { }
 
     template <typename T>
-    using ReplaceValue = DiffArray<replace_scalar_t<Value, T>>;
+    using ReplaceValue = DiffArray<replace_scalar_t<Value, T, false>>;
 
     ENOKI_INLINE size_t size() const {
         if constexpr (is_scalar_v<Value>)
@@ -1040,6 +1040,14 @@ public:
             return DiffArray::create(0, ~value);
     }
 
+    template <typename Mask>
+    ENOKI_INLINE value_t<Value> extract_(const Mask &mask) const {
+        if constexpr (is_mask_v<Value> || ComputeGradients)
+            throw std::runtime_error("DiffArray::extract_(): unsupported operation!");
+        else
+            return extract(value, mask.value_());
+    }
+
     template <size_t Imm>
     DiffArray sl_() const { return DiffArray::create(0, sl<Imm>(value)); }
 
@@ -1620,6 +1628,11 @@ public:
             throw std::runtime_error("Gradient index is out of bounds!");
 
         return tape.node(index).gradient;
+    }
+
+    auto operator->() const {
+        using BaseType = std::decay_t<std::remove_pointer_t<Scalar>>;
+        return call_support<BaseType, DiffArray>(*this);
     }
 
 private:

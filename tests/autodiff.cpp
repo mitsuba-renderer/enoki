@@ -463,3 +463,49 @@ ENOKI_TEST(test34_gradient_descent) {
     }
     assert(loss_f < 1e-1f);
 }
+
+struct Function {
+    virtual FloatD eval(const FloatD &x) const = 0;
+    virtual ~Function() = default;
+};
+
+struct Square : Function {
+    FloatD eval(const FloatD &x) const override {
+        return x*x;
+    }
+};
+
+struct Reciprocal : Function {
+    FloatD eval(const FloatD &x) const override {
+        return 1.f / x;
+    }
+};
+
+using FunctionP = Packet<Function *, FloatP::Size>;
+using FunctionX = DynamicArray<FunctionP>;
+using FunctionD = DiffArray<FunctionX>;
+
+ENOKI_CALL_SUPPORT_BEGIN(Function)
+ENOKI_CALL_SUPPORT_METHOD(eval)
+ENOKI_CALL_SUPPORT_END(Function)
+
+ENOKI_TEST(test35_call) {
+    clear_graph<FloatD>();
+
+    Function *square = new Square();
+    Function *reciprocal = new Reciprocal();
+    FunctionD f = full<FunctionD>(square, 10);
+    f[3] = f[4] = f[5] = reciprocal;
+
+    FloatD x = linspace<FloatD>(1, 2, 10);
+    requires_gradient(x);
+
+    FloatD out = f->eval(x);
+    backward(out);
+
+    FloatX ref_gradient{ 2.0000, 2.2222, 2.4444, -0.5625, -0.47929, -0.413265, 3.3333, 3.5556, 3.7778, 4.0000 };
+    assert(allclose(ref_gradient, gradient(x), 1e-4f, 1e-4f));
+
+    delete reciprocal;
+    delete square;
+}

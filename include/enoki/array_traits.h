@@ -87,8 +87,8 @@ template <typename T> constexpr bool is_int32_v = is_int32<T>::value;
 template <typename T> using is_int64 = std::bool_constant<std::is_integral_v<T> && sizeof(T) == 8>;
 template <typename T> constexpr bool is_int64_v = is_int64<T>::value;
 
-template <typename T> constexpr bool is_float_v = std::is_same<T, float>::value;
-template <typename T> constexpr bool is_double_v = std::is_same<T, double>::value;
+template <typename T> constexpr bool is_float_v = std::is_same_v<T, float>;
+template <typename T> constexpr bool is_double_v = std::is_same_v<T, double>;
 
 template <typename T> using is_std_float = std::bool_constant<is_float_v<T> || is_double_v<T>>;
 template <typename T> constexpr bool is_std_float_v = is_std_float<T>::value;
@@ -296,12 +296,12 @@ namespace detail {
     template <typename S, typename T> struct copy_flags {
     private:
         using R = std::remove_reference_t<S>;
-        using T1 = std::conditional_t<std::is_const<R>::value, std::add_const_t<T>, T>;
-        using T2 = std::conditional_t<std::is_pointer<S>::value,
+        using T1 = std::conditional_t<std::is_const_v<R>, std::add_const_t<T>, T>;
+        using T2 = std::conditional_t<std::is_pointer_v<S> && !std::is_pointer_v<T1>,
                                       std::add_pointer_t<T1>, T1>;
-        using T3 = std::conditional_t<std::is_lvalue_reference<S>::value,
+        using T3 = std::conditional_t<std::is_lvalue_reference_v<S>,
                                       std::add_lvalue_reference_t<T2>, T2>;
-        using T4 = std::conditional_t<std::is_rvalue_reference<S>::value,
+        using T4 = std::conditional_t<std::is_rvalue_reference_v<S>,
                                       std::add_rvalue_reference_t<T3>, T3>;
 
     public:

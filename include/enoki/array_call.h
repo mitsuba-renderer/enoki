@@ -97,6 +97,15 @@ struct is_callable<std::void_t<T<Args...>>, T, Args...> : std::true_type { };
 template <template <typename...> typename T, typename... Args>
 constexpr bool is_callable_v = is_callable<void, T, Args...>::value;
 
+struct detail {
+    template <typename Guide, typename Result, typename = int> struct vectorize_result {
+        using type = Result;
+    };
+    template <typename Guide, typename Result> struct vectorize_result<Guide, Result, enable_if_t<is_scalar_v<Result>>> {
+        using type = replace_scalar_t<array_t<Guide>, Result>;
+    };
+};
+
 template <typename Storage_> struct call_support_base {
     using Storage = Storage_;
     using InstancePtr = value_t<Storage_>;
@@ -117,9 +126,7 @@ template <typename Storage_> struct call_support_base {
         ));
 
         if constexpr (!std::is_void_v<FuncResult>) {
-            using Result = std::conditional_t<is_scalar_v<FuncResult>,
-                                              array_t<replace_scalar_t<Mask, FuncResult>>,
-                                              FuncResult>;
+            using Result = typename detail::vectorize_result<Mask, FuncResult>::type;
 
             Result result = zero<Result>();
 

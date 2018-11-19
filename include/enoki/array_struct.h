@@ -116,7 +116,6 @@ struct struct_support<T, enable_if_static_array_t<T>> {
             enoki::set_slices(value.coeff(i), size);
     }
 
-
     static ENOKI_INLINE T zero(size_t size) {
         ENOKI_MARK_USED(size);
         if constexpr (array_depth_v<T> == 1) {
