@@ -775,15 +775,15 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
     ENOKI_INLINE auto floor2int_() const {
         if constexpr (sizeof(scalar_t<T>) == 4) {
             if constexpr (std::is_signed_v<scalar_t<T>>)
-                return T(_mm512_cvt_roundps_epi32(m, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
+                return T(_mm512_cvt_roundpd_epi32(m, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
             else
-                return T(_mm512_cvt_roundps_epu32(m, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
+                return T(_mm512_cvt_roundpd_epu32(m, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
         } else {
             #if defined(ENOKI_X86_AVX512DQ)
                 if constexpr (std::is_signed_v<scalar_t<T>>)
-                    return T(_mm512_cvt_roundps_epi64(m, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
+                    return T(_mm512_cvt_roundpd_epi64(m, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
                 else
-                    return T(_mm512_cvt_roundps_epu64(m, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
+                    return T(_mm512_cvt_roundpd_epu64(m, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
             #else
                 return Base::template floor2int_<T>();
             #endif
