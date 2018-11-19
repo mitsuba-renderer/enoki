@@ -96,7 +96,7 @@ ENOKI_INLINE Value gather_bits(Value x) {
 template <size_t Dimension, typename Value,
           enable_if_t<std::is_integral_v<Value>> = 0>
 ENOKI_INLINE Value scatter_bits(Value x) {
-    constexpr Value magic = detail::morton_magic<Value>(Dimension, 1);
+    constexpr Value magic = morton_magic<Value>(Dimension, 1);
     if constexpr (sizeof(Value) <= 4)
         return Value(_pdep_u32((uint32_t) x, (uint32_t) magic));
     else
@@ -106,7 +106,7 @@ ENOKI_INLINE Value scatter_bits(Value x) {
 template <size_t Dimension, typename Value,
           enable_if_t<std::is_integral_v<Value>> = 0>
 ENOKI_INLINE Value gather_bits(Value x) {
-    constexpr Value magic = detail::morton_magic<Value>(Dimension, 1);
+    constexpr Value magic = morton_magic<Value>(Dimension, 1);
     if constexpr (sizeof(Value) <= 4)
         return Value(_pext_u32((uint32_t) x, (uint32_t) magic));
     else
