@@ -100,8 +100,9 @@ constexpr bool is_callable_v = is_callable<void, T, Args...>::value;
 template <typename Guide, typename Result, typename = int> struct vectorize_result {
     using type = Result;
 };
+
 template <typename Guide, typename Result> struct vectorize_result<Guide, Result, enable_if_t<is_scalar_v<Result>>> {
-    using type = replace_scalar_t<array_t<Guide>, Result>;
+    using type = replace_scalar_t<array_t<Guide>, Result, false>;
 };
 
 template <typename Storage_> struct call_support_base {
@@ -126,10 +127,7 @@ template <typename Storage_> struct call_support_base {
         if constexpr (!std::is_void_v<FuncResult>) {
             using Result = typename vectorize_result<Mask, FuncResult>::type;
 
-            Result result = zero<Result>();
-
-            if constexpr (is_dynamic_array_v<Storage>)
-                result.resize(self.size());
+            Result result = zero<Result>(self.size());
 
             while (any(mask)) {
                 InstancePtr value      = extract(self, mask);

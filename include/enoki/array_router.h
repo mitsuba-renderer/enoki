@@ -470,7 +470,7 @@ ENOKI_INLINE auto select(const M &m, const T &t, const F &f) {
                        std::is_same_v<F, E>)
         return E::select_(m.derived(), t.derived(), f.derived());
     else
-        return E::select_((const mask_t<E> &) m, (const E &) t, (const E &) f);
+        return select((const mask_t<E> &) m, (const E &) t, (const E &) f);
 }
 
 template <typename T1, typename T2, enable_if_array_any_t<T1, T2> = 0>
