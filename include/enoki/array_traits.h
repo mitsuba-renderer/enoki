@@ -191,6 +191,7 @@ template <typename T> struct is_mask<T, enable_if_array_t<T>> {
 
 template <typename T> constexpr bool is_mask_v = is_mask<T>::value;
 template <typename T> using enable_if_mask_t = enable_if_t<is_mask_v<T>>;
+template <typename T> using enable_if_not_mask_t = enable_if_t<!is_mask_v<T>>;
 
 /// Is 'T' implemented using a recursive implementation?
 template <typename T, typename = int> struct is_recursive_array {

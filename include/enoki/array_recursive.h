@@ -73,13 +73,20 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, IsMask_, Derived_,
           a2(high(a), detail::reinterpret_flag()) { }
 
     /// Reinterpret another array (masks)
-    template <typename T = Derived, enable_if_t<is_mask_v<T>> = 0>
+    template <typename T = Derived, enable_if_mask_t<T> = 0>
     ENOKI_INLINE StaticArrayImpl(bool b, detail::reinterpret_flag)
         : a1(b, detail::reinterpret_flag()),
           a2(b, detail::reinterpret_flag()) { }
 
+    template <typename T = Derived, enable_if_not_mask_t<T> = 0>
     ENOKI_INLINE StaticArrayImpl &operator=(Value_ v) {
         *this = StaticArrayImpl(v);
+        return *this;
+    }
+
+    template <typename T = Derived, enable_if_mask_t<T> = 0>
+    ENOKI_INLINE StaticArrayImpl &operator=(bool v) {
+        *this = StaticArrayImpl(v, detail::reinterpret_flag());
         return *this;
     }
 

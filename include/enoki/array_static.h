@@ -608,9 +608,9 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
 
     template <typename T> T floor2int_() const {
         if constexpr (array_depth_v<Value> > 0) {
-            Derived result;
+            T result;
             for (size_t i = 0; i < Derived::Size; ++i)
-                (Value &) result.coeff(i) =
+                result.coeff(i) =
                     floor2int<value_t<T>>((const Value &) derived().coeff(i));
             return result;
         } else {
@@ -620,9 +620,9 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
 
     template <typename T> T ceil2int_() const {
         if constexpr (array_depth_v<Value> > 0) {
-            Derived result;
+            T result;
             for (size_t i = 0; i < Derived::Size; ++i)
-                (Value &) result.coeff(i) =
+                result.coeff(i) =
                     ceil2int<value_t<T>>((const Value &) derived().coeff(i));
             return result;
         } else {
