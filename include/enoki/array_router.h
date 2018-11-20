@@ -73,11 +73,16 @@ NAMESPACE_BEGIN(enoki)
             return a1.derived().func##_(a2.derived());                         \
         else if constexpr (is_mask_v<T2> && !is_array_v<T2>)                   \
             return a1.derived().func##_((const mask_t<T1> &) a2);              \
-        else if constexpr (is_mask_v<T2> && is_array_v<T2>)                    \
-            return a1.derived().func##_((const mask_t<T1> &) a2.derived());    \
-        else                                                                   \
+        else if constexpr (is_array_v<T2>) {                                   \
+            if constexpr (std::decay_t<T2>::IsMask)                            \
+                return a1.derived().func##_((const mask_t<T1> &) a2.derived());\
+            else                                                               \
+                return name(static_cast<const E &>(a1),                        \
+                            static_cast<const E &>(a2));                       \
+        } else {                                                               \
             return name(static_cast<const E &>(a1),                            \
                         static_cast<const E &>(a2));                           \
+        }                                                                      \
     }
 
 /// Define a binary operation (but only restrict to cases where 'cond' is true)
@@ -331,7 +336,7 @@ ENOKI_INLINE Expr copysign(const T1 &a1, const T2 &a2) {
     using Scalar2 = scalar_t<T2>;
 
     static_assert(std::is_same_v<Scalar1, Scalar2> || !std::is_signed_v<Scalar1>,
-                  "copysign(): Incompatibile input arguments!");
+                  "copysign(): Incompatible input arguments!");
 
     if constexpr (!std::is_same_v<T1, Expr> || !std::is_same_v<T2, Expr>) {
         return copysign((const Expr &) a1, (const Expr &) a2);
@@ -357,7 +362,7 @@ ENOKI_INLINE Expr copysign_neg(const T1 &a1, const T2 &a2) {
     using Scalar2 = scalar_t<T2>;
 
     static_assert(std::is_same_v<Scalar1, Scalar2> || !std::is_signed_v<Scalar1>,
-                  "copysign_neg(): Incompatibile input arguments!");
+                  "copysign_neg(): Incompatible input arguments!");
 
     if constexpr (!std::is_same_v<T1, Expr> || !std::is_same_v<T2, Expr>) {
         return copysign_neg((const Expr &) a1, (const Expr &) a2);
@@ -383,7 +388,7 @@ ENOKI_INLINE Expr mulsign(const T1 &a1, const T2 &a2) {
     using Scalar2 = scalar_t<T2>;
 
     static_assert(std::is_same_v<Scalar1, Scalar2> || !std::is_signed_v<Scalar1>,
-                  "mulsign(): Incompatibile input arguments!");
+                  "mulsign(): Incompatible input arguments!");
 
     if constexpr (!std::is_same_v<T1, Expr> || !std::is_same_v<T2, Expr>) {
         return mulsign((const Expr &) a1, (const Expr &) a2);
@@ -409,7 +414,7 @@ ENOKI_INLINE Expr mulsign_neg(const T1 &a1, const T2 &a2) {
     using Scalar2 = scalar_t<T2>;
 
     static_assert(std::is_same_v<Scalar1, Scalar2> || !std::is_signed_v<Scalar1>,
-                  "mulsign_neg(): Incompatibile input arguments!");
+                  "mulsign_neg(): Incompatible input arguments!");
 
     if constexpr (!std::is_same_v<T1, Expr> || !std::is_same_v<T2, Expr>) {
         return mulsign_neg((const Expr &) a1, (const Expr &) a2);

@@ -1327,7 +1327,7 @@ template <typename T, typename Expr = expr_t<value_t<T>>>
 Expr unit_angle_z(const T &v) {
     static_assert(T::Size == 3, "unit_angle_z(): input is not a 3D vector");
     Expr temp = 2.f * asin(.5f * sqrt(sqr(v.x()) + sqr(v.y()) +
-                                      sqr(v.z() - copysign(1.f, v.z()))));
+                                      sqr(v.z() - copysign(Expr(1.f), v.z()))));
     return select(v.z() >= 0, temp, scalar_t<Expr>(M_PI) - temp);
 }
 
