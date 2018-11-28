@@ -1018,6 +1018,7 @@ public:
                 sa->target = index;
                 sa->offset = offset.value_();
                 sa->mask = mask.value_();
+
                 if (target.index == 0)
                     target.index = sa->source;
                 else
@@ -1126,7 +1127,7 @@ private:
         Edge(Index source, Index target, Value weight)
             : source(source), target(target), weight(weight) { }
 
-        Edge(Edge &&e) : source(e.source), target(e.target), weight(e.weight) {
+        Edge(Edge &&e) : source(e.source), target(e.target), weight(std::move(e.weight)) {
             e.special = nullptr;
         }
 
@@ -1134,16 +1135,21 @@ private:
             : special(special), weight(memcpy_cast<Scalar>(special_flag)) { }
 
         ~Edge() {
-            if (is_special()) {
+            if (is_special())
                 delete special;
-            }
         }
 
         Edge& operator=(Edge &&e) {
-            source = e.source;
-            target = e.target;
-            weight = e.weight;
-            e.special = nullptr;
+            if (is_special())
+                delete special;
+            if (e.is_special()) {
+                special = e.special;
+                e.special = nullptr;
+            } else {
+                source = e.source;
+                target = e.target;
+            }
+            weight = std::move(e.weight);
             return *this;
         }
 
@@ -1282,8 +1288,10 @@ private:
                     if (i != size) {
                         Edge &et = edges[size];
                         et = std::move(es);
-                        Index &ei = tape.node(et.target).edge_offset;
-                        ei = std::min(ei, size);
+                        if (!et.is_special()) {
+                            Index &ei = tape.node(et.target).edge_offset;
+                            ei = std::min(ei, size);
+                        }
                     }
                     size++;
                 }

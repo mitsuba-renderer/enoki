@@ -151,7 +151,8 @@ NAMESPACE_BEGIN(enoki)
 
 /// Macro for compound assignment operators (operator+=, etc.)
 #define ENOKI_ROUTE_COMPOUND_OPERATOR(op)                                      \
-    template <typename T1, enable_if_array_t<T1> = 0, typename T2>             \
+    template <typename T1, enable_if_t<is_array_v<T1> &&                       \
+                                      !std::is_const_v<T1>> = 0, typename T2>  \
     ENOKI_INLINE T1 &operator op##=(T1 &a1, const T2 &a2) {                    \
         a1 = a1 op a2;                                                         \
         return a1;                                                             \

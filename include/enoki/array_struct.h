@@ -65,7 +65,7 @@ template <typename T> ENOKI_NOINLINE void set_slices(T &value, size_t size) {
         struct_support_t<T>::set_slices(value, size);
 }
 
-template <typename T> ENOKI_INLINE decltype(auto) packet(T &value, size_t i) {
+template <typename T> ENOKI_INLINE decltype(auto) packet(T &&value, size_t i) {
     ENOKI_MARK_USED(i);
     if constexpr (is_dynamic_v<T>)
         return struct_support_t<T>::packet(value, i);

@@ -137,8 +137,9 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
 
     template <typename T, enable_if_t<is_scalar_v<T>> = 0>
     DynamicArrayImpl(const T &value) {
+        using S = std::conditional_t<IsMask, bool, Scalar>;
         resize(1);
-        packet(0) = Packet((Scalar) value);
+        packet(0) = Packet((S) value);
     }
 
 #if defined(__GNUC__)
