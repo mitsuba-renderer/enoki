@@ -62,6 +62,8 @@ namespace detail {
             Base::dec_ref_(index);
         }
 
+        void reset() { Index backup = index; index = 0; Base::dec_ref_(backup); }
+
         void swap(ReferenceCountedIndex &o) { std::swap(index, o.index); }
 
         operator Index () const { return index; }
@@ -76,17 +78,19 @@ template <typename T> struct TapeScope;
 template <typename Value>
 struct DiffArray : ArrayBase<value_t<Value>, DiffArray<Value>> {
     friend struct TapeScope<DiffArray<Value>>;
+    using Index = uint32_t;
+
 private:
     // -----------------------------------------------------------------------
     //! @{ \name Forward declarations
     // -----------------------------------------------------------------------
 
     struct Tape;
+    struct Edge;
 
     /// Encodes information about less commonly used operations (e.g. scatter/gather)
     struct Special {
-        virtual void compute_gradients(Tape &tape) const = 0;
-        virtual std::string graphviz(const Tape &tape) const = 0;
+        virtual void compute_gradients(const Edge &edge, Tape &tape) const = 0;
         virtual size_t nbytes() const = 0;
         virtual ~Special() = default;
     };
@@ -114,7 +118,6 @@ public:
 
     using MaskType = DiffArray<mask_t<Value>>;
     using UnderlyingType = Value;
-    using Index = uint32_t;
     using RefIndex = detail::ReferenceCountedIndex<DiffArray, Index>;
 
     static constexpr bool Approx = array_approx_v<Value>;
@@ -865,30 +868,22 @@ public:
             Index index_new = 0;
             if (ComputeGradients && index != 0) {
                 struct HorizontalAddition : Special {
-                    RefIndex source;
-                    Index target, size;
+                    uint32_t size;
 
-                    void compute_gradients(Tape &tape) const {
-                        const Value &grad = tape.node(target).gradient;
-                        Value &grad_source = tape.node(source).gradient;
+                    void compute_gradients(const Edge &edge, Tape &tape) const {
+                        const Value &grad = tape.node(edge.target).gradient;
+                        Value &grad_source = tape.node(edge.source).gradient;
                         Value grad_hsum = hsum(grad);
                         grad_hsum.resize(size);
                         grad_source += grad_hsum;
                     }
 
                     size_t nbytes() const { return sizeof(HorizontalAddition); }
-
-                    std::string graphviz(const Tape &tape) const {
-                        return std::to_string(target - tape.offset) + " [shape=doubleoctagon];\n" +
-                               std::to_string(target - tape.offset) + " -> " +
-                               std::to_string(source - tape.offset) + ";\n";
-                    }
                 };
 
                 HorizontalAddition *ha = new HorizontalAddition();
-                ha->size = (Index) value.size();
-                ha->source = index;
-                ha->target = index_new = special("hadd", ha, 1);
+                ha->size = (uint32_t) value.size();
+                index_new = special("hadd", index, ha, 1);
             }
 
             return DiffArray::create(index_new, hsum(value));
@@ -946,33 +941,26 @@ public:
                 if (Stride != sizeof(Scalar))
                     throw std::runtime_error("Differentiable gather: unsupported stride!");
                 struct Gather : Special {
-                    RefIndex source;
-                    Index target, size;
+                    Index size;
                     OffsetType offset;
                     MaskType mask;
 
-                    void compute_gradients(Tape &tape) const {
-                        const Value &grad_target = tape.node(target).gradient;
-                        Value &grad_source = tape.node(source).gradient;
+                    void compute_gradients(const Edge &edge, Tape &tape) const {
+                        const Value &grad_target = tape.node(edge.target).gradient;
+                        Value &grad_source = tape.node(edge.source).gradient;
                         grad_source.resize(size);
                         scatter_add(grad_source.data(), offset, grad_target, mask);
                     }
 
                     size_t nbytes() const { return sizeof(Gather); }
-
-                    std::string graphviz(const Tape &tape) const {
-                        return std::to_string(target - tape.offset) + " [shape=doubleoctagon];\n    " +
-                               std::to_string(target - tape.offset) + " -> " +
-                               std::to_string(source - tape.offset) + ";\n";
-                    }
                 };
 
-                Gather *g = new Gather();
-                g->source = tape.scatter_gather_source->index;
-                g->size = (Index) tape.scatter_gather_source->size();
-                g->offset = offset.value_();
-                g->mask = mask.value_();
-                g->target = index_new = special("gather", g, offset.size());
+                Gather *gather_special = new Gather();
+                gather_special->size = (Index) tape.scatter_gather_source->size();
+                gather_special->offset = offset.value_();
+                gather_special->mask = mask.value_();
+                index_new = special("gather", tape.scatter_gather_source->index,
+                                    gather_special, offset.size());
             }
         }
 
@@ -992,37 +980,30 @@ public:
             if (tape.scatter_gather_source != nullptr &&
                 index != 0) {
                 struct ScatterAdd : Special {
-                    RefIndex source;
-                    Index target, size;
+                    Index size;
                     OffsetType offset;
                     MaskType mask;
 
-                    void compute_gradients(Tape &tape) const {
-                        Value &grad_target = tape.node(target).gradient;
-                        const Value &grad_source = tape.node(source).gradient;
-                        grad_target = gather<Value>(grad_source.data(), offset, mask);
+                    void compute_gradients(const Edge &edge, Tape &tape) const {
+                        Value &grad_source = tape.node(edge.source).gradient;
+                        const Value &grad_target = tape.node(edge.target).gradient;
+                        grad_source = gather<Value>(grad_target.data(), offset, mask);
                     }
+
 
                     size_t nbytes() const { return sizeof(ScatterAdd); }
-
-                    std::string graphviz(const Tape &tape) const {
-                        return std::to_string(target - tape.offset) + " [shape=doubleoctagon];\n    " +
-                               std::to_string(target - tape.offset) + " -> " +
-                               std::to_string(source - tape.offset) + ";\n";
-                    }
                 };
 
-                DiffArray& target = const_cast<DiffArray &>(*tape.scatter_gather_source);
+                DiffArray& source = const_cast<DiffArray &>(*tape.scatter_gather_source);
                 ScatterAdd *sa = new ScatterAdd();
-                sa->source = special("scatter_add", sa, target.size());
-                sa->target = index;
+                RefIndex target = special("scatter_add", index, sa, source.size());
                 sa->offset = offset.value_();
                 sa->mask = mask.value_();
 
-                if (target.index == 0)
-                    target.index = sa->source;
+                if (source.index == 0)
+                    source.index = std::move(target);
                 else
-                    target.index = binary("add", sa->source, target.index, 1, 1, target.size());
+                    source.index = binary("add", target, source.index, 1, 1, source.size());
             }
         }
 
@@ -1105,50 +1086,41 @@ private:
     // -----------------------------------------------------------------------
 
     struct Edge {
-        using UInt = uint_array_t<Scalar, false>;
-
-        /// A quiet NaN with a distinct mantissa bit pattern is used to mark 'special' nodes
-        static constexpr UInt special_flag =
-            sizeof(UInt) == 4 ? UInt(0b0'11111111'10101010101010101010101u) :
-            UInt(0b0'11111111111'10101010101010101010101010101010101010101010ull);
-
-        union {
-            struct {
-                Index source;
-                Index target;
-            };
-            Special *special;
-        };
-
+        RefIndex source;
+        Index target = 0;
+        Special *special = nullptr;
         Value weight;
 
-        Edge() : source(0), target(0) { }
-
-        Edge(Index source, Index target, Value weight)
+        Edge() { }
+        Edge(Index source, Index target, const Value &weight)
             : source(source), target(target), weight(weight) { }
 
-        Edge(Edge &&e) : source(e.source), target(e.target), weight(std::move(e.weight)) {
+        Edge(Index source, Index target, Special *special)
+            : source(source), target(target), special(special) { }
+
+        Edge(Edge &&e)
+            : source(std::move(e.source)),
+              target(e.target),
+              special(e.special),
+              weight(std::move(e.weight)) {
             e.special = nullptr;
         }
 
-        Edge(Special *special)
-            : special(special), weight(memcpy_cast<Scalar>(special_flag)) { }
+        ~Edge() { delete special; }
 
-        ~Edge() {
-            if (is_special())
-                delete special;
+        void reset() {
+            target = 0;
+            delete special;
+            special = nullptr;
+            if constexpr (is_dynamic_array_v<Value>)
+                weight.reset();
+            source.reset();
         }
 
         Edge& operator=(Edge &&e) {
-            if (is_special())
-                delete special;
-            if (e.is_special()) {
-                special = e.special;
-                e.special = nullptr;
-            } else {
-                source = e.source;
-                target = e.target;
-            }
+            delete special;
+            source = std::move(e.source);
+            target = e.target;
             weight = std::move(e.weight);
             return *this;
         }
@@ -1157,19 +1129,12 @@ private:
             size_t result = sizeof(Edge);
             if constexpr (is_array_v<Value>)
                 result += + weight.nbytes() - sizeof(Value);
-            if (is_special())
+            if (special)
                 result += special->nbytes();
             return result;
         }
 
-        bool is_special() const {
-            if constexpr (is_scalar_v<Value>)
-                return reinterpret_array<UInt>(weight) == UInt(special_flag);
-            else
-                return !weight.empty() &&
-                       reinterpret_array<UInt>(weight.coeff(0)) == UInt(special_flag);
-        }
-
+        bool is_special() const { return special != nullptr; }
         bool is_collected() const { return source == 0 && target == 0; }
     };
 
@@ -1201,6 +1166,7 @@ private:
         std::vector<Edge> edges;
         std::vector<Node> nodes;
         std::vector<Index> free_nodes;
+        std::vector<std::string> prefix;
         std::mutex mutex;
 
         Index offset = 0;
@@ -1261,61 +1227,118 @@ private:
         if constexpr (ComputeGradients) {
             if (source == 0)
                 return;
-
             assert(!tape.node(source).is_collected());
             auto &edges = tape.edges;
 
             size_t deg = tape.edge_count(source);
             if (deg != 0 && deg <= ENOKI_AUTODIFF_EXPAND_LIMIT) {
-                for (size_t i = 0; i < tape.edge_count(source); ++i) {
-                    const Edge &e = edges[tape.node(source).edge_offset + i];
-                    assert (!e.is_special());
-                    add_edge(tape, e.source, target,
-                             select(eq(weight, 0) || eq(e.weight, 0), 0,
-                                    weight * e.weight));
-                    ++tape.contractions;
+                Index edge_count  = (Index) tape.edge_count(source),
+                      edge_offset = tape.node(source).edge_offset;
+                bool has_special = false;
+                for (size_t i = 0; i < edge_count; ++i) {
+                    const Edge &e = edges[edge_offset + i];
+                    if (e.is_special())
+                        has_special = true;
                 }
-                return;
-            }
-
-            if (edges.size() == edges.capacity()) {
-                /* Edge list compaction */
-                Index size = 0;
-                for (size_t i = 0; i < edges.size(); ++i) {
-                    Edge &es = edges[i];
-                    if (es.is_collected())
-                        continue;
-                    if (i != size) {
-                        Edge &et = edges[size];
-                        et = std::move(es);
-                        if (!et.is_special()) {
-                            Index &ei = tape.node(et.target).edge_offset;
-                            ei = std::min(ei, size);
-                        }
+                if (!has_special) {
+                    for (size_t i = 0; i < tape.edge_count(source); ++i) {
+                        const Edge &e = edges[edge_offset + i];
+                        add_edge(tape, e.source, target,
+                                 select(eq(weight, 0) || eq(e.weight, 0), 0,
+                                        weight * e.weight));
+                        ++tape.contractions;
                     }
-                    size++;
+                    return;
                 }
-                edges.resize(size);
-
-                if (edges.size() * 2 > edges.capacity())
-                    edges.reserve(edges.capacity() * 2);
             }
+
+            /* Compactify the edge list */
+            if (edges.size() == edges.capacity())
+                compactify_edges(tape);
 
             for (ssize_t i = (ssize_t) edges.size() - 1; i >= 0; --i) {
                 Edge &e = edges[(size_t) i];
                 if (e.target != target) {
                     break;
                 } else if (!e.is_special() && e.source == source && e.target == target) {
+                    /* Merge into another edge */
                     e.weight += weight;
                     return;
                 }
             }
 
-            tape.node(source).ref_count++;
+            /* Create a new edge */
             edges.emplace_back(source, target, weight);
-        } else {
-            throw std::runtime_error("DiffArray::add_edge(): unsupported operation!");
         }
+    }
+
+    static void check_edges() {
+        if constexpr (ComputeGradients) {
+            Tape &tape  = get_tape();
+            auto &edges = tape.edges;
+            for (size_t i = 0; i < edges.size(); ++i) {
+                Edge &es = edges[i];
+                if (es.is_collected())
+                    continue;
+                if (tape.node(es.source).is_collected())
+                    throw std::runtime_error(
+                        "Edge with collected source: " +
+                        std::to_string(es.source - tape.offset));
+                if (tape.node(es.target).is_collected())
+                    throw std::runtime_error(
+                        "Edge with collected target: " +
+                        std::to_string(es.target - tape.offset));
+            }
+        }
+    }
+
+    ENOKI_NOINLINE static void add_edge(Tape &tape, Index source, Index target,
+                                        Special *special) {
+        if constexpr (ComputeGradients) {
+            if (source == 0)
+                return;
+            assert(!tape.node(source).is_collected());
+            assert(!tape.node(target).is_collected());
+            auto &edges = tape.edges;
+
+            /* Compactify the edge list */
+            if (edges.size() == edges.capacity())
+                compactify_edges(tape);
+
+            /* Create a new edge */
+            edges.emplace_back(source, target, special);
+        }
+    }
+
+    ENOKI_NOINLINE static void compactify_edges(Tape &tape) {
+        auto &edges = tape.edges;
+        /* Edge list compaction */
+        Index size = 0;
+        for (size_t i = 0; i < edges.size(); ++i) {
+            Edge &es = edges[i];
+            if (es.is_collected())
+                continue;
+            if (i != size) {
+                Edge &et = edges[size];
+                et = std::move(es);
+                Index &ei = tape.node(et.target).edge_offset;
+                ei = std::min(ei, size);
+            }
+            size++;
+        }
+        edges.resize(size);
+        for (size_t i = 0; i < edges.size(); ++i) {
+            Edge &es = edges[i];
+            if (es.is_collected())
+                continue;
+            if (tape.node(es.source).is_collected())
+                throw std::runtime_error("Error in postcondition!");
+            if (tape.node(es.target).is_collected())
+                throw std::runtime_error("Error in postcondition!");
+        }
+
+        if (edges.size() * 2 > edges.capacity())
+            edges.reserve(edges.capacity() * 2 + 1);
     }
 
     ENOKI_INLINE static Index add_node(Label label, Tape &tape, size_t size) {
@@ -1329,12 +1352,14 @@ private:
             }
 
             Node &node = tape.node(node_index);
-            node.edge_offset = (Index) tape.edges.size();
             node.flags = size == 1 ? ScalarNode : 0;
 
             ENOKI_MARK_USED(label);
             #if !defined(NDEBUG)
-                node.label = label;
+                std::string l = label;
+                for (auto it = tape.prefix.rbegin(); it != tape.prefix.rend(); ++it)
+                    l = *it + '/' + l;
+                node.label = l;
             #endif
 
             return node_index;
@@ -1349,8 +1374,15 @@ private:
         } else {
             Tape &tape = get_tape();
             Index node_index = add_node(label, tape, size);
+            Node &node = tape.node(node_index);
+            node.ref_count++;
             add_edge(tape, i0, node_index, w0);
+            node.ref_count--;
             tape.operations++;
+            node.edge_offset = (Index) tape.edges.size() - 1;
+            while (node.edge_offset > 0 &&
+                   tape.edges[node.edge_offset - 1].target == node_index)
+                --node.edge_offset;
             return node_index;
         }
     }
@@ -1363,8 +1395,15 @@ private:
         } else {
             Tape &tape = get_tape();
             Index node_index = add_node(label, tape, size);
+            Node &node = tape.node(node_index);
+            node.ref_count++;
             add_edge(tape, i0, node_index, w0);
             add_edge(tape, i1, node_index, w1);
+            node.ref_count--;
+            node.edge_offset = (Index) tape.edges.size() - 1;
+            while (node.edge_offset > 0 &&
+                   tape.edges[node.edge_offset - 1].target == node_index)
+                --node.edge_offset;
             tape.operations++;
             return node_index;
         }
@@ -1378,18 +1417,34 @@ private:
         } else {
             Tape &tape = get_tape();
             Index node_index = add_node(label, tape, size);
+            Node &node = tape.node(node_index);
+            node.ref_count++;
             add_edge(tape, i0, node_index, w0);
             add_edge(tape, i1, node_index, w1);
             add_edge(tape, i2, node_index, w2);
+            node.ref_count--;
+            node.edge_offset = (Index) tape.edges.size() - 1;
+            while (node.edge_offset > 0 &&
+                   tape.edges[node.edge_offset - 1].target == node_index)
+                --node.edge_offset;
             tape.operations++;
             return node_index;
         }
     }
 
-    ENOKI_NOINLINE static Index special(Label label, Special *special, size_t size) {
+    ENOKI_NOINLINE static Index special(Label label, Index source,
+                                        Special *special, size_t size) {
         Tape &tape = get_tape();
         Index node_index = add_node(label, tape, size);
-        tape.edges.emplace_back(special);
+        Node &node = tape.node(node_index);
+        node.ref_count++;
+        add_edge(tape, source, node_index, special);
+        node.ref_count--;
+        node.edge_offset = (Index) tape.edges.size() - 1;
+        while (node.edge_offset > 0 &&
+               tape.edges[node.edge_offset - 1].target == node_index)
+            --node.edge_offset;
+        tape.operations++;
         return node_index;
     }
 
@@ -1459,12 +1514,9 @@ public:
                 tape.free_nodes.push_back(index);
                 for (size_t i = node.edge_offset; i < tape.edges.size(); ++i) {
                     Edge &edge = tape.edges[i];
-                    if (edge.is_special() || edge.target != index)
+                    if (edge.target != index)
                         break;
-                    dec_ref_(edge.source);
-                    edge.source = edge.target = 0;
-                    if constexpr (is_dynamic_array_v<Value>)
-                        edge.weight.reset();
+                    edge.reset();
                 }
             }
         }
@@ -1477,6 +1529,7 @@ public:
             tape.edges.clear();
             tape.nodes.clear();
             tape.nodes.emplace_back();
+            tape.prefix.clear();
             tape.free_nodes.clear();
             tape.operations = 0;
             tape.contractions = 0;
@@ -1519,6 +1572,18 @@ public:
         }
     }
 
+    static void push_prefix_(const std::string &prefix) {
+        #if !defined(NDEBUG)
+            get_tape().prefix.push_back(prefix);
+        #endif
+    }
+
+    static void pop_prefix_() {
+        #if !defined(NDEBUG)
+            get_tape().prefix.pop_back();
+        #endif
+    }
+
     static void set_gradient_(Index i, const Value &grad) {
         auto &tape = get_tape();
         tape.nodes.at(i - tape.offset).gradient = grad;
@@ -1550,7 +1615,7 @@ public:
                         source.gradient = hsum(source.gradient);
                     }
                 } else {
-                    edge.special->compute_gradients(tape);
+                    edge.special->compute_gradients(edge, tape);
                 }
                 edge_count++;
             }
@@ -1589,36 +1654,78 @@ public:
         if constexpr (ComputeGradients) {
             Tape &tape = get_tape();
             std::string result;
+            check_edges();
 
             #if !defined(NDEBUG)
-            size_t index = 0;
-            for (const auto &node : tape.nodes) {
-                if (!node.is_collected() && !node.label.empty()) {
-                    result += "  ";
-                    result += std::to_string(index) + " [label=\"" + node.label;
-                    if (node.flags & NodeFlags::ScalarNode)
-                        result += " [s]";
+                size_t index = 0;
+                int current_depth = 0;
+                auto hasher = std::hash<std::string>();
+                std::string current_path = "";
+                for (const auto &node : tape.nodes) {
+                    if (!node.is_collected() && !node.label.empty()) {
+                        std::string label = node.label;
 
-                    result += "\\n#" + std::to_string(index) + "\"";
-                    if (node.label[0] == '\\')
-                        result += " fillcolor=salmon style=filled";
-                    result += "];\n";
+                        auto sepidx = label.rfind("/");
+                        std::string path, suffix;
+                        if (sepidx != std::string::npos) {
+                            path = label.substr(0, sepidx);
+                            label = label.substr(sepidx + 1);
+                        }
+
+                        if (current_path != path) {
+                            for (int i = 0; i < current_depth; ++i)
+                                result += "  }\n";
+                            current_depth = 0;
+                            current_path = path;
+
+                            do {
+                                sepidx = path.find('/');
+                                std::string graph_label = path.substr(0, sepidx);
+                                if (graph_label.empty())
+                                    break;
+
+                                result += "  subgraph cluster" +
+                                          std::to_string(hasher(graph_label)) +
+                                          " {\n  label=\"" + graph_label +
+                                          "\";\n";
+                                ++current_depth;
+
+                                if (sepidx == std::string::npos)
+                                    break;
+                                path = path.substr(sepidx + 1, std::string::npos);
+                            } while (true);
+                        }
+
+                        result += "  " + std::to_string(index) + " [label=\"" + label;
+                        if (node.flags & NodeFlags::ScalarNode)
+                            result += " [s]";
+
+                        result += "\\n#" + std::to_string(index) + " [" +
+                                  std::to_string(node.ref_count) + "]" + "\"";
+                        if (node.label[0] == '\\')
+                            result += " fillcolor=salmon style=filled";
+                        result += "];\n";
+                    }
+
+                    index++;
                 }
-
-                index++;
-            }
+                for (int i = 0; i < current_depth; ++i)
+                    result += "  }\n";
             #endif
 
             for (const auto &edge : tape.edges) {
                 if (edge.is_collected())
                     continue;
 
-                result += "  ";
-                if (!edge.is_special())
-                    result += std::to_string(edge.target - tape.offset) + " -> " +
-                              std::to_string(edge.source - tape.offset) + ";\n";
-                else
-                    result += edge.special->graphviz(tape);
+                Index target = edge.target - tape.offset,
+                      source = edge.source - tape.offset;
+
+                result += "  " + std::to_string(target) + " -> " +
+                                 std::to_string(source) + ";\n";
+
+                if (edge.is_special())
+                    result += "  " + std::to_string(target) +
+                              " [shape=doubleoctagon];\n";
             }
             return result;
         } else {
@@ -1783,8 +1890,8 @@ namespace detail {
 template <typename T> std::string graphviz(const T &value) {
     std::string result;
     result += "digraph {\n";
-    //result += "  rankdir=BT;\n";
-    result += "  rankdir=RL;\n";
+    result += "  rankdir=BT;\n"; // BT or RL
+    result += "  fontname=Consolas;\n";
     result += "  node [shape=record fontname=Consolas];\n";
     result += detail::graphviz_edges<T>();
     result += detail::graphviz_nodes(value);

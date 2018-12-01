@@ -365,8 +365,8 @@ ENOKI_TEST(test30_scatter_add) {
     FloatD x = linspace<FloatD>(0, 1, 5);
     FloatD y = linspace<FloatD>(1, 2, 4);
 
-    requires_gradient(x);
-    requires_gradient(y);
+    requires_gradient(x, "x");
+    requires_gradient(y, "y");
 
     FloatD buf = zero<FloatD>(10);
     scatter_add(buf, idx1, x);
@@ -378,6 +378,7 @@ ENOKI_TEST(test30_scatter_add) {
     assert(allclose(ref_buf, buf, 1e-4f, 1e-4f));
 
     FloatD s = dot(buf, buf);
+    std::cout << graphviz(s) << std::endl;
 
     backward(s);
 
