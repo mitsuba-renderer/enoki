@@ -468,6 +468,8 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
             if constexpr (PacketSize > 1) {
                 auto mask2 = arange<IndexPacket>() <= IndexScalar((result.size() - 1) % PacketSize);
                 result.packet(i) = gather<Packet, Stride>(mem, index.packet(i1), mask.packet(i2) & mask2);
+                if (result.size() == 1)
+                    result.packet(0) = result.coeff(0);
             }
         }
         return result;

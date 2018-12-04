@@ -965,7 +965,7 @@ public:
         }
 
         return DiffArray::create(
-            index_new, gather<Value>(ptr, offset.value_(), mask.value_()));
+            index_new, gather<Value, Stride>(ptr, offset.value_(), mask.value_()));
     }
 
     template <size_t Stride, typename Offset, typename Mask>
@@ -1007,7 +1007,7 @@ public:
             }
         }
 
-        scatter_add(ptr, offset.value_(), value_(), mask.value_());
+        scatter_add<Stride>(ptr, offset.value_(), value_(), mask.value_());
     }
 
     // -----------------------------------------------------------------------
@@ -1573,6 +1573,8 @@ public:
     }
 
     static void push_prefix_(const std::string &prefix) {
+        ENOKI_MARK_USED(prefix);
+
         #if !defined(NDEBUG)
             get_tape().prefix.push_back(prefix);
         #endif
