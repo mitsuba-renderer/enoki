@@ -163,7 +163,7 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
     ENOKI_NOINLINE DynamicArrayImpl &operator=(const DynamicArrayImpl &other) {
         resize(other.size());
         memcpy(m_packets.get(), other.m_packets.get(),
-               packets_allocated() * sizeof(Packet));
+               packets() * sizeof(Packet));
         return derived();
     }
 
