@@ -590,8 +590,18 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
         ENOKI_CHKSCALAR("shuffle");
         Derived out;
         size_t idx = 0;
-        bool result[] = { (out.coeff(idx++) = derived().coeff(Indices), false)... };
+        bool result[] = { (out.coeff(idx++) = derived().coeff(Indices % Derived::Size), false)... };
         (void) idx; (void) result;
+        return out;
+    }
+
+    template <typename Index> ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        ENOKI_CHKSCALAR("shuffle");
+        Derived out;
+        for (size_t i = 0; i < Derived::Size; ++i) {
+            size_t idx = (size_t) index.coeff(i);
+            out.coeff(i) = derived().coeff(idx % Derived::Size);
+        }
         return out;
     }
 

@@ -273,13 +273,43 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     ENOKI_INLINE Derived fmaddsub_(Ref b, Ref c) const { return _mm256_fmaddsub_ps(m, b.m, c.m); }
 #endif
 
-#if defined(ENOKI_X86_AVX2)
     template <int I0, int I1, int I2, int I3, int I4, int I5, int I6, int I7>
     ENOKI_INLINE Derived shuffle_() const {
-        return _mm256_permutevar8x32_ps(m,
-            _mm256_setr_epi32(I0, I1, I2, I3, I4, I5, I6, I7));
+        #if defined(ENOKI_X86_AVX2)
+            return _mm256_permutevar8x32_ps(m,
+                _mm256_setr_epi32(I0, I1, I2, I3, I4, I5, I6, I7));
+        #else
+            return Base::template shuffle_<I0, I1, I2, I3, I4, I5, I6, I7>();
+        #endif
     }
-#endif
+
+
+    template <typename Index>
+    ENOKI_INLINE Derived shuffle_(const Index &index_) const {
+        #if defined(ENOKI_X86_AVX2)
+            return _mm256_permutevar8x32_ps(m, index_.m);
+        #else
+            __m128i i0 = low(index_).m,
+                    i1 = high(index_).m;
+
+            // swap low and high part of table
+            __m256 m2 = _mm256_permute2f128_ps(m, m, 1);
+
+            __m256i index = _mm256_insertf128_si256(_mm256_castsi128_si256(i0), i1, 1);
+
+            __m256  r0 = _mm256_permutevar_ps(m,  index),
+                    r1 = _mm256_permutevar_ps(m2, index);
+
+            __m128i k0 = _mm_slli_epi32(i0,  29),
+                    k1 = _mm_slli_epi32(_mm_xor_si128(i1, _mm_set1_epi32(4)),  29);
+
+            __m256 k = _mm256_insertf128_ps(
+                _mm256_castps128_ps256(_mm_castsi128_ps(k0)),
+                _mm_castsi128_ps(k1), 1);
+
+            return _mm256_blendv_ps(r0, r1, k);
+        #endif
+    }
 
 #if defined(ENOKI_X86_AVX512VL)
     ENOKI_INLINE Derived ldexp_(Ref arg) const { return _mm256_scalef_ps(m, arg.m); }
@@ -791,6 +821,11 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     ENOKI_INLINE Derived shuffle_() const {
         return _mm256_permute4x64_pd(m, _MM_SHUFFLE(I3, I2, I1, I0));
     }
+
+    template <typename Index>
+    ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        return Base::shuffle_(index);
+    }
 #endif
 
 
@@ -1046,6 +1081,11 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     template <int I0, int I1, int I2>
     ENOKI_INLINE Derived shuffle_() const {
         return Base::template shuffle_<I0, I1, I2, 3>();
+    }
+
+    template <typename Index>
+    ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        return Base::shuffle_(index);
     }
 
     // -----------------------------------------------------------------------

@@ -284,6 +284,59 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, IsMask_, Derived_,
     Derived tzcnt_() const  { return Derived(tzcnt(a1),  tzcnt(a2));  }
     Derived popcnt_() const { return Derived(popcnt(a1), popcnt(a2)); }
 
+    template<size_t... Is, size_t ... Is2>
+    static constexpr auto split_(std::index_sequence<Is...>,
+                                 std::index_sequence<Is2...>) {
+        constexpr std::array<size_t, sizeof...(Is)> out { Is ... };
+        return std::make_pair(std::index_sequence<out[Is2]...>(),
+                              std::index_sequence<out[Is2 + Size1]...>());
+    }
+
+    template <size_t... Indices> ENOKI_INLINE Derived shuffle_() const {
+        if constexpr (Size1 != Size2) {
+            return Base::template shuffle_<Indices...>();
+        } else {
+            constexpr auto indices = split_(std::index_sequence<Indices...>(),
+                                            std::make_index_sequence<Size1>());
+            return shuffle_impl_(indices.first, indices.second);
+        }
+    }
+
+    template <size_t... Indices1, typename T= size_t, size_t... Indices2>
+    ENOKI_INLINE Derived shuffle_impl_(std::index_sequence<Indices1...>,
+                                       std::index_sequence<Indices2...>) const {
+        using Int = int_array_t<Array1>;
+        Array1 a1l = a1.template shuffle_<(size_t) std::min(Size1 - 1, Indices1)...>(),
+               a1h = a2.template shuffle_<(size_t) std::max((ssize_t) 0, (ssize_t) Indices1 - (ssize_t) Size1)...>(),
+               a1f = select(Int(Indices1...) < Int(Size1), a1l, a1h);
+
+        Array2 a2l = a1.template shuffle_<std::min(Size1 - 1, Indices2)...>(),
+               a2h = a2.template shuffle_<(size_t) std::max((ssize_t) 0, (ssize_t) Indices2 - (ssize_t) Size1)...>(),
+               a2f = select(Int(Indices2...) < Int(Size1), a2l, a2h);
+
+        return Derived(a1f, a2f);
+    }
+
+    template <typename Index> ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        if constexpr (Size1 != Size2) {
+            return Base::shuffle_(index);
+        } else {
+            auto il = low(index), ih = high(index);
+
+            decltype(il) size = scalar_t<Index>(Size1);
+
+            Array1 a1l = a1.shuffle_(il),
+                   a1h = a2.shuffle_(il - size),
+                   a1f = select(il < size, a1l, a1h);
+
+            Array2 a2l = a1.shuffle_(ih),
+                   a2h = a2.shuffle_(ih - size),
+                   a2f = select(ih < size, a2l, a2h);
+
+            return Derived(a1f, a2f);
+        }
+    }
+
     #define ENOKI_MASKED_OPERATOR(name)                                        \
         template <typename Mask>                                               \
         ENOKI_INLINE void m##name##_(Ref value, const Mask &mask) {            \

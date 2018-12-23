@@ -1,5 +1,5 @@
 /*
-    enoki/array_neon.h -- Packed SIMD array (ARM 64 bit NEON specialization)
+    enoki/array_neon.h -- Packed SIMD array (ARM NEON specialization)
 
     Enoki is a C++ template library that enables transparent vectorization
     of numerical kernels using SIMD instruction sets available on current
@@ -295,6 +295,11 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
                 return vcombine_f32(l, h);
             }
         }
+    }
+
+    template <typename Index>
+    ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        return Base::shuffle_(index);
     }
 
     //! @}
@@ -850,6 +855,12 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
         }
     }
 
+    template <typename Index>
+    ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        return Base::shuffle_(index);
+    }
+
+
     //! @}
     // -----------------------------------------------------------------------
 
@@ -1203,6 +1214,12 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
         return Derived(coeff(I0), coeff(I1), coeff(I2));
     }
 
+    template <typename Index>
+    ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        return Base::shuffle_(index);
+    }
+
+
     // -----------------------------------------------------------------------
     //! @{ \name Horizontal operations (adapted for the n=3 case)
     // -----------------------------------------------------------------------
@@ -1257,6 +1274,12 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     ENOKI_INLINE Derived shuffle_() const {
         return Derived(coeff(I0), coeff(I1), coeff(I2));
     }
+
+    template <typename Index>
+    ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        return Base::shuffle_(index);
+    }
+
 
     // -----------------------------------------------------------------------
     //! @{ \name Horizontal operations (adapted for the n=3 case)

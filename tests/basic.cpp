@@ -559,3 +559,18 @@ ENOKI_TEST_ALL(test29_pointer_arithmetic) {
         Class z; z.x[0] = 0; (void) z; /* Quench warnings */
     }
 }
+
+ENOKI_TEST_ALL(test30_shuffle_dynamic) {
+    using Int = int_array_t<T>;
+    T x1 = arange<T>();
+    T x2 = Size - scalar_t<T>(1) - x1;
+    Int idx1, idx2;
+
+    for (size_t i = 0; i < Size; ++i) {
+        idx1[i] = scalar_t<Int>(i);
+        idx2[i] = scalar_t<Int>(Size - 1 - i);
+    }
+
+    assert(x1 == shuffle(x1, idx1));
+    assert(x2 == shuffle(x1, idx2));
+}

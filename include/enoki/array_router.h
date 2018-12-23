@@ -289,6 +289,19 @@ ENOKI_INLINE auto shuffle(const T &a) {
     }
 }
 
+template <typename Array, typename Index,
+          enable_if_t<is_array_v<Array> && is_array_v<Index> && std::is_integral_v<scalar_t<Index>>> = 0>
+ENOKI_INLINE Array shuffle(const Array &a, const Index &idx) {
+    if constexpr (Index::Depth > Array::Depth) {
+        Array result;
+        for (size_t i = 0; i < Array::Size; ++i)
+            result.coeff(i) = shuffle(a.derived().coeff(i), idx);
+        return result;
+    } else {
+        return a.derived().shuffle_((int_array_t<Array> &) idx);
+    }
+}
+
 //// Compute the square of the given value
 template <typename T> ENOKI_INLINE auto sqr(const T &value) {
     return value * value;

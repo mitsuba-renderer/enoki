@@ -287,7 +287,7 @@ template <typename T, size_t PacketSize> void test09_packet_from_struct() {
         auto &&g = packet(gps, i);
 
         a = T(i);
-        m = (a > 0);
+        m = a > scalar_t<T>(0);
         g.time = i;
         g.reliable = (i % 2) == 0;
     }

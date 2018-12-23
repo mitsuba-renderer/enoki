@@ -283,6 +283,15 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
         #endif
     }
 
+    template <typename Index>
+    ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        #if defined(ENOKI_X86_AVX)
+            return _mm_permutevar_ps(m, index.m);
+        #else
+            return Base::shuffle_(index);
+        #endif
+    }
+
 #if defined(ENOKI_X86_AVX512VL)
     ENOKI_INLINE Derived ldexp_(Ref arg) const { return _mm_scalef_ps(m, arg.m); }
 
@@ -782,6 +791,15 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
     template <int I0, int I1>
     ENOKI_INLINE Derived shuffle_() const {
         return ENOKI_SHUFFLE_PD(m, (I1 << 1) | I0);
+    }
+
+    template <typename Index>
+    ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        #if defined(ENOKI_X86_AVX)
+            return _mm_permutevar_pd(m, _mm_slli_epi64(index.m, 1));
+        #else
+            return Base::shuffle_(index);
+        #endif
     }
 
 #if defined(ENOKI_X86_AVX512VL)
@@ -1351,6 +1369,15 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     template <int I0, int I1, int I2, int I3>
     ENOKI_INLINE Derived shuffle_() const {
         return _mm_shuffle_epi32(m, _MM_SHUFFLE(I3, I2, I1, I0));
+    }
+
+    template <typename Index>
+    ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        #if defined(ENOKI_X86_AVX)
+            return _mm_castps_si128(_mm_permutevar_ps(_mm_castsi128_ps(m), index.m));
+        #else
+            return Base::shuffle_(index);
+        #endif
     }
 
     ENOKI_INLINE Derived mulhi_(Ref a) const {
@@ -1931,6 +1958,15 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
             m, _MM_SHUFFLE(I1 * 2 + 1, I1 * 2, I0 * 2 + 1, I0 * 2));
     }
 
+    template <typename Index>
+    ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        #if defined(ENOKI_X86_AVX)
+            return _mm_castpd_si128(_mm_permutevar_pd(_mm_castsi128_pd(m), _mm_slli_epi64(index.m, 1)));
+        #else
+            return Base::shuffle_(index);
+        #endif
+    }
+
 #if defined(ENOKI_X86_AVX512CD) && defined(ENOKI_X86_AVX512VL)
     ENOKI_INLINE Derived lzcnt_() const { return _mm_lzcnt_epi64(m); }
     ENOKI_INLINE Derived tzcnt_() const { return Value(64) - lzcnt(~derived() & (derived() - Value(1))); }
@@ -2122,6 +2158,11 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
         return Base::template shuffle_<I0, I1, I2, 3>();
     }
 
+    template <typename Index>
+    ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        return Base::shuffle_(index);
+    }
+
     // -----------------------------------------------------------------------
     //! @{ \name Horizontal operations (adapted for the n=3 case)
     // -----------------------------------------------------------------------
@@ -2243,6 +2284,11 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     template <int I0, int I1, int I2>
     ENOKI_INLINE Derived shuffle_() const {
         return Base::template shuffle_<I0, I1, I2, 3>();
+    }
+
+    template <typename Index>
+    ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        return Base::shuffle_(index);
     }
 
     // -----------------------------------------------------------------------

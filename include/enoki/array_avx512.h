@@ -305,6 +305,10 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
         return _mm512_permutexvar_ps(idx, m);
     }
 
+    template <typename Index> ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        return _mm512_permutexvar_ps(index.m, m);
+    }
+
     ENOKI_INLINE Derived rcp_() const {
         #if defined(ENOKI_X86_AVX512ER)
             /* rel err < 2^28, use as is */
@@ -818,6 +822,10 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
         return _mm512_permutexvar_pd(idx, m);
     }
 
+    template <typename Index> ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        return _mm512_permutexvar_pd(index.m, m);
+    }
+
     ENOKI_INLINE Derived rcp_() const {
         if constexpr (Approx_) {
             /* Use best reciprocal approximation available on the current
@@ -1269,6 +1277,10 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
         return _mm512_permutexvar_epi32(idx, m);
     }
 
+    template <typename Index> ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        return _mm512_permutexvar_epi32(index.m, m);
+    }
+
     ENOKI_INLINE Derived mulhi_(Ref a) const {
         auto blend = mask_t<Derived>::from_k(0b0101010101010101);
         Derived even, odd;
@@ -1704,6 +1716,10 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
         const __m512i idx =
             _mm512_setr_epi64(I0, I1, I2, I3, I4, I5, I6, I7);
         return _mm512_permutexvar_epi64(idx, m);
+    }
+
+    template <typename Index> ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        return _mm512_permutexvar_epi64(index.m, m);
     }
 
     ENOKI_INLINE Derived mulhi_(Ref b) const {

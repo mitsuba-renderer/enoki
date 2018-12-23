@@ -344,6 +344,11 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
             _mm256_setr_epi32(I0, I1, I2, I3, I4, I5, I6, I7));
     }
 
+    template <typename Index>
+    ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        return _mm256_permutevar8x32_epi32(m, index.m);
+    }
+
     ENOKI_INLINE Derived mulhi_(Ref a) const {
         Derived even, odd;
 
@@ -913,9 +918,12 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
 
     template <int I0, int I1, int I2, int I3>
     ENOKI_INLINE Derived shuffle_() const {
-        return _mm256_permutevar8x32_epi32(
-            m, _mm256_setr_epi32(I0 * 2, I0 * 2 + 1, I1 * 2, I1 * 2 + 1,
-                                 I2 * 2, I2 * 2 + 1, I3 * 2, I3 * 2 + 1));
+        return _mm256_permute4x64_epi64(m, _MM_SHUFFLE(I3, I2, I1, I0));
+    }
+
+    template <typename Index>
+    ENOKI_INLINE Derived shuffle_(const Index &index) const {
+        return Base::shuffle_(index);
     }
 
 #if defined(ENOKI_X86_AVX512CD) && defined(ENOKI_X86_AVX512VL)
@@ -1108,6 +1116,11 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
     template <int I0, int I1, int I2>
     ENOKI_INLINE Derived shuffle_() const {
         return Base::template shuffle_<I0, I1, I2, 3>();
+    }
+
+    template <typename Index>
+    ENOKI_INLINE Derived shuffle_(const Index &idx) const {
+        return Base::shuffle_(idx);
     }
 
     // -----------------------------------------------------------------------
