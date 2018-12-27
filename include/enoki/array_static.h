@@ -738,6 +738,20 @@ public:
         return result;
     }
 
+    /// Horizontal sum over innermost dimension
+    ENOKI_INLINE auto hsum_inner_() const {
+        if constexpr (is_array_v<Value>) {
+            using Value = decltype(hsum_inner(derived().coeff(0)));
+            using Result = typename Derived::template ReplaceValue<Value>;
+            Result result;
+            for (size_t i = 0; i < Derived::Size; ++i)
+                result.coeff(i) = hsum_inner(derived().coeff(i));
+            return result;
+        } else {
+            return hsum(derived());
+        }
+    }
+
     /// Horizontal product fallback
     ENOKI_INLINE Value hprod_() const {
         ENOKI_CHKSCALAR("hprod");
@@ -745,6 +759,20 @@ public:
         for (size_t i = 1; i < Derived::Size; ++i)
             result *= (const Value &) derived().coeff(i);
         return result;
+    }
+
+    /// Horizontal product over innermost dimension
+    ENOKI_INLINE auto hprod_inner_() const {
+        if constexpr (is_array_v<Value>) {
+            using Value = decltype(hprod_inner(derived().coeff(0)));
+            using Result = typename Derived::template ReplaceValue<Value>;
+            Result result;
+            for (size_t i = 0; i < Derived::Size; ++i)
+                result.coeff(i) = hprod_inner(derived().coeff(i));
+            return result;
+        } else {
+            return hprod(derived());
+        }
     }
 
     /// Horizontal maximum fallback
@@ -756,6 +784,20 @@ public:
         return result;
     }
 
+    /// Horizontal maximum over innermost dimension
+    ENOKI_INLINE auto hmax_inner_() const {
+        if constexpr (is_array_v<Value>) {
+            using Value = decltype(hmax_inner(derived().coeff(0)));
+            using Result = typename Derived::template ReplaceValue<Value>;
+            Result result;
+            for (size_t i = 0; i < Derived::Size; ++i)
+                result.coeff(i) = hmax_inner(derived().coeff(i));
+            return result;
+        } else {
+            return hmax(derived());
+        }
+    }
+
     /// Horizontal minimum fallback
     ENOKI_INLINE Value hmin_() const {
         Value result = (const Value &) derived().coeff(0);
@@ -763,6 +805,20 @@ public:
         for (size_t i = 1; i < Derived::Size; ++i)
             result = min(result, (const Value &) derived().coeff(i));
         return result;
+    }
+
+    /// Horizontal minimum over innermost dimension
+    ENOKI_INLINE auto hmin_inner_() const {
+        if constexpr (is_array_v<Value>) {
+            using Value = decltype(hmin_inner(derived().coeff(0)));
+            using Result = typename Derived::template ReplaceValue<Value>;
+            Result result;
+            for (size_t i = 0; i < Derived::Size; ++i)
+                result.coeff(i) = hmin_inner(derived().coeff(i));
+            return result;
+        } else {
+            return hmin(derived());
+        }
     }
 
     /// all() fallback implementation
@@ -778,6 +834,20 @@ public:
             for (size_t i = 1; i < Derived::Size; ++i)
                 result &= derived().coeff(i);
             return result;
+        }
+    }
+
+    /// all() over innermost dimension
+    ENOKI_INLINE auto all_inner_() const {
+        if constexpr (is_array_v<Value>) {
+            using Value = decltype(all_inner(derived().coeff(0)));
+            using Result = typename Derived::template ReplaceValue<Value>;
+            Result result;
+            for (size_t i = 0; i < Derived::Size; ++i)
+                result.coeff(i) = all_inner(derived().coeff(i));
+            return result;
+        } else {
+            return all(derived());
         }
     }
 
@@ -797,6 +867,20 @@ public:
         }
     }
 
+    /// any() over innermost dimension
+    ENOKI_INLINE auto any_inner_() const {
+        if constexpr (is_array_v<Value>) {
+            using Value = decltype(any_inner(derived().coeff(0)));
+            using Result = typename Derived::template ReplaceValue<Value>;
+            Result result;
+            for (size_t i = 0; i < Derived::Size; ++i)
+                result.coeff(i) = any_inner(derived().coeff(i));
+            return result;
+        } else {
+            return any(derived());
+        }
+    }
+
     /// count() fallback implementation
     ENOKI_INLINE auto count_() const {
         ENOKI_CHKSCALAR("count");
@@ -806,6 +890,20 @@ public:
         for (size_t i = 0; i < Derived::Size; ++i)
             masked(result, derived().coeff(i)) += one;
         return result;
+    }
+
+    /// count() over innermost dimension
+    ENOKI_INLINE auto count_inner_() const {
+        if constexpr (is_array_v<Value>) {
+            using Value = decltype(count_inner(derived().coeff(0)));
+            using Result = typename Derived::template ReplaceValue<Value>;
+            Result result;
+            for (size_t i = 0; i < Derived::Size; ++i)
+                result.coeff(i) = count_inner(derived().coeff(i));
+            return result;
+        } else {
+            return count(derived());
+        }
     }
 
     /// Dot product fallback implementation

@@ -168,3 +168,79 @@ ENOKI_TEST_ALL(test09_dot) {
         test::assert_close(result, ref, Value(1e-6f));
     }
 }
+
+ENOKI_TEST_ALL(test10_hsum_inner_nested) {
+    using Array3 = Array<T, 3>;
+
+    Array3 x(
+        arange<T>() + scalar_t<T>(1),
+        arange<T>() + scalar_t<T>(2),
+        arange<T>() + scalar_t<T>(3)
+    );
+
+    Array<scalar_t<T>, 3> y(
+        hsum(x.x()),
+        hsum(x.y()),
+        hsum(x.z())
+    );
+
+    assert(hsum_inner(x) == y);
+    assert(hsum_nested(x) == hsum(y));
+}
+
+ENOKI_TEST_ALL(test11_hprod_inner_nested) {
+    using Array3 = Array<T, 3>;
+
+    Array3 x(
+        arange<T>() + scalar_t<T>(1),
+        arange<T>() + scalar_t<T>(2),
+        arange<T>() + scalar_t<T>(3)
+    );
+
+    Array<scalar_t<T>, 3> y(
+        hprod(x.x()),
+        hprod(x.y()),
+        hprod(x.z())
+    );
+
+    assert(hprod_inner(x) == y);
+    assert(hprod_nested(x) == hprod(y) || T::Size > 4);
+}
+
+ENOKI_TEST_ALL(test12_hmin_inner_nested) {
+    using Array3 = Array<T, 3>;
+
+    Array3 x(
+        arange<T>() + scalar_t<T>(1),
+        arange<T>() + scalar_t<T>(2),
+        arange<T>() + scalar_t<T>(3)
+    );
+
+    Array<scalar_t<T>, 3> y(
+        hmin(x.x()),
+        hmin(x.y()),
+        hmin(x.z())
+    );
+
+    assert(hmin_inner(x) == y);
+    assert(hmin_nested(x) == hmin(y));
+}
+
+ENOKI_TEST_ALL(test13_hmax_inner_nested) {
+    using Array3 = Array<T, 3>;
+
+    Array3 x(
+        arange<T>() + scalar_t<T>(1),
+        arange<T>() + scalar_t<T>(2),
+        arange<T>() + scalar_t<T>(3)
+    );
+
+    Array<scalar_t<T>, 3> y(
+        hmax(x.x()),
+        hmax(x.y()),
+        hmax(x.z())
+    );
+
+    assert(hmax_inner(x) == y);
+    assert(hmax_nested(x) == hmax(y));
+}

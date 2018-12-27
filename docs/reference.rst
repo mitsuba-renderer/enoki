@@ -993,12 +993,20 @@ Horizontal operations
 
         value[0] + .. + value[Array::Size-1];
 
-    The return value is of type ``value_t<Array>``, which is a scalar (e.g.
-    ``float``) for ordinary inputs and an array for nested array inputs.
+    For 1D arrays, ``hsum()`` returns a scalar result. For multdimensional
+    arrays, the horizontal reduction is performed over the *outermost* dimension
+    of ``Array``, and the result is of type ``value_t<Array>``.
+
+.. cpp:function:: template <typename Array> auto hsum_inner(Array value)
+
+    Analogous to :cpp:func:`hsum`, exept that the horizontal reduction is
+    performed over the *innermost* dimension of ``Array`` (which is only
+    relevant in the case of a multidimensional input array).
 
 .. cpp:function:: template <typename Array> scalar_t<Array> hsum_nested(Array value)
 
-    Recursive version of :cpp:func:`hsum`, which always returns a scalar.
+    Recursive version of :cpp:func:`hsum`, which nests through all dimensions
+    and always returns a scalar.
 
 .. cpp:function:: template <typename Array> value_t<Array> hprod(Array value)
 
@@ -1008,12 +1016,20 @@ Horizontal operations
 
         value[0] * .. * value[Array::Size-1];
 
-    The return value is of type ``value_t<Array>``, which is a scalar (e.g.
-    ``float``) for ordinary inputs and an array for nested array inputs.
+    For 1D arrays, ``hprod()`` returns a scalar result. For multdimensional
+    arrays, the horizontal reduction is performed over the *outermost* dimension
+    of ``Array``, and the result is of type ``value_t<Array>``.
+
+.. cpp:function:: template <typename Array> auto hprod_inner(Array value)
+
+    Analogous to :cpp:func:`hprod`, exept that the horizontal reduction is
+    performed over the *innermost* dimension of ``Array`` (which is only
+    relevant in the case of a multidimensional input array).
 
 .. cpp:function:: template <typename Array> scalar_t<Array> hprod_nested(Array value)
 
-    Recursive version of :cpp:func:`hprod`, which always returns a scalar.
+    Recursive version of :cpp:func:`hprod`, which nests through all dimensions
+    and always returns a scalar.
 
 .. cpp:function:: template <typename Array> value_t<Array> hmax(Array value)
 
@@ -1023,12 +1039,20 @@ Horizontal operations
 
         max(value[0], max(value[1], ...))
 
-    The return value is of type ``value_t<Array>``, which is a scalar (e.g.
-    ``float``) for ordinary inputs and an array for nested array inputs.
+    For 1D arrays, ``hmax()`` returns a scalar result. For multdimensional
+    arrays, the horizontal reduction is performed over the *outermost* dimension
+    of ``Array``, and the result is of type ``value_t<Array>``.
+
+.. cpp:function:: template <typename Array> auto hmax_inner(Array value)
+
+    Analogous to :cpp:func:`hmax`, exept that the horizontal reduction is
+    performed over the *innermost* dimension of ``Array`` (which is only
+    relevant in the case of a multidimensional input array).
 
 .. cpp:function:: template <typename Array> scalar_t<Array> hmax_nested(Array value)
 
-    Recursive version of :cpp:func:`hmax`, which always returns a scalar.
+    Recursive version of :cpp:func:`hmax`, which nests through all dimensions
+    and always returns a scalar.
 
 .. cpp:function:: template <typename Array> value_t<Array> hmin(Array value)
 
@@ -1038,28 +1062,20 @@ Horizontal operations
 
         min(value[0], min(value[1], ...))
 
-    The return value is of type ``value_t<Array>``, which is a scalar (e.g.
-    ``float``) for ordinary inputs and an array for nested array inputs.
+    For 1D arrays, ``hmin()`` returns a scalar result. For multdimensional
+    arrays, the horizontal reduction is performed over the *outermost* dimension
+    of ``Array``, and the result is of type ``value_t<Array>``.
+
+.. cpp:function:: template <typename Array> auto hmin_inner(Array value)
+
+    Analogous to :cpp:func:`hmin`, exept that the horizontal reduction is
+    performed over the *innermost* dimension of ``Array`` (which is only
+    relevant in the case of a multidimensional input array).
 
 .. cpp:function:: template <typename Array> scalar_t<Array> hmin_nested(Array value)
 
-    Recursive version of :cpp:func:`hmin`, which always returns a scalar.
-
-.. cpp:function:: template <typename Mask> auto any(Mask value)
-
-    Efficiently computes the horizontal OR (i.e. logical disjunction) of the
-    components of the mask ``value``, i.e.
-
-    .. code-block:: cpp
-
-        value[0] | ... | value[Size-1]
-
-    The return value is of type ``bool`` for ordinary mask inputs. When an
-    array of masks is provided, the return type matches the array components.
-
-.. cpp:function:: template <typename Mask> bool any_nested(Mask value)
-
-    Recursive version of :cpp:func:`any`, which always returns a boolean value.
+    Recursive version of :cpp:func:`hmin`, which nests through all dimensions
+    and always returns a scalar.
 
 .. cpp:function:: template <typename Mask> auto all(Mask value)
 
@@ -1070,12 +1086,44 @@ Horizontal operations
 
         value[0] & ... & value[Size-1]
 
-    The return value is of type ``bool`` for ordinary mask inputs. When an
-    array of masks is provided, the return type matches the array components.
+    For 1D arrays, ``all()`` returns a boolean result. For multdimensional
+    arrays, the horizontal reduction is performed over the *outermost* dimension
+    of ``Mask``, and the result is of type ``mask_t<value_t<Mask>>``.
+
+.. cpp:function:: template <typename Mask> auto all_inner(Mask value)
+
+    Analogous to :cpp:func:`all`, exept that the horizontal reduction is
+    performed over the *innermost* dimension of ``Mask`` (which is only
+    relevant in the case of a multidimensional input array).
 
 .. cpp:function:: template <typename Mask> bool all_nested(Mask value)
 
-    Recursive version of :cpp:func:`all`, which always returns a boolean value.
+    Recursive version of :cpp:func:`all`, which nests through all dimensions
+    and always returns a boolean value.
+
+.. cpp:function:: template <typename Mask> auto any(Mask value)
+
+    Efficiently computes the horizontal OR (i.e. logical disjunction) of the
+    components of the mask ``value``, i.e.
+
+    .. code-block:: cpp
+
+        value[0] | ... | value[Size-1]
+
+    For 1D arrays, ``any()`` returns a boolean result. For multdimensional
+    arrays, the horizontal reduction is performed over the *outermost* dimension
+    of ``Mask``, and the result is of type ``mask_t<value_t<Mask>>``.
+
+.. cpp:function:: template <typename Mask> auto any_inner(Mask value)
+
+    Analogous to :cpp:func:`any`, exept that the horizontal reduction is
+    performed over the *innermost* dimension of ``Mask`` (which is only
+    relevant in the case of a multidimensional input array).
+
+.. cpp:function:: template <typename Mask> bool any_nested(Mask value)
+
+    Recursive version of :cpp:func:`any`, which nests through all dimensions
+    and always returns a boolean value.
 
 .. cpp:function:: template <typename Mask> auto none(Mask value)
 
@@ -1086,12 +1134,20 @@ Horizontal operations
 
         ~(value[0] | ... | value[Size-1])
 
-    The return value is of type ``bool`` for ordinary mask inputs. When an
-    array of masks is provided, the return type matches the array components.
+    For 1D arrays, ``none()`` returns a boolean result. For multdimensional
+    arrays, the horizontal reduction is performed over the *outermost* dimension
+    of ``Mask``, and the result is of type ``mask_t<value_t<Mask>>``.
+
+.. cpp:function:: template <typename Mask> auto none_inner(Mask value)
+
+    Analogous to :cpp:func:`none`, exept that the horizontal reduction is
+    performed over the *innermost* dimension of ``Mask`` (which is only
+    relevant in the case of a multidimensional input array).
 
 .. cpp:function:: template <typename Mask> bool none_nested(Mask value)
 
-    Recursive version of :cpp:func:`none`, which always returns a boolean value.
+    Recursive version of :cpp:func:`none`, which nests through all dimensions
+    and always returns a boolean value.
 
 .. cpp:function:: template <typename Mask> auto count(Mask value)
 
@@ -1102,13 +1158,20 @@ Horizontal operations
 
         (value[0] ? 1 : 0) + ... (value[Size - 1] ? 1 : 0)
 
-    The return value is of type ``size_t`` for ordinary mask inputs. When an
-    array of masks is provided, the return value is of type
-    ``size_array_t<value_t<Mask>>``.
+    For 1D arrays, ``count()`` returns a result of type ``size_t``. For multdimensional
+    arrays, the horizontal reduction is performed over the *outermost* dimension
+    of ``Mask``, and the result is of type ``size_array_t<value_t<Mask>>``.
+
+.. cpp:function:: template <typename Mask> auto count_inner(Mask value)
+
+    Analogous to :cpp:func:`count`, exept that the horizontal reduction is
+    performed over the *innermost* dimension of ``Mask`` (which is only
+    relevant in the case of a multidimensional input array).
 
 .. cpp:function:: template <typename Mask> size_t count_nested(Mask value)
 
-    Recursive version of :cpp:func:`count`, which always returns a ``size_t`` value.
+    Recursive version of :cpp:func:`count`, which nests through all dimensions
+    and always returns a boolean value.
 
 .. cpp:function:: template <typename Array> value_t<Array> dot(Array value1, Array value2)
 
@@ -1791,13 +1854,26 @@ Rearranging contents of arrays
 
 .. cpp:function:: template <size_t... Index, typename Array> shuffle(Array a)
 
-    Shuffles the contents of an array. The pseudocode for this operation is
+    Shuffles the contents of an array given indices specified as a template
+    parameter. The pseudocode for this operation is
 
     .. code-block:: cpp
 
         Array out;
         for (size_t i = 0; i<Array::Size; ++i)
             out[i] = a[Index[i]];
+        return out;
+
+.. cpp:function:: template <typename Array, typename Indices> shuffle(Array a, Indices ind)
+
+    Shuffles the contents of an array given indices specified via an integer
+    array. The pseudocode for this operation is
+
+    .. code-block:: cpp
+
+        Array out;
+        for (size_t i = 0; i<Array::Size; ++i)
+            out[i] = a[ind[i]];
         return out;
 
 .. cpp:function:: template <typename Array1, typename Array2> auto concat(Array1 a1, Array2 a2)

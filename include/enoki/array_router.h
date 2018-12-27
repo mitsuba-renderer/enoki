@@ -235,6 +235,14 @@ ENOKI_ROUTE_UNARY_SCALAR(hmax,  hmax,  a)
 ENOKI_ROUTE_UNARY_SCALAR(hsum,  hsum,  a)
 ENOKI_ROUTE_UNARY_SCALAR(hprod, hprod, a)
 
+ENOKI_ROUTE_UNARY_SCALAR(all_inner,   all_inner,   (bool) a)
+ENOKI_ROUTE_UNARY_SCALAR(any_inner,   any_inner,   (bool) a)
+ENOKI_ROUTE_UNARY_SCALAR(count_inner, count_inner, (size_t) ((bool) a ? 1 : 0))
+ENOKI_ROUTE_UNARY_SCALAR(hmin_inner,  hmin_inner,  a)
+ENOKI_ROUTE_UNARY_SCALAR(hmax_inner,  hmax_inner,  a)
+ENOKI_ROUTE_UNARY_SCALAR(hsum_inner,  hsum_inner,  a)
+ENOKI_ROUTE_UNARY_SCALAR(hprod_inner, hprod_inner, a)
+
 ENOKI_ROUTE_UNARY_SCALAR(sqrt,  sqrt,  std::sqrt(a))
 ENOKI_ROUTE_UNARY_SCALAR(floor, floor, std::floor(a))
 ENOKI_ROUTE_UNARY_SCALAR(ceil,  ceil,  std::ceil(a))
@@ -246,6 +254,10 @@ ENOKI_ROUTE_UNARY_IMM(ror_array, ror_array)
 
 template <typename T> auto none(const T &value) {
     return !any(value);
+}
+
+template <typename T> auto none_inner(const T &value) {
+    return !any_inner(value);
 }
 
 /// Floating point division
