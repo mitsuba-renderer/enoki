@@ -56,6 +56,9 @@ template <typename Value_, typename Derived_> struct ArrayBase {
     /// Does this array compute derivatives using automatic differentation?
     static constexpr bool IsDiff = is_diff_array_v<Value_>;
 
+    /// Does this array reside on the GPU? (via CUDA)
+    static constexpr bool IsCUDA = is_cuda_array_v<Value_>;
+
     /// Does this array map operations onto native vector instructions?
     static constexpr bool IsNative = false;
 

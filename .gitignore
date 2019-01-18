@@ -48,6 +48,9 @@ Release
 *_avx512_skx
 *_neon
 *.ppm
+libenoki-cuda.so
+libenoki-cuda.dylib
+enoki-cuda.dll
 
 # Documentation
 /html

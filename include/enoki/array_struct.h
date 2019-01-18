@@ -158,7 +158,7 @@ struct struct_support<T, enable_if_static_array_t<T>> {
         if constexpr (!is_diff_array_v<T>)
             return value;
         else
-            return detach2(value, std::make_index_sequence<Size>());
+            return detach(value, std::make_index_sequence<Size>());
     }
 
     template <typename T2>
@@ -202,6 +202,11 @@ struct struct_support<T, enable_if_static_array_t<T>> {
         return gather(src, index, mask, std::make_index_sequence<Size>());
     }
 
+    template <typename Dst, typename Index, typename Mask>
+    static ENOKI_INLINE void scatter(Dst &dst, const T &value, const Index &index, const Mask &mask) {
+        scatter(dst, value, index, mask, std::make_index_sequence<Size>());
+    }
+
 private:
     template <typename T2, size_t... Is>
     static ENOKI_INLINE decltype(auto) packet(T2 &value, size_t i, std::index_sequence<Is...>) {
@@ -238,10 +243,17 @@ private:
     }
 
     template <typename T2, size_t... Is>
-    static ENOKI_INLINE decltype(auto) detach2(T2 &a, std::index_sequence<Is...>) {
+    static ENOKI_INLINE decltype(auto) detach(T2 &a, std::index_sequence<Is...>) {
         using Value = decltype(enoki::detach(a.coeff(0)));
         using Return = typename T::template ReplaceValue<Value>;
         return Return(enoki::detach(a.coeff(Is))...);
+    }
+
+    template <typename Dst, typename Index, typename Mask, size_t... Is>
+    static ENOKI_INLINE void scatter(Dst &src, const T &value, const Index &index,
+                                     const Mask &mask, std::index_sequence<Is...>) {
+        bool unused[] = { (enoki::scatter(src.coeff(Is), value.coeff(Is), index, mask), false) ... };
+        ENOKI_MARK_USED(unused);
     }
 };
 
@@ -345,12 +357,20 @@ template <typename T> bool ragged(const T &a) {
 template <
     typename Array, typename Index,
     typename Mask = mask_t<replace_scalar_t<Index, scalar_t<Array>>>,
-    typename Source,
-    enable_if_t<!std::is_pointer_v<Source> && !std::is_array_v<Source> &&
-                 array_depth_v<Source> != 1> = 0>
+    typename Source, enable_if_t<(array_depth_v<Source> > 1)> = 0>
 ENOKI_INLINE Array gather(const Source &source, const Index &index,
                           const identity_t<Mask> &mask = true) {
     return struct_support_t<Array>::gather(source, index, mask);
+}
+
+
+template <
+    typename Array, typename Index,
+    typename Mask = mask_t<replace_scalar_t<Index, scalar_t<Array>>>,
+    typename Target, enable_if_t<(array_depth_v<Target> > 1)> = 0>
+ENOKI_INLINE void scatter(Target &target, const Array &value, const Index &index,
+                          const detail::identity_t<Mask> &mask = true) {
+    struct_support_t<Array>::scatter(target, value, index, mask);
 }
 
 //! @}

@@ -37,6 +37,8 @@
 #  define ENOKI_LIKELY(x)              x
 #  define ENOKI_UNLIKELY(x)            x
 #  define ENOKI_REGCALL
+#  define ENOKI_IMPORT                 __declspec(dllimport)
+#  define ENOKI_EXPORT                 __declspec(dllexport)
 #else
 #  define ENOKI_NOINLINE               __attribute__ ((noinline))
 #  define ENOKI_INLINE                 __attribute__ ((always_inline)) inline
@@ -69,6 +71,8 @@
 #    endif
 #    define ENOKI_REGCALL
 #  endif
+#  define ENOKI_IMPORT
+#  define ENOKI_EXPORT                 __attribute__ ((visibility("default")))
 #endif
 
 #define ENOKI_MARK_USED(x) (void) x

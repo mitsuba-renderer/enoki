@@ -224,6 +224,18 @@ template <typename T> struct is_diff_array<T, enable_if_array_t<T>> {
 template <typename T> constexpr bool is_diff_array_v = is_diff_array<T>::value;
 template <typename T> using enable_if_diff_t = enable_if_t<is_diff_array_v<T>>;
 
+/// Does this array reside on the GPU (via CUDA)?
+template <typename T, typename = int> struct is_cuda_array {
+    static constexpr bool value = false;
+};
+
+template <typename T> struct is_cuda_array<T, enable_if_array_t<T>> {
+    static constexpr bool value = std::decay_t<T>::Derived::IsCUDA;
+};
+
+template <typename T> constexpr bool is_cuda_array_v = is_cuda_array<T>::value;
+template <typename T> using enable_if_cuda_t = enable_if_t<is_cuda_array_v<T>>;
+
 /// Determine the depth of a nested Enoki array (scalars evaluate to zero)
 template <typename T, typename = int> struct array_depth {
     static constexpr size_t value = 0;
@@ -504,5 +516,62 @@ template <typename T, bool CopyFlags = true> using ssize_array_t   = replace_sca
 // -----------------------------------------------------------------------
 
 template <typename T> using struct_support_t = struct_support<std::decay_t<T>>;
+
+// -----------------------------------------------------------------------
+//! @{ \name Type enumeration
+// -----------------------------------------------------------------------
+
+enum EnokiType { Invalid = 0, Int8, UInt8, Int16, UInt16,
+                 Int32, UInt32, Int64, UInt64, Float16,
+                 Float32, Float64, Bool, Pointer };
+
+template <typename T, typename = int> struct enoki_type {
+    static constexpr EnokiType value = EnokiType::Invalid;
+};
+
+template <typename T> struct enoki_type<T, enable_if_t<is_int8_v<T>>> {
+    static constexpr EnokiType value =
+        std::is_signed_v<T> ? EnokiType::Int8 : EnokiType::UInt8;
+};
+
+template <typename T> struct enoki_type<T, enable_if_t<is_int16_v<T>>> {
+    static constexpr EnokiType value =
+        std::is_signed_v<T> ? EnokiType::Int16 : EnokiType::UInt16;
+};
+
+template <typename T> struct enoki_type<T, enable_if_t<is_int32_v<T>>> {
+    static constexpr EnokiType value =
+        std::is_signed_v<T> ? EnokiType::Int32 : EnokiType::UInt32;
+};
+
+template <typename T> struct enoki_type<T, enable_if_t<is_int64_v<T>>> {
+    static constexpr EnokiType value =
+        std::is_signed_v<T> ? EnokiType::Int64 : EnokiType::UInt64;
+};
+
+template <> struct enoki_type<half> {
+    static constexpr EnokiType value = EnokiType::Float16;
+};
+
+template <> struct enoki_type<float> {
+    static constexpr EnokiType value = EnokiType::Float32;
+};
+
+template <> struct enoki_type<double> {
+    static constexpr EnokiType value = EnokiType::Float64;
+};
+
+template <> struct enoki_type<bool> {
+    static constexpr EnokiType value = EnokiType::Bool;
+};
+
+template <typename T> struct enoki_type<T *> {
+    static constexpr EnokiType value = EnokiType::Pointer;
+};
+
+template <typename T> constexpr EnokiType enoki_type_v = enoki_type<T>::value;
+
+//! @}
+// -----------------------------------------------------------------------
 
 NAMESPACE_END(enoki)

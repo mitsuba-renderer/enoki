@@ -1,5 +1,12 @@
 cmake_minimum_required (VERSION 2.8.12)
-project(enoki CXX)
+
+option(ENOKI_CUDA "Build Enoki CUDA library?" OFF)
+
+if (ENOKI_CUDA)
+  project(enoki CXX CUDA)
+else()
+  project(enoki CXX)
+endif()
 
 set(ENOKI_MASTER_PROJECT OFF)
 if (${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
@@ -222,6 +229,15 @@ set(ENOKI_HEADERS
 if (ENOKI_TEST)
   enable_testing()
   add_subdirectory(tests)
+endif()
+
+if (ENOKI_CUDA)
+  include_directories(ext/cub)
+  add_library(enoki-cuda SHARED
+      src/cuda/common.cuh
+      src/cuda/horiz.cu
+      src/cuda/trace.cu
+  )
 endif()
 
 # Build the documentation

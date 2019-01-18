@@ -649,6 +649,10 @@ template <typename T> ENOKI_INLINE auto normalize(const T &v) {
     return v * rsqrt<array_approx_v<T>>(squared_norm(v));
 }
 
+template <typename T> ENOKI_INLINE auto partition(const T &v) {
+    return v.partition_();
+}
+
 template <typename T1, typename T2,
           enable_if_t<array_size_v<T1> == 3 &&
                       array_size_v<T2> == 3> = 0>
@@ -1172,7 +1176,7 @@ ENOKI_INLINE Array gather(const Source &source, const Args &... args) {
     if constexpr (is_diff_array_v<Source>)
         Source::set_scatter_gather_source_(source);
 
-   Array result = gather<Array, Stride, Packed>(source.data(), args...);
+    Array result = gather<Array, Stride, Packed>(source.data(), args...);
 
     if constexpr (is_diff_array_v<Source>)
         Source::clear_scatter_gather_source_();

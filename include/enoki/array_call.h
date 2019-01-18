@@ -115,7 +115,7 @@ template <typename Storage_> struct call_support_base {
     template <typename Func, typename InputMask,
               typename Tuple, size_t ... Indices>
     ENOKI_INLINE auto dispatch(Func func, InputMask mask_, Tuple tuple,
-                               std::index_sequence<Indices...>) {
+                               std::index_sequence<Indices...>) const {
         Mask mask = Mask(mask_) & neq(self, nullptr);
 
         using FuncResult = decltype(func(
@@ -126,23 +126,46 @@ template <typename Storage_> struct call_support_base {
 
         if constexpr (!std::is_void_v<FuncResult>) {
             using Result = typename vectorize_result<Mask, FuncResult>::type;
-
             Result result = zero<Result>(self.size());
 
-            while (any(mask)) {
-                InstancePtr value      = extract(self, mask);
-                Mask active            = mask & eq(self, value);
-                mask                   = andnot(mask, active);
-                masked(result, active) = func(value, active, std::get<Indices>(tuple)...);
+            if constexpr (!is_cuda_array_v<Storage>) {
+                while (any(mask)) {
+                    InstancePtr value      = extract(self, mask);
+                    Mask active            = mask & eq(self, value);
+                    mask                   = andnot(mask, active);
+                    masked(result, active) = func(value, active, std::get<Indices>(tuple)...);
+                }
+            } else {
+                for (auto [value, perm] : partition(self & mask)) {
+                    if (value == nullptr)
+                        continue;
+
+                    Result temp = func(value, true,
+                        gather<std::decay_t<std::tuple_element_t<Indices, Tuple>>>(
+                            std::get<Indices>(tuple), perm)...);
+
+                    scatter(result, temp, perm);
+                }
             }
 
             return result;
         } else {
-            while (any(mask)) {
-                InstancePtr value = extract(self, mask);
-                Mask active       = mask & eq(self, value);
-                mask              = andnot(mask, active);
-                func(value, active, std::get<Indices>(tuple)...);
+            if constexpr (!is_cuda_array_v<Storage>) {
+                while (any(mask)) {
+                    InstancePtr value = extract(self, mask);
+                    Mask active       = mask & eq(self, value);
+                    mask              = andnot(mask, active);
+                    func(value, active, std::get<Indices>(tuple)...);
+                }
+            } else {
+                for (auto [value, perm] : partition(self & mask)) {
+                    if (value == nullptr)
+                        continue;
+
+                    func(value, true,
+                         gather<std::decay_t<std::tuple_element_t<Indices, Tuple>>>(
+                             std::get<Indices>(tuple), perm)...);
+                }
             }
         }
     }
@@ -184,7 +207,7 @@ private:                                                                       \
         decltype(std::declval<InstancePtr>()->func(std::declval<Args>()...));  \
                                                                                \
 public:                                                                        \
-    template <typename... Args> auto func(Args&&... args) {                    \
+    template <typename... Args> auto func(Args&&... args) const {              \
         auto lambda = [](InstancePtr instance, const Mask &mask,               \
                          auto &&... a) ENOKI_INLINE_LAMBDA {                   \
             ENOKI_MARK_USED(mask);                                             \
@@ -208,28 +231,29 @@ public:                                                                        \
         }                                                                      \
     }
 
-#define ENOKI_CALL_SUPPORT_GETTER(name, field)                                 \
-    template <                                                                 \
-        typename Field = decltype(Class::field),                               \
-        typename Return = replace_scalar_t<Storage, Field, false>>             \
-    Return name(Mask mask = true) const {                                      \
-        using IntType = replace_scalar_t<Storage, std::uintptr_t, false>;      \
-        auto offset =                                                          \
-            IntType(self) + (std::uintptr_t) &(((Class *) nullptr)->field);    \
-        mask &= neq(self, nullptr);                                            \
-        return gather<Return, 1>(nullptr, offset, mask);                       \
-    }
-
 #define ENOKI_CALL_SUPPORT_GETTER_TYPE(name, field, type)                      \
     template <                                                                 \
+        typename Field = decltype(Class::field),                               \
         typename Return = replace_scalar_t<Storage, type, false>>              \
     Return name(Mask mask = true) const {                                      \
-        using IntType = replace_scalar_t<Storage, std::uintptr_t, false>;      \
-        auto offset =                                                          \
-            IntType(self) + (std::uintptr_t) &(((Class *) nullptr)->field);    \
-        mask &= neq(self, nullptr);                                            \
-        return gather<Return, 1>(nullptr, offset, mask);                       \
+        if constexpr (!is_cuda_array_v<Storage>) {                             \
+            using IntType = replace_scalar_t<Storage, std::uintptr_t, false>;  \
+            auto offset =                                                      \
+               IntType(self) + (std::uintptr_t) &(((Class *) nullptr)->field); \
+            mask &= neq(self, nullptr);                                        \
+            return gather<Return, 1>(nullptr, offset, mask);                   \
+        } else {                                                               \
+            auto l = [](InstancePtr inst, const Mask &) ENOKI_INLINE_LAMBDA {  \
+                return inst->name();                                           \
+            };                                                                 \
+            return Base::dispatch(                                             \
+                l, mask, std::tie(mask),                                       \
+                std::make_index_sequence<0>());                                \
+        }                                                                      \
     }
+
+#define ENOKI_CALL_SUPPORT_GETTER(name, field) \
+    ENOKI_CALL_SUPPORT_GETTER_TYPE(name, field, Field)
 
 #define ENOKI_CALL_SUPPORT_END(PacketType)                                     \
         };                                                                     \

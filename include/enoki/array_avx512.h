@@ -970,7 +970,6 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
     }
 
     template <size_t Stride, typename Index, typename Mask>
-
     ENOKI_INLINE void scatter_(void *ptr, const Index &index, const Mask &mask) const {
         if constexpr (sizeof(scalar_t<Index>) == 4)
             _mm512_mask_i32scatter_pd(ptr, mask.k, index.m, m, Stride);

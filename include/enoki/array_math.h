@@ -127,7 +127,8 @@ ENOKI_INLINE T poly10(const T1 &x, const T2 &c0, const T2 &c1, const T2 &c2,
         } else if constexpr (is_recursive_array_v<E>) {                        \
             return E(name(low(x)), name(high(x)));                             \
         } else if constexpr (is_dynamic_array_v<E> &&                          \
-                            !is_diff_array_v<E>) {                             \
+                            !is_diff_array_v<E> &&                             \
+                            !is_cuda_array_v<E>) {                             \
             E r = empty<E>(x.size());                                          \
             auto pr = r.packet_ptr();                                          \
             auto px = x.packet_ptr();                                          \
@@ -173,6 +174,7 @@ ENOKI_INLINE T poly10(const T1 &x, const T2 &c0, const T2 &c1, const T2 &c2,
             return std::pair<E, E>(E(l.first, h.first),                        \
                                    E(l.second, h.second));                     \
         } else if constexpr (is_dynamic_array_v<E> &&                          \
+                            !is_cuda_array_v<E> &&                             \
                             !is_diff_array_v<E>) {                             \
             std::pair<E, E> r(empty<E>(x.size()), empty<E>(x.size()));         \
             auto pr0 = r.first.packet_ptr(),                                   \
@@ -225,6 +227,7 @@ ENOKI_INLINE T poly10(const T1 &x, const T2 &c0, const T2 &c1, const T2 &c2,
                              !std::is_same_v<T2, E>) {                         \
             return name((const E& ) x, (const E &) y);                         \
         } else if constexpr (is_dynamic_array_v<E> &&                          \
+                            !is_cuda_array_v<E> &&                             \
                             !is_diff_array_v<E>) {                             \
             E r;                                                               \
             r.resize_like(x, y);                                               \
