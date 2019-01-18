@@ -21,7 +21,7 @@ template <> struct is_native<double, 3> : std::true_type { };
 NAMESPACE_END(detail)
 
 /// Partial overload of StaticArrayImpl using AVX intrinsics (single precision)
-template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(32)
+template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(32)
     StaticArrayImpl<float, 8, Approx_, RoundingMode::Default, IsMask_, Derived_>
   : StaticArrayBase<float, 8, Approx_, RoundingMode::Default, IsMask_, Derived_> {
     ENOKI_NATIVE_ARRAY(float, 8, Approx_, __m256, RoundingMode::Default)
@@ -604,10 +604,10 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
 
     //! @}
     // -----------------------------------------------------------------------
-};
+} ENOKI_MAY_ALIAS;
 
 /// Partial overload of StaticArrayImpl using AVX intrinsics (double precision)
-template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(32)
+template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(32)
     StaticArrayImpl<double, 4, Approx_, RoundingMode::Default, IsMask_, Derived_>
   : StaticArrayBase<double, 4, Approx_, RoundingMode::Default, IsMask_, Derived_> {
     ENOKI_NATIVE_ARRAY(double, 4, Approx_, __m256d, RoundingMode::Default)
@@ -1057,10 +1057,10 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
 
     //! @}
     // -----------------------------------------------------------------------
-};
+} ENOKI_MAY_ALIAS;
 
 /// Partial overload of StaticArrayImpl for the n=3 case (double precision)
-template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(32)
+template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(32)
     StaticArrayImpl<double, 3, Approx_, RoundingMode::Default, IsMask_, Derived_>
   : StaticArrayImpl<double, 4, Approx_, RoundingMode::Default, IsMask_, Derived_> {
     using Base = StaticArrayImpl<double, 4, Approx_, RoundingMode::Default, IsMask_, Derived_>;
@@ -1188,7 +1188,7 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
 
     //! @}
     // -----------------------------------------------------------------------
-};
+} ENOKI_MAY_ALIAS;
 
 #if defined(ENOKI_X86_AVX512VL)
 template <bool Approx_, typename Derived_>

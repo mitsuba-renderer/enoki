@@ -52,7 +52,7 @@ template <typename Value>    struct is_native<Value, 2, RoundingMode::Default, e
 NAMESPACE_END(detail)
 
 /// Partial overload of StaticArrayImpl using SSE4.2 intrinsics (single precision)
-template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(16)
+template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(16)
     StaticArrayImpl<float, 4, Approx_, RoundingMode::Default, IsMask_, Derived_>
   : StaticArrayBase<float, 4, Approx_, RoundingMode::Default, IsMask_, Derived_> {
     ENOKI_NATIVE_ARRAY(float, 4, Approx_, __m128, RoundingMode::Default)
@@ -588,10 +588,10 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
 
     //! @}
     // -----------------------------------------------------------------------
-};
+} ENOKI_MAY_ALIAS;
 
 /// Partial overload of StaticArrayImpl using SSE4.2 intrinsics (double precision)
-template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(16)
+template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(16)
     StaticArrayImpl<double, 2, Approx_, RoundingMode::Default, IsMask_, Derived_>
   : StaticArrayBase<double, 2, Approx_, RoundingMode::Default, IsMask_, Derived_> {
     ENOKI_NATIVE_ARRAY(double, 2, Approx_, __m128d, RoundingMode::Default)
@@ -1049,10 +1049,10 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
 
     //! @}
     // -----------------------------------------------------------------------
-};
+} ENOKI_MAY_ALIAS;
 
 /// Partial overload of StaticArrayImpl using SSE4.2 intrinsics (32 bit integers)
-template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(16)
+template <typename Value_, bool IsMask_, typename Derived_> struct alignas(16)
     StaticArrayImpl<Value_, 4, false, RoundingMode::Default, IsMask_, Derived_, enable_if_int32_t<Value_>>
   : StaticArrayBase<Value_, 4, false, RoundingMode::Default, IsMask_, Derived_> {
     ENOKI_NATIVE_ARRAY(Value_, 4, false, __m128i, RoundingMode::Default)
@@ -1599,10 +1599,10 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
 
     //! @}
     // -----------------------------------------------------------------------
-};
+} ENOKI_MAY_ALIAS;
 
 /// Partial overload of StaticArrayImpl using SSE4.2 intrinsics (64 bit integers)
-template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(16)
+template <typename Value_, bool IsMask_, typename Derived_> struct alignas(16)
     StaticArrayImpl<Value_, 2, false, RoundingMode::Default, IsMask_, Derived_, enable_if_int64_t<Value_>>
   : StaticArrayBase<Value_, 2, false, RoundingMode::Default, IsMask_, Derived_> {
     ENOKI_NATIVE_ARRAY(Value_, 2, false, __m128i, RoundingMode::Default)
@@ -2132,10 +2132,10 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
 
     //! @}
     // -----------------------------------------------------------------------
-};
+} ENOKI_MAY_ALIAS;
 
 /// Partial overload of StaticArrayImpl for the n=3 case (single precision)
-template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(16)
+template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(16)
     StaticArrayImpl<float, 3, Approx_, RoundingMode::Default, IsMask_, Derived_>
   : StaticArrayImpl<float, 4, Approx_, RoundingMode::Default, IsMask_, Derived_> {
     using Base = StaticArrayImpl<float, 4, Approx_, RoundingMode::Default, IsMask_, Derived_>;
@@ -2271,10 +2271,10 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS 
 
     //! @}
     // -----------------------------------------------------------------------
-};
+} ENOKI_MAY_ALIAS;
 
 /// Partial overload of StaticArrayImpl for the n=3 case (32 bit integers)
-template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(16)
+template <typename Value_, bool IsMask_, typename Derived_> struct alignas(16)
     StaticArrayImpl<Value_, 3, false, RoundingMode::Default, IsMask_, Derived_, enable_if_int32_t<Value_>>
   : StaticArrayImpl<Value_, 4, false, RoundingMode::Default, IsMask_, Derived_> {
     using Base = StaticArrayImpl<Value_, 4, false, RoundingMode::Default, IsMask_, Derived_>;
@@ -2414,7 +2414,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
 
     //! @}
     // -----------------------------------------------------------------------
-};
+} ENOKI_MAY_ALIAS;
 
 #if defined(ENOKI_X86_AVX512VL)
 template <bool Approx_, typename Derived_>

@@ -22,7 +22,7 @@ template <typename Value>    struct is_native<Value, 8, RoundingMode::Default, e
 NAMESPACE_END(detail)
 
 /// Partial overload of StaticArrayImpl using AVX512 intrinsics (single precision)
-template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(64)
+template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> struct alignas(64)
     StaticArrayImpl<float, 16, Approx_, Mode_, IsMask_, Derived_>
   : StaticArrayBase<float, 16, Approx_, Mode_, IsMask_, Derived_> {
     ENOKI_NATIVE_ARRAY(float, 16, Approx_, __m512, Mode_)
@@ -573,10 +573,10 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
 
     //! @}
     // -----------------------------------------------------------------------
-};
+} ENOKI_MAY_ALIAS;
 
 /// Partial overload of StaticArrayImpl using AVX512 intrinsics (double precision)
-template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(64)
+template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> struct alignas(64)
     StaticArrayImpl<double, 8, Approx_, Mode_, IsMask_, Derived_>
   : StaticArrayBase<double, 8, Approx_, Mode_, IsMask_, Derived_> {
     ENOKI_NATIVE_ARRAY(double, 8, Approx_, __m512d, Mode_)
@@ -1077,10 +1077,10 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
 
     //! @}
     // -----------------------------------------------------------------------
-};
+} ENOKI_MAY_ALIAS;
 
 /// Partial overload of StaticArrayImpl using AVX512 intrinsics (32 bit integers)
-template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(64)
+template <typename Value_, bool IsMask_, typename Derived_> struct alignas(64)
     StaticArrayImpl<Value_, 16, false, RoundingMode::Default, IsMask_, Derived_, enable_if_int32_t<Value_>>
   : StaticArrayBase<Value_, 16, false, RoundingMode::Default, IsMask_, Derived_> {
     ENOKI_NATIVE_ARRAY(Value_, 16, false, __m512i, RoundingMode::Default)
@@ -1472,10 +1472,10 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
 
     //! @}
     // -----------------------------------------------------------------------
-};
+} ENOKI_MAY_ALIAS;
 
 /// Partial overload of StaticArrayImpl using AVX512 intrinsics (64 bit integers)
-template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALIAS alignas(64)
+template <typename Value_, bool IsMask_, typename Derived_> struct alignas(64)
     StaticArrayImpl<Value_, 8, false, RoundingMode::Default, IsMask_, Derived_, enable_if_int64_t<Value_>>
   : StaticArrayBase<Value_, 8, false, RoundingMode::Default, IsMask_, Derived_> {
     ENOKI_NATIVE_ARRAY(Value_, 8, false, __m512i, RoundingMode::Default)
@@ -1933,7 +1933,7 @@ template <typename Value_, bool IsMask_, typename Derived_> struct ENOKI_MAY_ALI
 
     //! @}
     // -----------------------------------------------------------------------
-};
+} ENOKI_MAY_ALIAS;
 
 template <bool Approx_, typename Derived_>
 ENOKI_DECLARE_KMASK(float, 16, Approx_, RoundingMode::Default, Derived_, int);

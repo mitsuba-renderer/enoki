@@ -428,7 +428,7 @@ T ceil2int_scalar(Arg x) {
                 return _mm_cvt_roundss_u64(y, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC);
         }
     } else if constexpr (std::is_same_v<Arg, double>) {
-        __m128 y = _mm_set_sd(x);
+        __m128d y = _mm_set_sd(x);
         if constexpr (sizeof(T) == 4) {
             if constexpr (std::is_signed_v<T>)
                 return _mm_cvt_roundsd_i32(y, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC);
@@ -462,7 +462,7 @@ T floor2int_scalar(Arg x) {
                 return _mm_cvt_roundss_u64(y, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC);
         }
     } else if constexpr (std::is_same_v<Arg, double>) {
-        __m128 y = _mm_set_sd(x);
+        __m128d y = _mm_set_sd(x);
         if constexpr (sizeof(T) == 4) {
             if constexpr (std::is_signed_v<T>)
                 return _mm_cvt_roundsd_i32(y, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC);

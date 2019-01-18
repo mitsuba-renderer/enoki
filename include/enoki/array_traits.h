@@ -74,7 +74,13 @@ using is_base_of = typename detail::is_base_of_impl<B, T>::type;
 template <template <typename...> typename B, typename T>
 constexpr bool is_base_of_v = is_base_of<B, T>::value;
 
-/// Check if T is a 32 or 64 bit integer (supports both 'int' and 'long' family)
+/// Check if T is an integer of a given size (supports both 'int' and 'long' family)
+template <typename T> using is_int8 = std::bool_constant<std::is_integral_v<T> && sizeof(T) == 1>;
+template <typename T> constexpr bool is_int8_v = is_int8<T>::value;
+
+template <typename T> using is_int16 = std::bool_constant<std::is_integral_v<T> && sizeof(T) == 2>;
+template <typename T> constexpr bool is_int16_v = is_int16<T>::value;
+
 template <typename T> using is_int32 = std::bool_constant<std::is_integral_v<T> && sizeof(T) == 4>;
 template <typename T> constexpr bool is_int32_v = is_int32<T>::value;
 
