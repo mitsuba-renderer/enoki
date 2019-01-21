@@ -136,9 +136,13 @@ template <typename Storage_> struct call_support_base {
                     masked(result, active) = func(value, active, std::get<Indices>(tuple)...);
                 }
             } else {
-                for (auto [value, perm] : partition(self & mask)) {
+                Storage instance = self & mask;
+                cuda_var_set_comment(instance.index(), "instance");
+
+                for (auto [value, perm] : partition(instance)) {
                     if (value == nullptr)
                         continue;
+                    cuda_var_set_comment(perm.index(), "perm");
 
                     Result temp = func(value, true,
                         gather<std::decay_t<std::tuple_element_t<Indices, Tuple>>>(
@@ -158,10 +162,14 @@ template <typename Storage_> struct call_support_base {
                     func(value, active, std::get<Indices>(tuple)...);
                 }
             } else {
-                for (auto [value, perm] : partition(self & mask)) {
+                Storage instance = self & mask;
+                cuda_var_set_comment(instance.index(), "instance");
+
+                for (auto [value, perm] : partition(instance)) {
                     if (value == nullptr)
                         continue;
 
+                    cuda_var_set_comment(perm.index(), "perm");
                     func(value, true,
                          gather<std::decay_t<std::tuple_element_t<Indices, Tuple>>>(
                              std::get<Indices>(tuple), perm)...);

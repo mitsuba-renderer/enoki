@@ -338,6 +338,9 @@ struct Quaternion;
 template <typename T, typename = int>
 struct struct_support;
 
+template <typename Value>
+struct CUDAArray;
+
 /// Half-precision floating point value
 struct half;
 

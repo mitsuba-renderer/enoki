@@ -1274,6 +1274,22 @@ template <typename T> auto none_nested(const T &a) {
 //! @}
 // -----------------------------------------------------------------------
 
+// -----------------------------------------------------------------------
+//! @{ \name CUDA-specific forward declarations
+// -----------------------------------------------------------------------
+
+extern void cuda_var_set_comment(uint32_t, const char *);
+extern void cuda_trace_printf(const char *, uint32_t, uint32_t*);
+
+/// Fancy templated 'printf', which extracts the indices of Enoki arrays
+template <typename... Args> void cuda_printf(const char *fmt, const Args&... args) {
+    uint32_t indices[] = { args.index()..., 0 };
+    cuda_trace_printf(fmt, (uint32_t) sizeof...(Args), indices);
+}
+
+//! @}
+// -----------------------------------------------------------------------
+
 #undef ENOKI_ROUTE_UNARY
 #undef ENOKI_ROUTE_UNARY_IMM
 #undef ENOKI_ROUTE_UNARY_SCALAR

@@ -45,6 +45,9 @@ extern ENOKI_IMPORT void*  cuda_var_ptr(uint32_t);
 /// Retroactively adjust the recorded size of a variable
 extern ENOKI_IMPORT void   cuda_var_set_size(uint32_t, size_t);
 
+/// Attach a comment to a variable (written to PTX assembly)
+extern ENOKI_IMPORT void   cuda_var_set_comment(uint32_t, const char *);
+
 /// Needed to mark certain instructions with side effects (e.g. scatter)
 extern ENOKI_IMPORT void   cuda_var_mark_side_effect(uint32_t);
 
@@ -71,7 +74,7 @@ extern ENOKI_IMPORT uint32_t cuda_trace_append(EnokiType type,
                                                uint32_t arg3);
 
 /// Insert a "printf" instruction for the given instruction
-ENOKI_EXPORT void cuda_trace_print(uint32_t arg);
+ENOKI_EXPORT void cuda_trace_printf(const char *fmt, uint32_t narg, uint32_t* arg);
 
 /// Computes the horizontal sum of a given memory region
 template <typename T> extern ENOKI_IMPORT T cuda_hsum(size_t, const T *);
@@ -558,7 +561,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
                addr = fmadd(index, (uint64_t) Stride, ptr_gl);
 
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "@%p0 ld.global.$t1 $r1, [$r2];\n    add.u64 %foo, %foo, $r2",
+            "@$r3 ld.global.$t1 $r1, [$r2];\n    add.u64 %foo, %foo, $r2",
             addr.index(), mask.index()));
     }
 

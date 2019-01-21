@@ -11,7 +11,7 @@
 #define ENOKI_CUDA_REG_RESERVED 10
 
 /// Enable heavy debug output (instructions, reference counts, etc.)
-#define ENOKI_CUDA_DEBUG_TRACE  0
+#define ENOKI_CUDA_DEBUG_TRACE  1
 
 NAMESPACE_BEGIN(enoki)
 
@@ -27,7 +27,7 @@ void cuda_dec_ref_int(uint32_t);
 
 struct Variable {
     EnokiType type;
-    std::string cmd;
+    std::string cmd, comment;
     size_t size = 1;
     void *data = nullptr;
     uint32_t ref_count_int = 0;
@@ -42,13 +42,15 @@ struct Variable {
     ~Variable() { if (free) cuda_check(cudaFree(data)); }
 
     Variable(Variable &&a)
-        : type(a.type), cmd(std::move(a.cmd)), size(a.size), data(a.data),
-          ref_count_int(a.ref_count_int), ref_count_ext(a.ref_count_ext),
-          dep(a.dep), side_effect(a.side_effect), free(a.free) {
+        : type(a.type), cmd(std::move(a.cmd)), comment(std::move(a.comment)),
+          size(a.size), data(a.data), ref_count_int(a.ref_count_int),
+          ref_count_ext(a.ref_count_ext), dep(a.dep),
+          side_effect(a.side_effect), free(a.free) {
         a.data = nullptr;
         a.ref_count_int = a.ref_count_ext = 0;
         a.dep = { 0, 0, 0 };
         a.free = true;
+        a.comment = "";
     }
 
     bool is_collected() const {
@@ -88,6 +90,13 @@ ENOKI_EXPORT void *cuda_var_ptr(uint32_t index) {
 
 ENOKI_EXPORT size_t cuda_var_size(uint32_t index) {
     return trace()[index].size;
+}
+
+ENOKI_EXPORT void cuda_var_set_comment(uint32_t index, const char *str) {
+    trace()[index].comment = str;
+#if ENOKI_CUDA_DEBUG_TRACE
+    std::cerr << "cuda_var_set_comment(" << index << "): " << str << std::endl;
+#endif
 }
 
 ENOKI_EXPORT void cuda_var_set_size(uint32_t index, size_t size) {
@@ -325,7 +334,7 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
     auto &tr = trace();
     uint32_t idx = (uint32_t) tr.size();
 #if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_trace_append(" << idx << ", " << arg1 << "): " << cmd
+    std::cerr << "cuda_trace_append(" << idx << " <- " << arg1 << "): " << cmd
               << std::endl;
 #endif
     tr.emplace_back(type);
@@ -346,7 +355,7 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
     auto &tr = trace();
     uint32_t idx = (uint32_t) tr.size();
 #if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_trace_append(" << idx << ", " << arg1 << ", " << arg2
+    std::cerr << "cuda_trace_append(" << idx << " <- " << arg1 << ", " << arg2
               << "): " << cmd << std::endl;
 #endif
     tr.emplace_back(type);
@@ -369,7 +378,7 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
     auto &tr = trace();
     uint32_t idx = (uint32_t) tr.size();
 #if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_trace_append(" << idx << ", " << arg1 << ", " << arg2
+    std::cerr << "cuda_trace_append(" << idx << " <- " << arg1 << ", " << arg2
               << ", " << arg3 << "): " << cmd << std::endl;
 #endif
     tr.emplace_back(type);
@@ -385,33 +394,57 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
     return idx;
 }
 
-ENOKI_EXPORT void cuda_trace_print(uint32_t arg) {
+ENOKI_EXPORT void cuda_trace_printf(const char *fmt, uint32_t narg, uint32_t* arg) {
     auto &tr = trace();
-
-    if (tr[arg].type == EnokiType::Float32) {
-        const char *cmd = "{\n"
-        "        .global .align 1 .b8 fmt[4] = {37, 102, 10, 0};\n"
-        "        .local .align 8 .b8 buf[8];\n"
-        "        .reg.b64 %fmt_r, %buf_r;\n"
-        "        cvt.f64.f32 %d0, $r2;\n"
-        "        st.local.f64 [buf], %d0;\n"
-        "        cvta.global.u64 %fmt_r, fmt;\n"
-        "        cvta.local.u64 %buf_r, buf;\n"
-        "        {\n"
-        "            .param .b64 fmt_p;\n"
-        "            .param .b64 buf_p;\n"
-        "            .param .b32 rv_p;\n"
-        "            st.param.b64 [fmt_p+0], %fmt_r;\n"
-        "            st.param.b64 [buf_p+0], %buf_r;\n"
-        "            call.uni (rv_p), vprintf, (fmt_p, buf_p);\n"
-        "        }\n"
-        "    }\n";
-
-        uint32_t idx = cuda_trace_append(EnokiType::UInt32, cmd, arg);
-        tr[idx].side_effect = true;
-    } else {
-        throw std::runtime_error("cuda_trace_print(): unsupported type!");
+    std::ostringstream oss;
+    oss << "{" << std::endl
+        << "        .global .align 1 .b8 fmt[] = {";
+    for (int i = 0;; ++i) {
+        oss << (unsigned) fmt[i];
+        if (fmt[i] == '\0')
+            break;
+        oss << ", ";
     }
+    oss << "};" << std::endl
+        << "        .local .align 8 .b8 buf[" << 8*narg << "];" << std::endl
+        << "        .reg.b64 %fmt_r, %buf_r;" << std::endl;
+    for (int i = 0; i < narg; ++i) {
+        switch (tr[arg[i]].type) {
+            case EnokiType::Float32:
+                oss << "        cvt.f64.f32 %d0, $r" << i + 2 << ";" << std::endl
+                    << "        st.local.f64 [buf + " << i * 8 << "], %d0;" << std::endl;
+                break;
+
+            default:
+                oss << "        st.local.$t" << i + 2 << " [buf + " << i * 8 << "], $r" << i + 2 << ";" << std::endl;
+                break;
+        }
+    }
+    oss << "        cvta.global.u64 %fmt_r, fmt;" << std::endl
+        << "        cvta.local.u64 %buf_r, buf;" << std::endl
+        << "        {" << std::endl
+        << "            .param .b64 fmt_p;" << std::endl
+        << "            .param .b64 buf_p;" << std::endl
+        << "            .param .b32 rv_p;" << std::endl
+        << "            st.param.b64 [fmt_p], %fmt_r;" << std::endl
+        << "            st.param.b64 [buf_p], %buf_r;" << std::endl
+        << "            call.uni (rv_p), vprintf, (fmt_p, buf_p);" << std::endl
+        << "        }" << std::endl
+        << "    }" << std::endl;
+
+    uint32_t idx = 0;
+    if (narg == 0)
+        cuda_trace_append(EnokiType::UInt32, oss.str().c_str());
+    else if (narg == 1)
+        cuda_trace_append(EnokiType::UInt32, oss.str().c_str(), arg[0]);
+    else if (narg == 2)
+        cuda_trace_append(EnokiType::UInt32, oss.str().c_str(), arg[0], arg[1]);
+    else if (narg == 3)
+        cuda_trace_append(EnokiType::UInt32, oss.str().c_str(), arg[0], arg[1], arg[2]);
+    else
+        throw std::runtime_error("cuda_trace_print(): at most 3 variables can be printed at once!");
+
+    tr[idx].side_effect = true;
 }
 
 //! @}
@@ -459,7 +492,9 @@ static void cuda_render_cmd(std::ostringstream &oss,
 
             if (result == nullptr)
                 throw std::runtime_error(
-                    "CUDABackend: internal error -- unsupported type!");
+                    "CUDABackend: internal error -- unsupported type: " +
+                    std::string(cmd) + " marked with type " +
+                    std::to_string(dep_type));
 
             oss << result;
 
@@ -490,10 +525,21 @@ cuda_jit_assemble(size_t size, const std::set<uint32_t> &sweep) {
         << ".address_size 64" << std::endl
         << std::endl;
 
+#if ENOKI_CUDA_DEBUG_TRACE
+    std::cerr << "Register map:" << std::endl;
+#endif
+
     uint32_t n_vars = ENOKI_CUDA_REG_RESERVED;
     std::map<uint32_t, uint32_t> reg_map;
-    for (uint32_t index : sweep)
+    for (uint32_t index : sweep) {
+#if ENOKI_CUDA_DEBUG_TRACE
+        std::cerr << "    " << n_vars << " -> " << index;
+        if (!tr[index].comment.empty())
+            std::cerr << ": " << tr[index].comment;
+        std::cerr << std::endl;
+#endif
         reg_map[index] = n_vars++;
+    }
     reg_map[2] = 2;
 
     /**
@@ -558,7 +604,10 @@ cuda_jit_assemble(size_t size, const std::set<uint32_t> &sweep) {
             ptrs.push_back(var.data);
 
             oss << std::endl
-                << "    // Load register " << cuda_register_name(var.type) << reg_map[index] << std::endl
+                << "    // Load register " << cuda_register_name(var.type) << reg_map[index];
+            if (!var.comment.empty())
+                oss << ": " << var.comment;
+            oss << std::endl
                 << "    ld.global.u64 %rd8, [%rd0 + " << idx * 8 << "];" << std::endl
                 << "    cvta.to.global.u64 %rd8, %rd8;" << std::endl;
             if (var.size != 1) {
@@ -574,6 +623,10 @@ cuda_jit_assemble(size_t size, const std::set<uint32_t> &sweep) {
                     << "    setp.ne.u16 " << cuda_register_name(var.type) << reg_map[index] << ", %w1, 0;";
             }
         } else {
+            if (!var.comment.empty())
+                oss << "    // Compute register "
+                    << cuda_register_name(var.type) << reg_map[index] << ": "
+                    << var.comment << std::endl;
             cuda_render_cmd(oss, tr, reg_map, index);
 
             if (var.side_effect) {
@@ -582,6 +635,9 @@ cuda_jit_assemble(size_t size, const std::set<uint32_t> &sweep) {
             }
 
             if (var.ref_count_ext == 0)
+                continue;
+
+            if (var.size != size)
                 continue;
 
             size_t size_in_bytes =
@@ -597,7 +653,10 @@ cuda_jit_assemble(size_t size, const std::set<uint32_t> &sweep) {
             ptrs.push_back(var.data);
 
             oss << std::endl
-                << "    // Store register " << cuda_register_name(var.type) << reg_map[index] << std::endl
+                << "    // Store register " << cuda_register_name(var.type) << reg_map[index];
+            if (!var.comment.empty())
+                oss << ": " << var.comment;
+            oss << std::endl
                 << "    ld.global.u64 %rd8, [%rd0 + " << idx*8 << "];" << std::endl
                 << "    cvta.to.global.u64 %rd8, %rd8;" << std::endl
                 << "    mul.wide.u32 %rd9, %r2, " << cuda_register_size(var.type) << ";" << std::endl
@@ -748,7 +807,7 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
 
         for (uint32_t idx : std::get<1>(sweep)) {
             Variable &v = tr[idx];
-            if (v.data != nullptr) {
+            if (v.data != nullptr && !v.cmd.empty()) {
                 __active.erase(idx);
                 for (int j = 0; j < 3; ++j) {
                     cuda_dec_ref_int(v.dep[j]);
