@@ -769,6 +769,7 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep) {
 ENOKI_EXPORT void cuda_jit_run(const std::string &source,
                                const std::vector<void *> &ptrs_,
                                size_t size,
+                               cudaStream_t stream,
                                bool verbose) {
     if (verbose)
         std::cout << source << std::endl;
@@ -837,7 +838,7 @@ ENOKI_EXPORT void cuda_jit_run(const std::string &source,
     const unsigned int block_count = 32;
 
     cuda_check(cuLaunchKernel(kernel, block_count, 1, 1, thread_count,
-                              1, 1, 0, nullptr, args, nullptr));
+                              1, 1, 0, stream, args, nullptr));
 
     cuda_check(cudaFree(ptrs));
     cuda_check(cuModuleUnload(module));
@@ -891,9 +892,20 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
     __active.clear();
     __dirty.clear();
 
+    std::vector<cudaStream_t> streams;
+    streams.reserve(sweeps.size());
+
     for (auto const &sweep : sweeps) {
         size_t size = std::get<0>(sweep);
         const std::vector<uint32_t> &schedule = std::get<1>(std::get<1>(sweep));
+
+        cudaStream_t stream = nullptr;
+
+        if (sweeps.size() > 1) {
+            /* Run in parallel */
+            cuda_check(cudaStreamCreate(&stream));
+            streams.push_back(stream);
+        }
 
         auto result = cuda_jit_assemble(size, schedule);
         if (std::get<0>(result).empty())
@@ -906,6 +918,7 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
         cuda_jit_run(std::get<0>(result),
                      std::get<1>(result),
                      std::get<0>(sweep),
+                     stream,
                      log_assembly);
 
         for (uint32_t idx : schedule) {
@@ -917,6 +930,11 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
                 }
             }
         }
+    }
+
+    for (auto const &stream : streams) {
+        cuda_check(cudaStreamSynchronize(stream));
+        cuda_check(cudaStreamDestroy(stream));
     }
 }
 
