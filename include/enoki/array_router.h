@@ -934,6 +934,25 @@ ENOKI_INLINE auto extract(const Array &value, const Mask &mask) {
 // -----------------------------------------------------------------------
 
 // -----------------------------------------------------------------------
+//! @{ \name CUDA-specific forward declarations
+// -----------------------------------------------------------------------
+
+/* Documentation in 'cuda.h' */
+extern ENOKI_IMPORT void cuda_var_set_comment(uint32_t, const char *);
+extern ENOKI_IMPORT void cuda_eval(bool log_assembly = false);
+extern ENOKI_IMPORT void cuda_trace_printf(const char *, uint32_t, uint32_t*);
+extern ENOKI_IMPORT void cuda_var_mark_dirty(uint32_t);
+
+/// Fancy templated 'printf', which extracts the indices of Enoki arrays
+template <typename... Args> void cuda_printf(const char *fmt, const Args&... args) {
+    uint32_t indices[] = { args.index()..., 0 };
+    cuda_trace_printf(fmt, (uint32_t) sizeof...(Args), indices);
+}
+
+//! @}
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
 //! @{ \name Scatter/gather/prefetch operations
 // -----------------------------------------------------------------------
 
@@ -1176,6 +1195,11 @@ ENOKI_INLINE Array gather(const Source &source, const Args &... args) {
     if constexpr (is_diff_array_v<Source>)
         Source::set_scatter_gather_source_(source);
 
+    if constexpr (is_cuda_array_v<Source>) {
+        if (source.data() == nullptr)
+            cuda_eval();
+    }
+
     Array result = gather<Array, Stride, Packed>(source.data(), args...);
 
     if constexpr (is_diff_array_v<Source>)
@@ -1191,6 +1215,12 @@ ENOKI_INLINE void scatter(Target &target, const Args &... args) {
     if constexpr (is_diff_array_v<Target>)
         Target::set_scatter_gather_source_(target);
 
+    if constexpr (is_cuda_array_v<Target>) {
+        if (target.data() == nullptr)
+            cuda_eval();
+        cuda_var_mark_dirty(target.index());
+    }
+
     scatter<Stride, Packed>(target.data(), args...);
 
     if constexpr (is_diff_array_v<Target>)
@@ -1203,6 +1233,12 @@ template <size_t Stride = 0, typename Target, typename... Args,
 ENOKI_INLINE void scatter_add(Target &target, const Args &... args) {
     if constexpr (is_diff_array_v<Target>)
         Target::set_scatter_gather_source_(target);
+
+    if constexpr (is_cuda_array_v<Target>) {
+        if (target.data() == nullptr)
+            cuda_eval();
+        cuda_var_mark_dirty(target.index());
+    }
 
     scatter_add<Stride>(target.data(), args...);
 
@@ -1269,22 +1305,6 @@ template <typename T> auto all_nested(const T &a) {
 
 template <typename T> auto none_nested(const T &a) {
     return !any_nested(a);
-}
-
-//! @}
-// -----------------------------------------------------------------------
-
-// -----------------------------------------------------------------------
-//! @{ \name CUDA-specific forward declarations
-// -----------------------------------------------------------------------
-
-extern void cuda_var_set_comment(uint32_t, const char *);
-extern void cuda_trace_printf(const char *, uint32_t, uint32_t*);
-
-/// Fancy templated 'printf', which extracts the indices of Enoki arrays
-template <typename... Args> void cuda_printf(const char *fmt, const Args&... args) {
-    uint32_t indices[] = { args.index()..., 0 };
-    cuda_trace_printf(fmt, (uint32_t) sizeof...(Args), indices);
 }
 
 //! @}

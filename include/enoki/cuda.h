@@ -28,7 +28,7 @@ extern ENOKI_IMPORT void cuda_init();
 extern ENOKI_IMPORT void cuda_shutdown();
 
 /// Compile and evaluate the trace up to the current instruction
-extern ENOKI_IMPORT void cuda_eval(bool log_assembly = false);
+extern ENOKI_IMPORT void cuda_eval(bool log_assembly);
 
 /// Increase the reference count of a variable
 extern ENOKI_IMPORT void cuda_inc_ref_ext(uint32_t);
@@ -44,6 +44,9 @@ extern ENOKI_IMPORT void*  cuda_var_ptr(uint32_t);
 
 /// Retroactively adjust the recorded size of a variable
 extern ENOKI_IMPORT void   cuda_var_set_size(uint32_t, size_t);
+
+/// Mark a variable as dirty (e.g. due to scatter)
+extern ENOKI_IMPORT void   cuda_var_mark_dirty(uint32_t);
 
 /// Attach a comment to a variable (written to PTX assembly)
 extern ENOKI_IMPORT void   cuda_var_set_comment(uint32_t, const char *);
