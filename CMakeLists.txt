@@ -233,6 +233,7 @@ endif()
 
 if (ENOKI_CUDA)
   include_directories(ext/cub)
+  string(APPEND CMAKE_CUDA_FLAGS "-gencode arch=compute_75,code=sm_75")
   add_library(enoki-cuda SHARED
       src/cuda/common.cuh
       src/cuda/horiz.cu
