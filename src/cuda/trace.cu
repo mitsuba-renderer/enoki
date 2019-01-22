@@ -496,7 +496,8 @@ ENOKI_EXPORT void cuda_trace_printf(const char *fmt, uint32_t narg, uint32_t* ar
                 break;
 
             default:
-                oss << "        st.local.$t" << i + 2 << " [buf + " << i * 8 << "], $r" << i + 2 << ";" << std::endl;
+                oss << "        st.local.$t" << i + 2 << " [buf + " << i * 8
+                    << "], $r" << i + 2 << ";" << std::endl;
                 break;
         }
     }
@@ -780,7 +781,7 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep) {
 
 ENOKI_EXPORT void cuda_jit_run(const std::string &source,
                                const std::vector<void *> &ptrs_,
-                               size_t size,
+                               uint32_t size,
                                cudaStream_t stream,
                                bool verbose) {
     if (verbose)
@@ -807,7 +808,6 @@ ENOKI_EXPORT void cuda_jit_run(const std::string &source,
     int rt = cuLinkAddData(link_state, CU_JIT_INPUT_PTX, (void *) source.c_str(),
                            source.length(), nullptr, 0, nullptr, nullptr);
     if (rt != CUDA_SUCCESS) {
-        printf("%i\n", rt);
         fprintf(stderr, "PTX Linker Error:\n%s\n", error_log);
         exit(-1);
     }
@@ -841,8 +841,8 @@ ENOKI_EXPORT void cuda_jit_run(const std::string &source,
 
     void **ptrs = nullptr;
     cuda_check(cudaMalloc(&ptrs, ptrs_.size() * sizeof(void *)));
-    cuda_check(cudaMemcpy(ptrs, ptrs_.data(), ptrs_.size() * sizeof(void *),
-                          cudaMemcpyHostToDevice));
+    cuda_check(cudaMemcpyAsync(ptrs, ptrs_.data(), ptrs_.size() * sizeof(void *),
+                               cudaMemcpyHostToDevice));
 
     void *args[2] = { &ptrs, &size };
 
