@@ -110,6 +110,18 @@ ENOKI_EXPORT void cuda_init() {
 
 ENOKI_EXPORT void cuda_shutdown() {
     auto &tr = trace();
+
+#if ENOKI_CUDA_DEBUG_TRACE || ENOKI_CUDA_DEBUG_MODERATE
+    size_t n_live = 0;
+    for (auto const &var : trace()) {
+        if (var.data)
+            ++n_live;
+    }
+    if (n_live > 0)
+        std::cerr << "cuda_shutdown(): " << n_live
+                  << " variables were still live at shutdown." << std::endl;
+#endif
+
     tr.clear();
     __active.clear();
 }
@@ -677,7 +689,7 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep) {
             if (!var.comment.empty())
                 oss << ": " << var.comment;
             oss << std::endl
-                << "    ld.global.u64 %rd8, [%rd0 + " << idx * 8 << "];" << std::endl
+                << "    ldu.global.u64 %rd8, [%rd0 + " << idx * 8 << "];" << std::endl
                 << "    cvta.to.global.u64 %rd8, %rd8;" << std::endl;
             if (var.size != 1) {
                 oss << "    mul.wide.u32 %rd9, %r2, " << cuda_register_size(var.type) << ";" << std::endl
@@ -729,7 +741,7 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep) {
             if (!var.comment.empty())
                 oss << ": " << var.comment;
             oss << std::endl
-                << "    ld.global.u64 %rd8, [%rd0 + " << idx*8 << "];" << std::endl
+                << "    ldu.global.u64 %rd8, [%rd0 + " << idx * 8 << "];" << std::endl
                 << "    cvta.to.global.u64 %rd8, %rd8;" << std::endl
                 << "    mul.wide.u32 %rd9, %r2, " << cuda_register_size(var.type) << ";" << std::endl
                 << "    add.u64 %rd8, %rd8, %rd9;" << std::endl;
