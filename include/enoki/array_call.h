@@ -138,17 +138,24 @@ template <typename Storage_> struct call_support_base {
             } else {
                 Storage instance = self & mask;
                 cuda_var_set_comment(instance.index(), "instance");
+                auto partitioned = partition(instance);
 
-                for (auto [value, perm] : partition(instance)) {
-                    if (value == nullptr)
-                        continue;
-                    cuda_var_set_comment(perm.index(), "perm");
+                if (partitioned.size() == 1 && partitioned[0].first != nullptr) {
+                    result = func(partitioned[0].first, true,
+                                  std::get<Indices>(tuple)...);
+                } else {
+                    for (auto [value, perm] : partitioned) {
+                        if (value == nullptr)
+                            continue;
 
-                    Result temp = func(value, true,
-                        gather<std::decay_t<std::tuple_element_t<Indices, Tuple>>>(
-                            std::get<Indices>(tuple), perm)...);
+                        cuda_var_set_comment(perm.index(), "perm");
 
-                    scatter(result, temp, perm);
+                        Result temp = func(value, true,
+                            gather<std::decay_t<std::tuple_element_t<Indices, Tuple>>>(
+                                std::get<Indices>(tuple), perm)...);
+
+                        scatter(result, temp, perm);
+                    }
                 }
             }
 
@@ -164,15 +171,22 @@ template <typename Storage_> struct call_support_base {
             } else {
                 Storage instance = self & mask;
                 cuda_var_set_comment(instance.index(), "instance");
+                auto partitioned = partition(instance);
 
-                for (auto [value, perm] : partition(instance)) {
-                    if (value == nullptr)
-                        continue;
+                if (partitioned.size() == 1 && partitioned[0].first != nullptr) {
+                    func(partitioned[0].first, true,
+                         std::get<Indices>(tuple)...);
+                } else {
+                    for (auto [value, perm] : partition(instance)) {
+                        if (value == nullptr)
+                            continue;
 
-                    cuda_var_set_comment(perm.index(), "perm");
-                    func(value, true,
-                         gather<std::decay_t<std::tuple_element_t<Indices, Tuple>>>(
-                             std::get<Indices>(tuple), perm)...);
+                        cuda_var_set_comment(perm.index(), "perm");
+
+                        func(value, true,
+                             gather<std::decay_t<std::tuple_element_t<Indices, Tuple>>>(
+                                 std::get<Indices>(tuple), perm)...);
+                    }
                 }
             }
         }
