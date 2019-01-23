@@ -226,27 +226,39 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     }
 
     CUDAArray add_(const CUDAArray &v) const {
-        return CUDAArray::from_index(cuda_trace_append(Type,
-            "add.$t1 $r1, $r2, $r3", index(), v.index()));
+        const char *op = std::is_floating_point_v<Value>
+            ? "add.rn.ftz.$t1 $r1, $r2, $r3"
+            : "add.$t1 $r1, $r2, $r3";
+
+        return CUDAArray::from_index(
+            cuda_trace_append(Type, op, index(), v.index()));
     }
 
     CUDAArray sub_(const CUDAArray &v) const {
-        return CUDAArray::from_index(cuda_trace_append(Type,
-            "sub.$t1 $r1, $r2, $r3", index(), v.index()));
+        const char *op = std::is_floating_point_v<Value>
+            ? "sub.rn.ftz.$t1 $r1, $r2, $r3"
+            : "sub.$t1 $r1, $r2, $r3";
+
+        return CUDAArray::from_index(
+            cuda_trace_append(Type, op, index(), v.index()));
     }
 
     CUDAArray mul_(const CUDAArray &v) const {
-        return CUDAArray::from_index(cuda_trace_append(Type,
-            std::is_integral_v<Value> ? "mul.lo.$t1 $r1, $r2, $r3"
-                                      : "mul.$t1 $r1, $r2, $r3",
-            index(), v.index()));
+        const char *op = std::is_floating_point_v<Value>
+            ? "mul.rn.ftz.$t1 $r1, $r2, $r3"
+            : "mul.lo.$t1 $r1, $r2, $r3";
+
+        return CUDAArray::from_index(
+            cuda_trace_append(Type, op, index(), v.index()));
     }
 
     CUDAArray div_(const CUDAArray &v) const {
-        return CUDAArray::from_index(cuda_trace_append(Type,
-            std::is_integral_v<Value> ? "div.$t1 $r1, $r2, $3"
-                                      : "div.rn.$t1 $r1, $r2, $r3",
-            index(), v.index()));
+        const char *op = std::is_floating_point_v<Value>
+            ? "div.rn.ftz.$t1 $r1, $r2, $r3"
+            : "div.$t1 $r1, $r2, $r3";
+
+        return CUDAArray::from_index(
+            cuda_trace_append(Type, op, index(), v.index()));
     }
 
     CUDAArray mod_(const CUDAArray &v) const {
@@ -255,14 +267,12 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     }
 
     CUDAArray fmadd_(const CUDAArray &a, const CUDAArray &b) const {
-        if constexpr (std::is_floating_point_v<Value>)
-            return CUDAArray::from_index(cuda_trace_append(
-                Type, "fma.rn.$t1 $r1, $r2, $r3, $r4",
-                index(), a.index(), b.index()));
-        else
-            return CUDAArray::from_index(cuda_trace_append(
-                Type, "mad.lo.$t1 $r1, $r2, $r3, $r4",
-                index(), a.index(), b.index()));
+        const char *op = std::is_floating_point_v<Value>
+            ? "fma.rn.ftz.$t1 $r1, $r2, $r3, $r4"
+            : "mad.lo.$t1 $r1, $r2, $r3, $r4";
+
+        return CUDAArray::from_index(
+            cuda_trace_append(Type, op, index(), a.index(), b.index()));
     }
 
     CUDAArray fmsub_(const CUDAArray &a, const CUDAArray &b) const {
@@ -274,7 +284,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     }
 
     CUDAArray fnmsub_(const CUDAArray &a, const CUDAArray &b) const {
-        return fmadd_(-a, -b);
+        return -fmadd_(a, b);
     }
 
     CUDAArray max_(const CUDAArray &v) const {
@@ -299,29 +309,29 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
     CUDAArray sqrt_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "sqrt.rn.$t1 $r1, $r2", index()));
+            "sqrt.rn.ftz.$t1 $r1, $r2", index()));
     }
 
     CUDAArray exp_() const {
         CUDAArray scaled = Value(1.4426950408889634074) * *this;
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "ex2.approx.$t1 $r1, $r2", scaled.index()));
+            "ex2.approx.ftz.$t1 $r1, $r2", scaled.index()));
     }
 
     CUDAArray log_() const {
         return CUDAArray::from_index(cuda_trace_append(
-            Type, "lg2.approx.$t1 $r1, $r2",
+            Type, "lg2.approx.ftz.$t1 $r1, $r2",
             index())) * Value(0.69314718055994530942);
     }
 
     CUDAArray sin_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "sin.approx.$t1 $r1, $r2", index()));
+            "sin.approx.ftz.$t1 $r1, $r2", index()));
     }
 
     CUDAArray cos_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "cos.approx.$t1 $r1, $r2", index()));
+            "cos.approx.ftz.$t1 $r1, $r2", index()));
     }
 
     std::pair<CUDAArray, CUDAArray> sincos_() const {
@@ -330,12 +340,12 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
     CUDAArray rcp_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "rcp.approx.$t1 $r1, $r2", index()));
+            "rcp.approx.ftz.$t1 $r1, $r2", index()));
     }
 
     CUDAArray rsqrt_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "rsqrt.approx.$t1 $r1, $r2", index()));
+            "rsqrt.approx.ftz.$t1 $r1, $r2", index()));
     }
 
     CUDAArray floor_() const {
