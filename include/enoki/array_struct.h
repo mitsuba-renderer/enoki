@@ -369,7 +369,7 @@ template <
     typename Mask = mask_t<replace_scalar_t<Index, scalar_t<Array>>>,
     typename Target, enable_if_t<(array_depth_v<Target> > 1)> = 0>
 ENOKI_INLINE void scatter(Target &target, const Array &value, const Index &index,
-                          const detail::identity_t<Mask> &mask = true) {
+                          const identity_t<Mask> &mask = true) {
     struct_support_t<Array>::scatter(target, value, index, mask);
 }
 

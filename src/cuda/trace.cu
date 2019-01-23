@@ -119,9 +119,9 @@ struct Context {
     }
 };
 
-Context __context;
+static Context __context;
 
-inline Context &context() { return __context; }
+inline static Context &context() { return __context; }
 
 ENOKI_EXPORT void cuda_init() {
     // initialize CUDA
