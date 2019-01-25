@@ -521,9 +521,9 @@ template <typename T> using struct_support_t = struct_support<std::decay_t<T>>;
 //! @{ \name Type enumeration
 // -----------------------------------------------------------------------
 
-enum EnokiType { Invalid = 0, Int8, UInt8, Int16, UInt16,
-                 Int32, UInt32, Int64, UInt64, Float16,
-                 Float32, Float64, Bool, Pointer };
+enum class EnokiType { Invalid = 0, Int8, UInt8, Int16, UInt16,
+                       Int32, UInt32, Int64, UInt64, Float16,
+                       Float32, Float64, Bool, Pointer };
 
 template <typename T, typename = int> struct enoki_type {
     static constexpr EnokiType value = EnokiType::Invalid;

@@ -566,10 +566,10 @@ special short-hand notation exists:
     FloatP amount = ...;
 
     /* Unmasked version */
-    scatter_add(hist, indices, amount);
+    scatter_add(hist, amount, indices);
 
     /* Masked version */
-    scatter_add(hist, indices, amount, mask);
+    scatter_add(hist, amount, indices, mask);
 
 
 Memory allocation and alignment

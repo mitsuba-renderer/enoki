@@ -12,10 +12,14 @@
 #define ENOKI_CUDA_REG_RESERVED 10
 
 /// Enable heavy debug output (instructions, reference counts, etc.)
-#define ENOKI_CUDA_DEBUG_TRACE  0
+#if !defined(ENOKI_CUDA_DEBUG_TRACE)
+#  define ENOKI_CUDA_DEBUG_TRACE  0
+#endif
 
 /// Enable moderate debug output
-#define ENOKI_CUDA_DEBUG_MODERATE 1
+#if !defined(ENOKI_CUDA_DEBUG_MODERATE)
+#  define ENOKI_CUDA_DEBUG_MODERATE 1
+#endif
 
 NAMESPACE_BEGIN(enoki)
 
@@ -173,10 +177,18 @@ ENOKI_EXPORT void cuda_var_set_comment(uint32_t index, const char *str) {
 }
 
 ENOKI_EXPORT void cuda_var_set_size(uint32_t index, size_t size) {
-    context()[index].size = size;
 #if ENOKI_CUDA_DEBUG_TRACE
     std::cerr << "cuda_var_set_size(" << index << "): " << size << std::endl;
 #endif
+
+    Variable &var = context()[index];
+    if (var.size == size)
+        return;
+    if (var.ptr != nullptr)
+        throw std::runtime_error(
+            "cuda_var_set_size(): attempted to resize variable " +
+            std::to_string(index) + " which was already allocated!");
+    var.size = size;
 }
 
 ENOKI_EXPORT uint32_t cuda_var_register(EnokiType type, size_t size, void *ptr,
@@ -777,8 +789,8 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep) {
 
     oss << std::endl
         << "    add.u32     %r2, %r2, %r3;" << std::endl
-        << "    setp.lt.u32 %p0, %r2, %r1;" << std::endl
-        << "    @%p0 bra L1;" << std::endl;
+        << "    setp.ge.u32 %p0, %r2, %r1;" << std::endl
+        << "    @!%p0 bra L1;" << std::endl;
 
     oss << std::endl
         << "L0:" << std::endl
@@ -862,8 +874,11 @@ ENOKI_EXPORT void cuda_jit_run(const std::string &source,
 
     void *args[2] = { &ptrs, &size };
 
-    const unsigned int thread_count = 128;
-    const unsigned int block_count = 32;
+    uint32_t thread_count = next_power_of_two(num_sm) * 2;
+    uint32_t block_count = 128;
+
+    if (size == 1)
+        thread_count = block_count = 1;
 
     cuda_check(cuLaunchKernel(kernel, block_count, 1, 1, thread_count,
                               1, 1, 0, stream, args, nullptr));
@@ -949,6 +964,17 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
                      stream,
                      log_assembly);
 
+    }
+
+    for (auto const &stream : streams) {
+        cuda_check(cudaStreamSynchronize(stream));
+        cuda_check(cudaStreamDestroy(stream));
+    }
+
+    for (auto const &sweep : sweeps) {
+        const std::vector<uint32_t> &schedule =
+            std::get<1>(std::get<1>(sweep));
+
         for (uint32_t idx : schedule) {
             auto it = ctx.variables.find(idx);
             if (it == ctx.variables.end())
@@ -963,22 +989,32 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
             }
         }
     }
+}
 
-    for (auto const &stream : streams) {
-        cuda_check(cudaStreamSynchronize(stream));
-        cuda_check(cudaStreamDestroy(stream));
-    }
+ENOKI_EXPORT void cuda_eval_var(uint32_t index, bool log_assembly) {
+    Variable &var = context()[index];
+    if (var.data == nullptr || var.dirty)
+        cuda_eval(log_assembly);
+    assert(!var.dirty);
 }
 
 //! @}
 // -----------------------------------------------------------------------
 
-ENOKI_EXPORT void cuda_fetch_element(void *dst, uint32_t src, size_t index, size_t size) {
+ENOKI_EXPORT void cuda_fetch_element(void *dst, uint32_t src, size_t offset, size_t size) {
     Variable &var = context()[src];
+
     if (var.data == nullptr || var.dirty)
         cuda_eval();
-    assert(!var.dirty);
-    cuda_check(cudaMemcpy(dst, (uint8_t *) var.data + size * index,
+
+    if (var.dirty)
+        throw std::runtime_error("cuda_fetch_element(): element is still "
+                                 "marked as 'dirty' even after cuda_eval()!");
+    else if (var.data == nullptr)
+        throw std::runtime_error(
+            "cuda_fetch_element(): tried to read from invalid/uninitialized CUDA array!");
+
+    cuda_check(cudaMemcpy(dst, (uint8_t *) var.data + size * offset,
                           size, cudaMemcpyDeviceToHost));
 }
 

@@ -5,6 +5,11 @@
 #include <vector>
 #include "common.cuh"
 
+/// Enable heavy debug output
+#if !defined(ENOKI_CUDA_DEBUG_TRACE)
+#  define ENOKI_CUDA_DEBUG_TRACE  1
+#endif
+
 NAMESPACE_BEGIN(enoki)
 
 __global__ void arange(size_t n, size_t *out) {
@@ -16,6 +21,10 @@ __global__ void arange(size_t n, size_t *out) {
 ENOKI_EXPORT
 std::pair<std::vector<std::pair<void *, size_t>>, size_t *>
 cuda_partition(size_t size, const void **ptrs_) {
+#if ENOKI_CUDA_DEBUG_TRACE
+    std::cerr << "cuda_partition(size=" << size << ")" << std::endl;
+#endif
+
     size_t     temp_size   = 0,
               *perm        = nullptr,
               *perm_sorted = nullptr;
@@ -76,6 +85,10 @@ cuda_partition(size_t size, const void **ptrs_) {
 }
 
 template <typename T> T cuda_hsum(size_t size, const T *data) {
+#if ENOKI_CUDA_DEBUG_TRACE
+    std::cerr << "cuda_hsum(size=" << size << ")" << std::endl;
+#endif
+
     size_t temp_size   = 0;
     void *temp        = nullptr;
 
@@ -93,7 +106,16 @@ template <typename T> T cuda_hsum(size_t size, const T *data) {
     return result;
 }
 
+template <typename T> T cuda_hprod(size_t, const T *) {
+    fprintf(stderr, "cuda_hprod(): not implemented!");
+    exit(EXIT_FAILURE);
+}
+
 template <typename T> T cuda_hmax(size_t size, const T *data) {
+#if ENOKI_CUDA_DEBUG_TRACE
+    std::cerr << "cuda_hmax(size=" << size << ")" << std::endl;
+#endif
+
     size_t temp_size   = 0;
     void *temp        = nullptr;
 
@@ -143,7 +165,11 @@ struct ReductionOpAny {
     }
 };
 
-template <typename T> T cuda_all(size_t size, const bool *data) {
+bool cuda_all(size_t size, const bool *data) {
+#if ENOKI_CUDA_DEBUG_TRACE
+    std::cerr << "cuda_all(size=" << size << ")" << std::endl;
+#endif
+
     size_t temp_size   = 0;
     void *temp        = nullptr;
 
@@ -153,18 +179,22 @@ template <typename T> T cuda_all(size_t size, const bool *data) {
     cuda_check(cub::DeviceReduce::Reduce(temp, temp_size, data, result_p, size,
                                          all_op, true));
     cuda_check(cudaMalloc(&temp, temp_size));
-    cuda_check(cudaMalloc(&result_p, sizeof(T)));
+    cuda_check(cudaMalloc(&result_p, sizeof(bool)));
     cuda_check(cub::DeviceReduce::Reduce(temp, temp_size, data, result_p, size,
                                          all_op, true));
     cuda_check(cudaFree(temp));
-    cuda_check(cudaMemcpy(&result, result_p, sizeof(T),
+    cuda_check(cudaMemcpy(&result, result_p, sizeof(bool),
                cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(result_p));
 
     return result;
 }
 
-template <typename T> T cuda_any(size_t size, const bool *data) {
+bool cuda_any(size_t size, const bool *data) {
+#if ENOKI_CUDA_DEBUG_TRACE
+    std::cerr << "cuda_any(size=" << size << ")" << std::endl;
+#endif
+
     size_t temp_size   = 0;
     void *temp        = nullptr;
 
@@ -174,11 +204,11 @@ template <typename T> T cuda_any(size_t size, const bool *data) {
     cuda_check(cub::DeviceReduce::Reduce(temp, temp_size, data, result_p, size,
                                          any_op, false));
     cuda_check(cudaMalloc(&temp, temp_size));
-    cuda_check(cudaMalloc(&result_p, sizeof(T)));
+    cuda_check(cudaMalloc(&result_p, sizeof(bool)));
     cuda_check(cub::DeviceReduce::Reduce(temp, temp_size, data, result_p, size,
                                          any_op, false));
     cuda_check(cudaFree(temp));
-    cuda_check(cudaMemcpy(&result, result_p, sizeof(T),
+    cuda_check(cudaMemcpy(&result, result_p, sizeof(bool),
                cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(result_p));
 
@@ -191,6 +221,13 @@ template ENOKI_EXPORT int64_t  cuda_hsum(size_t, const int64_t *);
 template ENOKI_EXPORT uint64_t cuda_hsum(size_t, const uint64_t *);
 template ENOKI_EXPORT float    cuda_hsum(size_t, const float *);
 template ENOKI_EXPORT double   cuda_hsum(size_t, const double *);
+
+template ENOKI_EXPORT int32_t  cuda_hprod(size_t, const int32_t *);
+template ENOKI_EXPORT uint32_t cuda_hprod(size_t, const uint32_t *);
+template ENOKI_EXPORT int64_t  cuda_hprod(size_t, const int64_t *);
+template ENOKI_EXPORT uint64_t cuda_hprod(size_t, const uint64_t *);
+template ENOKI_EXPORT float    cuda_hprod(size_t, const float *);
+template ENOKI_EXPORT double   cuda_hprod(size_t, const double *);
 
 template ENOKI_EXPORT int32_t  cuda_hmax(size_t, const int32_t *);
 template ENOKI_EXPORT uint32_t cuda_hmax(size_t, const uint32_t *);
@@ -205,8 +242,5 @@ template ENOKI_EXPORT int64_t  cuda_hmin(size_t, const int64_t *);
 template ENOKI_EXPORT uint64_t cuda_hmin(size_t, const uint64_t *);
 template ENOKI_EXPORT float    cuda_hmin(size_t, const float *);
 template ENOKI_EXPORT double   cuda_hmin(size_t, const double *);
-
-template ENOKI_EXPORT bool     cuda_all(size_t, const bool *);
-template ENOKI_EXPORT bool     cuda_any(size_t, const bool *);
 
 NAMESPACE_END(enoki)

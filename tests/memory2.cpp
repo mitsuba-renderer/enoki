@@ -308,7 +308,7 @@ ENOKI_TEST_INT(test09_gather_mask) {
     using MaskX = mask_t<TX>;
 
     MaskX p = eq(arange<TX>(50) & (Scalar) 1, (Scalar) 0);
-    MaskP result = gather<MaskP>(p, arange<T>() + (Scalar) 1);
+    MaskP result = gather_struct<MaskP>(p, arange<T>() + (Scalar) 1);
     MaskP target = eq((arange<T>() + (Scalar) 1) & (Scalar) 1, (Scalar) 0);
     assert(target == result);
 }

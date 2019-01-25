@@ -144,17 +144,17 @@ template <typename Storage_> struct call_support_base {
                     result = func(partitioned[0].first, true,
                                   std::get<Indices>(tuple)...);
                 } else {
-                    for (auto [value, perm] : partitioned) {
+                    for (auto [value, permutation] : partitioned) {
                         if (value == nullptr)
                             continue;
 
-                        cuda_var_set_comment(perm.index(), "perm");
+                        cuda_var_set_comment(permutation.index(), "permutation");
 
                         Result temp = func(value, true,
-                            gather<std::decay_t<std::tuple_element_t<Indices, Tuple>>>(
-                                std::get<Indices>(tuple), perm)...);
+                            gather_struct<std::decay_t<std::tuple_element_t<Indices, Tuple>>, 0, true, true>(
+                                std::get<Indices>(tuple), permutation)...);
 
-                        scatter(result, temp, perm);
+                        scatter_struct<0, true, true>(result, temp, permutation);
                     }
                 }
             }
@@ -174,18 +174,17 @@ template <typename Storage_> struct call_support_base {
                 auto partitioned = partition(instance);
 
                 if (partitioned.size() == 1 && partitioned[0].first != nullptr) {
-                    func(partitioned[0].first, true,
-                         std::get<Indices>(tuple)...);
+                    func(partitioned[0].first, true, std::get<Indices>(tuple)...);
                 } else {
-                    for (auto [value, perm] : partition(instance)) {
+                    for (auto [value, permutation] : partition(instance)) {
                         if (value == nullptr)
                             continue;
 
-                        cuda_var_set_comment(perm.index(), "perm");
+                        cuda_var_set_comment(permutation.index(), "permutation");
 
                         func(value, true,
-                             gather<std::decay_t<std::tuple_element_t<Indices, Tuple>>>(
-                                 std::get<Indices>(tuple), perm)...);
+                             gather_struct<std::decay_t<std::tuple_element_t<Indices, Tuple>>, 0, true, true>(
+                                 std::get<Indices>(tuple), permutation)...);
                     }
                 }
             }

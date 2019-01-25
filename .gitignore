@@ -51,6 +51,9 @@ Release
 libenoki-cuda.so
 libenoki-cuda.dylib
 enoki-cuda.dll
+libenoki-autodiff.so
+libenoki-autodiff.dylib
+enoki-autodiff.dll
 
 # Documentation
 /html

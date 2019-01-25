@@ -1,9 +1,17 @@
 cmake_minimum_required (VERSION 2.8.12)
 
-option(ENOKI_CUDA "Build Enoki CUDA library?" OFF)
+if (POLICY CMP0042)
+  cmake_policy(SET CMP0042 NEW) # MACOSX_RPATH is enabled by default
+endif()
+
+set(CMAKE_MACOSX_RPATH ON)
+
+option(ENOKI_CUDA     "Build Enoki CUDA library?" OFF)
+option(ENOKI_AUTODIFF "Build Enoki automatic differentation library?" OFF)
 
 if (ENOKI_CUDA)
   project(enoki CXX CUDA)
+  add_definitions(-DENOKI_CUDA=1)
 else()
   project(enoki CXX)
 endif()
@@ -231,6 +239,8 @@ if (ENOKI_TEST)
   add_subdirectory(tests)
 endif()
 
+add_definitions(-DENOKI_BUILD=1)
+
 if (ENOKI_CUDA)
   include_directories(ext/cub)
   string(APPEND CMAKE_CUDA_FLAGS "-gencode arch=compute_75,code=sm_75")
@@ -238,6 +248,22 @@ if (ENOKI_CUDA)
       src/cuda/common.cuh
       src/cuda/horiz.cu
       src/cuda/trace.cu
+  )
+endif()
+
+enoki_set_native_flags()
+enoki_set_compile_flags()
+
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|Intel")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+elseif (MSVC)
+  add_compile_options("/std:c++17")
+endif()
+
+if (ENOKI_AUTODIFF)
+  add_library(enoki-autodiff SHARED
+      ${PROJECT_SOURCE_DIR}/include/enoki/autodiff.h
+      ${PROJECT_SOURCE_DIR}/src/autodiff/autodiff.cpp
   )
 endif()
 

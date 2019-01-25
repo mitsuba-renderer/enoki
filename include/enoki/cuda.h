@@ -28,7 +28,10 @@ extern ENOKI_IMPORT void cuda_init();
 extern ENOKI_IMPORT void cuda_shutdown();
 
 /// Compile and evaluate the trace up to the current instruction
-extern ENOKI_IMPORT void cuda_eval(bool log_assembly);
+extern ENOKI_IMPORT void cuda_eval(bool log_assembly /* = false */);
+
+/// Invokes 'cuda_eval' if the given variable has not been evaluated yet
+extern ENOKI_IMPORT void cuda_eval_var(uint32_t index, bool log_assembly = false);
 
 /// Increase the reference count of a variable
 extern ENOKI_IMPORT void cuda_inc_ref_ext(uint32_t);
@@ -81,6 +84,9 @@ ENOKI_EXPORT void cuda_trace_printf(const char *fmt, uint32_t narg, uint32_t* ar
 
 /// Computes the horizontal sum of a given memory region
 template <typename T> extern ENOKI_IMPORT T cuda_hsum(size_t, const T *);
+
+/// Computes the horizontal product of a given memory region
+template <typename T> extern ENOKI_IMPORT T cuda_hprod(size_t, const T *);
 
 /// Computes the horizontal maximum of a given memory region
 template <typename T> extern ENOKI_IMPORT T cuda_hmax(size_t, const T *);
@@ -517,27 +523,32 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     }
 
     Value hsum_() const {
-        cuda_eval();
+        cuda_eval_var(m_index);
         return cuda_hsum(cuda_var_size(m_index), (const Value *) cuda_var_ptr(m_index));
     }
 
+    Value hprod_() const {
+        cuda_eval_var(m_index);
+        return cuda_hprod(cuda_var_size(m_index), (const Value *) cuda_var_ptr(m_index));
+    }
+
     Value hmax_() const {
-        cuda_eval();
+        cuda_eval_var(m_index);
         return cuda_hmax(cuda_var_size(m_index), (const Value *) cuda_var_ptr(m_index));
     }
 
     Value hmin_() const {
-        cuda_eval();
+        cuda_eval_var(m_index);
         return cuda_hmin(cuda_var_size(m_index), (const Value *) cuda_var_ptr(m_index));
     }
 
     bool all_() const {
-        cuda_eval();
+        cuda_eval_var(m_index);
         return cuda_all(cuda_var_size(m_index), (const Value *) cuda_var_ptr(m_index));
     }
 
     bool any_() const {
-        cuda_eval();
+        cuda_eval_var(m_index);
         return cuda_any(cuda_var_size(m_index), (const Value *) cuda_var_ptr(m_index));
     }
 
@@ -548,7 +559,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
     template <typename T = Value, enable_if_t<std::is_pointer_v<T>> = 0>
     std::vector<std::pair<Value, CUDAArray<uint64_t>>> partition_() const {
-        cuda_eval();
+        cuda_eval_var(m_index);
         auto [rle, perm] = cuda_partition(size(), (const void **) data());
         uint32_t parent =
             cuda_var_register(EnokiType::UInt64, 1, perm, 0, true);
@@ -571,7 +582,8 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     static CUDAArray gather_(const void *ptr_, const Index &index,
                              const Mask &mask) {
         if (ptr_ == nullptr)
-            throw std::runtime_error("CUDAArray::gather_() invoked with base pointer NULL.");
+            throw std::runtime_error(
+                "CUDAArray::gather_() invoked with base pointer NULL.");
 
         using UInt64 = CUDAArray<uint64_t>;
 
@@ -581,14 +593,17 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
                addr = fmadd(index, (uint64_t) Stride, ptr_gl);
 
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "@$r3 ld.global.$t1 $r1, [$r2];\n    add.u64 %foo, %foo, $r2",
+            "@$r3 ld.global.$t1 $r1, [$r2];\n"
+            "    @!$r3 mov.$b1 $r1, 0;\n"
+            "    add.u64 %foo, %foo, $r2",
             addr.index(), mask.index()));
     }
 
     template <size_t Stride, typename Index, typename Mask>
     ENOKI_INLINE void scatter_(void *ptr_, const Index &index, const Mask &mask) const {
         if (ptr_ == nullptr)
-            throw std::runtime_error("CUDAArray::scatter_() invoked with base pointer NULL.");
+            throw std::runtime_error(
+                "CUDAArray::scatter_() invoked with base pointer NULL.");
 
         using UInt64 = CUDAArray<uint64_t>;
 
@@ -608,7 +623,8 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     template <size_t Stride, typename Index, typename Mask>
     void scatter_add_(void *ptr_, const Index &index, const Mask &mask) const {
         if (ptr_ == nullptr)
-            throw std::runtime_error("CUDAArray::scatter_add_() invoked with base pointer NULL.");
+            throw std::runtime_error(
+                "CUDAArray::scatter_add_() invoked with base pointer NULL.");
 
         using UInt64 = CUDAArray<uint64_t>;
         UInt64 ptr(memcpy_cast<uintptr_t>(ptr_)),

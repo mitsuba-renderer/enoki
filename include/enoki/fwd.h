@@ -24,9 +24,10 @@
 #include <type_traits>
 
 #if defined(_MSC_VER)
+#  define ENOKI_NOINLINE               __declspec(noinline)
 #  define ENOKI_INLINE                 __forceinline
 #  define ENOKI_INLINE_LAMBDA
-#  define ENOKI_NOINLINE               __declspec(noinline)
+#  define ENOKI_PURE
 #  define ENOKI_MALLOC                 __declspec(restrict)
 #  define ENOKI_MAY_ALIAS
 #  define ENOKI_ASSUME_ALIGNED(x, s)   x
@@ -43,6 +44,7 @@
 #  define ENOKI_NOINLINE               __attribute__ ((noinline))
 #  define ENOKI_INLINE                 __attribute__ ((always_inline)) inline
 #  define ENOKI_INLINE_LAMBDA          __attribute__ ((always_inline))
+#  define ENOKI_PURE                   __attribute__ ((const,nothrow))
 #  define ENOKI_MALLOC                 __attribute__ ((malloc))
 #  define ENOKI_ASSUME_ALIGNED(x, s)   __builtin_assume_aligned(x, s)
 #  define ENOKI_LIKELY(x)              __builtin_expect(!!(x), 1)

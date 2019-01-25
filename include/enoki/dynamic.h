@@ -642,7 +642,7 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
                 result &= packet(i);
 
             if constexpr (PacketSize > 1) {
-                result[arange<IndexPacket>() <= IndexScalar((size() - 1) % PacketSize)] |=
+                result[arange<IndexPacket>() <= IndexScalar((size() - 1) % PacketSize)] &=
                     packet(packets() - 1);
             }
         }

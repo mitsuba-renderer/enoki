@@ -336,7 +336,7 @@ namespace detail {
         Value z = y * y, s, c;
         z |= eq(xa, std::numeric_limits<Scalar>::infinity());
 
-        if (Single) {
+        if constexpr (Single) {
             s = poly2(z, -1.6666654611e-1,
                           8.3321608736e-3,
                          -1.9515295891e-4) * z;
@@ -513,9 +513,10 @@ ENOKI_UNARY_OPERATION(asin, std::asin(x)) {
 
         r = select(mask_big, Scalar(M_PI_2) - (z1 + z1), z1);
     } else {
+        constexpr bool IsCuda = is_cuda_array_v<Value>;
         Mask mask_big = xa > Scalar(0.625);
 
-        if (any_nested(mask_big)) {
+        if (IsCuda || any_nested(mask_big)) {
             const Scalar pio4 = Scalar(0.78539816339744830962);
             const Scalar more_bits = Scalar(6.123233995736765886130e-17);
 
@@ -536,7 +537,7 @@ ENOKI_UNARY_OPERATION(asin, std::asin(x)) {
             r[mask_big] = z - fmsub(zz, p, more_bits) + pio4;
         }
 
-        if (!all_nested(mask_big)) {
+        if (IsCuda || !all_nested(mask_big)) {
             Value z = poly5(x2, -8.198089802484824371615e0,
                                  1.956261983317594739197e1,
                                 -1.626247967210700244449e1,
@@ -581,8 +582,11 @@ ENOKI_UNARY_OPERATION(acos, std::acos(x)) {
         Value x3 = select(mask_big, x1, x2);
         Value x4 = select(mask_big, sqrt(x1), xa);
 
-        Value z1 = poly4(x3, 1.666675242e-1f, 7.4953002686e-2f, 4.5470025998e-2f,
-                         2.4181311049e-2f, 4.2163199048e-2f);
+        Value z1 = poly4(x3, 1.666675242e-1f,
+                             7.4953002686e-2f,
+                             4.5470025998e-2f,
+                             2.4181311049e-2f,
+                             4.2163199048e-2f);
 
         z1 = fmadd(z1, x3 * x4, x4);
         Value z2 = z1 + z1;
@@ -837,10 +841,11 @@ ENOKI_UNARY_OPERATION(log, std::log(x)) {
         z = fmadd(z, Scalar(-0.5), xm + y);
         r = fmadd(e, Scalar(0.693359375), z);
     } else {
+        constexpr bool IsCuda = is_cuda_array_v<Value>;
         const Scalar half = Scalar(0.5);
         Value r_big, r_small;
 
-        if (any_nested(mask_e_big)) {
+        if (IsCuda || any_nested(mask_e_big)) {
             /* logarithm using log(x) = z + z**3 P(z)/Q(z), where z = 2(x-1)/x+1) */
             Value z = xm - half;
 
@@ -861,7 +866,7 @@ ENOKI_UNARY_OPERATION(log, std::log(x)) {
             r_big = fnmadd(e, Scalar(2.121944400546905827679e-4), z) + x2;
         }
 
-        if (!all_nested(mask_e_big)) {
+        if (IsCuda || !all_nested(mask_e_big)) {
             /* logarithm using log(1+x) = x - .5x**2 + x**3 P(x)/Q(x) */
             Value x2 = select(mask_ge_inv_sqrt2, xm, xm + xm) - Scalar(1);
 
@@ -918,19 +923,22 @@ ENOKI_UNARY_OPERATION(sinh, std::sinh(x)) {
          -> in ULPs   = 3
          (at x=-9.69866)
     */
+
+    constexpr bool IsCuda = is_cuda_array_v<Value>;
+
     Value xa = abs(x),
           r_small, r_big;
 
     Mask mask_big = xa > Scalar(1);
 
-    if (any_nested(mask_big)) {
+    if (IsCuda || any_nested(mask_big)) {
         Value exp0 = exp(x),
               exp1 = rcp(exp0);
 
         r_big = (exp0 - exp1) * Scalar(0.5);
     }
 
-    if (!all_nested(mask_big)) {
+    if (IsCuda || !all_nested(mask_big)) {
         Value x2 = x * x;
 
         if constexpr (Single) {
@@ -996,6 +1004,8 @@ ENOKI_UNARY_OPERATION_PAIR(sincosh, std::make_pair(std::sinh(x), std::cosh(x))) 
          (at x=-9.70164)
     */
 
+    constexpr bool IsCuda = is_cuda_array_v<Value>;
+
     const Scalar half = Scalar(0.5);
 
     Value xa    = abs(x),
@@ -1006,7 +1016,7 @@ ENOKI_UNARY_OPERATION_PAIR(sincosh, std::make_pair(std::sinh(x), std::cosh(x))) 
 
     Mask mask_big = xa > Scalar(1);
 
-    if (!all_nested(mask_big)) {
+    if (IsCuda || !all_nested(mask_big)) {
         Value x2 = x * x;
 
         if constexpr (Single) {
@@ -1048,11 +1058,13 @@ ENOKI_UNARY_OPERATION(tanh, std::tanh(x)) {
          (at x=-2.12867)
     */
 
+    constexpr bool IsCuda = is_cuda_array_v<Value>;
+
     Value r_big, r_small;
 
     Mask mask_big = abs(x) >= Scalar(0.625);
 
-    if (!all_nested(mask_big)) {
+    if (IsCuda || !all_nested(mask_big)) {
         Value x2 = x*x;
 
         if constexpr (Single) {
@@ -1074,7 +1086,7 @@ ENOKI_UNARY_OPERATION(tanh, std::tanh(x)) {
         r_small = fmadd(r_small, x2 * x, x);
     }
 
-    if (any_nested(mask_big)) {
+    if (IsCuda || any_nested(mask_big)) {
         Value e  = exp(x + x),
               e2 = rcp(e + Scalar(1));
         r_big = Scalar(1) - (e2 + e2);
@@ -1102,6 +1114,8 @@ ENOKI_UNARY_OPERATION(asinh, std::asinh(x)) {
          (at x=-1.17457)
     */
 
+    constexpr bool IsCuda = is_cuda_array_v<Value>;
+
     Value x2 = x*x,
           xa = abs(x),
           r_big, r_small;
@@ -1109,7 +1123,7 @@ ENOKI_UNARY_OPERATION(asinh, std::asinh(x)) {
     Mask mask_big  = xa >= Scalar(Single ? 0.51 : 0.533),
          mask_huge = xa >= Scalar(Single ? 1e10 : 1e20);
 
-    if (!all_nested(mask_big)) {
+    if (IsCuda || !all_nested(mask_big)) {
         if constexpr (Single) {
             r_small = poly3(x2, -1.6666288134e-1,
                                  7.4847586088e-2,
@@ -1130,7 +1144,7 @@ ENOKI_UNARY_OPERATION(asinh, std::asinh(x)) {
         r_small = fmadd(r_small, x2 * x, x);
     }
 
-    if (any_nested(mask_big)) {
+    if (IsCuda || any_nested(mask_big)) {
         r_big = log(xa + (sqrt(x2 + Scalar(1)) & ~mask_huge));
         r_big[mask_huge] += Scalar(M_LN2);
         r_big = copysign(r_big, x);
@@ -1154,13 +1168,15 @@ ENOKI_UNARY_OPERATION(acosh, std::acosh(x)) {
          (at x=1.02974)
     */
 
+    constexpr bool IsCuda = is_cuda_array_v<Value>;
+
     Value x1 = x - Scalar(1),
          r_big, r_small;
 
     Mask mask_big  = x1 >= Scalar(0.49),
          mask_huge = x1 >= Scalar(1e10);
 
-    if (!all_nested(mask_big)) {
+    if (IsCuda || !all_nested(mask_big)) {
         if constexpr (Single) {
             r_small = poly4(x1,  1.4142135263e+0,
                                 -1.1784741703e-1,
@@ -1185,7 +1201,7 @@ ENOKI_UNARY_OPERATION(acosh, std::acosh(x)) {
         r_small |= x1 < zero<Value>();
     }
 
-    if (any_nested(mask_big)) {
+    if (IsCuda || any_nested(mask_big)) {
         r_big = log(x + (sqrt(fmsub(x, x, Scalar(1))) & ~mask_huge));
         r_big[mask_huge] += Scalar(M_LN2);
     }
@@ -1209,14 +1225,16 @@ ENOKI_UNARY_OPERATION(atanh, std::atanh(x)) {
          (at x=-0.998962)
     */
 
+    constexpr bool IsCuda = is_cuda_array_v<Value>;
+
     Value xa = abs(x),
           r_big, r_small;
 
     Mask mask_big  = xa >= Scalar(0.5);
 
-    if (!all_nested(mask_big)) {
+    if (IsCuda || !all_nested(mask_big)) {
         Value x2 = x*x;
-        if (Single) {
+        if constexpr (Single) {
             r_small = poly4(x2, 3.33337300303e-1,
                                 1.99782164500e-1,
                                 1.46691431730e-1,
@@ -1238,7 +1256,7 @@ ENOKI_UNARY_OPERATION(atanh, std::atanh(x)) {
         r_small = fmadd(r_small, x2*x, x);
     }
 
-    if (any_nested(mask_big)) {
+    if (IsCuda || any_nested(mask_big)) {
         r_big = log((Scalar(1) + xa) / (Scalar(1) - xa)) * Scalar(0.5);
         r_big = copysign(r_big, x);
     }

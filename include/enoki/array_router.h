@@ -681,19 +681,6 @@ template <typename T> decltype(auto) detach(T &&value) {
 }
 
 
-template <typename T1, typename T2, typename Value = expr_t<T1, T2>>
-bool allclose(const T1 &a1, const T2 &a2,
-              double relerr_thresh = std::is_same_v<scalar_t<T1>, float> ? 1e-5 : 1e-10,
-              double abserr_thresh = std::is_same_v<scalar_t<T1>, float> ? 1e-5 : 1e-10) {
-    using Scalar = scalar_t<Value>;
-    auto diff = abs(detach(a1) - detach(a2));
-    Scalar abserr = hmax(diff);
-    Scalar relerr = hmax(diff / abs(detach(a2)));
-
-    return (double) abserr < abserr_thresh ||
-           (double) relerr < relerr_thresh;
-}
-
 //! @}
 // -----------------------------------------------------------------------
 
@@ -1166,7 +1153,7 @@ void transform(void *mem, const Index &index, Func &&func, Args&&... args) {
 
 /// Conflict-free scatter-add update
 template <size_t Stride_ = 0, typename Arg, typename Index>
-ENOKI_INLINE void scatter_add(void *mem, const Index &index, const Arg &value, mask_t<Arg> mask = true) {
+ENOKI_INLINE void scatter_add(void *mem, const Arg &value, const Index &index, mask_t<Arg> mask = true) {
     static_assert(is_std_int_v<scalar_t<Index>>,
                   "scatter_add(): index argument must be a 32/64-bit integer array!");
     constexpr size_t Stride = Stride_ == 0 ? sizeof(scalar_t<Arg>) : Stride_;
@@ -1187,65 +1174,6 @@ template <typename Array, bool Write = false, size_t Level = 2, size_t Stride = 
 ENOKI_INLINE void prefetch(const Source &source, const Args &... args) {
     prefetch<Array, Write, Level, Stride, Packed>(source.data(), args...);
 }
-
-/// Gather operations with an array source
-template <typename Array, size_t Stride = 0, bool Packed = true,
-          typename Source, typename... Args, enable_if_t<array_depth_v<Source> == 1> = 0>
-ENOKI_INLINE Array gather(const Source &source, const Args &... args) {
-    if constexpr (is_diff_array_v<Source>)
-        Source::set_scatter_gather_source_(source);
-
-    if constexpr (is_cuda_array_v<Source>) {
-        if (source.data() == nullptr)
-            cuda_eval();
-    }
-
-    Array result = gather<Array, Stride, Packed>(source.data(), args...);
-
-    if constexpr (is_diff_array_v<Source>)
-        Source::clear_scatter_gather_source_();
-
-   return result;
-}
-
-/// Scatter operations with an array target
-template <size_t Stride = 0, bool Packed = true, typename Target,
-          typename... Args, enable_if_t<array_depth_v<Target> == 1> = 0>
-ENOKI_INLINE void scatter(Target &target, const Args &... args) {
-    if constexpr (is_diff_array_v<Target>)
-        Target::set_scatter_gather_source_(target);
-
-    if constexpr (is_cuda_array_v<Target>) {
-        if (target.data() == nullptr)
-            cuda_eval();
-        cuda_var_mark_dirty(target.index());
-    }
-
-    scatter<Stride, Packed>(target.data(), args...);
-
-    if constexpr (is_diff_array_v<Target>)
-        Target::clear_scatter_gather_source_();
-}
-
-/// Scatter operations with an array target
-template <size_t Stride = 0, typename Target, typename... Args,
-          enable_if_t<array_depth_v<Target> == 1> = 0>
-ENOKI_INLINE void scatter_add(Target &target, const Args &... args) {
-    if constexpr (is_diff_array_v<Target>)
-        Target::set_scatter_gather_source_(target);
-
-    if constexpr (is_cuda_array_v<Target>) {
-        if (target.data() == nullptr)
-            cuda_eval();
-        cuda_var_mark_dirty(target.index());
-    }
-
-    scatter_add<Stride>(target.data(), args...);
-
-    if constexpr (is_diff_array_v<Target>)
-        Target::clear_scatter_gather_source_();
-}
-
 
 //! @}
 // -----------------------------------------------------------------------
@@ -1305,6 +1233,18 @@ template <typename T> auto all_nested(const T &a) {
 
 template <typename T> auto none_nested(const T &a) {
     return !any_nested(a);
+}
+
+template <typename T1, typename T2, typename Value = expr_t<T1, T2>>
+bool allclose(const T1 &a1, const T2 &a2,
+              double relerr_thresh = std::is_same_v<scalar_t<T1>, float> ? 1e-5 : 1e-10,
+              double abserr_thresh = std::is_same_v<scalar_t<T1>, float> ? 1e-5 : 1e-10) {
+    using Scalar = scalar_t<Value>;
+    Scalar abserr = hmax_nested(abs(detach(a1) - detach(a2)));
+    Scalar relerr = abserr / hmax_nested(abs(detach(a2)));
+
+    return (double) abserr < abserr_thresh ||
+           (double) relerr < relerr_thresh;
 }
 
 //! @}

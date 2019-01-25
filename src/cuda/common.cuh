@@ -185,4 +185,15 @@ inline void __cuda_check(cudaError_t errval, const char *file, const int line) {
     }
 }
 
+inline uint32_t next_power_of_two(uint32_t n) {
+    n--;
+    n |= n >> 1;
+    n |= n >> 2;
+    n |= n >> 4;
+    n |= n >> 8;
+    n |= n >> 16;
+    n++;
+    return n;
+}
+
 NAMESPACE_END(enoki)
