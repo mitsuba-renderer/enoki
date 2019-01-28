@@ -1,5 +1,5 @@
-Enoki — fast vectorized arithmetic on modern processors
-=======================================================
+Enoki — structured vectorization and differentiation on modern processor architectures
+======================================================================================
 
 .. only:: not latex
 
@@ -16,6 +16,7 @@ Enoki — fast vectorized arithmetic on modern processors
    nested
    custom
    dynamic
+   cuda
    benchmark
    advanced
    changelog

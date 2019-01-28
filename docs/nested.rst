@@ -340,26 +340,26 @@ Enoki performs an automatic broadcast operation whenever a higher-dimensional
 array is initialized from a lower-dimensional array, or when types of mixed
 dimension occur in an arithmetic expression.
 
-The figure below illustrates a broadcast of a 3D array to a 4-tensor of shape
-:math:`(2, 3, 4, 3)` (note the reversed reading order in the type definition).
+The figure below illustrates a broadcast of a 3D vector to a rank 4 tensor
+during an arithmetic operation involving both (e.g. addition).
 
 .. image:: nested-03.svg
     :width: 700px
     :align: center
 
 Enoki works its way through the shape descriptors of both arrays, moving from
-left to right in the above figure (i.e. from the outermost to the innermost
+right to left in the above figure (i.e. from the outermost to the innermost
 nesting level). At each iteration, it checks if the current pair of shape
 entries match -- if they do, the iteration advances to the next entry.
 Otherwise, a broadcast is performed over that dimension, which is analogous to
 inserting a ``1`` into the lower-dimensional array's shape. When the dimensions
 of the lower-dimensional array are exhausted, Enoki appends further ones until
 the dimensions match. In the above example, the array is thus copied to the
-second dimension, with a broadcast taking place over the first and trailing two
+second dimension, with a broadcast taking place over the last and first two
 dimensions.
 
 Broadcasting nested types works in the same way. Here, the entries of a
-:math:`3\times 3` array are copied to the second and last dimensions of the
+:math:`3\times 3` array are copied to the first and third dimensions of the
 output array:
 
 .. image:: nested-05.svg
@@ -410,22 +410,22 @@ dividing each by its norm. Unfortunately, this is not always what happens...
 Let's first look at the expected outcome: when the code is compiled for a
 machine with AVX instructions, the return value of ``norm()`` is an 8-wide float
 packet (``Array<float, 8>``). The subsequent ``operator/=`` call triggers a
-broadcast to a shape of ``[4, 8]``, which replicates the array 4 times
-across the first dimension (once for each 4D vector component).
+broadcast to a shape of ``[8, 4]``, which replicates the array multiple times
+(once for each 4D vector component).
 
 However, when the application is compiled for a machine with SSE4.2
 instructions, the return value of ``norm()`` becomes a 4-wide float packet, and
 the broadcast to a shape of ``[4, 4]`` behaves differently: since the sizes of
-both arrays match in the first dimension, the broadcasting rules specify that
-the array contents should be replicated across the *second dimension*. This
+both arrays match in the last dimension, the broadcasting rules specify that
+the array contents should be replicated across the *first dimension*. This
 leads to a nonsensical operation that divides the :math:`i`-th coordinate (of
 all vectors) by the norm of the :math:`i`-th vector.
 
 Enoki provides the ``enoki::Packet<...>`` type to resolve any such
 platform-dependent ambiguities. It is identical to the ``enoki::Array<...>``
 class except for its behavior in a broadcast: the rules for a packet operate in
-the reverse direction---that is, Enoki tries to copy the packet to the trailing
-dimensions instead of the leading dimensions if possible:
+the reverse direction---that is, Enoki tries to copy the packet to the leading
+dimensions instead of the trailing ones if possible:
 
 .. image:: nested-04.svg
     :width: 600px

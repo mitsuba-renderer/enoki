@@ -1,14 +1,14 @@
 .. _dynamic:
 
-Dynamic arrays
-==============
+Dynamic arrays (CPU)
+====================
 
 Arrays and nested arrays facilitate the development of vectorized code that
 processes multiple values at once. However, it can be awkward to work with
 small fixed packet sizes when the underlying application must process millions
 or billions of data points. The remainder of this document discusses
-infrastructure that can be used to realize computations involving dynamically
-allocated arrays of arbitrary length.
+infrastructure that can be used to realize computations on the CPU involving
+dynamically allocated arrays of arbitrary length.
 
 One of the core ingredients is :cpp:class:`enoki::DynamicArray`, which is a
 smart pointer that manages the lifetime of a dynamically allocated memory
@@ -40,7 +40,7 @@ vectorizes using 4-wide SSE arithmetic.
 
 .. note::
 
-    In contrast to the array types discussed so far, a
+    In contrast to all array types discussed so far, a
     :cpp:class:`enoki::DynamicArray` instance *should not* be part of an
     arithmetic expression. For instance, the following will compile and yield
     the expected result, but this style of using dynamic arrays is disouraged.
@@ -98,15 +98,11 @@ vectorizes using 4-wide SSE arithmetic.
 Allocating dynamic arrays
 -------------------------
 
-The dynamic array API is minimalistic. Arrays can be created, resized, and
-queried for their size---that's mostly it (after all, they are only meant to be
-used as holder types).
-
-The allocated memory region is always fully aligned according to the
-requirements of the packet type. Enoki may sometimes allocate a partially used
-packet at the end, which eliminates the need for special end-of-array handling.
-The following code snippet allocates an array of size 5 using 4-wide packets,
-which means that 3 entries at the end are unused.
+When allocating dynamic arrays, the underlying memory region is always fully
+aligned according to the requirements of the packet type. Enoki may sometimes
+allocate a partially used packet at the end, which eliminates the need for
+special end-of-array handling. The following code snippet allocates an array of
+size 5 using 4-wide packets, which means that 3 entries at the end are unused.
 
 .. image:: dynamic-01.svg
     :width: 400px
@@ -172,16 +168,16 @@ original type declaration:
 
     ENOKI_STRUCT_SUPPORT(GPSCoord2, time, pos, reliable)
 
-The two highlighted changes play the following roles:
+The two highlighted additions do the following:
 
 1. The macro on lines 10 and 11 declares copy and assignment constructors that
    are able to convert between different types of records.
 
-2. The macro on line 14 declares a partial template overload that makes Enoki
-   aware of ``GPSCoord2`` for the purposes of dynamic vectorization.
+2. The macro on line 14 makes Enoki aware of ``GPSCoord2`` for the purposes of
+   dynamic vectorization.
 
 It is possible but fairly tedious to write these declarations by hand, hence
-the code generation macros.
+the code generation macros should generally be used.
 
 With these declarations, we can now allocate a dynamic array of 1000
 coordinates that will be processed in packets of 4 (or more, depending on the
@@ -215,17 +211,17 @@ time values:
 
     /* Reset the time value of all records */
     for (size_t i = 0; i < packets(coord); ++i) {
-        auto &&ref = packet(coord, n);
+        GPSRecord2<FloatP&> = packet(coord, n);
         ref.time = 0;
     }
 
-When used with a dynamic data structure, ``packet()`` function is interesting
-because it returns an instance of a new type ``GPSRecord2<FloatP&>`` that was
-not discussed yet (note the ampersand in the template argument). Instead of
-directly storing data, all fields of a ``GPSRecord2<FloatP&>`` are references
-pointing to packets of data elsewhere in memory. In this case, assigning
-(writing) to a field of this structure of references will change the
-corresponding entry *of the dynamic array*. Conceptually, this looks as follows:
+The ``packet()`` function is interesting because it returns an instance of a
+new type ``GPSRecord2<FloatP&>`` that was not discussed yet (note the ampersand
+in the template argument). Instead of directly storing data, all fields of a
+``GPSRecord2<FloatP&>`` are *references* pointing to packets of data elsewhere in
+memory. In this case, assigning (writing) to a field of this structure of
+references will change the corresponding entry of the dynamic array!
+Conceptually, this looks as follows:
 
 .. image:: dynamic-03.svg
     :width: 600px
@@ -244,11 +240,10 @@ References can also be cast into their associated packet types and vice versa:
 .. note::
 
     For non-nested dynamic arrays such as ``FloatX = DynamicArray<FloatP>``,
-    calling ``packet()`` simply returns a reference to the right ``FloatP``
-    entry in that array of packets. Note this is a reference type
-    (``FloatP&``), not a structure (``GPSRecord2<FloatP&>``).
-    This is why we strongly encourage using universal references (``auto &&``)
-    to hold the result of ``packet()``:
+    ``packet()`` simply returns a reference to the selected ``FloatP``
+    entry in that array of packets. We generally encourage using universal
+    references (``auto &&``) to hold the result of ``packet()`` so that both
+    cases are handled in the same way:
 
     .. code-block:: cpp
 

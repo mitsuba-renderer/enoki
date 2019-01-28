@@ -549,15 +549,14 @@ template <typename Phi, typename K,
 Value ellint_1(Phi phi_, K k) {
     Value phi = phi_,
           n = floor(fmadd(phi, Scalar(1.0 / M_PI), Scalar(.5f))),
-          result = 0,
-          sin_phi, cos_phi;
+          result = 0;
 
     if (ENOKI_UNLIKELY(any(neq(n, Scalar(0))))) {
         result = comp_ellint_1(k) * n * Scalar(2);
         phi = fnmadd(n, Scalar(M_PI), phi);
     }
 
-    std::tie(sin_phi, cos_phi) = sincos(phi);
+    auto [sin_phi, cos_phi] = sincos(phi);
     Vector3 xyz(cos_phi * cos_phi, Scalar(1) - k * k * sin_phi * sin_phi,
                 Scalar(1));
     result += sin_phi * carlson_rf(xyz);
@@ -584,15 +583,14 @@ Value ellint_2(Phi phi_, K k) {
     Value phi = phi_,
           k2 = k*k,
           n = floor(fmadd(phi, Scalar(1.0 / M_PI), Scalar(.5f))),
-          result = 0,
-          sin_phi, cos_phi;
+          result = 0;
 
     if (ENOKI_UNLIKELY(any(neq(n, Scalar(0))))) {
         result = comp_ellint_2(k) * n * Scalar(2);
         phi = fnmadd(n, Scalar(M_PI), phi);
     }
 
-    std::tie(sin_phi, cos_phi) = sincos(phi);
+    auto [sin_phi, cos_phi] = sincos(phi);
     auto sin_phi_k_2 = sin_phi * sin_phi * k2;
     Vector3 xyz(cos_phi * cos_phi, Scalar(1) - sin_phi_k_2, Scalar(1));
     result += sin_phi * (carlson_rf(xyz) -
@@ -622,8 +620,7 @@ Value ellint_3(Phi phi_, K k, Nu nu) {
     Value phi = phi_,
           k2 = k*k,
           n = floor(fmadd(phi, Scalar(1.0 / M_PI), Scalar(.5f))),
-          result = 0,
-          sin_phi, cos_phi;
+          result = 0;
 
     if (ENOKI_UNLIKELY(any(neq(n, Scalar(0))))) {
         result = comp_ellint_3(k, nu) * n * Scalar(2);
@@ -631,7 +628,7 @@ Value ellint_3(Phi phi_, K k, Nu nu) {
     }
 
 
-    std::tie(sin_phi, cos_phi) = sincos(phi);
+    auto [sin_phi, cos_phi] = sincos(phi);
     auto sin_phi_2 = sin_phi * sin_phi;
     Vector4 xyzr(cos_phi * cos_phi, Scalar(1) - k2 * sin_phi_2, Scalar(1),
                  Scalar(1) + nu * sin_phi_2);

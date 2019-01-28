@@ -5,13 +5,41 @@
 Introduction
 ============
 
-**Enoki** is a C++ template library that enables transparent vectorization of
-numerical code. It is implemented as a set of header files with no dependencies
-other than a sufficiently C++17-capable compiler (GCC >= 8.2, Clang >= 7.0,
-Visual Studio 2017). Enoki code reduces to efficient SIMD instructions
-available on modern processor architectures (**Intel**: AVX512, AVX2, AVX, and
-SSE4.2, **ARM**: NEON/VFPV4 on armv7-a, Advanced SIMD on 64-bit armv8-a), and
-it generates scalar fallback code if no vector instructions are present.
+**Enoki** is a C++ template library that enables transparent vectorization and
+automatic differentation of numerical code. The core parts of the library are
+implemented as a set of header files with no dependencies other than a
+sufficiently C++17-capable compiler (GCC >= 8.2, Clang >= 7.0, Visual Studio
+>= 2017).
+
+Enoki code reduces to efficient SIMD instructions available on modern processor
+architectures and GPUs, and it generates scalar fallback code if no vector
+instructions are present. Currently, the following instruction sets are
+supported:
+
+* **Intel**: AVX512, AVX2, AVX, and SSE4.2,
+* **ARM**: NEON/VFPV4 on armv7-a, Advanced SIMD on 64-bit armv8-a,
+* **NVIDIA**: CUDA via the *Parallel Thread Execution* (PTX) JIT compiler
+
+Deploying a program on top of Enoki usually serves three goals:
+
+1. Enoki ships with a convenient library of special functions and data
+   structures that facilitate implementation of numerical code (vectors,
+   matrices, complex numbers, quaternions, etc.).
+
+2. Programs built using these can be instantiated as *wide* versions that
+   process many arguments at once (either on the CPU or the GPU).
+
+   Enoki is also *structured* in the sense that it handles complex programs
+   with custom data structures, lambda functions, loadable modules, virtual
+   method calls, and many other modern C++ features.
+
+3. If derivatives are desired (e.g. for stochastic gradient descent), Enoki
+   performs transparent reverse-mode automatic differentiation of the entire
+   program.
+
+Finally, Enoki can do this simultaneously: if desired, it can compile the same
+source code to very different implementations (e.g. scalar, AVX512, and CUDA
+with autodiff).
 
 Motivation
 ----------
@@ -42,11 +70,12 @@ with the current vectorization landscape:
        :width: 400px
        :align: center
 
-   Intrinsics-heavy code is challenging to read and modify once written, and
-   it is inherently non-portable.
+   Intrinsics-heavy code is challenging to read and modify once written, and it
+   is inherently non-portable. CUDA provides a much nicer language environment
+   for programming GPUs but does nothing to help with vectorization on CPUs.
 
-4. Vectorized transcendental functions (*exp*, *sin*, *cos*, ..) are not widely
-   available. Intel and AMD provide proprietary implementations, but most
+4. Vectorized transcendental functions (*exp*, *cos*, *erf*, ..) are not widely
+   available. Intel, AMD, and CUDA provide proprietary implementations, but most
    compilers don't include them by default.
 
 5. It is desirable to retain both scalar and vector versions of an algorithm,
@@ -67,9 +96,9 @@ What Enoki does differently
 ---------------------------
 
 Enoki addresses these issues and provides a *complete* solution for vectorizing
-modern C++ applications with nontrivial control flow and data structures,
-dynamic memory allocation, virtual function calls, and vector calls across
-module boundaries. It has the following design goals:
+and differentiating modern C++ applications with nontrivial control flow and
+data structures, dynamic memory allocation, virtual method calls, and vector
+calls across module boundaries. It has the following design goals:
 
 1. **Unobtrusive**: Only minor modifications are necessary to convert existing
    C++ code into its Enoki-vectorized equivalent, which remains readable and
@@ -82,13 +111,13 @@ module boundaries. It has the following design goals:
    same implementation works with both scalar and vector arguments.
 
 3. **Complex data structures**: Converting complex data structures to SoA
-   layout is a breeze using Enoki. All the hard work is handled by the C++14
+   layout is a breeze using Enoki. All the hard work is handled by the C++17
    type system.
 
 4. **Function calls**: vectorized calls to functions in other compilation units
    (e.g. a dynamically loaded plugin) are possible. Enoki can even vectorize
    method or virtual method calls (e.g. ``instance->my_function(arg1, arg2,
-   ...);`` when ``instance`` turns out to be a SIMD array of instances).
+   ...);`` when ``instance`` turns out to be an array of many instances).
 
 5. **Transcendentals**: Enoki provides branch-free vectorized implementations
    of classic elementary and transcendental functions including *cos*, *sin*,
@@ -141,4 +170,4 @@ module boundaries. It has the following design goals:
 
 The project is named after `Enokitake <https://en.wikipedia.org/wiki/Enokitake>`_,
 a type of mushroom with many long and parallel stalks reminiscent of data flow
-in SIMD arithmetic.
+in vectorized arithmetic.

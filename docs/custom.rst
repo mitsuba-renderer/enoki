@@ -66,16 +66,16 @@ position component (e.g. latitude) named ``Value``.
     template <typename Value> struct GPSCoord2 {
         using Vector2 = Array<Value, 2>;
         using UInt64  = uint64_array_t<Value>;
-        using Bool    = bool_array_t<Value>;
+        using Mask    = mask_t<Value>;
 
         UInt64 time;
         Vector2 pos;
-        Bool reliable;
+        Mask reliable;
     };
 
 The ``using`` declarations at the beginning require an explanation: they
 involve the type traits :cpp:type:`enoki::uint64_array_t` and
-:cpp:type:`enoki::bool_array_t`, which "compute" the type of an Enoki array
+:cpp:type:`enoki::mask_t`, which "compute" the type of an Enoki array
 that has the same configuration as their input parameter, but with
 ``uint64_t``- and ``bool``-valued entries, respectively. Both are
 specializations of the more general :cpp:type:`enoki::replace_scalar_t` trait that works
@@ -91,7 +91,7 @@ stores 16 GPS positions in a convenient SoA representation.
 
 An important aspect of the type calculations mentioned above is that they
 also generalize to non-array arguments. In particular, ``uint64_array_t<float>`` and
-``bool_array_t<float>`` simply turn into ``uint64_t`` and ``bool``, respectively,
+``mask_t<float>`` simply turn into ``uint64_t`` and ``bool``, respectively,
 hence the type alias
 
 .. code-block:: cpp
@@ -122,7 +122,7 @@ to the ``Value`` type, and it works for both scalar and vector arguments.
                   cos(r2.pos.x() * deg_to_rad);
 
         return select(
-            r1.reliable & r2.reliable,
+            r1.reliable && r2.reliable,
             (6371.f * 2.f) * atan2(sqrt(a), sqrt(1.f - a)),
             std::numeric_limits<Scalar>::quiet_NaN()
         );
@@ -140,11 +140,9 @@ Note how the overall structure is preserved. There are three noteworthy changes:
 
    .. code-block:: cpp
 
-       if (ENOKI_UNLIKELY(none(r1.reliable & r2.reliable)))
+       if (none(r1.reliable && r2.reliable))
            return std::numeric_limits<Scalar>::quiet_NaN()
 
-   The :c:macro:`ENOKI_UNLIKELY` macro signals that the branch is rarely taken,
-   which can be used for improved code layout if supported by the compiler.
 
 2. Standard mathematical functions such as ``std::sin`` are replaced by their
    Enoki equivalents, which generalize to both array and non-array arguments.

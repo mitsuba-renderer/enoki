@@ -14,13 +14,19 @@ All code snippets assume that the following lines are present:
     /* Don't forget to include the 'enoki' namespace */
     using namespace enoki;
 
+.. note::
+
+    The next few sections will introduce the basics of Enoki in the
+    context of vectorization for CPUs. GPUs and automatic differentiation are
+    covered later in the sections on :ref:`CUDAArray <cuda>` and
+    :ref:`DiffArray <autodiff>`.
 
 Static arrays
 -------------
 
 The most important data structure in this library is :cpp:class:`enoki::Array`,
-a generic container that stores a fixed-size array of an arbitrary
-data type similar to the standard template library class ``std::array``.
+a generic container that stores a fixed-size array of an arbitrary data type.
+This is somewhat similar to the standard template library class ``std::array``.
 The main distinction between the two is that :cpp:class:`enoki::Array` forwards
 all C++ operators (and other standard mathematical functions) to the contained
 elements.
@@ -55,15 +61,15 @@ of broadcasting are discussed later.
     // Prints: "[Hello you,  How are you]"
     std::cout << x + "you" << std::endl;
 
-The real use case of Enoki arrays, however, involves packed arrays of integer
+The real use case of Enoki arrays, however, involves arrays of integer
 or floating point values, for which arithmetic operations can often be reduced
 to fast vectorized instructions provided by current processor architectures.
 
-The library ships with a large number of partial template overloads that become
-active when the ``Type`` and ``Size`` parameters supplied to the
-``enoki::Array<Type, Size>`` template correspond to combinations that are
-natively supported by the targeted hardware. For instance, the template
-overloads for single precision arrays look as follows:
+The library ships with partial template overloads that become active when the
+``Type`` and ``Size`` parameters supplied to the ``enoki::Array<Type, Size>``
+template correspond to combinations that are natively supported by the targeted
+hardware. For instance, the template overloads for single precision arrays look
+as follows:
 
 .. figure:: basics-02.svg
     :width: 500px
@@ -79,7 +85,7 @@ It is worth pointing out that that :cpp:class:`enoki::Array` does *not* require
 vectorization. Enoki relies on template metaprogramming techniques to ensure
 optimal code generation even in such challenging situations. For instance,
 arithmetic operations involving a hypothetical ``Array<float, 27>`` type will
-generate one AVX512 instruction [#f1]_, one AVX instruction, and one SSE4.2
+generate one AVX512 instruction [#f1]_, one AVX instruction, and one 4-wide SSE
 instruction that leaves the last entry unused.
 
 .. figure:: basics-03.svg
@@ -173,7 +179,7 @@ accessed.
     compiler will be able to exploit the equivalence to generate optimal code
     in this case.
 
-A symmetric pair of operations stores the contents of arrays in memory:
+An analogous pair of operations stores the contents of arrays in memory:
 
 .. code-block:: cpp
 
@@ -181,7 +187,11 @@ A symmetric pair of operations stores the contents of arrays in memory:
     store(mem, f3);                    /* if known that 'mem' is aligned */
     store_unaligned(mem, f3)           /* otherwise */
 
-Scatter and gather operations are also supported:
+Note that :cpp:func:`load` and :cpp:func:`load_unaligned` require the target
+type as a template parameter, while the stores do not, since it can be inferred
+from the provided value.
+
+Scatter and gather operations are also supported using a similar pattern:
 
 .. code-block:: cpp
 
@@ -228,7 +238,7 @@ one above.
 
     f2.z() = 1.f;
 
-Components of a vector can be reordered using the following syntax:
+Components of a vector can be efficiently reordered using the following syntax:
 
 .. code-block:: cpp
 
@@ -256,7 +266,7 @@ that they are independently applied to all array elements.
     f1 *= (f2 + 1.f) / (f2 - 1.f);
 
     /* Basic math library functions */
-    f2 = ceil(f1); f2 = floor(f1); f2 = round(f1);
+    f2 = ceil(f1); f2 = floor(f1); f2 = round(f1); f2 = trunc(f1);
     f2 = abs(f1);  f2 = sqrt(f1); f2 = sign(f1);
     f2 = min(f1, f2); f2 = max(f1, f2);
 
@@ -274,33 +284,37 @@ that they are independently applied to all array elements.
     f2 = csc(f1);   f2 = sec(f1);    f2 = cot(f1);
     f2 = asin(f1);  f2 = acos(f1);   f2 = atan(f2);
     f2 = atan2(f1, f2);
-    std::tie(f1, f2) = sincos(f1);
+    auto [s, c] = sincos(f1);
 
     /* Hyperbolic and inverse hyperbolic functions */
     f2 = sinh(f1);  f2 = cosh(f1);  f2 = tanh(f1);
     f2 = csch(f1);  f2 = sech(f1);  f2 = coth(f1);
     f2 = asinh(f1); f2 = acosh(f1); f2 = atanh(f2);
-    std::tie(f1, f2) = sincosh(f1);
+    auto [sh, ch] = sincosh(f1);
 
     /* Exponential function, natural logarithm, power function */
     f2 = exp(f1);   f2 = log(f1);   f2 = pow(f1, f2);
 
     /* Exponent/mantissa manipulation */
     f1 = ldexp(f1, f2);
-    std::tie(f1, f2) = frexp(f1);
+    auto [mant, exp] = frexp(f1);
 
     /* Special functions */
     f2 = erf(f1); f2 = erfinv(f1); f2 = erfi(f1);
     f2 = i0e(f1); f2 = dawson(f1);
 
+    f1 = comp_ellint_1(f1);     f1 = ellint_1(f1, f2);
+    f1 = comp_ellint_2(f1);     f1 = ellint_2(f1, f2);
+    f1 = comp_ellint_2(f1, f2); f1 = ellint_3(f1, f2, f3);
+
     /* Bit shifts and rotations (only for integer arrays) */
     i1 = sl<3>(i1);   i1 = sr<3>(i1);   /* Shift by a compile-time constant ("immediate") */
-    i1 = i1 >> i2;     i1 = i1 << i2;     /* Element-wise shift by a variable amount */
+    i1 = i1 >> i2;    i1 = i1 << i2;    /* Element-wise shift by a variable amount */
     i1 = rol<3>(i1);  i1 = ror<3>(i1);  /* Rotate by a compile-time constant ("immediate") */
-    i1 = rol(i1, i2);  i1 = ror(i1, i2);  /* Element-wise rotation by a variable amount */
+    i1 = rol(i1, i2); i1 = ror(i1, i2); /* Element-wise rotation by a variable amount */
 
     /* Trailing/leading zero count, population count (only for integer arrays) */
-    i1 = lzcnt(i1); i1 = tzcnt(i1); i1 = popcnt(i1);
+    i1 = lzcnt(i1);  i1 = tzcnt(i1);  i1 = popcnt(i1);
 
 Casting
 *******
