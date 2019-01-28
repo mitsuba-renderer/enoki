@@ -82,34 +82,31 @@ ENOKI_TEST(test04_div) {
     assert(std::abs(gradient(y)[0] + 2.f / 9.f) < 1e-6f);
 }
 
-ENOKI_TEST(test05_hsum) {
-    /* 1 */ {
-        FloatD x = linspace<FloatD>(0.f, 1.f, 10);
-        requires_gradient(x);
-        FloatD y = hsum(x*x);
-        backward(y);
-        assert(y.size() == 1 && allclose(y.coeff(0), 95.0/27.0));
-        assert(allclose(gradient(x), 2 * x));
-    }
+ENOKI_TEST(test05_hsum_0) {
+    FloatD x = linspace<FloatD>(0.f, 1.f, 10);
+    requires_gradient(x);
+    FloatD y = hsum(x*x);
+    backward(y);
+    assert(y.size() == 1 && allclose(y.coeff(0), 95.f/27.f));
+    assert(allclose(gradient(x), 2.f * x));
+}
 
-    /* 2 */ {
-        FloatD x = linspace<FloatD>(0.f, 1.f, 11);
-        requires_gradient(x);
-        FloatD z = hsum(hsum(x)*x);
-        backward(z);
-        assert(gradient(x) == 11);
-    }
+ENOKI_TEST(test05_hsum_1) {
+    FloatD x = linspace<FloatD>(0.f, 1.f, 11);
+    requires_gradient(x);
+    FloatD z = hsum(hsum(x)*x);
+    backward(z);
+    assert(gradient(x) == 11.f);
+}
 
-    /* 3 */ {
-        FloatD x = linspace<FloatD>(0.f, 1.f, 11);
-        requires_gradient(x);
+ENOKI_TEST(test05_hsum_2) {
+    FloatD x = linspace<FloatD>(0.f, 1.f, 11);
+    requires_gradient(x);
+    FloatD z = hsum(hsum(x*x)*x*x);
+    backward(z);
 
-        FloatD z = hsum(hsum(x*x)*x*x);
-        backward(z);
-
-        assert(allclose(gradient(x),
-            FloatX(0.f, 1.54, 3.08, 4.62, 6.16, 7.7, 9.24, 10.78, 12.32, 13.86, 15.4)));
-    }
+    assert(allclose(gradient(x),
+        FloatX(0.f, 1.54f, 3.08f, 4.62f, 6.16f, 7.7f, 9.24f, 10.78f, 12.32f, 13.86f, 15.4f)));
 }
 
 ENOKI_TEST(test06_hprod) {
@@ -190,8 +187,8 @@ ENOKI_TEST(test14_csc) {
     FloatD y = csc(x*x);
     backward(y);
     assert(allclose(y, csc(sqr(detach(x)))));
-    assert(allclose(gradient(x), -2 * detach(x) * cot(sqr(detach(x))) *
-                                     csc(sqr(detach(x)))));
+    assert(allclose(gradient(x), -2.f * detach(x) * cot(sqr(detach(x))) *
+                                     csc(sqr(detach(x))), 1e-4f, 1e-4f));
 }
 
 ENOKI_TEST(test15_sec) {
@@ -227,7 +224,7 @@ ENOKI_TEST(test19_atan) {
     FloatD y = atan(x*x);
     backward(y);
     assert(allclose(y, atan(sqr(detach(x)))));
-    assert(allclose(gradient(x), 2*detach(x) / (1+sqr(sqr(detach(x))))));
+    assert(allclose(gradient(x), 2.f*detach(x) / (1.f+sqr(sqr(detach(x))))));
 }
 
 ENOKI_TEST(test20_sinh) {
@@ -272,7 +269,7 @@ ENOKI_TEST(test24_sech) {
     FloatD y = sech(x*x);
     backward(y);
     assert(allclose(y, sech(sqr(detach(x)))));
-    assert(allclose(gradient(x), -2*detach(x) * sech(sqr(detach(x))) * tanh(sqr(detach(x)))));
+    assert(allclose(gradient(x), -2.f*detach(x) * sech(sqr(detach(x))) * tanh(sqr(detach(x)))));
 }
 
 ENOKI_TEST(test25_coth) {
@@ -281,7 +278,7 @@ ENOKI_TEST(test25_coth) {
     FloatD y = asinh(x*x);
     backward(y);
     assert(allclose(y, asinh(sqr(detach(x)))));
-    assert(allclose(gradient(x), 2*detach(x) * rsqrt(1 + sqr(sqr(detach(x))))));
+    assert(allclose(gradient(x), 2.f*detach(x) * rsqrt(1.f + sqr(sqr(detach(x))))));
 }
 
 ENOKI_TEST(test26_acosh) {
@@ -290,7 +287,7 @@ ENOKI_TEST(test26_acosh) {
     FloatD y = acosh(x*x);
     backward(y);
     assert(allclose(y, acosh(sqr(detach(x)))));
-    assert(allclose(gradient(x), 2*detach(x) * rsqrt(sqr(sqr(detach(x))) - 1)));
+    assert(allclose(gradient(x), 2.f*detach(x) * rsqrt(sqr(sqr(detach(x))) - 1.f)));
 }
 
 ENOKI_TEST(test27_atanh) {
@@ -299,7 +296,7 @@ ENOKI_TEST(test27_atanh) {
     FloatD y = atanh(x*x);
     backward(y);
     assert(allclose(y, atanh(sqr(detach(x)))));
-    assert(allclose(gradient(x), -2*detach(x) * rcp(sqr(sqr(detach(x))) - 1)));
+    assert(allclose(gradient(x), -2.f*detach(x) * rcp(sqr(sqr(detach(x))) - 1.f)));
 }
 
 ENOKI_TEST(test28_linear_to_srgb) {
@@ -326,8 +323,8 @@ ENOKI_TEST(test29_scatter_add) {
     requires_gradient(y, "y");
 
     FloatD buf = zero<FloatD>(10);
-    scatter_add_struct(buf, x, idx1);
-    scatter_add_struct(buf, y, idx2);
+    scatter_add(buf, x, idx1);
+    scatter_add(buf, y, idx2);
 
     FloatD ref_buf { 0.0000f, 0.2500f, 0.5000f, 1.7500f, 2.3333f,
                      1.6667f, 2.0000f, 0.0000f, 0.0000f, 0.0000f };
@@ -357,8 +354,10 @@ ENOKI_TEST(test30_scatter) {
     requires_gradient(y, "y");
 
     FloatD buf = zero<FloatD>(10);
-    scatter_struct(buf, x, idx1);
-    scatter_struct(buf, y, idx2);
+    scatter(buf, x, idx1);
+    if constexpr (is_cuda_array_v<FloatD>)
+        cuda_eval();
+    scatter(buf, y, idx2);
 
     FloatD ref_buf{ 0.0000f, 0.2500f, 0.5000f, 1.0000f, 1.3333f,
                     1.6667f, 2.0000f, 0.0000f, 0.0000f, 0.0000f };
@@ -498,8 +497,8 @@ ENOKI_CALL_SUPPORT_END(Function)
 ENOKI_TEST(test35_call) {
     Function *square = new Square();
     Function *reciprocal = new Reciprocal();
-    FunctionD f = full<FunctionD>(square, 10);
-    f[3] = f[4] = f[5] = reciprocal;
+    FunctionD f = select(arange<UInt32D>(10) < 4, FunctionD(square),
+                         FunctionD(reciprocal));
 
     FloatD x = linspace<FloatD>(1, 2, 10);
     requires_gradient(x);
@@ -507,7 +506,8 @@ ENOKI_TEST(test35_call) {
     FloatD out = f->eval(x);
     backward(out);
 
-    FloatX ref_gradient{ 2.0000, 2.2222, 2.4444, -0.5625, -0.47929, -0.413265, 3.3333, 3.5556, 3.7778, 4.0000 };
+    FloatX ref_gradient{ 2.f, 2.22222f, 2.44444f, 2.66667f, -0.47929f,
+                         -0.413265f, -0.36f, -0.316406f, -0.280277f, -0.25f };
     assert(allclose(ref_gradient, gradient(x), 1e-4f, 1e-4f));
 
     delete reciprocal;

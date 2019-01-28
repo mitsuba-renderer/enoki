@@ -1,3 +1,16 @@
+/*
+    src/cuda/common.cpp -- CUDA backend (horizontal operations)
+
+    Enoki is a C++ template library that enables transparent vectorization
+    of numerical kernels using SIMD instruction sets available on current
+    processor architectures.
+
+    Copyrighe (c) 2018 Wenzel Jakob <wenzel.jakob@epfl.ch>
+
+    All rights reserved. Use of this source code is governed by a BSD-style
+    license that can be found in the LICENSE file.
+*/
+
 #include <cuda.h>
 #include <cub/device/device_radix_sort.cuh>
 #include <cub/device/device_run_length_encode.cuh>
@@ -7,7 +20,7 @@
 
 /// Enable heavy debug output
 #if !defined(ENOKI_CUDA_DEBUG_TRACE)
-#  define ENOKI_CUDA_DEBUG_TRACE  1
+#  define ENOKI_CUDA_DEBUG_TRACE  0
 #endif
 
 NAMESPACE_BEGIN(enoki)
@@ -85,10 +98,6 @@ cuda_partition(size_t size, const void **ptrs_) {
 }
 
 template <typename T> T cuda_hsum(size_t size, const T *data) {
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_hsum(size=" << size << ")" << std::endl;
-#endif
-
     size_t temp_size   = 0;
     void *temp        = nullptr;
 
@@ -102,20 +111,48 @@ template <typename T> T cuda_hsum(size_t size, const T *data) {
     cuda_check(cudaMemcpy(&result, result_p, sizeof(T),
                cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(result_p));
+
+#if ENOKI_CUDA_DEBUG_TRACE
+    std::cerr << "cuda_hsum(size=" << size << ") = " << result << std::endl;
+#endif
 
     return result;
 }
 
-template <typename T> T cuda_hprod(size_t, const T *) {
-    fprintf(stderr, "cuda_hprod(): not implemented!");
-    exit(EXIT_FAILURE);
+struct ReductionOpMul {
+    template <typename T>
+    __device__ __forceinline__
+    T operator()(T a, T b) const {
+        return a * b;
+    }
+};
+
+template <typename T> T cuda_hprod(size_t size, const T *data) {
+    size_t temp_size  = 0;
+    void *temp        = nullptr;
+
+    T result = T(0), *result_p = nullptr;
+
+    ReductionOpMul mul_op;
+    cuda_check(cub::DeviceReduce::Reduce(temp, temp_size, data, result_p, size,
+                                         mul_op, T(1)));
+    cuda_check(cudaMalloc(&temp, temp_size));
+    cuda_check(cudaMalloc(&result_p, sizeof(T)));
+    cuda_check(cub::DeviceReduce::Reduce(temp, temp_size, data, result_p, size,
+                                         mul_op, T(1)));
+    cuda_check(cudaFree(temp));
+    cuda_check(cudaMemcpy(&result, result_p, sizeof(T),
+               cudaMemcpyDeviceToHost));
+    cuda_check(cudaFree(result_p));
+
+#if ENOKI_CUDA_DEBUG_TRACE
+    std::cerr << "cuda_hprod(size=" << size << ") = " << result << std::endl;
+#endif
+
+    return result;
 }
 
 template <typename T> T cuda_hmax(size_t size, const T *data) {
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_hmax(size=" << size << ")" << std::endl;
-#endif
-
     size_t temp_size   = 0;
     void *temp        = nullptr;
 
@@ -129,6 +166,10 @@ template <typename T> T cuda_hmax(size_t size, const T *data) {
     cuda_check(cudaMemcpy(&result, result_p, sizeof(T),
                cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(result_p));
+
+#if ENOKI_CUDA_DEBUG_TRACE
+    std::cerr << "cuda_hmax(size=" << size << ") = " << result << std::endl;
+#endif
 
     return result;
 }
@@ -148,6 +189,10 @@ template <typename T> T cuda_hmin(size_t size, const T *data) {
                cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(result_p));
 
+#if ENOKI_CUDA_DEBUG_TRACE
+    std::cerr << "cuda_hmin(size=" << size << ") = " << result << std::endl;
+#endif
+
     return result;
 }
 
@@ -166,10 +211,6 @@ struct ReductionOpAny {
 };
 
 bool cuda_all(size_t size, const bool *data) {
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_all(size=" << size << ")" << std::endl;
-#endif
-
     size_t temp_size   = 0;
     void *temp        = nullptr;
 
@@ -187,14 +228,14 @@ bool cuda_all(size_t size, const bool *data) {
                cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(result_p));
 
+#if ENOKI_CUDA_DEBUG_TRACE
+    std::cerr << "cuda_all(size=" << size << ") = " << result << std::endl;
+#endif
+
     return result;
 }
 
 bool cuda_any(size_t size, const bool *data) {
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_any(size=" << size << ")" << std::endl;
-#endif
-
     size_t temp_size   = 0;
     void *temp        = nullptr;
 
@@ -211,6 +252,10 @@ bool cuda_any(size_t size, const bool *data) {
     cuda_check(cudaMemcpy(&result, result_p, sizeof(bool),
                cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(result_p));
+
+#if ENOKI_CUDA_DEBUG_TRACE
+    std::cerr << "cuda_any(size=" << size << ") = " << result << std::endl;
+#endif
 
     return result;
 }

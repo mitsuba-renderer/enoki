@@ -51,7 +51,7 @@ int main(int /* argc */, char * /* argv */[]) {
             UInt32Mask mask = idx >= zero<UInt32>() && idx < bin_count;
 
             /* Increment the bin indices */
-            scatter_add(bins, idx, UInt32(1), mask);
+            scatter_add(bins, UInt32(1), idx, mask);
         }
     }
 

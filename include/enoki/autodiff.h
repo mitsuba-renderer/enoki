@@ -14,6 +14,8 @@
 #include <enoki/array.h>
 #include <vector>
 
+#define ENOKI_AUTODIFF 1
+
 NAMESPACE_BEGIN(enoki)
 
 template <typename Value> struct Tape {
@@ -110,6 +112,7 @@ public:
     static constexpr size_t Depth = is_scalar_v<Value> ? 1 : array_depth_v<Value>;
     static constexpr bool Approx = array_approx_v<Value>;
     static constexpr bool IsMask = is_mask_v<Value>;
+    static constexpr bool IsCUDA = is_cuda_array_v<Value>;
     static constexpr bool IsDiff = true;
     static constexpr bool Enabled =
         std::is_floating_point_v<scalar_t<Value>> && !is_mask_v<Value>;
@@ -637,7 +640,7 @@ public:
             Index index_new = 0;
             if constexpr (Enabled)
                 index_new = tape()->append("asinh", slices(m_value), m_index,
-                                           rsqrt(1 + sqr(m_value)));
+                                           rsqrt((Scalar) 1 + sqr(m_value)));
             return DiffArray::create(index_new, asinh(m_value));
         }
     }
@@ -649,7 +652,7 @@ public:
             Index index_new = 0;
             if constexpr (Enabled)
                 index_new = tape()->append("acosh", slices(m_value), m_index,
-                                           rsqrt(sqr(m_value) - 1));
+                                           rsqrt(sqr(m_value) - (Scalar) 1));
             return DiffArray::create(index_new, acosh(m_value));
         }
     }
@@ -661,7 +664,7 @@ public:
             Index index_new = 0;
             if constexpr (Enabled)
                 index_new = tape()->append("atanh", slices(m_value), m_index,
-                                           rcp(1 - sqr(m_value)));
+                                           rcp((Scalar) 1 - sqr(m_value)));
             return DiffArray::create(index_new, atanh(m_value));
         }
     }
@@ -911,7 +914,7 @@ public:
             if constexpr (Enabled)
                 index_new = tape()->append(
                     "hprod", 1, m_index,
-                    select(eq(m_value, 0), 0.f, result / m_value));
+                    select(eq(m_value, (Scalar) 0), (Scalar) 0, result / m_value));
             return DiffArray::create(index_new, std::move(result));
         }
     }
@@ -934,6 +937,19 @@ public:
                 fail_unsupported("hmin_: gradients not yet implemented!");
             return DiffArray::create(0, hmin(m_value));
         }
+    }
+
+    template <typename T = Scalar, enable_if_t<std::is_pointer_v<T>> = 0>
+    auto partition_() const {
+        std::vector<std::pair<T, uint64_array_t<DiffArray, false>>> result;
+
+        auto p = partition(m_value);
+        result.reserve(p.size());
+
+        for (auto &kv : p)
+            result.emplace_back(kv.first, std::move(kv.second));
+
+        return result;
     }
 
     //! @}
@@ -1185,12 +1201,21 @@ template <typename T> std::string graphviz(const T &value) {
     extern ENOKI_IMPORT template struct Tape<float>;
     extern ENOKI_IMPORT template struct DiffArray<float>;
 
+    extern ENOKI_IMPORT template struct Tape<double>;
+    extern ENOKI_IMPORT template struct DiffArray<double>;
+
     extern ENOKI_IMPORT template struct Tape<DynamicArray<Packet<float>>>;
     extern ENOKI_IMPORT template struct DiffArray<DynamicArray<Packet<float>>>;
+
+    extern ENOKI_IMPORT template struct Tape<DynamicArray<Packet<double>>>;
+    extern ENOKI_IMPORT template struct DiffArray<DynamicArray<Packet<double>>>;
 
 #  if defined(ENOKI_CUDA)
         extern ENOKI_IMPORT template struct Tape<CUDAArray<float>>;
         extern ENOKI_IMPORT template struct DiffArray<CUDAArray<float>>;
+
+        extern ENOKI_IMPORT template struct Tape<CUDAArray<double>>;
+        extern ENOKI_IMPORT template struct DiffArray<CUDAArray<double>>;
 #  endif
 #endif
 

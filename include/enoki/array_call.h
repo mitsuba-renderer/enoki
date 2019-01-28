@@ -137,7 +137,6 @@ template <typename Storage_> struct call_support_base {
                 }
             } else {
                 Storage instance = self & mask;
-                cuda_var_set_comment(instance.index(), "instance");
                 auto partitioned = partition(instance);
 
                 if (partitioned.size() == 1 && partitioned[0].first != nullptr) {
@@ -148,13 +147,11 @@ template <typename Storage_> struct call_support_base {
                         if (value == nullptr)
                             continue;
 
-                        cuda_var_set_comment(permutation.index(), "permutation");
-
                         Result temp = func(value, true,
-                            gather_struct<std::decay_t<std::tuple_element_t<Indices, Tuple>>, 0, true, true>(
+                            gather<std::decay_t<std::tuple_element_t<Indices, Tuple>>, 0, true, true>(
                                 std::get<Indices>(tuple), permutation)...);
 
-                        scatter_struct<0, true, true>(result, temp, permutation);
+                        scatter<0, true, true>(result, temp, permutation);
                     }
                 }
             }
@@ -170,7 +167,6 @@ template <typename Storage_> struct call_support_base {
                 }
             } else {
                 Storage instance = self & mask;
-                cuda_var_set_comment(instance.index(), "instance");
                 auto partitioned = partition(instance);
 
                 if (partitioned.size() == 1 && partitioned[0].first != nullptr) {
@@ -180,10 +176,8 @@ template <typename Storage_> struct call_support_base {
                         if (value == nullptr)
                             continue;
 
-                        cuda_var_set_comment(permutation.index(), "permutation");
-
                         func(value, true,
-                             gather_struct<std::decay_t<std::tuple_element_t<Indices, Tuple>>, 0, true, true>(
+                             gather<std::decay_t<std::tuple_element_t<Indices, Tuple>>, 0, true, true>(
                                  std::get<Indices>(tuple), permutation)...);
                     }
                 }

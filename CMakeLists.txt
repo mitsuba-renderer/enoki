@@ -11,7 +11,7 @@ option(ENOKI_AUTODIFF "Build Enoki automatic differentation library?" OFF)
 
 if (ENOKI_CUDA)
   project(enoki CXX CUDA)
-  add_definitions(-DENOKI_CUDA=1)
+  add_definitions(-DENOKI_BUILD_CUDA=1)
 else()
   project(enoki CXX)
 endif()
@@ -246,8 +246,9 @@ if (ENOKI_CUDA)
   string(APPEND CMAKE_CUDA_FLAGS "-gencode arch=compute_75,code=sm_75")
   add_library(enoki-cuda SHARED
       src/cuda/common.cuh
+      src/cuda/common.cu
       src/cuda/horiz.cu
-      src/cuda/trace.cu
+      src/cuda/jit.cu
   )
 endif()
 

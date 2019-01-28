@@ -120,7 +120,7 @@ ENOKI_TEST(test04_gather_custom_struct) {
     z.d.z() = arange<FloatX>(20) + 2000.f;
     z.i = arange<UInt32X>(20) + 1234u;
 
-    Custom3fP p = gather_struct<Custom3fP>(z, arange<UInt32P>() + 1u);
+    Custom3fP p = gather<Custom3fP>(z, arange<UInt32P>() + 1u);
 
     assert(p.o.x() == arange<FloatP>() + 2.f);
     assert(p.o.y() == arange<FloatP>() + 101.f);
@@ -132,7 +132,7 @@ ENOKI_TEST(test04_gather_custom_struct) {
 
     assert(p.i == arange<UInt32P>() + 1235u);
 
-    Custom3f s = gather_struct<Custom3f>(z, 1u);
+    Custom3f s = gather<Custom3f>(z, 1u);
 
     assert(s.o.x() == 2.f);
     assert(s.o.y() == 101.f);

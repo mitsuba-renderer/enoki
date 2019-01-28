@@ -11,12 +11,13 @@
     license that can be found in the LICENSE file.
 */
 
-#include <enoki/autodiff.h>
 #include <enoki/dynamic.h>
 
-#if ENOKI_CUDA
+#if ENOKI_BUILD_CUDA
 #  include <enoki/cuda.h>
 #endif
+
+#include <enoki/autodiff.h>
 
 #include <unordered_map>
 #include <set>
@@ -252,15 +253,12 @@ Index Tape<Value>::append_gather(const Int64 &offset, const Mask &mask) {
                                    const Edge &edge) const override {
                 const Value &grad_target = detail->node(target).grad;
                 Value &grad_source = detail->node(edge.source).grad;
-
-                // Catch scatter -> 0 and don't force evaluation
-                if constexpr (is_dynamic_v<Value>)
-                    grad_source.resize(size);
+                assert(grad_source.size() == size);
 
                 if (permute)
-                    scatter_struct(grad_source, grad_target, offset, mask);
+                    scatter(grad_source, grad_target, offset, mask);
                 else
-                    scatter_add_struct(grad_source, grad_target, offset, mask);
+                    scatter_add(grad_source, grad_target, offset, mask);
             }
         };
 
@@ -300,7 +298,7 @@ void Tape<Value>::append_scatter(Index source, const Int64 &offset, const Mask &
                                    const Edge &edge) const override {
                 const Value &grad_target = detail->node(target).grad;
                 Value &grad_source = detail->node(edge.source).grad;
-                grad_source = gather_struct<Value>(grad_target, offset, mask);
+                grad_source += gather<Value>(grad_target, offset, mask);
             }
         };
 
@@ -317,7 +315,7 @@ void Tape<Value>::append_scatter(Index source, const Int64 &offset, const Mask &
             Value weight = 1.f;
             if (!d->scatter_gather_permute) {
                 weight = full<Value>(1.f, d->scatter_gather_size);
-                scatter_struct(weight, Value(0), offset, mask);
+                scatter(weight, Value(0), offset, mask);
             }
             target_new = append("scatter_combine", d->scatter_gather_size,
                                 target_new, target_orig, 1, weight);
@@ -342,7 +340,7 @@ void Tape<Value>::append_scatter_add(Index source, const Int64 &offset,
             return;
         Index target_orig = *d->scatter_gather_index;
 
-        struct ScatterAdd : Special {
+        struct Scatter : Special {
             Int64 offset;
             Mask mask;
 
@@ -350,16 +348,16 @@ void Tape<Value>::append_scatter_add(Index source, const Int64 &offset,
                                    const Edge &edge) const override {
                 const Value &grad_target = detail->node(target).grad;
                 Value &grad_source = detail->node(edge.source).grad;
-                grad_source = gather<Value>(grad_target.data(), offset, mask);
+                grad_source += gather<Value>(grad_target, offset, mask);
             }
         };
 
-        ScatterAdd *sa = new ScatterAdd();
-        sa->offset = offset;
-        sa->mask = mask;
+        Scatter *s = new Scatter();
+        s->offset = offset;
+        s->mask = mask;
 
         Index target_new = append_node(d->scatter_gather_size, "scatter_add");
-        d->node(target_new).append_edge(new Edge(source, sa));
+        d->node(target_new).append_edge(new Edge(source, s));
         inc_ref(source);
 
         if (target_orig != 0) {
@@ -516,8 +514,12 @@ template <typename Value> void Tape<Value>::backward(Index index, bool free_edge
     std::set<uint32_t> indices;
     d->dfs(indices, index);
 
-    for (auto it = indices.begin(); it != indices.end(); ++it)
-        d->node(*it).grad = scalar_t<Value>(0);
+    for (auto i : indices) {
+        if (i != index) {
+            Node &n = d->node(i);
+            n.grad = zero<Value>(n.size);
+        }
+    }
     d->node(index).grad = scalar_t<Value>(1);
 
     uint32_t edge_count = 0;
@@ -656,12 +658,21 @@ std::string Tape<Value>::graphviz(const std::vector<Index> &indices_) {
 template struct ENOKI_EXPORT Tape<float>;
 template struct ENOKI_EXPORT DiffArray<float>;
 
+template struct ENOKI_EXPORT Tape<double>;
+template struct ENOKI_EXPORT DiffArray<double>;
+
 template struct ENOKI_EXPORT Tape<DynamicArray<Packet<float>>>;
 template struct ENOKI_EXPORT DiffArray<DynamicArray<Packet<float>>>;
 
-#if ENOKI_CUDA
+template struct ENOKI_EXPORT Tape<DynamicArray<Packet<double>>>;
+template struct ENOKI_EXPORT DiffArray<DynamicArray<Packet<double>>>;
+
+#if ENOKI_BUILD_CUDA
 template struct ENOKI_EXPORT Tape<CUDAArray<float>>;
 template struct ENOKI_EXPORT DiffArray<CUDAArray<float>>;
+
+template struct ENOKI_EXPORT Tape<CUDAArray<double>>;
+template struct ENOKI_EXPORT DiffArray<CUDAArray<double>>;
 #endif
 
 NAMESPACE_END(enoki)

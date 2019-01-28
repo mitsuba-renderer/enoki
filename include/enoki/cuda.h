@@ -13,6 +13,8 @@
 
 #pragma once
 
+#define ENOKI_CUDA 1
+
 #include <enoki/array.h>
 
 NAMESPACE_BEGIN(enoki)
@@ -111,11 +113,23 @@ extern ENOKI_EXPORT uint32_t cuda_var_register(EnokiType type, size_t size,
 /// Fetch a scalar value from a CUDA array (in device memory)
 extern ENOKI_IMPORT void cuda_fetch_element(void *, uint32_t, size_t, size_t);
 
-/// Allocate unified memory (wrapper around cudaMaFreellocManaged)
+/// Copy a memory region to the device
+extern ENOKI_IMPORT void cuda_memcpy_to_device(void *dst, const void *src, size_t);
+
+/// Copy a memory region from  the device
+extern ENOKI_IMPORT void cuda_memcpy_from_device(void *dst, const void *src, size_t);
+
+/// Allocate unified memory (wrapper around cudaMalloc)
+extern ENOKI_IMPORT void* cuda_malloc(size_t);
+
+/// Allocate unified memory (wrapper around cudaMalloc & cudaMemset)
+extern ENOKI_IMPORT void* cuda_malloc_zero(size_t);
+
+/// Allocate unified memory (wrapper around cudaMalloc)
 extern ENOKI_IMPORT void* cuda_managed_malloc(size_t);
 
 /// Release unified memory (wrapper around cudaFree)
-extern ENOKI_IMPORT void cuda_managed_free(void *);
+extern ENOKI_IMPORT void cuda_free(void *);
 
 //! @}
 // -----------------------------------------------------------------------
@@ -170,6 +184,9 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         }
     }
 
+    template <typename T, enable_if_t<std::is_scalar_v<T>> = 0>
+    CUDAArray(T value) : CUDAArray((Value) value) { }
+
     CUDAArray(Value value) {
         const char *fmt = nullptr;
 
@@ -220,6 +237,15 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         snprintf(tmp, 32, fmt, memcpy_cast<uint_array_t<Value>>(value));
 
         m_index = cuda_trace_append(Type, tmp);
+    }
+
+    template <typename... Args, enable_if_t<(sizeof...(Args) > 1)> = 0>
+    CUDAArray(Args&&... args) {
+        Value data[] = { (Value) args... };
+        size_t size = sizeof(Value) * sizeof...(Args);
+        void *ptr = cuda_managed_malloc(size);
+        cuda_memcpy_to_device(ptr, &data, size);
+        m_index = cuda_var_register(Type, sizeof...(Args), ptr, 0, true);
     }
 
     CUDAArray &operator=(const CUDAArray &a) {
@@ -418,6 +444,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     template <typename T>
     CUDAArray or_(const CUDAArray<T> &v) const {
         Value all_ones = memcpy_cast<Value>(int_array_t<Value>(-1));
+        ENOKI_MARK_USED(all_ones);
 
         if constexpr (std::is_same_v<T, Value>)
             return CUDAArray::from_index(cuda_trace_append(Type,
@@ -431,6 +458,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     template <typename T>
     CUDAArray and_(const CUDAArray<T> &v) const {
         Value all_zeros = memcpy_cast<Value>(int_array_t<Value>(0));
+        ENOKI_MARK_USED(all_zeros);
 
         if constexpr (std::is_same_v<T, Value>)
             return CUDAArray::from_index(cuda_trace_append(Type,
@@ -507,9 +535,14 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     }
 
     static CUDAArray zero_(size_t size) {
-        CUDAArray result(Value(0));
-        cuda_var_set_size(result.index(), size);
-        return result;
+        if (size <= 1) {
+            CUDAArray result(Value(0));
+            cuda_var_set_size(result.index(), size);
+            return result;
+        } else {
+            return CUDAArray::from_index(cuda_var_register(
+                Type, size, cuda_malloc_zero(size * sizeof(Value)), 0, true));
+        }
     }
 
     static CUDAArray empty_(size_t size) {
@@ -650,8 +683,6 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     const void *data() const { return cuda_var_ptr(m_index); }
     void *data() { return cuda_var_ptr(m_index); }
     void resize(size_t size) {
-        if (cuda_var_ptr(m_index))
-            throw std::runtime_error("Attempted to resize a variable that is already allocated!");
         cuda_var_set_size(m_index, size);
     }
 
@@ -688,8 +719,16 @@ public:
     }
 
     void deallocate(value_type *ptr, size_t) {
-        cuda_managed_free(ptr);
+        cuda_free(ptr);
     }
 };
+
+#if defined(ENOKI_AUTODIFF) && !defined(ENOKI_BUILD)
+    extern ENOKI_IMPORT template struct Tape<CUDAArray<float>>;
+    extern ENOKI_IMPORT template struct DiffArray<CUDAArray<float>>;
+
+    extern ENOKI_IMPORT template struct Tape<CUDAArray<double>>;
+    extern ENOKI_IMPORT template struct DiffArray<CUDAArray<double>>;
+#endif
 
 NAMESPACE_END(enoki)

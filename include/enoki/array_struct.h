@@ -2,6 +2,101 @@
 
 NAMESPACE_BEGIN(enoki)
 
+template <typename T> using is_dynamic = std::bool_constant<struct_support_t<T>::IsDynamic>;
+template <typename T> constexpr bool is_dynamic_v = is_dynamic<T>::value;
+
+/// Gather operations with an array or other data structure as source
+template <typename Array, size_t Stride = 0, bool Packed = true,
+          bool IsPermute = false, typename Source, typename Index,
+          typename Mask = mask_t<Index>, enable_if_t<is_dynamic_v<Source>> = 0>
+ENOKI_INLINE Array gather(const Source &source, const Index &index,
+                          const identity_t<Mask> &mask = true) {
+    if constexpr (array_depth_v<Source> == 1) {
+        if constexpr (is_cuda_array_v<Source>) {
+            if (source.data() == nullptr)
+                cuda_eval();
+        }
+
+        if constexpr (is_diff_array_v<Source>)
+            Source::set_scatter_gather_operand_(source, IsPermute);
+
+        Array result = gather<Array, Stride, Packed>(source.data(), index, mask);
+
+        if constexpr (is_diff_array_v<Source>)
+            Source::clear_scatter_gather_operand_();
+
+       return result;
+    } else {
+        return struct_support_t<Array>::gather(source, index, mask);
+    }
+}
+
+/// Scatter operations with an array or other data structure as target
+template <size_t Stride = 0, bool Packed = true, bool IsPermute = false,
+          typename Target, typename Index, typename Value,
+          typename Mask = mask_t<Index>, enable_if_t<is_dynamic_v<Target>> = 0>
+ENOKI_INLINE void scatter(Target &target,
+                          const Value &value,
+                          const Index &index,
+                          const identity_t<Mask> &mask = true) {
+    if constexpr (array_depth_v<Target> == 1) {
+        if constexpr (is_cuda_array_v<Target>) {
+            if (target.data() == nullptr)
+                cuda_eval();
+        }
+
+        if constexpr (is_diff_array_v<Target>)
+            Target::set_scatter_gather_operand_(target, IsPermute);
+
+        scatter<Stride, Packed>(target.data(), value, index, mask);
+
+        if constexpr (is_diff_array_v<Target>)
+            Target::clear_scatter_gather_operand_();
+
+        if constexpr (is_cuda_array_v<Target>) {
+            if constexpr (is_diff_array_v<Target>)
+                cuda_var_mark_dirty(target.value_().index());
+            else
+                cuda_var_mark_dirty(target.index());
+        }
+    } else {
+        struct_support_t<Target>::scatter(target, value, index, mask);
+    }
+}
+
+/// Scatter-add operations with an array or other data structure as target
+template <size_t Stride = 0, bool Packed = true, bool IsPermute = false,
+          typename Target, typename Index, typename Value,
+          typename Mask = mask_t<Index>, enable_if_t<is_dynamic_v<Target>> = 0>
+ENOKI_INLINE void scatter_add(Target &target,
+                              const Value &value,
+                              const Index &index,
+                              const identity_t<Mask> &mask = true) {
+    if constexpr (array_depth_v<Target> == 1) {
+        if constexpr (is_cuda_array_v<Target>) {
+            if (target.data() == nullptr)
+                cuda_eval();
+        }
+
+        if constexpr (is_diff_array_v<Target>)
+            Target::set_scatter_gather_operand_(target, IsPermute);
+
+        scatter_add<Stride>(target.data(), value, index, mask);
+
+        if constexpr (is_diff_array_v<Target>)
+            Target::clear_scatter_gather_operand_();
+
+        if constexpr (is_cuda_array_v<Target>) {
+            if constexpr (is_diff_array_v<Target>)
+                cuda_var_mark_dirty(target.value_().index());
+            else
+                cuda_var_mark_dirty(target.index());
+        }
+    } else {
+        struct_support_t<Target>::scatter_add(target, value, index, mask);
+    }
+}
+
 // -----------------------------------------------------------------------
 //! @{ \name Adapter and routing functions for dynamic data structures
 // -----------------------------------------------------------------------
@@ -36,9 +131,6 @@ struct struct_support {
         return detail::MaskedValue<T>{ value, mask };
     }
 };
-
-template <typename T> using is_dynamic = std::bool_constant<struct_support_t<T>::IsDynamic>;
-template <typename T> constexpr bool is_dynamic_v = is_dynamic<T>::value;
 
 template <>
 struct struct_support<void, int> { using Dynamic = void; };
@@ -198,12 +290,12 @@ struct struct_support<T, enable_if_static_array_t<T>> {
     }
 
     template <typename Src, typename Index, typename Mask>
-    static ENOKI_INLINE T gather(const Src &src, const Index &index, const Mask &mask = true) {
+    static ENOKI_INLINE T gather(const Src &src, const Index &index, const Mask &mask) {
         return gather(src, index, mask, std::make_index_sequence<Size>());
     }
 
     template <typename Dst, typename Index, typename Mask>
-    static ENOKI_INLINE void scatter(Dst &dst, const T &value, const Index &index, const Mask &mask = true) {
+    static ENOKI_INLINE void scatter(Dst &dst, const T &value, const Index &index, const Mask &mask) {
         scatter(dst, value, index, mask, std::make_index_sequence<Size>());
     }
 
@@ -352,77 +444,6 @@ void set_shape(T &a, const std::array<size_t, array_depth_v<T>> &value) {
 
 template <typename T> bool ragged(const T &a) {
     return !detail::is_ragged_recursive(a, shape(a).data());
-}
-
-/// Gather operations with an array or other data structure as source
-template <typename Array, size_t Stride = 0, bool Packed = true, bool IsPermute = false,
-          typename Source, typename... Args, enable_if_t<is_dynamic_v<Source>> = 0>
-ENOKI_INLINE Array gather_struct(const Source &source, const Args &... args) {
-    if constexpr (array_depth_v<Source> == 1) {
-        if constexpr (is_diff_array_v<Source>)
-            Source::set_scatter_gather_operand_(source, IsPermute);
-
-        if constexpr (is_cuda_array_v<Source>) {
-            if (source.data() == nullptr)
-                cuda_eval();
-        }
-
-        Array result = gather<Array, Stride, Packed>(source.data(), args...);
-
-        if constexpr (is_diff_array_v<Source>)
-            Source::clear_scatter_gather_operand_();
-
-       return result;
-    } else {
-        return struct_support_t<Array>::gather(source, args...);
-    }
-}
-
-/// Scatter operations with an array or other data structure as target
-template <size_t Stride = 0, bool Packed = true, bool IsPermute = false,
-          typename Target, typename... Args, enable_if_t<is_dynamic_v<Target>> = 0>
-ENOKI_INLINE void scatter_struct(Target &target, const Args &... args) {
-    if constexpr (array_depth_v<Target> == 1) {
-        if constexpr (is_diff_array_v<Target>)
-            Target::set_scatter_gather_operand_(target, IsPermute);
-
-        if constexpr (is_cuda_array_v<Target>) {
-            if (target.data() == nullptr)
-                cuda_eval();
-            cuda_var_mark_dirty(target.index());
-        }
-
-        scatter<Stride, Packed>(target.data(), args...);
-
-        if constexpr (is_diff_array_v<Target>)
-            Target::clear_scatter_gather_operand_();
-    } else {
-        struct_support_t<Target>::scatter(target, args...);
-    }
-}
-
-/// Scatter-add operations with an array or other data structure as target
-template <size_t Stride = 0, bool Packed = true, bool IsPermute = false,
-          typename Target, typename... Args,
-          enable_if_t<is_dynamic_v<Target>> = 0>
-ENOKI_INLINE void scatter_add_struct(Target &target, const Args &... args) {
-    if constexpr (array_depth_v<Target> == 1) {
-        if constexpr (is_diff_array_v<Target>)
-            Target::set_scatter_gather_operand_(target, IsPermute);
-
-        if constexpr (is_cuda_array_v<Target>) {
-            if (target.data() == nullptr)
-                cuda_eval();
-            cuda_var_mark_dirty(target.index());
-        }
-
-        scatter_add<Stride>(target.data(), args...);
-
-        if constexpr (is_diff_array_v<Target>)
-            Target::clear_scatter_gather_operand_();
-    } else {
-        struct_support_t<Target>::scatter_add(target, args...);
-    }
 }
 
 //! @}

@@ -188,7 +188,7 @@ struct KMaskBase : StaticArrayBase<Value_, Size_, Approx_, Mode_, true, Derived_
     }
 
     ENOKI_INLINE void set_bit_(size_t i, bool value) {
-        k ^= (-value ^ k) & ((Register) 1 << i);
+        k = (Register) (k ^ ((-value ^ k) & ((Register) 1 << i)));
     }
 
     ENOKI_INLINE auto coeff(size_t i) const {

@@ -8,8 +8,12 @@
 #
 #if defined(_MSC_VER)
 #  define ENOKI_EXPORT                 __declspec(dllexport)
+#  define ENOKI_LIKELY(x)              x
+#  define ENOKI_UNLIKELY(x)            x
 #else
 #  define ENOKI_EXPORT                 __attribute__ ((visibility("default")))
+#  define ENOKI_LIKELY(x)              __builtin_expect(!!(x), 1)
+#  define ENOKI_UNLIKELY(x)            __builtin_expect(!!(x), 0)
 #endif
 
 NAMESPACE_BEGIN(enoki)
