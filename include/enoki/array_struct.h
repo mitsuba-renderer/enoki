@@ -419,7 +419,10 @@ namespace detail {
         if constexpr (is_array_v<T>) {
             size_t size = a.derived().size();
             a.resize(*shape);
-            if (is_dynamic_v<value_t<T>>) {
+
+            if (is_dynamic_array_v<T>) {
+                /* done. */
+            } else if (is_dynamic_v<value_t<T>>) {
                 for (size_t i = 0; i < size; ++i)
                     set_shape_recursive(a.derived().coeff(i), shape + 1);
             } else {

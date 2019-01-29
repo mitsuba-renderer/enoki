@@ -164,8 +164,10 @@ ENOKI_EXPORT void cuda_init() {
     // initialize CUDA
     cudaFree(0);
 
-    // We don't really use shared memory, so put more into L1 cache
-    cuda_check(cudaDeviceSetCacheConfig(cudaFuncCachePreferL1));
+    /* We don't really use shared memory, so put more into L1 cache.
+       Intentionally ignore errors if they arise from this operation
+       (which happens when somebody else is already using the GPU) */
+    cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
 
     /// Reserve indices for reserved kernel variables
     Context &ctx = __context;
