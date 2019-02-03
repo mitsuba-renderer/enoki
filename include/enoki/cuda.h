@@ -59,6 +59,9 @@ extern ENOKI_IMPORT void   cuda_var_set_comment(uint32_t, const char *);
 /// Needed to mark certain instructions with side effects (e.g. scatter)
 extern ENOKI_IMPORT void   cuda_var_mark_side_effect(uint32_t);
 
+/// Set the current scatter/source operand array
+extern ENOKI_IMPORT void   cuda_set_scatter_gather_operand(uint32_t);
+
 /// Append an operation to the trace (0 arguments)
 extern ENOKI_IMPORT uint32_t cuda_trace_append(EnokiType type,
                                                const char *op);

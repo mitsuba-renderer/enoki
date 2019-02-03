@@ -928,6 +928,7 @@ ENOKI_INLINE auto extract(const Array &value, const Mask &mask) {
 extern ENOKI_IMPORT void cuda_trace_printf(const char *, uint32_t, uint32_t*);
 extern ENOKI_IMPORT void cuda_var_mark_dirty(uint32_t);
 extern ENOKI_IMPORT void cuda_eval(bool log_assembly = false);
+extern ENOKI_IMPORT void cuda_set_scatter_gather_operand(uint32_t);
 
 /// Fancy templated 'printf', which extracts the indices of Enoki arrays
 template <typename... Args> void cuda_printf(const char *fmt, const Args&... args) {

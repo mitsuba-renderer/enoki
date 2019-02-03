@@ -73,6 +73,9 @@ struct Variable {
     /// Dependencies of this instruction
     std::array<uint32_t, 3> dep = { 0, 0, 0 };
 
+    /// Extra dependency (which is not directly used in arithmetic, e.g. scatter/gather)
+    uint32_t extra_dep = 0;
+
     /// Does the instruction have side effects (e.g. 'scatter')
     bool side_effect = false;
 
@@ -92,12 +95,13 @@ struct Variable {
     Variable(Variable &&a)
         : type(a.type), cmd(std::move(a.cmd)), comment(std::move(a.comment)),
           size(a.size), data(a.data), ref_count_ext(a.ref_count_ext),
-          ref_count_int(a.ref_count_int), dep(a.dep),
+          ref_count_int(a.ref_count_int), dep(a.dep), extra_dep(a.extra_dep),
           side_effect(a.side_effect), dirty(a.dirty),
           free(a.free), subtree_size(a.subtree_size) {
         a.data = nullptr;
         a.ref_count_int = a.ref_count_ext = 0;
         a.dep = { 0, 0, 0 };
+        a.extra_dep = 0;
     }
 
     bool is_collected() const {
@@ -120,6 +124,9 @@ struct Context {
     /// Stores the mapping from variable indices to variables
     std::unordered_map<uint32_t, Variable> variables;
 
+    /// Current operand array for scatter/gather
+    uint32_t scatter_gather_operand = 0;
+
     ~Context() { clear(); }
 
     Variable &operator[](uint32_t i) {
@@ -137,6 +144,7 @@ struct Context {
             if (var.first < ENOKI_CUDA_REG_RESERVED)
                 continue;
             ++n_live;
+            std::cerr << "cuda_shutdown(): variable " << var.first << " is still live. "<< std::endl;
         }
         if (n_live > 0)
             std::cerr << "cuda_shutdown(): " << n_live
@@ -146,6 +154,7 @@ struct Context {
         dirty.clear();
         variables.clear();
         live.clear();
+        scatter_gather_operand = 0;
     }
 
     Variable& append(EnokiType type) {
@@ -265,11 +274,20 @@ ENOKI_EXPORT void cuda_var_free(uint32_t idx) {
         std::cerr << " (not deleted)";
     std::cerr << std::endl;
 #endif
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 3; ++i)
         cuda_dec_ref_int(v.dep[i]);
-        v.dep[i] = 0;
-    }
+    cuda_dec_ref_int(v.extra_dep);
     ctx.variables.erase(idx); // invokes Variable destructor + cudaFree().
+}
+
+ENOKI_EXPORT void cuda_set_scatter_gather_operand(uint32_t idx) {
+    Context &ctx = context();
+    if (idx != 0) {
+        Variable &v = ctx[idx];
+        if (v.data == nullptr)
+            cuda_eval();
+    }
+    ctx.scatter_gather_operand = idx;
 }
 
 //! @}
@@ -392,6 +410,11 @@ ENOKI_EXPORT void cuda_dec_ref_ext(uint32_t index) {
     Variable &v = ctx[index];
 
 #if ENOKI_CUDA_DEBUG_TRACE
+    if (v.ref_count_ext == 0)
+        throw std::runtime_error("cuda_dec_ref_ext(): Node " +
+                                 std::to_string(index) +
+                                 " has zero external reference count!");
+
     std::cerr << "cuda_dec_ref_ext(" << index << ") -> "
               << (v.ref_count_ext - 1) << std::endl;
 #endif
@@ -414,6 +437,11 @@ ENOKI_EXPORT void cuda_dec_ref_int(uint32_t index) {
     Variable &v = context()[index];
 
 #if ENOKI_CUDA_DEBUG_TRACE
+    if (v.ref_count_int == 0)
+        throw std::runtime_error("cuda_dec_ref_int(): Node " +
+                                 std::to_string(index) +
+                                 " has zero internal reference count!");
+
     std::cerr << "cuda_dec_ref_int(" << index << ") -> "
               << (v.ref_count_int - 1) << std::endl;
 #endif
@@ -564,6 +592,12 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
     cuda_inc_ref_int(arg3);
     cuda_inc_ref_ext(idx);
     ctx.live.insert(idx);
+    if (ctx.scatter_gather_operand != 0 &&
+        (v.cmd.find("st.global") != std::string::npos ||
+         v.cmd.find("ld.global") != std::string::npos)) {
+        v.extra_dep = ctx.scatter_gather_operand;
+        cuda_inc_ref_int(v.extra_dep);
+    }
     strip_ftz(v);
     return idx;
 }
@@ -809,8 +843,10 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep) {
             cuda_render_cmd(oss, ctx, reg_map, index);
             n_arith++;
 
-            if (var.side_effect)
+            if (var.side_effect) {
                 n_out++;
+                continue;
+            }
 
             if (var.ref_count_ext == 0)
                 continue;
@@ -1055,6 +1091,8 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
                     cuda_dec_ref_int(v.dep[j]);
                     v.dep[j] = 0;
                 }
+                cuda_dec_ref_int(v.extra_dep);
+                v.extra_dep = 0;
             }
         }
     }

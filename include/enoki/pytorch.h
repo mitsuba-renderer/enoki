@@ -17,6 +17,7 @@
 #include <enoki/cuda.h>
 #include <enoki/autodiff.h>
 #include <pybind11/stl.h>
+#include <pybind11/eval.h>
 
 NAMESPACE_BEGIN(pybind11)
 NAMESPACE_BEGIN(detail)
@@ -92,7 +93,6 @@ struct type_caster<Value, std::enable_if_t<enoki::is_cuda_array_v<Value> &&
         CUDAArray<Scalar> target = CUDAArray<Scalar>::map(
             (Scalar *) pybind11::cast<uintptr_t>(result.attr("data_ptr")()), size);
         copy_array_scatter<0>(0, shape, strides, src, target);
-        cuda_eval();
         return result.inc_ref();
     }
 
@@ -324,7 +324,7 @@ pybind11::object gradient_index(const T &value) {
 }
 
 template <typename T> auto& gradient_index(const pybind11::handle handle) {
-	return (GradientIndex<T> &) pybind11::cast<GradientIndexBase&>(handle);
+    return (GradientIndex<T> &) pybind11::cast<GradientIndexBase&>(handle);
 }
 
 template <typename Forward, typename Backward>
@@ -333,8 +333,9 @@ void pytorch_register_function(pybind11::module &m, const std::string &op_name,
                                Backward backward) {
     namespace py = pybind11;
 
-    if (!py::hasattr(m, "GradientIndexBase"))
+    if (!pybind11::detail::get_type_info(typeid(GradientIndexBase), false)) {
         py::class_<GradientIndexBase>(m, "GradientIndexBase");
+    }
 
     py::object autograd = py::module::import("torch.autograd");
     py::object parent_class = autograd.attr("Function");
@@ -344,8 +345,23 @@ void pytorch_register_function(pybind11::module &m, const std::string &op_name,
         py::reinterpret_borrow<py::object>((PyObject *) &PyStaticMethod_Type);
     py::dict attributes;
 
-    attributes["forward"] = staticmethod(py::cpp_function(forward));
-    attributes["backward"] = staticmethod(py::cpp_function(backward));
+    attributes["cuda_eval"] = staticmethod(py::cpp_function([]{ cuda_eval(); }));
+    attributes["forward_impl"] = staticmethod(py::cpp_function(forward));
+    attributes["backward_impl"] = staticmethod(py::cpp_function(backward));
+    py::eval<py::eval_statements>(R"(
+@classmethod
+def forward(cls, *args, **kwargs):
+    result = cls.forward_impl(*args, **kwargs)
+    print('*** CUDA flush')
+    cls.cuda_eval()
+    return result
+
+@classmethod
+def backward(cls, *args, **kwargs):
+    result = cls.backward_impl(*args, **kwargs)
+    cls.cuda_eval()
+    return result
+)", py::globals(), attributes);
 
     auto cls = parent_metaclass(op_name, py::make_tuple(parent_class), attributes);
 
