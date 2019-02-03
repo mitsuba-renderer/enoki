@@ -170,16 +170,16 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         else
             op = "cvt.$t1.$t2 $r1, $r2";
 
-        m_index = cuda_trace_append(Type, op, v.index());
+        m_index = cuda_trace_append(Type, op, v.index_());
     }
 
     template <typename T>
     CUDAArray(const CUDAArray<T> &v, detail::reinterpret_flag) {
         static_assert(sizeof(T) == sizeof(Value));
         if (std::is_integral_v<T> == std::is_integral_v<Value>) {
-            m_index = cuda_trace_append(Type, "mov.$b1 $r1, $r2", v.index());
+            m_index = cuda_trace_append(Type, "mov.$b1 $r1, $r2", v.index_());
         } else {
-            m_index = v.index();
+            m_index = v.index_();
             cuda_inc_ref_ext(m_index);
         }
     }
@@ -242,10 +242,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     template <typename... Args, enable_if_t<(sizeof...(Args) > 1)> = 0>
     CUDAArray(Args&&... args) {
         Value data[] = { (Value) args... };
-        size_t size = sizeof(Value) * sizeof...(Args);
-        void *ptr = cuda_managed_malloc(size);
-        cuda_memcpy_to_device(ptr, &data, size);
-        m_index = cuda_var_register(Type, sizeof...(Args), ptr, 0, true);
+        m_index = cuda_var_copy_to_device(Type, sizeof...(Args), data);
     }
 
     CUDAArray &operator=(const CUDAArray &a) {
@@ -266,7 +263,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
             : "add.$t1 $r1, $r2, $r3";
 
         return CUDAArray::from_index(
-            cuda_trace_append(Type, op, index(), v.index()));
+            cuda_trace_append(Type, op, index_(), v.index_()));
     }
 
     CUDAArray sub_(const CUDAArray &v) const {
@@ -275,7 +272,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
             : "sub.$t1 $r1, $r2, $r3";
 
         return CUDAArray::from_index(
-            cuda_trace_append(Type, op, index(), v.index()));
+            cuda_trace_append(Type, op, index_(), v.index_()));
     }
 
     CUDAArray mul_(const CUDAArray &v) const {
@@ -284,7 +281,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
             : "mul.lo.$t1 $r1, $r2, $r3";
 
         return CUDAArray::from_index(
-            cuda_trace_append(Type, op, index(), v.index()));
+            cuda_trace_append(Type, op, index_(), v.index_()));
     }
 
     CUDAArray div_(const CUDAArray &v) const {
@@ -293,12 +290,12 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
             : "div.$t1 $r1, $r2, $r3";
 
         return CUDAArray::from_index(
-            cuda_trace_append(Type, op, index(), v.index()));
+            cuda_trace_append(Type, op, index_(), v.index_()));
     }
 
     CUDAArray mod_(const CUDAArray &v) const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            std::string("rem.$t1 $r1, $r2, $r3"), index(), v.index()));
+            std::string("rem.$t1 $r1, $r2, $r3"), index_(), v.index_()));
     }
 
     CUDAArray fmadd_(const CUDAArray &a, const CUDAArray &b) const {
@@ -307,7 +304,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
             : "mad.lo.$t1 $r1, $r2, $r3, $r4";
 
         return CUDAArray::from_index(
-            cuda_trace_append(Type, op, index(), a.index(), b.index()));
+            cuda_trace_append(Type, op, index_(), a.index_(), b.index_()));
     }
 
     CUDAArray fmsub_(const CUDAArray &a, const CUDAArray &b) const {
@@ -324,49 +321,49 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
     CUDAArray max_(const CUDAArray &v) const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "max.$t1 $r1, $r2, $r3", index(), v.index()));
+            "max.$t1 $r1, $r2, $r3", index_(), v.index_()));
     }
 
     CUDAArray min_(const CUDAArray &v) const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "min.$t1 $r1, $r2, $r3", index(), v.index()));
+            "min.$t1 $r1, $r2, $r3", index_(), v.index_()));
     }
 
     CUDAArray abs_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "abs.$t1 $r1, $r2", index()));
+            "abs.$t1 $r1, $r2", index_()));
     }
 
     CUDAArray neg_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "neg.$t1 $r1, $r2", index()));
+            "neg.$t1 $r1, $r2", index_()));
     }
 
     CUDAArray sqrt_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "sqrt.rn.ftz.$t1 $r1, $r2", index()));
+            "sqrt.rn.ftz.$t1 $r1, $r2", index_()));
     }
 
     CUDAArray exp_() const {
         CUDAArray scaled = Value(1.4426950408889634074) * *this;
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "ex2.approx.ftz.$t1 $r1, $r2", scaled.index()));
+            "ex2.approx.ftz.$t1 $r1, $r2", scaled.index_()));
     }
 
     CUDAArray log_() const {
         return CUDAArray::from_index(cuda_trace_append(
             Type, "lg2.approx.ftz.$t1 $r1, $r2",
-            index())) * Value(0.69314718055994530942);
+            index_())) * Value(0.69314718055994530942);
     }
 
     CUDAArray sin_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "sin.approx.ftz.$t1 $r1, $r2", index()));
+            "sin.approx.ftz.$t1 $r1, $r2", index_()));
     }
 
     CUDAArray cos_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "cos.approx.ftz.$t1 $r1, $r2", index()));
+            "cos.approx.ftz.$t1 $r1, $r2", index_()));
     }
 
     std::pair<CUDAArray, CUDAArray> sincos_() const {
@@ -375,52 +372,52 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
     CUDAArray rcp_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "rcp.approx.ftz.$t1 $r1, $r2", index()));
+            "rcp.approx.ftz.$t1 $r1, $r2", index_()));
     }
 
     CUDAArray rsqrt_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "rsqrt.approx.ftz.$t1 $r1, $r2", index()));
+            "rsqrt.approx.ftz.$t1 $r1, $r2", index_()));
     }
 
     CUDAArray floor_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "cvt.rmi.$t1.$t1 $r1, $r2", index()));
+            "cvt.rmi.$t1.$t1 $r1, $r2", index_()));
     }
 
     CUDAArray ceil_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "cvt.rpi.$t1.$t1 $r1, $r2", index()));
+            "cvt.rpi.$t1.$t1 $r1, $r2", index_()));
     }
 
     CUDAArray round_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "cvt.rni.$t1.$t1 $r1, $r2", index()));
+            "cvt.rni.$t1.$t1 $r1, $r2", index_()));
     }
 
     CUDAArray trunc_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "cvt.rzi.$t1.$t1 $r1, $r2", index()));
+            "cvt.rzi.$t1.$t1 $r1, $r2", index_()));
     }
 
     template <typename T> T floor2int_() const {
         return CUDAArray::from_index(cuda_trace_append(T::Type,
-            "cvt.rmi.$t1.$t2 $r1, $r2", index()));
+            "cvt.rmi.$t1.$t2 $r1, $r2", index_()));
     }
 
     template <typename T> T ceil2int_() const {
         return CUDAArray::from_index(cuda_trace_append(T::Type,
-            "cvt.rpi.$t1.$t2 $r1, $r2", index()));
+            "cvt.rpi.$t1.$t2 $r1, $r2", index_()));
     }
 
     CUDAArray sl_(const CUDAArray &v) const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "shl.$b1 $r1, $r2, $r3", index(), v.index()));
+            "shl.$b1 $r1, $r2, $r3", index_(), v.index_()));
     }
 
     CUDAArray sr_(const CUDAArray &v) const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "shr.$b1 $r1, $r2, $r3", index(), v.index()));
+            "shr.$b1 $r1, $r2, $r3", index_(), v.index_()));
     }
 
     template <size_t Imm> CUDAArray sl_() const { return sl_(Value(Imm)); }
@@ -428,17 +425,17 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
     CUDAArray not_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "not.$b1 $r1, $r2", index()));
+            "not.$b1 $r1, $r2", index_()));
     }
 
     CUDAArray popcnt_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "popc.$b1 $r1, $r2", index()));
+            "popc.$b1 $r1, $r2", index_()));
     }
 
     CUDAArray lzcnt_() const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "clz.$b1 $r1, $r2", index()));
+            "clz.$b1 $r1, $r2", index_()));
     }
 
     template <typename T>
@@ -448,11 +445,11 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
         if constexpr (std::is_same_v<T, Value>)
             return CUDAArray::from_index(cuda_trace_append(Type,
-                "or.$b1 $r1, $r2, $r3", index(), v.index()));
+                "or.$b1 $r1, $r2, $r3", index_(), v.index_()));
         else
             return CUDAArray::from_index(cuda_trace_append(Type,
-                "selp.$t1 $r1, $r2, $r3, $r4", CUDAArray(all_ones).index(),
-                index(), v.index()));
+                "selp.$t1 $r1, $r2, $r3, $r4", CUDAArray(all_ones).index_(),
+                index_(), v.index_()));
     }
 
     template <typename T>
@@ -462,11 +459,11 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
         if constexpr (std::is_same_v<T, Value>)
             return CUDAArray::from_index(cuda_trace_append(Type,
-                "and.$b1 $r1, $r2, $r3", index(), v.index()));
+                "and.$b1 $r1, $r2, $r3", index_(), v.index_()));
         else
             return CUDAArray::from_index(cuda_trace_append(Type,
-                "selp.$t1 $r1, $r2, $r3, $r4", index(),
-                CUDAArray(all_zeros).index(), v.index()));
+                "selp.$t1 $r1, $r2, $r3, $r4", index_(),
+                CUDAArray(all_zeros).index_(), v.index_()));
     }
 
     template <typename T> CUDAArray andnot_(const CUDAArray<T> &v) const {
@@ -475,42 +472,42 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
     CUDAArray xor_(const CUDAArray &v) const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "xor.$b1 $r1, $r2, $r3", index(), v.index()));
+            "xor.$b1 $r1, $r2, $r3", index_(), v.index_()));
     }
 
     MaskType gt_(const CUDAArray &v) const {
         return MaskType::from_index(cuda_trace_append(EnokiType::Bool,
-            "setp.gt.$t2 $r1, $r2, $r3", index(), v.index()));
+            "setp.gt.$t2 $r1, $r2, $r3", index_(), v.index_()));
     }
 
     MaskType ge_(const CUDAArray &v) const {
         return MaskType::from_index(cuda_trace_append(EnokiType::Bool,
-            "setp.ge.$t2 $r1, $r2, $r3", index(), v.index()));
+            "setp.ge.$t2 $r1, $r2, $r3", index_(), v.index_()));
     }
 
     MaskType lt_(const CUDAArray &v) const {
         return MaskType::from_index(cuda_trace_append(EnokiType::Bool,
-            "setp.lt.$t2 $r1, $r2, $r3", index(), v.index()));
+            "setp.lt.$t2 $r1, $r2, $r3", index_(), v.index_()));
     }
 
     MaskType le_(const CUDAArray &v) const {
         return MaskType::from_index(cuda_trace_append(EnokiType::Bool,
-            "setp.le.$t2 $r1, $r2, $r3", index(), v.index()));
+            "setp.le.$t2 $r1, $r2, $r3", index_(), v.index_()));
     }
 
     MaskType eq_(const CUDAArray &v) const {
         return MaskType::from_index(cuda_trace_append(EnokiType::Bool,
-            "setp.eq.$t2 $r1, $r2, $r3", index(), v.index()));
+            "setp.eq.$t2 $r1, $r2, $r3", index_(), v.index_()));
     }
 
     MaskType neq_(const CUDAArray &v) const {
         return MaskType::from_index(cuda_trace_append(EnokiType::Bool,
-            "setp.ne.$t2 $r1, $r2, $r3", index(), v.index()));
+            "setp.ne.$t2 $r1, $r2, $r3", index_(), v.index_()));
     }
 
     static CUDAArray select_(const MaskType &m, const CUDAArray &t, const CUDAArray &f) {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "selp.$t1 $r1, $r2, $r3, $r4", t.index(), f.index(), m.index()));
+            "selp.$t1 $r1, $r2, $r3, $r4", t.index_(), f.index_(), m.index_()));
     }
 
     static CUDAArray arange_(ssize_t start, ssize_t stop, ssize_t step) {
@@ -519,16 +516,19 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         using UInt32 = CUDAArray<uint32_t>;
         UInt32 index = UInt32::from_index(
             cuda_trace_append(EnokiType::UInt32, "mov.u32 $r1, $r2", 2));
-        cuda_var_set_size(index.index(), size);
+        cuda_var_set_size(index.index_(), size);
 
-        return fmadd(index, CUDAArray((Value) step), CUDAArray((Value) start));
+        if (start == 0 && step == 1)
+            return index;
+        else
+            return fmadd(index, CUDAArray((Value) step), CUDAArray((Value) start));
     }
 
     static CUDAArray linspace_(Value min, Value max, size_t size) {
         using UInt32 = CUDAArray<uint32_t>;
         UInt32 index = UInt32::from_index(
             cuda_trace_append(EnokiType::UInt32, "mov.u32 $r1, $r2", 2));
-        cuda_var_set_size(index.index(), size);
+        cuda_var_set_size(index.index_(), size);
 
         Value step = (max - min) / Value(size - 1);
         return fmadd(index, CUDAArray(step), CUDAArray(min));
@@ -537,7 +537,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     static CUDAArray zero_(size_t size) {
         if (size <= 1) {
             CUDAArray result(Value(0));
-            cuda_var_set_size(result.index(), size);
+            cuda_var_set_size(result.index_(), size);
             return result;
         } else {
             return CUDAArray::from_index(cuda_var_register(
@@ -551,7 +551,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
     static CUDAArray full_(const Value &value, size_t size) {
         CUDAArray result(value);
-        cuda_var_set_size(result.index(), size);
+        cuda_var_set_size(result.index_(), size);
         return result;
     }
 
@@ -620,16 +620,14 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
         using UInt64 = CUDAArray<uint64_t>;
 
-        UInt64 ptr(memcpy_cast<uintptr_t>(ptr_)),
+        UInt64 ptr    = UInt64::alloc_const(memcpy_cast<uintptr_t>(ptr_)),
                ptr_gl = UInt64::from_index(cuda_trace_append(
-                          UInt64::Type, "cvta.to.global.$t1 $r1, $r2", ptr.index())),
-               addr = fmadd(index, (uint64_t) Stride, ptr_gl);
+                          UInt64::Type, "cvta.to.global.$t1 $r1, $r2", ptr.index_())),
+               addr   = fmadd(index, (uint64_t) Stride, ptr_gl);
 
         return CUDAArray::from_index(cuda_trace_append(Type,
-            "@$r3 ld.global.$t1 $r1, [$r2];\n"
-            "    @!$r3 mov.$b1 $r1, 0;\n"
-            "    add.u64 %foo, %foo, $r2",
-            addr.index(), mask.index()));
+            "@$r3 ld.global.$t1 $r1, [$r2];\n    @!$r3 mov.$b1 $r1, 0",
+            addr.index_(), mask.index_()));
     }
 
     template <size_t Stride, typename Index, typename Mask>
@@ -640,14 +638,14 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
         using UInt64 = CUDAArray<uint64_t>;
 
-        UInt64 ptr(memcpy_cast<uintptr_t>(ptr_)),
+        UInt64 ptr    = UInt64::alloc_const(memcpy_cast<uintptr_t>(ptr_)),
                ptr_gl = UInt64::from_index(cuda_trace_append(
-                          UInt64::Type, "cvta.to.global.$t1 $r1, $r2", ptr.index())),
-               addr = fmadd(index, (uint64_t) Stride, ptr_gl);
+                          UInt64::Type, "cvta.to.global.$t1 $r1, $r2", ptr.index_())),
+               addr   = fmadd(index, (uint64_t) Stride, ptr_gl);
 
         CUDAArray::Index var = cuda_trace_append(EnokiType::UInt64,
-            "@$r4 st.global.$t3 [$r2], $r3;\n    add.u64 %foo, %foo, $r2",
-            addr.index(), m_index, mask.index()
+            "@$r4 st.global.$t3 [$r2], $r3",
+            addr.index_(), m_index, mask.index_()
         );
 
         cuda_var_mark_side_effect(var);
@@ -659,15 +657,15 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
             throw std::runtime_error(
                 "CUDAArray::scatter_add_() invoked with base pointer NULL.");
 
-        using UInt64 = CUDAArray<uint64_t>;
-        UInt64 ptr(memcpy_cast<uintptr_t>(ptr_)),
+        using UInt64  = CUDAArray<uint64_t>;
+        UInt64 ptr    = UInt64::alloc_const(memcpy_cast<uintptr_t>(ptr_)),
                ptr_gl = UInt64::from_index(cuda_trace_append(
-                          UInt64::Type, "cvta.to.global.$t1 $r1, $r2", ptr.index())),
-               addr = fmadd(index, (uint64_t) Stride, ptr_gl);
+                          UInt64::Type, "cvta.to.global.$t1 $r1, $r2", ptr.index_())),
+               addr   = fmadd(index, (uint64_t) Stride, ptr_gl);
 
         CUDAArray::Index var = cuda_trace_append(Type,
-            "@$r4 atom.global.add.$t1 $r1, [$r2], $r3;\n    add.u64 %foo, %foo, $r2",
-            addr.index(), m_index, mask.index()
+            "@$r4 atom.global.add.$t1 $r1, [$r2], $r3",
+            addr.index_(), m_index, mask.index_()
         );
 
         cuda_var_mark_side_effect(var);
@@ -678,7 +676,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         return call_support<BaseType, CUDAArray>(*this);
     }
 
-    Index index() const { return m_index; }
+    Index index_() const { return m_index; }
     size_t size() const { return cuda_var_size(m_index); }
     const void *data() const { return cuda_var_ptr(m_index); }
     void *data() { return cuda_var_ptr(m_index); }
@@ -696,6 +694,12 @@ protected:
     static CUDAArray from_index(Index index) {
         CUDAArray a;
         a.m_index = index;
+        return a;
+    }
+
+    static CUDAArray alloc_const(Value value) {
+        CUDAArray a;
+        a.m_index = cuda_var_copy_to_device(Type, 1, &value);
         return a;
     }
 

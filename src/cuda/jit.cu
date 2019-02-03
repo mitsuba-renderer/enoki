@@ -42,6 +42,7 @@ void cuda_inc_ref_int(uint32_t);
 void cuda_dec_ref_ext(uint32_t);
 void cuda_dec_ref_int(uint32_t);
 void cuda_eval(bool log_assembly = false);
+size_t cuda_register_size(EnokiType type);
 
 // -----------------------------------------------------------------------
 //! @{ \name 'Variable' type that is used to record instruction traces
@@ -130,6 +131,7 @@ struct Context {
 
     void clear() {
 #if ENOKI_CUDA_DEBUG_TRACE || ENOKI_CUDA_DEBUG_MODERATE
+        std::cerr << "cuda_shutdown()" << std::endl;
         size_t n_live = 0;
         for (auto const &var : variables) {
             if (var.first < ENOKI_CUDA_REG_RESERVED)
@@ -216,23 +218,42 @@ ENOKI_EXPORT void cuda_var_set_size(uint32_t index, size_t size) {
 }
 
 ENOKI_EXPORT uint32_t cuda_var_register(EnokiType type, size_t size, void *ptr,
-                                        uint32_t parent, bool dealloc) {
+                                        uint32_t parent, bool free) {
     Context &ctx = context();
     uint32_t idx = ctx.ctr;
 #if ENOKI_CUDA_DEBUG_TRACE
     std::cerr << "cuda_var_register(" << idx << "): " << ptr
               << ", size=" << size << ", parent=" << parent
-              << ", dealloc=" << dealloc << std::endl;
+              << ", free=" << free << std::endl;
 #endif
     Variable &v = ctx.append(type);
     v.dep[0] = parent;
     v.cmd = "";
     v.data = ptr;
     v.size = size;
-    v.free = dealloc;
+    v.free = free;
     cuda_inc_ref_ext(idx);
     cuda_inc_ref_int(parent);
     return idx;
+}
+
+ENOKI_EXPORT uint32_t cuda_var_copy_to_device(EnokiType type, size_t size,
+                                              const void *value) {
+    size_t total_size = size * cuda_register_size(type);
+    void *tmp = malloc(total_size);
+    memcpy(tmp, value, total_size);
+
+    void *device_ptr;
+    cuda_check(cudaMalloc(&device_ptr, total_size));
+    cuda_check(cudaMemcpyAsync(device_ptr, tmp, total_size,
+                               cudaMemcpyHostToDevice));
+
+    cuda_check(cudaLaunchHostFunc(nullptr,
+        [](void *ptr) { free(ptr); },
+        tmp
+    ));
+
+    return cuda_var_register(type, size, device_ptr, 0, true);
 }
 
 ENOKI_EXPORT void cuda_var_free(uint32_t idx) {
@@ -644,9 +665,9 @@ static void cuda_render_cmd(std::ostringstream &oss,
 
             if (result == nullptr)
                 throw std::runtime_error(
-                    "CUDABackend: internal error -- unsupported type: " +
-                    std::string(cmd) + " marked with type " +
-                    std::to_string(dep_type));
+                    "CUDABackend: internal error -- variable " +
+                    std::to_string(index) + " references " + std::to_string(dep) +
+                    " with unsupported type: " + std::string(cmd));
 
             oss << result;
 
@@ -723,7 +744,6 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep) {
         << "    .reg.f32 %f<" << n_vars << ">;" << std::endl
         << "    .reg.f64 %d<" << n_vars << ">;" << std::endl
         << "    .reg.pred %p<" << n_vars << ">;" << std::endl << std::endl
-        << "    .reg.u64 %foo;"
         << std::endl
         << "    // Grid-stride loop setup" << std::endl
         << "    ld.param.u64 %rd0, [ptr];" << std::endl
@@ -766,16 +786,18 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep) {
             oss << std::endl
                 << "    ldu.global.u64 %rd8, [%rd0 + " << idx * 8 << "];" << std::endl
                 << "    cvta.to.global.u64 %rd8, %rd8;" << std::endl;
+            const char *load_instr = "ldu";
             if (var.size != 1) {
                 oss << "    mul.wide.u32 %rd9, %r2, " << cuda_register_size(var.type) << ";" << std::endl
                     << "    add.u64 %rd8, %rd8, %rd9;" << std::endl;
+                load_instr = "ld";
             }
             if (var.type != EnokiType::Bool) {
-                oss << "    ld.global." << cuda_register_type(var.type) << " "
+                oss << "    " << load_instr << ".global." << cuda_register_type(var.type) << " "
                     << cuda_register_name(var.type) << reg_map[index] << ", [%rd8]"
                     << ";" << std::endl;
             } else {
-                oss << "    ld.global.u8 %w1, [%rd8];" << std::endl
+                oss << "    " << load_instr << ".global.u8 %w1, [%rd8];" << std::endl
                     << "    setp.ne.u16 " << cuda_register_name(var.type) << reg_map[index] << ", %w1, 0;";
             }
             n_in++;
@@ -839,7 +861,6 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep) {
 
     oss << std::endl
         << "L0:" << std::endl
-        << "    @!%p0 st.global.u64 [%rd0], %foo;" << std::endl
         << "    ret;" << std::endl
         << "}" << std::endl;
 

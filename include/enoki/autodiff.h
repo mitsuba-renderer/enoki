@@ -11,6 +11,8 @@
     license that can be found in the LICENSE file.
 */
 
+#pragma once
+
 #include <enoki/array.h>
 #include <vector>
 
