@@ -11,122 +11,320 @@
     license that can be found in the LICENSE file.
 */
 
+#pragma once
+
 #include <enoki/python.h>
+#include <enoki/cuda.h>
+#include <enoki/autodiff.h>
 #include <pybind11/stl.h>
 
-NAMESPACE_BEGIN(enoki)
+NAMESPACE_BEGIN(pybind11)
 NAMESPACE_BEGIN(detail)
 
-template <typename T> pybind11::object torch_dtype() {
-    auto torch = pybind11::module::import("torch");
-    const char *name = nullptr;
+template <typename Value>
+struct type_caster<Value, std::enable_if_t<enoki::is_cuda_array_v<Value> &&
+                                          !enoki::is_diff_array_v<Value>>> {
+    using Scalar = enoki::scalar_t<Value>;
+    static constexpr size_t Depth = enoki::array_depth_v<Value>;
 
-    if (std::is_same_v<T, half>) {
-        name = "float16";
-    } else if (std::is_same_v<T, float>) {
-        name = "float32";
-    } else if (std::is_same_v<T, double>) {
-        name = "float64";
-    } else if (std::is_integral_v<T>) {
-        if (sizeof(T) == 1)
-            name = std::is_signed_v<T> ? "int8" : "uint8";
-        else if (sizeof(T) == 2)
-            name = "int16";
-        else if (sizeof(T) == 4)
-            name = "int32";
-        else if (sizeof(T) == 8)
-            name = "int64";
+    bool load(handle src, bool) {
+        using namespace enoki;
+
+        if (src.is_none()) {
+            is_none = true;
+            return true;
+        }
+
+        tuple shape_obj = src.attr("shape");
+        object dtype_obj = src.attr("dtype");
+        object target_dtype = torch_dtype();
+
+        if (shape_obj.size() != Depth)
+            throw std::runtime_error(
+                "torch_to_enoki(): Input array is of invalid dimension!");
+
+        if (!dtype_obj.is(target_dtype))
+            throw std::runtime_error(
+                "torch_to_enoki(): Input array has an invalid dtype!");
+
+        auto shape = pybind11::cast<std::array<size_t, Depth>>(shape_obj);
+        auto strides = pybind11::cast<std::array<size_t, Depth>>(src.attr("stride")());
+        std::reverse(shape.begin(), shape.end());
+        std::reverse(strides.begin(), strides.end());
+
+        size_t size = 1;
+        for (size_t i : shape)
+            size *= i;
+
+        CUDAArray<Scalar> source = CUDAArray<Scalar>::map(
+            (Scalar *) pybind11::cast<uintptr_t>(src.attr("data_ptr")()), size);
+
+        copy_array_gather<0>(0, shape, strides, source, value);
+        return true;
     }
 
-    if (name == nullptr)
-        throw std::runtime_error("pytorch_dtype(): Unsupported type");
+    static handle cast(const Value *src, return_value_policy policy, handle parent) {
+        if (!src)
+            return pybind11::none();
+        return cast(*src, policy, parent);
+    }
 
-    return torch.attr(name);
-}
+    static handle cast(const Value &src, return_value_policy /* policy */, handle /* parent */) {
+        using namespace enoki;
 
+        std::array<size_t, Depth> shape = enoki::shape(src),
+                                  shape_rev = shape,
+                                  strides;
+        std::reverse(shape_rev.begin(), shape_rev.end());
 
-template <size_t Index, size_t Dim, typename Source, typename Target>
-void copy_array(const std::array<size_t, Dim> &shape,
-                const std::array<size_t, Dim> &strides,
-                const Source *source,
-                Target &target) {
-    if constexpr (Index == Dim) {
-        target = *source;
-    } else {
-        const size_t step = strides[Index];
-        for (size_t i = 0; i < shape[Index]; ++i) {
-            copy_array<Index + 1, Dim>(shape, strides, source, target.coeff(i));
-            source += step;
+        object torch = module::import("torch");
+        object dtype_obj = torch_dtype();
+
+        object result =
+            torch.attr("empty")(pybind11::cast(shape_rev), arg("dtype") = dtype_obj,
+                                arg("device") = "cuda");
+        size_t size = 1;
+        for (size_t i : shape)
+            size *= i;
+
+        strides = pybind11::cast<std::array<size_t, Depth>>(result.attr("stride")());
+        std::reverse(strides.begin(), strides.end());
+        CUDAArray<Scalar> target = CUDAArray<Scalar>::map(
+            (Scalar *) pybind11::cast<uintptr_t>(result.attr("data_ptr")()), size);
+        copy_array_scatter<0>(0, shape, strides, src, target);
+        cuda_eval();
+        return result.inc_ref();
+    }
+
+    template <typename T_> using cast_op_type = pybind11::detail::cast_op_type<T_>;
+
+    static constexpr auto name =
+            _("torch.Tensor[dtype=") +
+            npy_format_descriptor<Scalar>::name + _(", shape=(") +
+            array_shape_descr<Value>::name() + _(")]");
+
+    operator Value*() { if (is_none) return nullptr; else return &value; }
+    operator Value&() {
+        #if !defined(NDEBUG)
+            if (is_none)
+                throw pybind11::cast_error("Cannot cast None or nullptr to an"
+                                           " Enoki array.");
+        #endif
+        return value;
+    }
+
+private:
+    static object torch_dtype() {
+        object torch = module::import("torch");
+        const char *name = nullptr;
+
+        if (std::is_same_v<Scalar, enoki::half>) {
+            name = "float16";
+        } else if (std::is_same_v<Scalar, float>) {
+            name = "float32";
+        } else if (std::is_same_v<Scalar, double>) {
+            name = "float64";
+        } else if (std::is_integral_v<Scalar>) {
+            if (sizeof(Scalar) == 1)
+                name = std::is_signed_v<Scalar> ? "int8" : "uint8";
+            else if (sizeof(Scalar) == 2)
+                name = "int16";
+            else if (sizeof(Scalar) == 4)
+                name = "int32";
+            else if (sizeof(Scalar) == 8)
+                name = "int64";
+        }
+
+        if (name == nullptr)
+            throw std::runtime_error("pytorch_dtype(): Unsupported type");
+
+        return torch.attr(name);
+    }
+
+    template <size_t Index, size_t Dim, typename Source, typename Target>
+    static void copy_array_gather(size_t offset,
+                                  const std::array<size_t, Dim> &shape,
+                                  const std::array<size_t, Dim> &strides,
+                                  const Source &source, Target &target) {
+        using namespace enoki;
+        if constexpr (Index == Dim - 1) {
+            using UInt32 = uint32_array_t<Source>;
+            UInt32 index = fmadd(arange<UInt32>((uint32_t) shape[Index]),
+                                 (uint32_t) strides[Index], (uint32_t) offset);
+            target = gather<Target>(source, index);
+        } else {
+            const size_t step = strides[Index];
+            for (size_t i = 0; i < shape[Index]; ++i) {
+                copy_array_gather<Index + 1, Dim>(offset, shape, strides, source,
+                                                  target.coeff(i));
+                offset += step;
+            }
         }
     }
-}
 
-template <size_t Index, size_t Dim, typename Source, typename Target>
-void copy_array(const std::array<size_t, Dim> &shape,
-                const std::array<size_t, Dim> &strides,
-                const Source &source,
-                Target *target) {
-    if constexpr (Index == Dim) {
-        *target = source;
-    } else {
-        const size_t step = strides[Index];
-        for (size_t i = 0; i < shape[Index]; ++i) {
-            copy_array<Index + 1, Dim>(shape, strides, source.coeff(i), target);
-            target += step;
+    template <size_t Index, size_t Dim, typename Source, typename Target>
+    static void copy_array_scatter(size_t offset,
+                                   const std::array<size_t, Dim> &shape,
+                                   const std::array<size_t, Dim> &strides,
+                                   const Source &source, Target &target) {
+        using namespace enoki;
+        if constexpr (Index == Dim - 1) {
+            using UInt32 = uint32_array_t<Source>;
+            UInt32 index = fmadd(arange<UInt32>((uint32_t) shape[Index]),
+                                 (uint32_t) strides[Index], (uint32_t) offset);
+            scatter(target, source, index);
+        } else {
+            const size_t step = strides[Index];
+            for (size_t i = 0; i < shape[Index]; ++i) {
+                copy_array_scatter<Index + 1, Dim>(offset, shape, strides,
+                                                   source.coeff(i), target);
+                offset += step;
+            }
         }
     }
-}
+
+    bool is_none = false;
+    Value value;
+};
+
+template <typename Value>
+struct type_caster<Value, std::enable_if_t<enoki::is_diff_array_v<Value>>> {
+    using UnderlyingType = decltype(enoki::eval(enoki::detach(std::declval<Value>())));
+    using Caster = type_caster<UnderlyingType>;
+
+    static constexpr auto name = Caster::name;
+    template <typename T_> using cast_op_type = pybind11::detail::cast_op_type<T_>;
+
+    bool load(handle src, bool convert) {
+        if (src.is_none()) {
+            is_none = true;
+            return true;
+        }
+        Caster caster;
+        if (!caster.load(src, convert))
+            return false;
+        value = (UnderlyingType &) caster;
+
+        if (pybind11::cast<bool>(src.attr("requires_grad")))
+            enoki::requires_gradient(value);
+
+        return true;
+    }
+
+    static handle cast(const Value *src, return_value_policy policy, handle parent) {
+        if (!src)
+            return pybind11::none();
+        return cast(*src, policy, parent);
+    }
+
+    static handle cast(const Value &src, return_value_policy policy, handle parent) {
+        return Caster::cast(enoki::detach(src), policy, parent);
+    }
+
+    operator Value*() { if (is_none) return nullptr; else return &value; }
+    operator Value&() {
+        #if !defined(NDEBUG)
+            if (is_none)
+                throw pybind11::cast_error("Cannot cast None or nullptr to an"
+                                           " Enoki array.");
+        #endif
+        return value;
+    }
+
+    bool is_none;
+    Value value;
+};
 
 NAMESPACE_END(detail)
+NAMESPACE_END(pybind11)
 
-template <typename T> T torch_to_enoki(pybind11::object x) {
-    namespace py = pybind11;
+NAMESPACE_BEGIN(enoki)
 
-    using Scalar = scalar_t<T>;
-    constexpr size_t Depth = array_depth_v<T>;
+struct GradientIndexBase {
+    virtual ~GradientIndexBase() = default;
+};
 
-    py::tuple shape_obj = x.attr("shape");
-    py::object dtype_obj = x.attr("dtype");
-    py::object target_dtype = detail::torch_dtype<Scalar>();
+template <typename T, typename = int>
+struct GradientIndex;
 
-    if (shape_obj.size() != Depth)
-        throw std::runtime_error("torch_to_enoki(): Input array is of invalid dimension!");
+template <typename T> struct GradientIndex<T, enable_if_static_array_t<T>> {
+    GradientIndex() = default;
+    GradientIndex(const T &value) {
+        for (size_t i = 0; i < array_size_v<T>; ++i)
+            nested[i] = GradientIndex<value_t<T>>(value.coeff(i));
+    }
+    GradientIndex(const GradientIndex &) = default;
+    GradientIndex(GradientIndex &&) = default;
+    GradientIndex& operator=(const GradientIndex &) = default;
+    GradientIndex& operator=(GradientIndex &&) = default;
 
-    if (!dtype_obj.is(target_dtype))
-        throw std::runtime_error("torch_to_enoki(): Input array has an invalid dtype!");
+    auto gradient() {
+        Array<decltype(nested[0].gradient()), array_size_v<T>> result;
+        for (size_t i = 0; i < array_size_v<T>; ++i)
+            result.coeff(i) = nested[i].gradient();
+        return result;
+    }
 
-    auto shape = py::cast<std::array<size_t, Depth>>(shape_obj);
-    auto strides = py::cast<std::array<size_t, Depth>>(x.attr("stride")());
-    std::reverse(shape.begin(), shape.end());
-    std::reverse(strides.begin(), strides.end());
+    template <typename T2>
+    void set_gradient(const T2 &value) {
+        for (size_t i = 0; i < array_size_v<T>; ++i)
+            nested[i].set_gradient(value.coeff(i));
+    }
 
-    T result;
-    set_shape(result, shape);
+    virtual ~GradientIndex() = default;
+    std::array<GradientIndex<value_t<T>>, array_size_v<T>> nested;
+};
 
-    const Scalar *source = (const Scalar *) py::cast<uintptr_t>(x.attr("data_ptr")());
-    detail::copy_array<0>(shape, strides, source, result);
+template <typename T> struct GradientIndex<T, enable_if_dynamic_array_t<T>> {
+    GradientIndex() = default;
+    GradientIndex(const T &value) {
+        m_index = value.index_();
+        T::inc_ref_(m_index);
+    }
 
-    return result;
+    GradientIndex(const GradientIndex& g) : m_index(g.m_index) {
+        T::inc_ref_(m_index);
+    }
+
+    GradientIndex(GradientIndex&& g) {
+        std::swap(m_index, g.m_index);
+    }
+
+    GradientIndex &operator=(const GradientIndex &g) {
+        T::dec_ref_(m_index);
+        m_index = g.m_index;
+        return *this;
+    }
+
+    GradientIndex &operator=(GradientIndex &&g) {
+        std::swap(m_index, g.m_index);
+        return *this;
+    }
+
+    virtual ~GradientIndex() {
+        T::dec_ref_(m_index);
+    }
+
+    auto gradient() const {
+        return T::gradient_static_(m_index);
+    }
+
+    template <typename T2>
+    void set_gradient(const T2 &value) {
+        T::set_gradient_static_(m_index, value);
+    }
+
+    uint32_t m_index = 0;
+};
+
+template <typename T, enable_if_array_t<T> = 0>
+pybind11::object gradient_index(const T &value) {
+    return pybind11::cast((GradientIndexBase *) new GradientIndex<T>(value),
+                          pybind11::return_value_policy::take_ownership);
 }
 
-template <typename T> pybind11::object enoki_to_torch(const T &t) {
-    namespace py = pybind11;
-
-    using Scalar = scalar_t<T>;
-    constexpr size_t Depth = array_depth_v<T>;
-
-    std::array<size_t, Depth> shape = enoki::shape(t), shape_rev = shape, strides;
-    std::reverse(shape_rev.begin(), shape_rev.end());
-
-    auto torch = py::module::import("torch");
-    py::object dtype = detail::torch_dtype<scalar_t<T>>();
-    auto result = torch.attr("empty")(py::cast(shape_rev), py::arg("dtype") = dtype);
-    strides = py::cast<std::array<size_t, Depth>>(result.attr("stride")());
-    std::reverse(strides.begin(), strides.end());
-    Scalar *target = (Scalar *) py::cast<uintptr_t>(result.attr("data_ptr")());
-
-    detail::copy_array<0>(shape, strides, t, target);
-    return result;
+template <typename T> auto& gradient_index(const pybind11::handle handle) {
+	return (GradientIndex<T> &) pybind11::cast<GradientIndexBase&>(handle);
 }
 
 template <typename Forward, typename Backward>
@@ -134,6 +332,9 @@ void pytorch_register_function(pybind11::module &m, const std::string &op_name,
                                const std::string &fn_name, Forward forward,
                                Backward backward) {
     namespace py = pybind11;
+
+    if (!py::hasattr(m, "GradientIndexBase"))
+        py::class_<GradientIndexBase>(m, "GradientIndexBase");
 
     py::object autograd = py::module::import("torch.autograd");
     py::object parent_class = autograd.attr("Function");

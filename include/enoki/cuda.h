@@ -82,7 +82,8 @@ extern ENOKI_IMPORT uint32_t cuda_trace_append(EnokiType type,
                                                uint32_t arg3);
 
 /// Insert a "printf" instruction for the given instruction
-ENOKI_EXPORT void cuda_trace_printf(const char *fmt, uint32_t narg, uint32_t* arg);
+extern ENOKI_IMPORT void cuda_trace_printf(const char *fmt, uint32_t narg,
+                                           uint32_t *arg);
 
 /// Computes the horizontal sum of a given memory region
 template <typename T> extern ENOKI_IMPORT T cuda_hsum(size_t, const T *);
@@ -105,8 +106,11 @@ extern ENOKI_IMPORT bool cuda_any(size_t, const bool *);
 extern ENOKI_IMPORT std::pair<std::vector<std::pair<void *, size_t>>, size_t *>
 cuda_partition(size_t, const void **);
 
+extern ENOKI_IMPORT uint32_t cuda_var_copy_to_device(EnokiType type,
+                                                     size_t size, const void *value);
+
 /// Register a memory region (in device memory) as a variable
-extern ENOKI_EXPORT uint32_t cuda_var_register(EnokiType type, size_t size,
+extern ENOKI_IMPORT uint32_t cuda_var_register(EnokiType type, size_t size,
                                                void *ptr, uint32_t parent,
                                                bool dealloc);
 

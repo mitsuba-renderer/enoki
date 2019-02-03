@@ -84,7 +84,8 @@ private:
     void set_scatter_gather_operand(Index *index, size_t size, bool permute);
     void push_prefix(const char *);
     void pop_prefix();
-    void backward(Index index, bool free_edges);
+    void backward(bool free_edges);
+    void set_gradient(Index index, const Value &value);
     const Value &gradient(Index index);
     std::string graphviz(const std::vector<Index> &indices);
 
@@ -1024,11 +1025,25 @@ public:
             return tape()->gradient(m_index);
     }
 
-    const Value &gradient_static_(Index index) const {
+    static const Value &gradient_static_(Index index) {
         if constexpr (!Enabled)
             fail_unsupported("gradient_static_");
         else
             return tape()->gradient(index);
+    }
+
+    void set_gradient_(const Value &value) {
+        if constexpr (!Enabled)
+            fail_unsupported("set_gradient_");
+        else
+            return tape()->set_gradient(m_index, value);
+    }
+
+    static void set_gradient_static_(Index index, const Value &value) {
+        if constexpr (!Enabled)
+            fail_unsupported("set_gradient_static_");
+        else
+            return tape()->set_gradient(index, value);
     }
 
     //! @}
@@ -1064,10 +1079,17 @@ public:
     }
 
     void backward_(bool free_edges) const {
-        if constexpr (!Enabled)
+        if constexpr (!Enabled) {
             fail_unsupported("backward_");
-        else
-            tape()->backward(m_index, free_edges);
+        } else {
+            auto t = tape();
+            t->set_gradient(m_index, Scalar(1));
+            t->backward(free_edges);
+        }
+    }
+
+    static void backward_static_(bool free_edges) {
+        tape()->backward(free_edges);
     }
 
     static std::string graphviz_(const std::vector<Index> &indices) {
@@ -1085,6 +1107,16 @@ public:
     static void pop_prefix_() {
         if constexpr (Enabled)
             tape()->pop_prefix();
+    }
+
+    static void inc_ref_(Index index) {
+        if constexpr (Enabled)
+            tape()->inc_ref(index);
+    }
+
+    static void dec_ref_(Index index) {
+        if constexpr (Enabled)
+            tape()->dec_ref(index);
     }
 
     static void set_scatter_gather_operand_(const DiffArray &v, bool permute) {
@@ -1177,6 +1209,11 @@ template <typename T> void backward(const T& a, bool free_edges = true) {
     a.backward_(free_edges);
 }
 
+template <typename T> void backward(bool free_edges = true) {
+    T::backward_static_(free_edges);
+}
+
+
 namespace detail {
     template <typename T>
     void collect_indices(const T &value, std::vector<uint32_t> &indices) {
@@ -1192,12 +1229,21 @@ namespace detail {
     }
 };
 
+namespace detail {
+    template <typename T, typename = int> struct diff_type {
+        using type = T;
+    };
+    template <typename T> using diff_type_t = typename diff_type<T>::type;
+    template <typename T> struct diff_type<T, enable_if_t<is_diff_array_v<value_t<T>>>> {
+        using type = diff_type_t<value_t<T>>;
+    };
+}
+
 template <typename T> std::string graphviz(const T &value) {
     std::vector<uint32_t> indices;
     detail::collect_indices(value, indices);
-    return T::graphviz_(indices);
+    return detail::diff_type_t<T>::graphviz_(indices);
 }
-
 
 #if !defined(ENOKI_BUILD)
     extern ENOKI_IMPORT template struct Tape<float>;
@@ -1206,11 +1252,13 @@ template <typename T> std::string graphviz(const T &value) {
     extern ENOKI_IMPORT template struct Tape<double>;
     extern ENOKI_IMPORT template struct DiffArray<double>;
 
-    extern ENOKI_IMPORT template struct Tape<DynamicArray<Packet<float>>>;
-    extern ENOKI_IMPORT template struct DiffArray<DynamicArray<Packet<float>>>;
+#  if defined(ENOKI_DYNAMIC)
+        extern ENOKI_IMPORT template struct Tape<DynamicArray<Packet<float>>>;
+        extern ENOKI_IMPORT template struct DiffArray<DynamicArray<Packet<float>>>;
 
-    extern ENOKI_IMPORT template struct Tape<DynamicArray<Packet<double>>>;
-    extern ENOKI_IMPORT template struct DiffArray<DynamicArray<Packet<double>>>;
+        extern ENOKI_IMPORT template struct Tape<DynamicArray<Packet<double>>>;
+        extern ENOKI_IMPORT template struct DiffArray<DynamicArray<Packet<double>>>;
+#  endif
 
 #  if defined(ENOKI_CUDA)
         extern ENOKI_IMPORT template struct Tape<CUDAArray<float>>;

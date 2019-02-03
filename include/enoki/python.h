@@ -24,7 +24,8 @@ template <typename T, typename = void> struct array_shape_descr {
     static constexpr auto name_cont() { return _(""); }
 };
 
-template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_static_array_v<T>>> {
+template <typename T>
+struct array_shape_descr<T, std::enable_if_t<enoki::is_static_array_v<T>>> {
     static constexpr auto name() {
         return array_shape_descr<enoki::value_t<T>>::name_cont() + _<T::Size>();
     }
@@ -33,7 +34,8 @@ template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_sta
     }
 };
 
-template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_dynamic_array_v<T>>> {
+template <typename T>
+struct array_shape_descr<T, std::enable_if_t<enoki::is_dynamic_array_v<T>>> {
     static constexpr auto name() {
         return array_shape_descr<enoki::value_t<T>>::name_cont() + _("n");
     }
@@ -42,7 +44,9 @@ template <typename T> struct array_shape_descr<T, std::enable_if_t<enoki::is_dyn
     }
 };
 
-template <typename Value> struct type_caster<Value, std::enable_if_t<enoki::is_array_v<Value>>> {
+template <typename Value>
+struct type_caster<Value, std::enable_if_t<enoki::is_array_v<Value> &&
+                                          !enoki::is_cuda_array_v<Value>>> {
     using Scalar = std::conditional_t<Value::IsMask, bool, enoki::scalar_t<Value>>;
     static constexpr bool IsComplex = Value::IsComplex;
 

@@ -20,6 +20,8 @@
 #  pragma GCC diagnostic ignored "-Wclass-memaccess"
 #endif
 
+#define ENOKI_DYNAMIC 1
+
 NAMESPACE_BEGIN(enoki)
 
 template <typename Packet_>
@@ -972,6 +974,14 @@ auto vectorize_safe(Func &&f, Args &&... args)
     -> decltype(vectorize<true>(f, args...)) /* LLVM bug #39326 */ {
     return vectorize<true>(f, args...);
 }
+
+#if defined(ENOKI_AUTODIFF) && !defined(ENOKI_BUILD)
+    extern ENOKI_IMPORT template struct Tape<DynamicArray<Packet<float>>>;
+    extern ENOKI_IMPORT template struct DiffArray<DynamicArray<Packet<float>>>;
+
+    extern ENOKI_IMPORT template struct Tape<DynamicArray<Packet<double>>>;
+    extern ENOKI_IMPORT template struct DiffArray<DynamicArray<Packet<double>>>;
+#endif
 
 NAMESPACE_END(enoki)
 

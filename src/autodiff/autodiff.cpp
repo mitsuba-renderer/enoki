@@ -129,6 +129,9 @@ template <typename Value> struct Tape<Value>::Detail {
     size_t scatter_gather_size = 0;
     bool scatter_gather_permute = false;
 
+    /// Set of indices selected for next backward pass
+    std::set<uint32_t> scheduled;
+
     Node &node(Index index) {
         auto it = nodes.find(index);
         if (it == nodes.end())
@@ -137,14 +140,17 @@ template <typename Value> struct Tape<Value>::Detail {
         return it->second;
     }
 
-    void dfs(std::set<Index> &found, Index k) {
-        if (found.find(k) != found.end())
+    void dfs(Index k, bool clear_grad) {
+        if (scheduled.find(k) != scheduled.end())
             return;
-        found.insert(k);
+        scheduled.insert(k);
 
-        const Edge *edge = node(k).edges.get();
+        Node &n = node(k);
+        if (clear_grad)
+            n.grad = zero<Value>(n.size);
+        const Edge *edge = n.edges.get();
         while (edge) {
-            dfs(found, edge->source);
+            dfs(edge->source, clear_grad);
             edge = edge->next.get();
         }
     }
@@ -232,7 +238,10 @@ Index Tape<Value>::append_node(size_t size, const char *label) {
 template <typename Value>
 Index Tape<Value>::append_leaf(size_t size, const char *label) {
     std::string label_quotes = "\\\"" + std::string(label ? label : "unnamed") + "\\\"";
-    return append_node(size, label_quotes.c_str());
+    Index idx = append_node(size, label_quotes.c_str());
+    Node &n = d->node(idx);
+    n.grad = zero<Value>(n.size);
+    return idx;
 }
 
 template <typename Value>
@@ -404,9 +413,9 @@ void Tape<Value>::append_edge(Index source_idx, Index target_idx,
 #if ENOKI_AUTODIFF_DEBUG_TRACE
             std::cerr << " ... contracting with edge -> "  << edge->source << std::endl;
 #endif
-            mask_t<Value> edge_is_zero =
-                eq(weight, Scalar(0)) || eq(edge->weight, Scalar(0));
-            Value combined = select(edge_is_zero, Scalar(0), weight * edge->weight);
+            Value zero = (Scalar) 0;
+            mask_t<Value> edge_is_zero = eq(weight, zero) || eq(edge->weight, zero);
+            Value combined = select(edge_is_zero, zero, weight * edge->weight);
             append_edge(edge->source, target_idx, combined);
             d->edge_contractions++;
             edge = edge->next.get();
@@ -503,27 +512,24 @@ template <typename Value> const Value &Tape<Value>::gradient(Index index) {
     return d->node(index).grad;
 }
 
-template <typename Value> void Tape<Value>::backward(Index index, bool free_edges) {
-    using Scalar = scalar_t<Value>;
-
+template <typename Value>
+void Tape<Value>::set_gradient(Index index, const Value &value) {
     if (index == 0)
         throw std::runtime_error(
             "backward(): no gradient information (a prior call to "
             "requires_gradient() on a dependent variable is required.)");
 
-    std::set<uint32_t> indices;
-    d->dfs(indices, index);
+    d->dfs(index, true);
+    d->node(index).grad = value;
+}
 
-    for (auto i : indices) {
-        if (i != index) {
-            Node &n = d->node(i);
-            n.grad = zero<Value>(n.size);
-        }
-    }
-    d->node(index).grad = scalar_t<Value>(1);
-
+template <typename Value>
+void Tape<Value>::backward(bool free_edges) {
+    using Scalar = scalar_t<Value>;
+    auto &scheduled = d->scheduled;
     uint32_t edge_count = 0;
-    for (auto it = indices.rbegin(); it != indices.rend(); ++it) {
+
+    for (auto it = scheduled.rbegin(); it != scheduled.rend(); ++it) {
         Index target_idx = *it;
         Node &target = d->node(target_idx);
 
@@ -540,8 +546,9 @@ template <typename Value> void Tape<Value>::backward(Index index, bool free_edge
                 Value &weight = edge->weight;
                 Node  &source = d->node(source_idx);
 
+                Value zero = (Scalar) 0;
                 mask_t<Value> is_nonzero =
-                    neq(weight, Scalar(0)) & neq(target.grad, Scalar(0));
+                    neq(weight, zero) & neq(target.grad, zero);
                 masked(source.grad, is_nonzero) =
                     fmadd(weight, target.grad, source.grad);
 
@@ -560,10 +567,12 @@ template <typename Value> void Tape<Value>::backward(Index index, bool free_edge
         }
     }
 
-    std::cerr << "Processed " << indices.size() << "/" << d->node_counter
+    std::cerr << "Processed " << scheduled.size() << "/" << d->node_counter
               << " nodes, " << edge_count << " edges [" << d->edge_contractions
               << " edge contractions, " << d->edge_merges << " edge merges].. "
               << std::endl;
+
+    scheduled.clear();
 }
 
 template <typename Value>
@@ -574,9 +583,10 @@ std::string Tape<Value>::graphviz(const std::vector<Index> &indices_) {
         << "  fontname=Consolas;" << std::endl
         << "  node [shape=record fontname=Consolas];" << std::endl;
 
-    std::set<uint32_t> indices;
     for (Index index : indices_)
-        d->dfs(indices, index);
+        d->dfs(index, false);
+
+    auto &indices = d->scheduled;
 
     int current_depth = 0;
     auto hasher = std::hash<std::string>();
@@ -652,6 +662,7 @@ std::string Tape<Value>::graphviz(const std::vector<Index> &indices_) {
             << " [fillcolor=cornflowerblue style=filled];" << std::endl;
 
     oss << "}";
+    indices.clear();
     return oss.str();
 }
 

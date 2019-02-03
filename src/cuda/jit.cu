@@ -26,7 +26,7 @@
 
 /// Enable heavy debug output (instructions, reference counts, etc.)
 #if !defined(ENOKI_CUDA_DEBUG_TRACE)
-#  define ENOKI_CUDA_DEBUG_TRACE  0
+#  define ENOKI_CUDA_DEBUG_TRACE  1
 #endif
 
 /// Enable moderate debug output
