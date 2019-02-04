@@ -936,6 +936,10 @@ template <typename... Args> void cuda_printf(const char *fmt, const Args&... arg
     cuda_trace_printf(fmt, (uint32_t) sizeof...(Args), indices);
 }
 
+template <typename T, enable_if_t<!is_diff_array_v<T> && !is_cuda_array_v<T>> = 0>
+ENOKI_INLINE void set_label(T&, const char *) { }
+
+
 //! @}
 // -----------------------------------------------------------------------
 

@@ -26,7 +26,7 @@
 
 /// Enable heavy debug output (instructions, reference counts, etc.)
 #if !defined(ENOKI_CUDA_DEBUG_TRACE)
-#  define ENOKI_CUDA_DEBUG_TRACE  1
+#  define ENOKI_CUDA_DEBUG_TRACE  0
 #endif
 
 /// Enable moderate debug output
@@ -55,8 +55,8 @@ struct Variable {
     /// PTX instruction to compute it
     std::string cmd;
 
-    /// Associated comment (mainly for debugging)
-    std::string comment;
+    /// Associated label (mainly for debugging)
+    std::string label;
 
     /// Number of entries
     size_t size = 1;
@@ -93,7 +93,7 @@ struct Variable {
     ~Variable() { if (free && data != nullptr) cuda_check(cudaFree(data)); }
 
     Variable(Variable &&a)
-        : type(a.type), cmd(std::move(a.cmd)), comment(std::move(a.comment)),
+        : type(a.type), cmd(std::move(a.cmd)), label(std::move(a.label)),
           size(a.size), data(a.data), ref_count_ext(a.ref_count_ext),
           ref_count_int(a.ref_count_int), dep(a.dep), extra_dep(a.extra_dep),
           side_effect(a.side_effect), dirty(a.dirty),
@@ -201,10 +201,10 @@ ENOKI_EXPORT size_t cuda_var_size(uint32_t index) {
     return context()[index].size;
 }
 
-ENOKI_EXPORT void cuda_var_set_comment(uint32_t index, const char *str) {
-    context()[index].comment = str;
+ENOKI_EXPORT void cuda_var_set_label(uint32_t index, const char *str) {
+    context()[index].label = str;
 #if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_var_set_comment(" << index << "): " << str << std::endl;
+    std::cerr << "cuda_var_set_label(" << index << "): " << str << std::endl;
 #endif
 }
 
@@ -741,10 +741,19 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep) {
     std::unordered_map<uint32_t, uint32_t> reg_map;
     for (uint32_t index : sweep) {
 #if ENOKI_CUDA_DEBUG_TRACE
-        std::cerr << "    " << n_vars << " -> " << index;
-        const std::string &comment = ctx[index].comment;
-        if (!comment.empty())
-            std::cerr << ": " << comment;
+        const Variable &v = ctx[index];
+        std::cerr << "    " << cuda_register_name(v.type) << n_vars << " -> " << index;
+        const std::string &label = v.label;
+        if (!label.empty())
+            std::cerr << " \"" << label << "\"";
+        if (v.size == 1)
+            std::cerr << " [scalar]";
+        if (v.data != nullptr)
+            std::cerr << " [in]";
+        else if (v.side_effect)
+            std::cerr << " [se]";
+        else if (v.ref_count_ext > 0)
+            std::cerr << " [out]";
         std::cerr << std::endl;
 #endif
         reg_map[index] = n_vars++;
@@ -815,8 +824,8 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep) {
 
             oss << std::endl
                 << "    // Load register " << cuda_register_name(var.type) << reg_map[index];
-            if (!var.comment.empty())
-                oss << ": " << var.comment;
+            if (!var.label.empty())
+                oss << ": " << var.label;
             oss << std::endl
                 << "    ldu.global.u64 %rd8, [%rd0 + " << idx * 8 << "];" << std::endl
                 << "    cvta.to.global.u64 %rd8, %rd8;" << std::endl;
@@ -836,10 +845,10 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep) {
             }
             n_in++;
         } else {
-            if (!var.comment.empty())
+            if (!var.label.empty())
                 oss << "    // Compute register "
                     << cuda_register_name(var.type) << reg_map[index] << ": "
-                    << var.comment << std::endl;
+                    << var.label << std::endl;
             cuda_render_cmd(oss, ctx, reg_map, index);
             n_arith++;
 
@@ -869,8 +878,8 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep) {
 
             oss << std::endl
                 << "    // Store register " << cuda_register_name(var.type) << reg_map[index];
-            if (!var.comment.empty())
-                oss << ": " << var.comment;
+            if (!var.label.empty())
+                oss << ": " << var.label;
             oss << std::endl
                 << "    ldu.global.u64 %rd8, [%rd0 + " << idx * 8 << "];" << std::endl
                 << "    cvta.to.global.u64 %rd8, %rd8;" << std::endl;

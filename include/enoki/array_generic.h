@@ -495,7 +495,7 @@ private:
                     memcpy(data(), &result, sizeof(uint32_t));
                     return;
                 }
-            #elif defined(ENOKI_X86_AVX2)
+            #elif defined(ENOKI_X86_AVX2) && defined(ENOKI_X86_64)
                 uint32_t k = value.bitmask_();
                 if constexpr (Size == 16) {
                     uint64_t low = (uint64_t) _pdep_u64(k,      0x0101010101010101ull);

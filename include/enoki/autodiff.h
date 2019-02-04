@@ -60,7 +60,7 @@ private:
     // -----------------------------------------------------------------------
 
     Index append_node(size_t size, const char *label);
-    Index append_leaf(size_t size, const char *label);
+    Index append_leaf(size_t size);
     void append_edge(Index src, Index dst, const Value &weight);
 
     //! @}
@@ -86,6 +86,7 @@ private:
     void pop_prefix();
     void backward(bool free_edges);
     void set_gradient(Index index, const Value &value);
+    void set_label(Index index, const char *name);
     const Value &gradient(Index index);
     std::string graphviz(const std::vector<Index> &indices);
 
@@ -1067,15 +1068,18 @@ public:
     //! @}
     // -----------------------------------------------------------------------
 
-    ENOKI_NOINLINE void requires_gradient_(const char *label = nullptr) {
-        ENOKI_MARK_USED(label);
-
-        if constexpr (!Enabled) {
+    void requires_gradient_() {
+        if constexpr (!Enabled)
             fail_unsupported("requires_gradient_");
-        } else {
-            if (m_index == 0)
-                m_index = tape()->append_leaf(slices(m_value), label);
-        }
+        else if (m_index == 0)
+            m_index = tape()->append_leaf(slices(m_value));
+    }
+
+    void set_label_(const char *label) const {
+        ENOKI_MARK_USED(label);
+        if constexpr (Enabled)
+            tape()->set_label(m_index, label);
+        set_label(m_value, label);
     }
 
     void backward_(bool free_edges) const {
@@ -1154,20 +1158,26 @@ private:
     Index m_index = 0;
 };
 
+template <typename T, enable_if_t<is_diff_array_v<T>> = 0>
+ENOKI_INLINE void set_label(const T& a, const char *label) {
+    if constexpr (array_depth_v<T> >= 2) {
+        for (size_t i = 0; i < T::Size; ++i)
+            set_label(a.coeff(i), (std::string(label) + "." + std::to_string(i)).c_str());
+    } else {
+        a.set_label_(label);
+    }
+}
+
 template <typename T> ENOKI_INLINE void requires_gradient(T& a, const char *label) {
     if constexpr (is_diff_array_v<T>) {
         if constexpr (array_depth_v<T> >= 2) {
-            for (size_t i = 0; i < a.size(); ++i) {
-                #if defined(NDEBUG)
-                    requires_gradient(a.coeff(i), label);
-                #else
-                    requires_gradient(a.coeff(i), (std::string(label) + "." +
-                                                   std::to_string(i)).c_str());
-                #endif
-            }
+            for (size_t i = 0; i < T::Size; ++i)
+                requires_gradient(a.coeff(i));
         } else {
-            a.requires_gradient_(label);
+            a.requires_gradient_();
         }
+        if (label)
+            set_label(a, label);
     }
 }
 

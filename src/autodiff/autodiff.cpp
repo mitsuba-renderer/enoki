@@ -146,8 +146,11 @@ template <typename Value> struct Tape<Value>::Detail {
         scheduled.insert(k);
 
         Node &n = node(k);
-        if (clear_grad)
+        if (clear_grad) {
             n.grad = zero<Value>(n.size);
+            if (!n.label.empty())
+                enoki::set_label(n.grad, (n.label + ".grad").c_str());
+        }
         const Edge *edge = n.edges.get();
         while (edge) {
             dfs(edge->source, clear_grad);
@@ -236,13 +239,26 @@ Index Tape<Value>::append_node(size_t size, const char *label) {
 }
 
 template <typename Value>
-Index Tape<Value>::append_leaf(size_t size, const char *label) {
-    std::string label_quotes = "\\\"" + std::string(label ? label : "unnamed") + "\\\"";
-    Index idx = append_node(size, label_quotes.c_str());
+Index Tape<Value>::append_leaf(size_t size) {
+    Index idx = append_node(size, "\"unnamed\"");
     Node &n = d->node(idx);
     n.grad = zero<Value>(n.size);
     return idx;
 }
+
+template <typename Value>
+void Tape<Value>::set_label(Index idx, const char *label) {
+    if (idx == 0)
+        return;
+#if ENOKI_AUTODIFF_DEBUG_TRACE
+    std::cerr << "Tape::set_label(" << idx << ") -> " << label << std::endl;
+#endif
+    std::string name = "\\\"" + std::string(label) + "\\\"";
+    Node &n = d->node(idx);
+    n.label = label;
+    enoki::set_label(n.grad, (label + std::string(".grad")).c_str());
+}
+
 
 template <typename Value>
 Index Tape<Value>::append_gather(const Int64 &offset, const Mask &mask) {
@@ -431,11 +447,17 @@ void Tape<Value>::append_edge(Index source_idx, Index target_idx,
 #endif
 
             edge->weight += weight;
+            enoki::set_label(edge->weight,
+                             ("edge[" + std::to_string(source_idx) + " -> " +
+                              std::to_string(target_idx) + "]").c_str());
             d->edge_merges++;
             return;
         }
         edge = edge->next.get();
     }
+
+    enoki::set_label(weight, ("edge[" + std::to_string(source_idx) + " -> " +
+                              std::to_string(target_idx) + "]").c_str());
 
     target.append_edge(new Edge(source_idx, weight));
     inc_ref(source_idx);

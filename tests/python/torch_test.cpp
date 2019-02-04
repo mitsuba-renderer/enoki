@@ -35,8 +35,8 @@ PYBIND11_MODULE(torch_test, m) {
 
         [](py::object ctx, const Vector3fC &grad_output_1/* Potentially more output parameters */) {
             // Look up stored context fields
-            auto in_indices = gradient_index<Vector3fD>(ctx.attr("in_indices"));
-            auto out_indices = gradient_index<Vector3fD>(ctx.attr("out_indices"));
+            auto& in_indices = gradient_index<Vector3fD>(ctx.attr("in_indices"));
+            auto& out_indices = gradient_index<Vector3fD>(ctx.attr("out_indices"));
 
             // Forward output gradients from PyTorch to Enoki
             out_indices.set_gradient(grad_output_1);
@@ -44,7 +44,12 @@ PYBIND11_MODULE(torch_test, m) {
             // Propagate derivatives through the tape recorded by Enoki
             backward<FloatD>();
 
-            return in_indices.gradient();
+            Vector3fC result = in_indices.gradient();
+
+            py::delattr(ctx, "in_indices");
+            py::delattr(ctx, "out_indices");
+
+            return result;
         }
     );
 }

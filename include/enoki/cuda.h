@@ -53,8 +53,8 @@ extern ENOKI_IMPORT void   cuda_var_set_size(uint32_t, size_t);
 /// Mark a variable as dirty (e.g. due to scatter)
 extern ENOKI_IMPORT void   cuda_var_mark_dirty(uint32_t);
 
-/// Attach a comment to a variable (written to PTX assembly)
-extern ENOKI_IMPORT void   cuda_var_set_comment(uint32_t, const char *);
+/// Attach a label to a variable (written to PTX assembly)
+extern ENOKI_IMPORT void   cuda_var_set_label(uint32_t, const char *);
 
 /// Needed to mark certain instructions with side effects (e.g. scatter)
 extern ENOKI_IMPORT void   cuda_var_mark_side_effect(uint32_t);
@@ -713,6 +713,16 @@ protected:
 protected:
     Index m_index = 0;
 };
+
+template <typename T, enable_if_t<!is_diff_array_v<T> && is_cuda_array_v<T>> = 0>
+ENOKI_INLINE void set_label(const T& a, const char *label) {
+    if constexpr (array_depth_v<T> >= 2) {
+        for (size_t i = 0; i < T::Size; ++i)
+            set_label(a.coeff(i), (std::string(label) + "." + std::to_string(i)).c_str());
+    } else {
+        cuda_var_set_label(a.index_(), label);
+    }
+}
 
 template <typename T> class cuda_managed_allocator {
 public:

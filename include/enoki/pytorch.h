@@ -352,7 +352,6 @@ void pytorch_register_function(pybind11::module &m, const std::string &op_name,
 @classmethod
 def forward(cls, *args, **kwargs):
     result = cls.forward_impl(*args, **kwargs)
-    print('*** CUDA flush')
     cls.cuda_eval()
     return result
 
