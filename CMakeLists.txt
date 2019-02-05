@@ -244,6 +244,8 @@ add_definitions(-DENOKI_BUILD=1)
 if (ENOKI_CUDA)
   include_directories(ext/cub)
   string(APPEND CMAKE_CUDA_FLAGS "-gencode arch=compute_75,code=sm_75")
+  set(CMAKE_SHARED_LINKER_FLAGS_BACKUP "${CMAKE_SHARED_LINKER_FLAGS}")
+  string(REPLACE "-stdlib=libc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
   add_library(enoki-cuda SHARED
       src/cuda/common.cuh
       src/cuda/common.cu
