@@ -418,13 +418,21 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     }
 
     CUDAArray sl_(const CUDAArray &v) const {
-        return CUDAArray::from_index(cuda_trace_append(Type,
-            "shl.$b1 $r1, $r2, $r3", index_(), v.index_()));
+        if constexpr (sizeof(Value) == 4)
+            return CUDAArray::from_index(cuda_trace_append(Type,
+                "shl.$b1 $r1, $r2, $r3", index_(), v.index_()));
+        else
+            return CUDAArray::from_index(cuda_trace_append(Type,
+                "shl.$b1 $r1, $r2, $r3", index_(), CUDAArray<int32_t>(v).index_()));
     }
 
     CUDAArray sr_(const CUDAArray &v) const {
-        return CUDAArray::from_index(cuda_trace_append(Type,
-            "shr.$b1 $r1, $r2, $r3", index_(), v.index_()));
+        if constexpr (sizeof(Value) == 4)
+            return CUDAArray::from_index(cuda_trace_append(Type,
+                "shr.$b1 $r1, $r2, $r3", index_(), v.index_()));
+        else
+            return CUDAArray::from_index(cuda_trace_append(Type,
+                "shr.$b1 $r1, $r2, $r3", index_(), CUDAArray<int32_t>(v).index_()));
     }
 
     template <size_t Imm> CUDAArray sl_() const { return sl_(Value(Imm)); }
