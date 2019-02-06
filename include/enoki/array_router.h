@@ -185,7 +185,7 @@ ENOKI_ROUTE_BINARY_BITOP(operator&&, and)
 ENOKI_ROUTE_BINARY_BITOP(operator|,  or)
 ENOKI_ROUTE_BINARY_BITOP(operator||, or)
 ENOKI_ROUTE_BINARY_BITOP(operator^,  xor)
-ENOKI_ROUTE_BINARY_SCALAR(andnot, andnot, a1 & ~a2)
+ENOKI_ROUTE_BINARY_SCALAR(andnot, andnot, a1 & !a2)
 
 ENOKI_ROUTE_BINARY(operator<,  lt)
 ENOKI_ROUTE_BINARY(operator<=, le)

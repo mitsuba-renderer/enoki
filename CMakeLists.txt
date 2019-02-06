@@ -272,10 +272,17 @@ if (ENOKI_AUTODIFF)
 endif()
 
 if (ENOKI_PYTHON)
-  add_subdirectory(ext/pybind11)
+  if ((NOT ENOKI_CUDA) OR (NOT ENOKI_AUTODIFF))
+    message(FATAL_ERROR "The Enoki python module requires -DENOKI_CUDA=1 and -DENOKI_AUTODIFF=1")
+  endif()
+
+  set(ENOKI_PYBIND11_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ext/pybind11"
+    CACHE STRING "Path containing the 'pybind11' library used to compile Enoki.")
+
   set(CMAKE_CXX_STANDARD 17)
+  add_subdirectory(${ENOKI_PYBIND11_DIR} pybind11)
   pybind11_add_module(
-      enoki
+      enoki-python
       ${PROJECT_SOURCE_DIR}/src/python/common.h
       ${PROJECT_SOURCE_DIR}/src/python/main.cpp
       ${PROJECT_SOURCE_DIR}/src/python/cuda_1d.cpp
@@ -285,7 +292,8 @@ if (ENOKI_PYTHON)
       ${PROJECT_SOURCE_DIR}/src/python/autodiff_2d.cpp
       ${PROJECT_SOURCE_DIR}/src/python/autodiff_3d.cpp
   )
-  target_link_libraries(enoki PRIVATE enoki-cuda enoki-autodiff cuda)
+  set_target_properties(enoki-python PROPERTIES OUTPUT_NAME "enoki")
+  target_link_libraries(enoki-python PRIVATE enoki-cuda enoki-autodiff cuda)
 endif()
 
 # Build the documentation

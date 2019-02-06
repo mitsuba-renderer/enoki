@@ -68,7 +68,7 @@ struct type_caster<Value, std::enable_if_t<enoki::is_array_v<Value> &&
                 arr = np.attr("asarray")(arr, sizeof(Scalar) == 4 ? "c8" : "c16", "F");
                 arr = np.attr("expand_dims")(arr, -1).attr("view")(
                     sizeof(Scalar) == 4 ? "f4" : "f8");
-            } catch (error_already_set) {
+            } catch (const error_already_set &) {
                 return false;
             }
         }
@@ -86,7 +86,7 @@ struct type_caster<Value, std::enable_if_t<enoki::is_array_v<Value> &&
 
         try {
             enoki::set_shape(value, shape);
-        } catch (std::length_error) {
+        } catch (const std::length_error &) {
             return false;
         }
 
