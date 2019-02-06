@@ -54,6 +54,7 @@ enoki-cuda.dll
 libenoki-autodiff.so
 libenoki-autodiff.dylib
 enoki-autodiff.dll
+enoki.cpython*
 
 # Documentation
 /html

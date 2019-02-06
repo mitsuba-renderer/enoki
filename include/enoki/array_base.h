@@ -189,6 +189,19 @@ namespace detail {
             constexpr size_t k = N - sizeof...(Indices) - 1;
             os << "[";
             for (size_t i = 0; i < size[k]; ++i) {
+                if constexpr (is_dynamic_array_v<Array>) {
+                    if (size[k] > 10 && i == 2) {
+                        if (k > 0) {
+                            os << "...,\n";
+                            for (size_t j = 0; j <= sizeof...(Indices); ++j)
+                                os << " ";
+                        } else {
+                            os << "..., ";
+                        }
+                        i = size[k] - 3;
+                        continue;
+                    }
+                }
                 print(os, a, size, i, indices...);
                 if (i + 1 < size[k]) {
                     if constexpr (k == 0) {

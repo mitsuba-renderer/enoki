@@ -8,6 +8,7 @@ set(CMAKE_MACOSX_RPATH ON)
 
 option(ENOKI_CUDA     "Build Enoki CUDA library?" OFF)
 option(ENOKI_AUTODIFF "Build Enoki automatic differentation library?" OFF)
+option(ENOKI_PYTHON   "Build pybind11 interface to CUDA & automatic differntiation libraries?" OFF)
 
 if (ENOKI_CUDA)
   project(enoki CXX CUDA)
@@ -268,6 +269,23 @@ if (ENOKI_AUTODIFF)
       ${PROJECT_SOURCE_DIR}/include/enoki/autodiff.h
       ${PROJECT_SOURCE_DIR}/src/autodiff/autodiff.cpp
   )
+endif()
+
+if (ENOKI_PYTHON)
+  add_subdirectory(ext/pybind11)
+  set(CMAKE_CXX_STANDARD 17)
+  pybind11_add_module(
+      enoki
+      ${PROJECT_SOURCE_DIR}/src/python/common.h
+      ${PROJECT_SOURCE_DIR}/src/python/main.cpp
+      ${PROJECT_SOURCE_DIR}/src/python/cuda_1d.cpp
+      ${PROJECT_SOURCE_DIR}/src/python/cuda_2d.cpp
+      ${PROJECT_SOURCE_DIR}/src/python/cuda_3d.cpp
+      ${PROJECT_SOURCE_DIR}/src/python/autodiff_1d.cpp
+      ${PROJECT_SOURCE_DIR}/src/python/autodiff_2d.cpp
+      ${PROJECT_SOURCE_DIR}/src/python/autodiff_3d.cpp
+  )
+  target_link_libraries(enoki PRIVATE enoki-cuda enoki-autodiff cuda)
 endif()
 
 # Build the documentation

@@ -1215,6 +1215,19 @@ template <typename T1 = void, typename T2> decltype(auto) gradient(const T2 &a) 
     }
 }
 
+template <typename T1, typename T2> decltype(auto) set_gradient(T1 &a, const T2 &b) {
+    if constexpr (array_depth_v<T1> >= 2) {
+        for (size_t i = 0; i < array_size_v<T1>; ++i)
+            set_gradient(a[i], b[i]);
+    } else if constexpr (is_diff_array_v<T1>) {
+        a.set_gradient_(b);
+    } else if constexpr (std::is_integral_v<T2>) {
+        T1::set_gradient_static_(a, b);
+    } else {
+        static_assert(detail::false_v<T1, T2>, "The given array does not have derivatives.");
+    }
+}
+
 template <typename T> void backward(const T& a, bool free_edges = true) {
     a.backward_(free_edges);
 }

@@ -138,7 +138,8 @@ struct Context {
 
     void clear() {
 #if ENOKI_CUDA_DEBUG_TRACE || ENOKI_CUDA_DEBUG_MODERATE
-        std::cerr << "cuda_shutdown()" << std::endl;
+        if (ctr != 0 || variables.size() > 0)
+            std::cerr << "cuda_shutdown()" << std::endl;
         size_t n_live = 0;
         for (auto const &var : variables) {
             if (var.first < ENOKI_CUDA_REG_RESERVED)
