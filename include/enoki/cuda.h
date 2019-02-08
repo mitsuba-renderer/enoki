@@ -553,18 +553,16 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     }
 
     static CUDAArray zero_(size_t size) {
-        if (size <= 1) {
-            CUDAArray result(Value(0));
-            cuda_var_set_size(result.index_(), size);
-            return result;
-        } else {
+        if (size <= 1)
+            return CUDAArray(Value(0));
+        else
             return CUDAArray::from_index(cuda_var_register(
                 Type, size, cuda_malloc_zero(size * sizeof(Value)), 0, true));
-        }
     }
 
     static CUDAArray empty_(size_t size) {
-        return zero_(size);
+        return CUDAArray::from_index(cuda_var_register(
+            Type, size, cuda_malloc(size * sizeof(Value)), 0, true));
     }
 
     static CUDAArray full_(const Value &value, size_t size) {

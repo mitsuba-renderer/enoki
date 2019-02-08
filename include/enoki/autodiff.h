@@ -112,6 +112,7 @@ public:
     using Tape = enoki::Tape<Value>;
 
     using UnderlyingType = Value;
+    using ArrayType = DiffArray;
     using MaskType = DiffArray<mask_t<Value>>;
 
     static constexpr size_t Size = is_scalar_v<Value> ? 1 : array_size_v<Value>;
@@ -1070,11 +1071,21 @@ public:
     //! @}
     // -----------------------------------------------------------------------
 
-    void requires_gradient_() {
-        if constexpr (!Enabled)
-            fail_unsupported("requires_gradient_");
-        else if (m_index == 0)
-            m_index = tape()->append_leaf(slices(m_value));
+    void set_requires_gradient_(bool value) {
+        if constexpr (!Enabled) {
+            fail_unsupported("set_requires_gradient_");
+        } else {
+            if (value && m_index == 0) {
+                m_index = tape()->append_leaf(slices(m_value));
+            } else if (!value && m_index != 0) {
+                tape()->dec_ref(m_index);
+                m_index = 0;
+            }
+        }
+    }
+
+    bool requires_gradient_() const {
+        return Enabled && m_index != 0;
     }
 
     void set_label_(const char *label) const {
@@ -1126,6 +1137,8 @@ public:
     }
 
     static void set_scatter_gather_operand_(const DiffArray &v, bool permute) {
+        ENOKI_MARK_USED(v);
+        ENOKI_MARK_USED(permute);
         if constexpr (Enabled)
             tape()->set_scatter_gather_operand(const_cast<Index *>(&v.m_index),
                                                v.size(), permute);
@@ -1175,34 +1188,29 @@ ENOKI_INLINE void set_label(const T& a, const char *label) {
     }
 }
 
-template <typename T> ENOKI_INLINE void requires_gradient(T& a, const char *label) {
+template <typename T> ENOKI_INLINE bool requires_gradient(T& a) {
     if constexpr (is_diff_array_v<T>) {
         if constexpr (array_depth_v<T> >= 2) {
-            for (size_t i = 0; i < T::Size; ++i)
-                requires_gradient(a.coeff(i));
+            for (size_t i = 0; i < a.size(); ++i) {
+                if (requires_gradient(a.coeff(i)))
+                    return true;
+            }
+            return false;
         } else {
-            a.requires_gradient_();
+            return a.requires_gradient_();
         }
-        if (label)
-            set_label(a, label);
     }
 }
 
-template <typename T> ENOKI_INLINE void requires_gradient(T& a) {
+template <typename T> ENOKI_INLINE void set_requires_gradient(T& a, bool value = true) {
     if constexpr (is_diff_array_v<T>) {
         if constexpr (array_depth_v<T> >= 2) {
             for (size_t i = 0; i < a.size(); ++i)
-                requires_gradient(a.coeff(i));
+                set_requires_gradient(a.coeff(i), value);
         } else {
-            a.requires_gradient_();
+            a.set_requires_gradient_(value);
         }
     }
-}
-
-template <typename... Args, enable_if_t<(sizeof...(Args) > 1)> = 0>
-void requires_gradient(Args &... args) {
-    bool unused[] = { (requires_gradient(args), false)... };
-    (void) unused;
 }
 
 template <typename T1 = void, typename T2> decltype(auto) gradient(const T2 &a) {

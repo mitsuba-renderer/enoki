@@ -38,14 +38,14 @@ using Vector3fD = Array<FloatD, 3>;
 
 ENOKI_TEST(test00_identity) {
     FloatD x = 2.f;
-    requires_gradient(x);
+    set_requires_gradient(x);
     backward(x);
     assert(gradient(x)[0] == 1.f);
 }
 
 ENOKI_TEST(test01_add) {
     FloatD x = 2.f, y = 3.f;
-    requires_gradient(x, y);
+    set_requires_gradient(x, y);
     FloatD z = x + y;
     backward(z);
     assert(gradient(x)[0] == 1.f);
@@ -54,8 +54,8 @@ ENOKI_TEST(test01_add) {
 
 ENOKI_TEST(test02_sub) {
     FloatD x = 2.f, y = 3.f;
-    requires_gradient(x);
-    requires_gradient(y);
+    set_requires_gradient(x);
+    set_requires_gradient(y);
     FloatD z = x - y;
     backward(z);
     assert(gradient(x)[0] == 1.f);
@@ -64,8 +64,8 @@ ENOKI_TEST(test02_sub) {
 
 ENOKI_TEST(test03_mul) {
     FloatD x = 2.f, y = 3.f;
-    requires_gradient(x);
-    requires_gradient(y);
+    set_requires_gradient(x);
+    set_requires_gradient(y);
     FloatD z = x * y;
     backward(z);
     assert(gradient(x)[0] == 3.f);
@@ -74,8 +74,8 @@ ENOKI_TEST(test03_mul) {
 
 ENOKI_TEST(test04_div) {
     FloatD x = 2.f, y = 3.f;
-    requires_gradient(x);
-    requires_gradient(y);
+    set_requires_gradient(x);
+    set_requires_gradient(y);
     FloatD z = x / y;
     backward(z);
     assert(std::abs(gradient(x)[0] - 1.f / 3.f) < 1e-6f);
@@ -84,7 +84,7 @@ ENOKI_TEST(test04_div) {
 
 ENOKI_TEST(test05_hsum_0) {
     FloatD x = linspace<FloatD>(0.f, 1.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = hsum(x*x);
     backward(y);
     assert(y.size() == 1 && allclose(y.coeff(0), 95.f/27.f));
@@ -93,7 +93,7 @@ ENOKI_TEST(test05_hsum_0) {
 
 ENOKI_TEST(test05_hsum_1) {
     FloatD x = linspace<FloatD>(0.f, 1.f, 11);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD z = hsum(hsum(x)*x);
     backward(z);
     assert(gradient(x) == 11.f);
@@ -101,7 +101,7 @@ ENOKI_TEST(test05_hsum_1) {
 
 ENOKI_TEST(test05_hsum_2) {
     FloatD x = linspace<FloatD>(0.f, 1.f, 11);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD z = hsum(hsum(x*x)*x*x);
     backward(z);
 
@@ -111,7 +111,7 @@ ENOKI_TEST(test05_hsum_2) {
 
 ENOKI_TEST(test06_hprod) {
     FloatD x = linspace<FloatD>(1.f, 2.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = hprod(x);
     backward(y);
     assert(allclose(gradient(x), hprod(x) / x) &&
@@ -120,7 +120,7 @@ ENOKI_TEST(test06_hprod) {
 
 ENOKI_TEST(test07_sqrt) {
     FloatD x = linspace<FloatD>(1.f, 2.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = sqrt(x);
     backward(y);
     assert(allclose(y, sqrt(x)));
@@ -129,7 +129,7 @@ ENOKI_TEST(test07_sqrt) {
 
 ENOKI_TEST(test08_rsqrt) {
     FloatD x = linspace<FloatD>(1.f, 2.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = rsqrt(x);
     backward(y);
     assert(allclose(y, rsqrt(x)));
@@ -138,7 +138,7 @@ ENOKI_TEST(test08_rsqrt) {
 
 ENOKI_TEST(test09_exp) {
     FloatD x = linspace<FloatD>(0.f, 1.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = exp(x*x);
     backward(y);
     assert(allclose(y, exp(sqr(detach(x)))));
@@ -147,7 +147,7 @@ ENOKI_TEST(test09_exp) {
 
 ENOKI_TEST(test10_log) {
     FloatD x = linspace<FloatD>(1.f, 2.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = log(x*x);
     backward(y);
     assert(allclose(y, log(sqr(detach(x)))));
@@ -156,7 +156,7 @@ ENOKI_TEST(test10_log) {
 
 ENOKI_TEST(test11_sin) {
     FloatD x = linspace<FloatD>(0.f, 1.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = sin(x*x);
     backward(y);
     assert(allclose(y, sin(sqr(detach(x)))));
@@ -165,7 +165,7 @@ ENOKI_TEST(test11_sin) {
 
 ENOKI_TEST(test12_cos) {
     FloatD x = linspace<FloatD>(0.f, 1.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = cos(x*x);
     backward(y);
     assert(allclose(y, cos(sqr(detach(x)))));
@@ -174,7 +174,7 @@ ENOKI_TEST(test12_cos) {
 
 ENOKI_TEST(test13_tan) {
     FloatD x = linspace<FloatD>(0.f, 1.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = tan(x*x);
     backward(y);
     assert(allclose(y, tan(sqr(detach(x)))));
@@ -183,7 +183,7 @@ ENOKI_TEST(test13_tan) {
 
 ENOKI_TEST(test14_csc) {
     FloatD x = linspace<FloatD>(1.f, 2.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = csc(x*x);
     backward(y);
     assert(allclose(y, csc(sqr(detach(x)))));
@@ -193,7 +193,7 @@ ENOKI_TEST(test14_csc) {
 
 ENOKI_TEST(test15_sec) {
     FloatD x = linspace<FloatD>(1.f, 2.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = cot(x*x);
     backward(y);
     assert(allclose(y, cot(sqr(detach(x)))));
@@ -202,7 +202,7 @@ ENOKI_TEST(test15_sec) {
 
 ENOKI_TEST(test17_asin) {
     FloatD x = linspace<FloatD>(-.8f, .8f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = asin(x*x);
     backward(y);
     assert(allclose(y, asin(sqr(detach(x)))));
@@ -211,7 +211,7 @@ ENOKI_TEST(test17_asin) {
 
 ENOKI_TEST(test18_acos) {
     FloatD x = linspace<FloatD>(-.8f, .8f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = acos(x*x);
     backward(y);
     assert(allclose(y, acos(sqr(detach(x)))));
@@ -220,7 +220,7 @@ ENOKI_TEST(test18_acos) {
 
 ENOKI_TEST(test19_atan) {
     FloatD x = linspace<FloatD>(-.8f, .8f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = atan(x*x);
     backward(y);
     assert(allclose(y, atan(sqr(detach(x)))));
@@ -229,7 +229,7 @@ ENOKI_TEST(test19_atan) {
 
 ENOKI_TEST(test20_sinh) {
     FloatD x = linspace<FloatD>(-1.f, 1.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = sinh(x*x);
     backward(y);
     assert(allclose(y, sinh(sqr(detach(x)))));
@@ -238,7 +238,7 @@ ENOKI_TEST(test20_sinh) {
 
 ENOKI_TEST(test21_cosh) {
     FloatD x = linspace<FloatD>(-1.f, 1.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = cosh(x*x);
     backward(y);
     assert(allclose(y, cosh(sqr(detach(x)))));
@@ -247,7 +247,7 @@ ENOKI_TEST(test21_cosh) {
 
 ENOKI_TEST(test22_tanh) {
     FloatD x = linspace<FloatD>(-1.f, 1.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = tanh(x*x);
     backward(y);
     assert(allclose(y, tanh(sqr(detach(x)))));
@@ -256,7 +256,7 @@ ENOKI_TEST(test22_tanh) {
 
 ENOKI_TEST(test23_csch) {
     FloatD x = linspace<FloatD>(-1.f, 1.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = csch(x*x);
     backward(y);
     assert(allclose(y, csch(sqr(detach(x)))));
@@ -265,7 +265,7 @@ ENOKI_TEST(test23_csch) {
 
 ENOKI_TEST(test24_sech) {
     FloatD x = linspace<FloatD>(-1.f, 1.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = sech(x*x);
     backward(y);
     assert(allclose(y, sech(sqr(detach(x)))));
@@ -274,7 +274,7 @@ ENOKI_TEST(test24_sech) {
 
 ENOKI_TEST(test25_coth) {
     FloatD x = linspace<FloatD>(-1.f, 1.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = asinh(x*x);
     backward(y);
     assert(allclose(y, asinh(sqr(detach(x)))));
@@ -283,7 +283,7 @@ ENOKI_TEST(test25_coth) {
 
 ENOKI_TEST(test26_acosh) {
     FloatD x = linspace<FloatD>(1.01f, 2.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = acosh(x*x);
     backward(y);
     assert(allclose(y, acosh(sqr(detach(x)))));
@@ -292,7 +292,7 @@ ENOKI_TEST(test26_acosh) {
 
 ENOKI_TEST(test27_atanh) {
     FloatD x = linspace<FloatD>(-.99f, .99f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = atanh(x*x);
     backward(y);
     assert(allclose(y, atanh(sqr(detach(x)))));
@@ -301,7 +301,7 @@ ENOKI_TEST(test27_atanh) {
 
 ENOKI_TEST(test28_linear_to_srgb) {
     FloatD x = linspace<FloatD>(0.f, 1.f, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
     FloatD y = linear_to_srgb(x);
 
     backward(y);
@@ -319,8 +319,10 @@ ENOKI_TEST(test29_scatter_add) {
     FloatD x = linspace<FloatD>(0, 1, 5);
     FloatD y = linspace<FloatD>(1, 2, 4);
 
-    requires_gradient(x, "x");
-    requires_gradient(y, "y");
+    set_requires_gradient(x);
+    set_requires_gradient(y);
+    set_label(x, "x");
+    set_label(y, "y");
 
     FloatD buf = zero<FloatD>(10);
     scatter_add(buf, x, idx1);
@@ -350,8 +352,10 @@ ENOKI_TEST(test30_scatter) {
     FloatD x = linspace<FloatD>(0, 1, 5);
     FloatD y = linspace<FloatD>(1, 2, 4);
 
-    requires_gradient(x, "x");
-    requires_gradient(y, "y");
+    set_requires_gradient(x);
+    set_requires_gradient(y);
+    set_label(x, "x");
+    set_label(y, "y");
 
     FloatD buf = zero<FloatD>(10);
     scatter(buf, x, idx1);
@@ -421,7 +425,7 @@ ENOKI_TEST(test32_sample_disk) {
     Vector2f x(.2f, .3f);
 
     Vector2fD y(x);
-    requires_gradient(y);
+    set_requires_gradient(y);
 
     Vector3fD z = square_to_beckmann(y, .4f);
     Vector3f z_ref (-0.223574f, -0.12908f, 0.966102f);
@@ -445,8 +449,10 @@ ENOKI_TEST(test33_bcast) {
     FloatD x(5.f);
     FloatD y = arange<FloatD>(10);
 
-    requires_gradient(x, "x");
-    requires_gradient(y, "y");
+    set_requires_gradient(x);
+    set_requires_gradient(y);
+    set_label(x, "x");
+    set_label(y, "y");
     FloatD z = hsum(sqr(sin(x)*cos(y)));
     backward(z);
 
@@ -458,7 +464,7 @@ ENOKI_TEST(test33_bcast) {
 
 ENOKI_TEST(test34_gradient_descent) {
     FloatD x = zero<FloatD>(10);
-    requires_gradient(x, "x");
+    set_requires_gradient(x, "x");
     float loss_f = 0.f;
     for (size_t i = 0; i < 10; ++i) {
         FloatD loss = norm(x - linspace<FloatD>(0, 1, 10));
@@ -501,7 +507,7 @@ ENOKI_TEST(test35_call) {
                          FunctionD(reciprocal));
 
     FloatD x = linspace<FloatD>(1, 2, 10);
-    requires_gradient(x);
+    set_requires_gradient(x);
 
     FloatD out = f->eval(x);
     backward(out);

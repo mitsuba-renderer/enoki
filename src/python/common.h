@@ -248,8 +248,12 @@ py::class_<Array> bind(py::module &m, const char *name) {
     if constexpr (IsFloat && is_diff_array_v<Array>) {
         m.def("detach", [](const Array &a) { return detach(a); });
         m.def("requires_gradient",
-              [](Array &a, const char *label) { requires_gradient(a); },
-              "array"_a, "label"_a = py::none());
+              [](const Array &a) { return requires_gradient(a); },
+              "array"_a);
+
+        m.def("set_requires_gradient",
+              [](Array &a, bool value) { set_requires_gradient(a, value); },
+              "array"_a, "value"_a = true);
 
         m.def("gradient", [](Array &a) { return gradient(a); });
         m.def("set_gradient",
