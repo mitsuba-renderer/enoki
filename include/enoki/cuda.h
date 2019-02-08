@@ -138,6 +138,9 @@ extern ENOKI_IMPORT void* cuda_managed_malloc(size_t);
 /// Release unified memory (wrapper around cudaFree)
 extern ENOKI_IMPORT void cuda_free(void *);
 
+/// Current log level (0 == none, 1 == minimal, 2 == moderate, 3 == high, 4 == everything)
+extern ENOKI_IMPORT void cuda_set_log_level(uint32_t);
+
 //! @}
 // -----------------------------------------------------------------------
 

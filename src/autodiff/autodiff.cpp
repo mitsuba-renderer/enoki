@@ -23,12 +23,14 @@
 #include <set>
 #include <sstream>
 
-#if !defined(ENOKI_AUTODIFF_DEBUG_TRACE)
-#  define ENOKI_AUTODIFF_DEBUG_TRACE  0
-#endif
-
 #if !defined(ENOKI_AUTODIFF_EXPAND_LIMIT)
 #  define ENOKI_AUTODIFF_EXPAND_LIMIT 3
+#endif
+
+#if defined(NDEBUG)
+#  define ENOKI_AUTODIFF_DEFAULT_LOG_LEVEL 0
+#else
+#  define ENOKI_AUTODIFF_DEFAULT_LOG_LEVEL 1
 #endif
 
 NAMESPACE_BEGIN(enoki)
@@ -128,6 +130,7 @@ template <typename Value> struct Tape<Value>::Detail {
     Index *scatter_gather_index = nullptr;
     size_t scatter_gather_size = 0;
     bool scatter_gather_permute = false;
+    uint32_t log_level = ENOKI_AUTODIFF_DEFAULT_LOG_LEVEL;
 
     /// Set of indices selected for next backward pass
     std::set<uint32_t> scheduled;
@@ -135,7 +138,7 @@ template <typename Value> struct Tape<Value>::Detail {
     Node &node(Index index) {
         auto it = nodes.find(index);
         if (it == nodes.end())
-            throw std::runtime_error("Tape::Detail::node(): Unknown index " +
+            throw std::runtime_error("autodiff: Detail::node(): Unknown index " +
                                      std::to_string(index));
         return it->second;
     }
@@ -167,14 +170,20 @@ template <typename Value> Tape<Value>::Tape() {
 }
 
 template <typename Value> Tape<Value>::~Tape() {
-#if ENOKI_AUTODIFF_DEBUG_TRACE
-    for (const auto &it : d->nodes) {
-        std::cerr << "autodiff: variable " << it.first
-                  << " still live at shutdown. (ref_count="
-                  << it.second.ref_count << ")" << std::endl;
+#if !defined(NDEBUG)
+    if (d->log_level >= 1) {
+        for (const auto &it : d->nodes) {
+            std::cerr << "autodiff: variable " << it.first
+                      << " still live at shutdown. (ref_count="
+                      << it.second.ref_count << ")" << std::endl;
+        }
     }
 #endif
     delete d;
+}
+
+template <typename Value> void Tape<Value>::set_log_level(uint32_t level) {
+    d->log_level = level;
 }
 
 template <typename Value>
@@ -182,9 +191,10 @@ Index Tape<Value>::append(const char *label, size_t size, Index i1, const Value 
     if (i1 == 0)
         return 0;
     Index idx = append_node(size, label);
-#if ENOKI_AUTODIFF_DEBUG_TRACE
-    std::cerr << "Tape::append(\"" << (label ? label : "") << "\", " << idx
-              << " <- " << i1 << ")" << std::endl;
+#if !defined(NDEBUG)
+    if (d->log_level >= 3)
+        std::cerr << "autodiff: append(\"" << (label ? label : "") << "\", " << idx
+                  << " <- " << i1 << ")" << std::endl;
 #endif
     append_edge(i1, idx, w1);
     return idx;
@@ -196,9 +206,10 @@ Index Tape<Value>::append(const char *label, size_t size, Index i1, Index i2,
     if (i1 == 0 && i2 == 0)
         return 0;
     Index idx = append_node(size, label);
-#if ENOKI_AUTODIFF_DEBUG_TRACE
-    std::cerr << "Tape::append(\"" << (label ? label : "") << "\", " << idx
-              << " <- [" << i1 << ", " << i2 << "])" << std::endl;
+#if !defined(NDEBUG)
+    if (d->log_level >= 3)
+        std::cerr << "autodiff: append(\"" << (label ? label : "") << "\", " << idx
+                  << " <- [" << i1 << ", " << i2 << "])" << std::endl;
 #endif
     append_edge(i1, idx, w1);
     append_edge(i2, idx, w2);
@@ -211,9 +222,10 @@ Index Tape<Value>::append(const char *label, size_t size, Index i1, Index i2, In
     if (i1 == 0 && i2 == 0 && i3 == 0)
         return 0;
     Index idx = append_node(size, label);
-#if ENOKI_AUTODIFF_DEBUG_TRACE
-    std::cerr << "Tape::append(\"" << (label ? label : "") << "\", " << idx
-              << " <- [" << i1 << ", " << i2 << ", " << i3 << "])" << std::endl;
+#if !defined(NDEBUG)
+    if (d->log_level >= 3)
+        std::cerr << "autodiff: append(\"" << (label ? label : "") << "\", " << idx
+                  << " <- [" << i1 << ", " << i2 << ", " << i3 << "])" << std::endl;
 #endif
     append_edge(i1, idx, w1);
     append_edge(i2, idx, w2);
@@ -230,9 +242,10 @@ Index Tape<Value>::append_node(size_t size, const char *label) {
     for (auto it = d->prefix.rbegin(); it != d->prefix.rend(); ++it)
         node.label = *it + '/' + node.label;
 
-#if ENOKI_AUTODIFF_DEBUG_TRACE
-    std::cerr << "Tape::append_node(\"" << (label ? label : "")
-              << "\", size=" << size << ") -> " << idx << std::endl;
+#if !defined(NDEBUG)
+    if (d->log_level >= 3)
+        std::cerr << "autodiff: append_node(\"" << (label ? label : "")
+                  << "\", size=" << size << ") -> " << idx << std::endl;
 #endif
     inc_ref(idx);
     return idx;
@@ -250,8 +263,9 @@ template <typename Value>
 void Tape<Value>::set_label(Index idx, const char *label) {
     if (idx == 0)
         return;
-#if ENOKI_AUTODIFF_DEBUG_TRACE
-    std::cerr << "Tape::set_label(" << idx << ") -> " << label << std::endl;
+#if !defined(NDEBUG)
+    if (d->log_level >= 3)
+        std::cerr << "autodiff: set_label(" << idx << ") -> " << label << std::endl;
 #endif
     std::string name = "\\\"" + std::string(label) + "\\\"";
     Node &n = d->node(idx);
@@ -297,9 +311,10 @@ Index Tape<Value>::append_gather(const Int64 &offset, const Mask &mask) {
         d->node(target).append_edge(new Edge(source, gather));
         inc_ref(source);
 
-#if ENOKI_AUTODIFF_DEBUG_TRACE
-        std::cerr << "Tape::append_gather(" << target << " <- " << source << ")"
-                  << std::endl;
+#if !defined(NDEBUG)
+        if (d->log_level >= 3)
+            std::cerr << "autodiff: append_gather(" << target << " <- " << source << ")"
+                      << std::endl;
 #endif
 
         return target;
@@ -350,9 +365,10 @@ void Tape<Value>::append_scatter(Index source, const Int64 &offset, const Mask &
 
         *d->scatter_gather_index = target_new;
 
-#if ENOKI_AUTODIFF_DEBUG_TRACE
-        std::cerr << "Tape::append_scatter(" << target_orig << " <- "
-                  << source << ") -> " << target_new << std::endl;
+#if !defined(NDEBUG)
+        if (d->log_level >= 3)
+            std::cerr << "autodiff: append_scatter(" << target_orig << " <- "
+                      << source << ") -> " << target_new << std::endl;
 #endif
     }
 }
@@ -395,9 +411,10 @@ void Tape<Value>::append_scatter_add(Index source, const Int64 &offset,
 
         *d->scatter_gather_index = target_new;
 
-#if ENOKI_AUTODIFF_DEBUG_TRACE
-        std::cerr << "Tape::append_scatter_add(" << target_orig << " <- "
-                  << source << ") -> " << target_new << std::endl;
+#if !defined(NDEBUG)
+        if (d->log_level >= 3)
+            std::cerr << "autodiff: append_scatter_add(" << target_orig << " <- "
+                      << source << ") -> " << target_new << std::endl;
 #endif
     }
 }
@@ -410,9 +427,10 @@ void Tape<Value>::append_edge(Index source_idx, Index target_idx,
         return;
     assert(target_idx != 0);
 
-#if ENOKI_AUTODIFF_DEBUG_TRACE
-    std::cerr << "Tape::append_edge(" << target_idx << " <- " << source_idx
-              << ")" << std::endl;
+#if !defined(NDEBUG)
+    if (d->log_level >= 4)
+        std::cerr << "autodiff: append_edge(" << target_idx << " <- " << source_idx
+                  << ")" << std::endl;
 #endif
 
     Node &source = d->node(source_idx),
@@ -426,8 +444,9 @@ void Tape<Value>::append_edge(Index source_idx, Index target_idx,
         source_deg <= ENOKI_AUTODIFF_EXPAND_LIMIT) {
         Edge *edge = source.edges.get();
         while (edge) {
-#if ENOKI_AUTODIFF_DEBUG_TRACE
-            std::cerr << " ... contracting with edge -> "  << edge->source << std::endl;
+#if !defined(NDEBUG)
+            if (d->log_level >= 4)
+                std::cerr << " ... contracting with edge -> "  << edge->source << std::endl;
 #endif
             Value zero = (Scalar) 0;
             mask_t<Value> edge_is_zero = eq(weight, zero) || eq(edge->weight, zero);
@@ -442,8 +461,9 @@ void Tape<Value>::append_edge(Index source_idx, Index target_idx,
     Edge *edge = target.edges.get();
     while (edge) {
         if (edge->source == source_idx) {
-#if ENOKI_AUTODIFF_DEBUG_TRACE
-            std::cerr << " ... merging into existing edge" << std::endl;
+#if !defined(NDEBUG)
+            if (d->log_level >= 4)
+                std::cerr << " ... merging into existing edge" << std::endl;
 #endif
 
             edge->weight += weight;
@@ -468,8 +488,9 @@ template <typename Value> void Tape<Value>::inc_ref(Index index) {
         return;
     Node &node = d->node(index);
     node.ref_count++;
-#if ENOKI_AUTODIFF_DEBUG_TRACE
-    std::cerr << "Tape::inc_ref(" << index << ") -> " << node.ref_count << std::endl;
+#if !defined(NDEBUG)
+    if (d->log_level >= 4)
+        std::cerr << "autodiff: inc_ref(" << index << ") -> " << node.ref_count << std::endl;
 #endif
 }
 
@@ -478,25 +499,27 @@ template <typename Value> void Tape<Value>::dec_ref(Index index) {
         return;
     Node &node = d->node(index);
     if (node.ref_count == 0)
-        throw std::runtime_error("Tape::dec_ref(): Node " +
+        throw std::runtime_error("autodiff: dec_ref(): Node " +
                                  std::to_string(index) +
                                  " has zero references!");
     --node.ref_count;
-#if ENOKI_AUTODIFF_DEBUG_TRACE
-    std::cerr << "Tape::dec_ref(" << index << ") -> " << node.ref_count << std::endl;
+#if !defined(NDEBUG)
+    if (d->log_level >= 4)
+        std::cerr << "autodiff: dec_ref(" << index << ") -> " << node.ref_count << std::endl;
 #endif
     if (node.ref_count == 0)
         free_node(index);
 }
 
 template <typename Value> void Tape<Value>::free_node(Index index) {
-#if ENOKI_AUTODIFF_DEBUG_TRACE
-    std::cerr << "Tape::free_node(" << index << ")" << std::endl;
+#if !defined(NDEBUG)
+    if (d->log_level >= 4)
+        std::cerr << "autodiff: free_node(" << index << ")" << std::endl;
 #endif
 
     auto it = d->nodes.find(index);
     if (it == d->nodes.end())
-        throw std::runtime_error("Tape::free_node(): Unknown index " +
+        throw std::runtime_error("autodiff: free_node(): Unknown index " +
                                  std::to_string(index));
     Node &node = it->second;
     Edge *edge = node.edges.get();
@@ -589,9 +612,10 @@ void Tape<Value>::backward(bool free_edges) {
         }
     }
 
-    std::cerr << "Processed " << scheduled.size() << "/" << d->node_counter
-              << " nodes, " << edge_count << " edges [" << d->edge_contractions
-              << " edge contractions, " << d->edge_merges << " edge merges].. "
+    if (d->log_level >= 1)
+        std::cerr << "Processed " << scheduled.size() << "/" << d->node_counter
+                  << " nodes, " << edge_count << " edges [" << d->edge_contractions
+                  << " edge contractions, " << d->edge_merges << " edge merges].. "
               << std::endl;
 
     scheduled.clear();

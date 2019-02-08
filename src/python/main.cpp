@@ -18,4 +18,8 @@ PYBIND11_MODULE(enoki, m) {
     m.def("cuda_eval",
           [](bool log_assembly) { enoki::cuda_eval(log_assembly); },
           py::arg("log_assembly") = false);
+
+    m.def("cuda_set_log_level",
+          [](int log_level) { enoki::cuda_set_log_level(log_level); },
+          "Sets the current log level (0 == none, 1 == minimal, 2 == moderate, 3 == high, 4 == everything)");
 }

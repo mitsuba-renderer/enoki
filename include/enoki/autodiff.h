@@ -89,6 +89,8 @@ private:
     void set_label(Index index, const char *name);
     const Value &gradient(Index index);
     std::string graphviz(const std::vector<Index> &indices);
+    /// Current log level (0 == none, 1 == minimal, 2 == moderate, 3 == high, 4 == everything)
+    void set_log_level(uint32_t);
 
     //! @}
     // -----------------------------------------------------------------------
@@ -1132,6 +1134,11 @@ public:
     static void clear_scatter_gather_operand_() {
         if constexpr (Enabled)
             tape()->set_scatter_gather_operand(nullptr, 0, false);
+    }
+
+    static void set_log_level_(uint32_t level) {
+        if constexpr (Enabled)
+            tape()->set_log_level(level);
     }
 
     auto operator->() const {

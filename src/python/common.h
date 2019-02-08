@@ -96,12 +96,15 @@ py::class_<Array> bind(py::module &m, const char *name) {
               [](size_t size) { return arange<Array>(size); }, "size"_a);
     }
 
+    cl.def("__getitem__", [](const Array &a, size_t index) -> Value {
+        if (index >= a.size())
+            throw py::index_error();
+        return a.coeff(index);
+    });
+
+    cl.def("__len__", [](const Array &a) { return a.size(); });
+
     if constexpr (array_depth_v<Array> > 1) {
-        cl.def("__getitem__", [](Array &a, size_t index) -> Value {
-            if (index >= Array::Size)
-                throw py::index_error();
-            return a.coeff(index);
-        });
         cl.def("__setitem__", [](Array &a, size_t index, const Value &b) {
             if (index >= Array::Size)
                 throw py::index_error();
@@ -116,21 +119,25 @@ py::class_<Array> bind(py::module &m, const char *name) {
             cl.def(py::init<Value, Value, Value, Value>());
 
         if constexpr (array_size_v<Array> >= 1)
-            cl.def("x", [](const Array &a) { return a.x(); });
+            cl.def_property("x", [](const Array &a) { return a.x(); },
+                                 [](Array &a, const Value &v) { a.x() = v; });
         if constexpr (array_size_v<Array> >= 2)
-            cl.def("y", [](const Array &a) { return a.y(); });
+            cl.def_property("y", [](const Array &a) { return a.y(); },
+                                 [](Array &a, const Value &v) { a.y() = v; });
         if constexpr (array_size_v<Array> >= 3)
-            cl.def("z", [](const Array &a) { return a.z(); });
+            cl.def_property("z", [](const Array &a) { return a.z(); },
+                                 [](Array &a, const Value &v) { a.z() = v; });
         if constexpr (array_size_v<Array> >= 4)
-            cl.def("w", [](const Array &a) { return a.w(); });
+            cl.def_property("w", [](const Array &a) { return a.w(); },
+                                 [](Array &a, const Value &v) { a.w() = v; });
 
         if constexpr (!IsMask) {
-            cl.def("dot", [](const Array &a, const Array &b) { return enoki::dot(a, b); });
-            cl.def("abs_dot", [](const Array &a, const Array &b) { return enoki::abs_dot(a, b); });
-            cl.def("normalize", [](const Array &a) { return enoki::normalize(a); });
+            m.def("dot", [](const Array &a, const Array &b) { return enoki::dot(a, b); });
+            m.def("abs_dot", [](const Array &a, const Array &b) { return enoki::abs_dot(a, b); });
+            m.def("normalize", [](const Array &a) { return enoki::normalize(a); });
 
             if constexpr (array_size_v<Array> == 3)
-                cl.def("cross", [](const Array &a, const Array &b) { return enoki::cross(a, b); });
+                m.def("cross", [](const Array &a, const Array &b) { return enoki::cross(a, b); });
         }
     }
 
@@ -248,6 +255,10 @@ py::class_<Array> bind(py::module &m, const char *name) {
             cl.def_static("backward", []() { return backward<Array>(); });
         }
     }
+
+    m.def("set_label", [](const Array &a, const char *label) {
+        set_label(a, label);
+    });
 
     py::implicitly_convertible<Value, Array>();
 

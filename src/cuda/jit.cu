@@ -24,14 +24,10 @@
 /// Reserved registers for grid-stride loop indexing
 #define ENOKI_CUDA_REG_RESERVED 10
 
-/// Enable heavy debug output (instructions, reference counts, etc.)
-#if !defined(ENOKI_CUDA_DEBUG_TRACE)
-#  define ENOKI_CUDA_DEBUG_TRACE  0
-#endif
-
-/// Enable moderate debug output
-#if !defined(ENOKI_CUDA_DEBUG_MODERATE)
-#  define ENOKI_CUDA_DEBUG_MODERATE 1
+#if defined(NDEBUG)
+#  define ENOKI_CUDA_DEFAULT_LOG_LEVEL 0
+#else
+#  define ENOKI_CUDA_DEFAULT_LOG_LEVEL 1
 #endif
 
 NAMESPACE_BEGIN(enoki)
@@ -59,7 +55,7 @@ struct Variable {
     std::string label;
 
     /// Number of entries
-    size_t size = 1;
+    size_t size = 0;
 
     /// Pointer to device memory
     void *data = nullptr;
@@ -127,6 +123,9 @@ struct Context {
     /// Current operand array for scatter/gather
     uint32_t scatter_gather_operand = 0;
 
+    /// Current log level (0 == none, 1 == minimal, 2 == moderate, 3 == max.)
+    uint32_t log_level = ENOKI_CUDA_DEFAULT_LOG_LEVEL;
+
     ~Context() { clear(); }
 
     Variable &operator[](uint32_t i) {
@@ -137,19 +136,21 @@ struct Context {
     }
 
     void clear() {
-#if ENOKI_CUDA_DEBUG_TRACE || ENOKI_CUDA_DEBUG_MODERATE
-        if (ctr != 0 || variables.size() > 0)
-            std::cerr << "cuda_shutdown()" << std::endl;
-        size_t n_live = 0;
-        for (auto const &var : variables) {
-            if (var.first < ENOKI_CUDA_REG_RESERVED)
-                continue;
-            ++n_live;
-            std::cerr << "cuda_shutdown(): variable " << var.first << " is still live. "<< std::endl;
+#if !defined(NDEBUG)
+        if (log_level >= 1) {
+            if (ctr != 0 || variables.size() > 0)
+                std::cerr << "cuda_shutdown()" << std::endl;
+            size_t n_live = 0;
+            for (auto const &var : variables) {
+                if (var.first < ENOKI_CUDA_REG_RESERVED)
+                    continue;
+                ++n_live;
+                std::cerr << "cuda_shutdown(): variable " << var.first << " is still live. "<< std::endl;
+            }
+            if (n_live > 0)
+                std::cerr << "cuda_shutdown(): " << n_live
+                          << " variables were still live at shutdown." << std::endl;
         }
-        if (n_live > 0)
-            std::cerr << "cuda_shutdown(): " << n_live
-                      << " variables were still live at shutdown." << std::endl;
 #endif
         ctr = 0;
         dirty.clear();
@@ -203,18 +204,22 @@ ENOKI_EXPORT size_t cuda_var_size(uint32_t index) {
 }
 
 ENOKI_EXPORT void cuda_var_set_label(uint32_t index, const char *str) {
-    context()[index].label = str;
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_var_set_label(" << index << "): " << str << std::endl;
+    Context &ctx = context();
+    ctx[index].label = str;
+#if !defined(NDEBUG)
+    if (ctx.log_level >= 3)
+        std::cerr << "cuda_var_set_label(" << index << "): " << str << std::endl;
 #endif
 }
 
 ENOKI_EXPORT void cuda_var_set_size(uint32_t index, size_t size) {
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_var_set_size(" << index << "): " << size << std::endl;
+    Context &ctx = context();
+#if !defined(NDEBUG)
+    if (ctx.log_level >= 3)
+        std::cerr << "cuda_var_set_size(" << index << "): " << size << std::endl;
 #endif
 
-    Variable &var = context()[index];
+    Variable &var = ctx[index];
     if (var.size == size)
         return;
     if (var.data != nullptr)
@@ -231,10 +236,11 @@ ENOKI_EXPORT uint32_t cuda_var_register(EnokiType type, size_t size, void *ptr,
                                         uint32_t parent, bool free) {
     Context &ctx = context();
     uint32_t idx = ctx.ctr;
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_var_register(" << idx << "): " << ptr
-              << ", size=" << size << ", parent=" << parent
-              << ", free=" << free << std::endl;
+#if !defined(NDEBUG)
+    if (ctx.log_level >= 3)
+        std::cerr << "cuda_var_register(" << idx << "): " << ptr
+                  << ", size=" << size << ", parent=" << parent
+                  << ", free=" << free << std::endl;
 #endif
     Variable &v = ctx.append(type);
     v.dep[0] = parent;
@@ -269,11 +275,13 @@ ENOKI_EXPORT uint32_t cuda_var_copy_to_device(EnokiType type, size_t size,
 ENOKI_EXPORT void cuda_var_free(uint32_t idx) {
     Context &ctx = context();
     Variable &v = ctx[idx];
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_var_free(" << idx << ") = " << v.data;
-    if (!v.free)
-        std::cerr << " (not deleted)";
-    std::cerr << std::endl;
+#if !defined(NDEBUG)
+    if (ctx.log_level >= 4) {
+        std::cerr << "cuda_var_free(" << idx << ") = " << v.data;
+        if (!v.free)
+            std::cerr << " (not deleted)";
+        std::cerr << std::endl;
+    }
 #endif
     for (int i = 0; i < 3; ++i)
         cuda_dec_ref_int(v.dep[i]);
@@ -383,24 +391,28 @@ ENOKI_EXPORT const char *cuda_register_name(EnokiType type) {
 ENOKI_EXPORT void cuda_inc_ref_ext(uint32_t index) {
     if (index < ENOKI_CUDA_REG_RESERVED)
         return;
-    Variable &v = context()[index];
+    Context &ctx = context();
+    Variable &v = ctx[index];
     v.ref_count_ext++;
 
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_inc_ref_ext(" << index << ") -> "
-              << v.ref_count_ext << std::endl;
+#if !defined(NDEBUG)
+    if (ctx.log_level >= 4)
+        std::cerr << "cuda_inc_ref_ext(" << index << ") -> "
+                  << v.ref_count_ext << std::endl;
 #endif
 }
 
 ENOKI_EXPORT void cuda_inc_ref_int(uint32_t index) {
     if (index < ENOKI_CUDA_REG_RESERVED)
         return;
-    Variable &v = context()[index];
+    Context &ctx = context();
+    Variable &v = ctx[index];
     v.ref_count_int++;
 
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_inc_ref_int(" << index << ") -> "
-              << v.ref_count_int << std::endl;
+#if !defined(NDEBUG)
+    if (ctx.log_level >= 4)
+        std::cerr << "cuda_inc_ref_int(" << index << ") -> "
+                  << v.ref_count_int << std::endl;
 #endif
 }
 
@@ -410,14 +422,15 @@ ENOKI_EXPORT void cuda_dec_ref_ext(uint32_t index) {
         return;
     Variable &v = ctx[index];
 
-#if ENOKI_CUDA_DEBUG_TRACE
+#if !defined(NDEBUG)
     if (v.ref_count_ext == 0)
         throw std::runtime_error("cuda_dec_ref_ext(): Node " +
                                  std::to_string(index) +
                                  " has zero external reference count!");
 
-    std::cerr << "cuda_dec_ref_ext(" << index << ") -> "
-              << (v.ref_count_ext - 1) << std::endl;
+    if (ctx.log_level >= 4)
+        std::cerr << "cuda_dec_ref_ext(" << index << ") -> "
+                  << (v.ref_count_ext - 1) << std::endl;
 #endif
 
     if (v.ref_count_ext == 0)
@@ -435,16 +448,18 @@ ENOKI_EXPORT void cuda_dec_ref_ext(uint32_t index) {
 ENOKI_EXPORT void cuda_dec_ref_int(uint32_t index) {
     if (index < ENOKI_CUDA_REG_RESERVED)
         return;
-    Variable &v = context()[index];
+    Context &ctx = context();
+    Variable &v = ctx[index];
 
-#if ENOKI_CUDA_DEBUG_TRACE
+#if !defined(NDEBUG)
     if (v.ref_count_int == 0)
         throw std::runtime_error("cuda_dec_ref_int(): Node " +
                                  std::to_string(index) +
                                  " has zero internal reference count!");
 
-    std::cerr << "cuda_dec_ref_int(" << index << ") -> "
-              << (v.ref_count_int - 1) << std::endl;
+    if (ctx.log_level >= 4)
+        std::cerr << "cuda_dec_ref_int(" << index << ") -> "
+                  << (v.ref_count_int - 1) << std::endl;
 #endif
 
     v.ref_count_int--;
@@ -454,21 +469,24 @@ ENOKI_EXPORT void cuda_dec_ref_int(uint32_t index) {
 }
 
 ENOKI_EXPORT void cuda_var_mark_side_effect(uint32_t index) {
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_var_mark_dirty(" << index << ")" << std::endl;
+    Context &ctx = context();
+#if !defined(NDEBUG)
+    if (ctx.log_level >= 3)
+        std::cerr << "cuda_var_mark_dirty(" << index << ")" << std::endl;
 #endif
 
     assert(index >= ENOKI_CUDA_REG_RESERVED);
-    context()[index].side_effect = true;
+    ctx[index].side_effect = true;
 }
 
 ENOKI_EXPORT void cuda_var_mark_dirty(uint32_t index) {
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_var_mark_dirty(" << index << ")" << std::endl;
+    Context &ctx = context();
+#if !defined(NDEBUG)
+    if (ctx.log_level >= 3)
+        std::cerr << "cuda_var_mark_dirty(" << index << ")" << std::endl;
 #endif
 
     assert(index >= ENOKI_CUDA_REG_RESERVED);
-    Context &ctx = context();
     ctx[index].dirty = true;
     ctx.dirty.push_back(index);
 }
@@ -493,12 +511,14 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
                                         const char *cmd) {
     Context &ctx = context();
     uint32_t idx = ctx.ctr;
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_trace_append(" << idx << "): " << cmd << std::endl;
+#if !defined(NDEBUG)
+    if (ctx.log_level >= 3)
+        std::cerr << "cuda_trace_append(" << idx << "): " << cmd << std::endl;
 #endif
     Variable &v = ctx.append(type);
     v.cmd = cmd;
     v.subtree_size = 1;
+    v.size = 1;
     cuda_inc_ref_ext(idx);
     ctx.live.insert(idx);
     strip_ftz(v);
@@ -515,9 +535,10 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
         cuda_eval();
 
     uint32_t idx = ctx.ctr;
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_trace_append(" << idx << " <- " << arg1 << "): " << cmd
-              << std::endl;
+#if !defined(NDEBUG)
+    if (ctx.log_level >= 3)
+        std::cerr << "cuda_trace_append(" << idx << " <- " << arg1 << "): " << cmd
+                  << std::endl;
 #endif
     Variable &v = ctx.append(type);
     v.size = v1.size;
@@ -544,9 +565,10 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
         cuda_eval();
 
     uint32_t idx = ctx.ctr;
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_trace_append(" << idx << " <- " << arg1 << ", " << arg2
-              << "): " << cmd << std::endl;
+#if !defined(NDEBUG)
+    if (ctx.log_level >= 3)
+        std::cerr << "cuda_trace_append(" << idx << " <- " << arg1 << ", " << arg2
+                  << "): " << cmd << std::endl;
 #endif
 
     Variable &v = ctx.append(type);
@@ -577,9 +599,10 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
         cuda_eval();
 
     uint32_t idx = ctx.ctr;
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_trace_append(" << idx << " <- " << arg1 << ", " << arg2
-              << ", " << arg3 << "): " << cmd << std::endl;
+#if !defined(NDEBUG)
+    if (ctx.log_level >= 3)
+        std::cerr << "cuda_trace_append(" << idx << " <- " << arg1 << ", " << arg2
+                  << ", " << arg3 << "): " << cmd << std::endl;
 #endif
     Variable &v = ctx.append(type);
     v.size = std::max(std::max(v1.size, v2.size), v3.size);
@@ -734,28 +757,31 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep) {
         << ".address_size 64" << std::endl
         << std::endl;
 
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "Register map:" << std::endl;
+#if !defined(NDEBUG)
+    if (ctx.log_level >= 3)
+        std::cerr << "Register map:" << std::endl;
 #endif
 
     uint32_t n_vars = ENOKI_CUDA_REG_RESERVED;
     std::unordered_map<uint32_t, uint32_t> reg_map;
     for (uint32_t index : sweep) {
-#if ENOKI_CUDA_DEBUG_TRACE
-        const Variable &v = ctx[index];
-        std::cerr << "    " << cuda_register_name(v.type) << n_vars << " -> " << index;
-        const std::string &label = v.label;
-        if (!label.empty())
-            std::cerr << " \"" << label << "\"";
-        if (v.size == 1)
-            std::cerr << " [scalar]";
-        if (v.data != nullptr)
-            std::cerr << " [in]";
-        else if (v.side_effect)
-            std::cerr << " [se]";
-        else if (v.ref_count_ext > 0)
-            std::cerr << " [out]";
-        std::cerr << std::endl;
+#if !defined(NDEBUG)
+        if (ctx.log_level >= 3) {
+            const Variable &v = ctx[index];
+            std::cerr << "    " << cuda_register_name(v.type) << n_vars << " -> " << index;
+            const std::string &label = v.label;
+            if (!label.empty())
+                std::cerr << " \"" << label << "\"";
+            if (v.size == 1)
+                std::cerr << " [scalar]";
+            if (v.data != nullptr)
+                std::cerr << " [in]";
+            else if (v.side_effect)
+                std::cerr << " [se]";
+            else if (v.ref_count_ext > 0)
+                std::cerr << " [out]";
+            std::cerr << std::endl;
+        }
 #endif
         reg_map[index] = n_vars++;
     }
@@ -868,10 +894,11 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep) {
                 cuda_var_size(index) * cuda_register_size(var.type);
 
             cuda_check(cudaMalloc(&var.data, size_in_bytes));
-#if ENOKI_CUDA_DEBUG_TRACE
-            std::cerr << "cuda_eval(): allocated variable " << index
-                      << " -> " << var.data << " (" << size_in_bytes
-                      << " bytes)" << std::endl;
+#if !defined(NDEBUG)
+            if (ctx.log_level >= 3)
+                std::cerr << "cuda_eval(): allocated variable " << index
+                          << " -> " << var.data << " (" << size_in_bytes
+                          << " bytes)" << std::endl;
 #endif
             size_t idx = ptrs.size();
             ptrs.push_back(var.data);
@@ -910,11 +937,10 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep) {
         << "    ret;" << std::endl
         << "}" << std::endl;
 
-#if ENOKI_CUDA_DEBUG_TRACE || ENOKI_CUDA_DEBUG_MODERATE
-    std::cerr << "cuda_eval(): launching kernel (n=" << size << ", in="
-              << n_in << ", out=" << n_out << ", ops=" << n_arith
-              << ")" << std::endl;
-#endif
+    if (ctx.log_level >= 1)
+        std::cerr << "cuda_eval(): launching kernel (n=" << size << ", in="
+                  << n_in << ", out=" << n_out << ", ops=" << n_arith
+                  << ")" << std::endl;
 
     return { oss.str(), ptrs };
 }
@@ -1066,8 +1092,9 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
         if (std::get<0>(result).empty())
             continue;
 
-#if ENOKI_CUDA_DEBUG_TRACE
-        log_assembly = true;
+#if !defined(NDEBUG)
+        if (ctx.log_level >= 2)
+            log_assembly = true;
 #endif
 
         cuda_jit_run(std::get<0>(result),
@@ -1133,6 +1160,10 @@ ENOKI_EXPORT void cuda_fetch_element(void *dst, uint32_t src, size_t offset, siz
 
     cuda_check(cudaMemcpy(dst, (uint8_t *) var.data + size * offset,
                           size, cudaMemcpyDeviceToHost));
+}
+
+ENOKI_EXPORT void cuda_set_log_level(uint32_t level) {
+    context().log_level = level;
 }
 
 NAMESPACE_END(enoki)
