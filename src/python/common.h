@@ -110,6 +110,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
     });
 
     cl.def("__len__", [](const Array &a) { return a.size(); });
+    cl.def("resize", [](Array &a, size_t size) { enoki::set_slices(a, size); });
 
     if constexpr (array_depth_v<Array> > 1) {
         cl.def("__setitem__", [](Array &a, size_t index, const Value &b) {
@@ -366,7 +367,7 @@ py::object enoki_to_torch(const Array &src) {
     py::object dtype_obj = torch_dtype<Scalar>();
 
     py::object result = torch.attr("empty")(
-        pybind11::cast(shape_rev),
+        py::cast(shape_rev),
         "dtype"_a = dtype_obj,
         "device"_a = "cuda");
 
@@ -377,7 +378,7 @@ py::object enoki_to_torch(const Array &src) {
     strides = py::cast<std::array<size_t, Depth>>(result.attr("stride")());
     std::reverse(strides.begin(), strides.end());
     CUDAArray<Scalar> target = CUDAArray<Scalar>::map(
-        (Scalar *) pybind11::cast<uintptr_t>(result.attr("data_ptr")()), size);
+        (Scalar *) py::cast<uintptr_t>(result.attr("data_ptr")()), size);
     copy_array_scatter<0>(0, shape, strides, src, target);
     return result;
 }
@@ -396,8 +397,8 @@ template <typename Array> Array torch_to_enoki(py::object src) {
     if (shape_obj.size() != Depth || !dtype_obj.is(target_dtype))
         throw py::reference_cast_error();
 
-    auto shape = pybind11::cast<std::array<size_t, Depth>>(shape_obj);
-    auto strides = pybind11::cast<std::array<size_t, Depth>>(src.attr("stride")());
+    auto shape = py::cast<std::array<size_t, Depth>>(shape_obj);
+    auto strides = py::cast<std::array<size_t, Depth>>(src.attr("stride")());
     std::reverse(shape.begin(), shape.end());
     std::reverse(strides.begin(), strides.end());
 
@@ -406,7 +407,7 @@ template <typename Array> Array torch_to_enoki(py::object src) {
         size *= i;
 
     CUDAArray<Scalar> source = CUDAArray<Scalar>::map(
-        (Scalar *) pybind11::cast<uintptr_t>(src.attr("data_ptr")()), size);
+        (Scalar *) py::cast<uintptr_t>(src.attr("data_ptr")()), size);
 
     Array result;
     copy_array_gather<0>(0, shape, strides, source, result);

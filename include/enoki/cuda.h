@@ -45,22 +45,22 @@ extern ENOKI_IMPORT void cuda_dec_ref_ext(uint32_t);
 extern ENOKI_IMPORT size_t cuda_var_size(uint32_t);
 
 /// Return the pointer address of a variable (in device memory)
-extern ENOKI_IMPORT void*  cuda_var_ptr(uint32_t);
+extern ENOKI_IMPORT void* cuda_var_ptr(uint32_t);
 
 /// Retroactively adjust the recorded size of a variable
-extern ENOKI_IMPORT void   cuda_var_set_size(uint32_t, size_t);
+extern ENOKI_IMPORT uint32_t cuda_var_set_size(uint32_t index, size_t size, bool copy = false);
 
 /// Mark a variable as dirty (e.g. due to scatter)
-extern ENOKI_IMPORT void   cuda_var_mark_dirty(uint32_t);
+extern ENOKI_IMPORT void cuda_var_mark_dirty(uint32_t);
 
 /// Attach a label to a variable (written to PTX assembly)
-extern ENOKI_IMPORT void   cuda_var_set_label(uint32_t, const char *);
+extern ENOKI_IMPORT void cuda_var_set_label(uint32_t, const char *);
 
 /// Needed to mark certain instructions with side effects (e.g. scatter)
-extern ENOKI_IMPORT void   cuda_var_mark_side_effect(uint32_t);
+extern ENOKI_IMPORT void cuda_var_mark_side_effect(uint32_t);
 
 /// Set the current scatter/source operand array
-extern ENOKI_IMPORT void   cuda_set_scatter_gather_operand(uint32_t);
+extern ENOKI_IMPORT void cuda_set_scatter_gather_operand(uint32_t);
 
 /// Append an operation to the trace (0 arguments)
 extern ENOKI_IMPORT uint32_t cuda_trace_append(EnokiType type,
@@ -697,7 +697,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     const void *data() const { return cuda_var_ptr(m_index); }
     void *data() { return cuda_var_ptr(m_index); }
     void resize(size_t size) {
-        cuda_var_set_size(m_index, size);
+        m_index = cuda_var_set_size(m_index, size, true);
     }
 
     Value coeff(size_t i) const {

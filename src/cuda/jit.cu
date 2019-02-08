@@ -39,6 +39,7 @@ void cuda_dec_ref_ext(uint32_t);
 void cuda_dec_ref_int(uint32_t);
 void cuda_eval(bool log_assembly = false);
 size_t cuda_register_size(EnokiType type);
+uint32_t cuda_trace_append(EnokiType type, const char *cmd, uint32_t arg1);
 
 // -----------------------------------------------------------------------
 //! @{ \name 'Variable' type that is used to record instruction traces
@@ -212,7 +213,7 @@ ENOKI_EXPORT void cuda_var_set_label(uint32_t index, const char *str) {
 #endif
 }
 
-ENOKI_EXPORT void cuda_var_set_size(uint32_t index, size_t size) {
+ENOKI_EXPORT uint32_t cuda_var_set_size(uint32_t index, size_t size, bool copy) {
     Context &ctx = context();
 #if !defined(NDEBUG)
     if (ctx.log_level >= 3)
@@ -221,15 +222,26 @@ ENOKI_EXPORT void cuda_var_set_size(uint32_t index, size_t size) {
 
     Variable &var = ctx[index];
     if (var.size == size)
-        return;
-    if (var.data != nullptr)
+        return index;
+    if (var.data != nullptr) {
+        if (var.size == 1 && copy) {
+            uint32_t index_new =
+                cuda_trace_append(var.type, "mov.$t1 $r1, $r2", index);
+            ctx[index_new].size = size;
+            cuda_dec_ref_ext(index);
+            return index_new;
+        }
+
         throw std::runtime_error(
             "cuda_var_set_size(): attempted to resize variable " +
             std::to_string(index) +
             " which was already allocated (current size = " +
             std::to_string(var.size) +
             ", requested size = " + std::to_string(size) + ")");
+
+    }
     var.size = size;
+    return index;
 }
 
 ENOKI_EXPORT uint32_t cuda_var_register(EnokiType type, size_t size, void *ptr,

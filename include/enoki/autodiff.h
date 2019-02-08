@@ -147,8 +147,11 @@ public:
             tape()->inc_ref(m_index);
     }
 
-    DiffArray(DiffArray &&a) : m_value(std::move(a.m_value)), m_index(a.m_index) {
-        a.m_index = 0;
+    DiffArray(DiffArray &&a) : m_value(std::move(a.m_value)) {
+        if constexpr (Enabled) {
+            m_index = a.m_index;
+            a.m_index = 0;
+        }
     }
 
     template <typename T>
@@ -170,15 +173,17 @@ public:
 
     DiffArray &operator=(const DiffArray &a) {
         m_value = a.m_value;
-        m_index = a.m_index;
-        if constexpr (Enabled)
+        if constexpr (Enabled) {
+            m_index = a.m_index;
             tape()->inc_ref(m_index);
+        }
         return *this;
     }
 
     DiffArray &operator=(DiffArray &&a) {
         m_value = std::move(a.m_value);
-        std::swap(m_index, a.m_index);
+        if constexpr (Enabled)
+            std::swap(m_index, a.m_index);
         return *this;
     }
 
