@@ -1158,6 +1158,9 @@ ENOKI_EXPORT void cuda_fetch_element(void *dst, uint32_t src, size_t offset, siz
         throw std::runtime_error(
             "cuda_fetch_element(): tried to read from invalid/uninitialized CUDA array!");
 
+    if (var.size == 1)
+        offset = 0;
+
     cuda_check(cudaMemcpy(dst, (uint8_t *) var.data + size * offset,
                           size, cudaMemcpyDeviceToHost));
 }

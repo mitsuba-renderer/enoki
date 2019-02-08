@@ -613,7 +613,7 @@ void Tape<Value>::backward(bool free_edges) {
     }
 
     if (d->log_level >= 1)
-        std::cerr << "Processed " << scheduled.size() << "/" << d->node_counter
+        std::cerr << "autodiff: processed " << scheduled.size() << "/" << d->node_counter
                   << " nodes, " << edge_count << " edges [" << d->edge_contractions
                   << " edge contractions, " << d->edge_merges << " edge merges].. "
               << std::endl;

@@ -32,6 +32,13 @@ using Vector3uD = Array<UInt32D, 3>;
 using Vector3bC = mask_t<Vector3fC>;
 using Vector3bD = mask_t<Vector3fD>;
 
+using Vector4fC = Array<FloatC, 4>;
+using Vector4fD = Array<FloatD, 4>;
+using Vector4uC = Array<UInt32C, 4>;
+using Vector4uD = Array<UInt32D, 4>;
+using Vector4bC = mask_t<Vector4fC>;
+using Vector4bD = mask_t<Vector4fD>;
+
 template <typename Array>
 py::object enoki_to_torch(const Array &array);
 template <typename Array> Array torch_to_enoki(py::object src);
