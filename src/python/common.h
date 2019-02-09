@@ -6,16 +6,18 @@
 #include <sstream>
 
 using namespace enoki;
-
 namespace py = pybind11;
+using namespace py::literals;
 
 using Float     = float;
 using FloatC    = CUDAArray<Float>;
 using UInt32C   = CUDAArray<uint32_t>;
+using UInt64C   = CUDAArray<uint64_t>;
 using BoolC     = CUDAArray<bool>;
 
 using FloatD    = DiffArray<FloatC>;
 using UInt32D   = DiffArray<UInt32C>;
+using UInt64D   = DiffArray<UInt64C>;
 using BoolD     = DiffArray<BoolC>;
 
 using Vector2fC = Array<FloatC, 2>;
@@ -45,7 +47,6 @@ template <typename Array> Array torch_to_enoki(py::object src);
 
 template <typename Array>
 py::class_<Array> bind(py::module &m, const char *name) {
-    using namespace py::literals;
     using Scalar = scalar_t<Array>;
     using Value  = value_t<Array>;
 
@@ -101,6 +102,11 @@ py::class_<Array> bind(py::module &m, const char *name) {
 
         cl.def_static("arange",
               [](size_t size) { return arange<Array>(size); }, "size"_a);
+
+        cl.def_static("full",
+                      [](const Scalar &value, size_t size) {
+                          return full<Array>(value, size);
+                      }, "value"_a, "size"_a);
     }
 
     cl.def("__getitem__", [](const Array &a, size_t index) -> Value {
@@ -354,7 +360,6 @@ static void copy_array_scatter(size_t offset,
 
 template <typename Array>
 py::object enoki_to_torch(const Array &src) {
-    using namespace py::literals;
     constexpr size_t Depth = array_depth_v<Array>;
     using Scalar = scalar_t<Array>;
 

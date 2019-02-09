@@ -294,6 +294,11 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
             cuda_trace_append(Type, op, index_(), v.index_()));
     }
 
+    CUDAArray mulhi_(const CUDAArray &v) const {
+        return CUDAArray::from_index(cuda_trace_append(
+            Type, "mul.hi.$t1 $r1, $r2, $r3", index_(), v.index_()));
+    }
+
     CUDAArray div_(const CUDAArray &v) const {
         const char *op = std::is_floating_point_v<Value>
             ? "div.rn.ftz.$t1 $r1, $r2, $r3"

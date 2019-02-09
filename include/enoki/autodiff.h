@@ -771,6 +771,14 @@ public:
     //! @{ \name Operations that don't require derivatives
     // -----------------------------------------------------------------------
 
+    DiffArray mulhi_(const DiffArray &a) const {
+        if constexpr (!std::is_integral_v<Scalar>)
+            fail_unsupported("mulhi_");
+        else
+            return mulhi(m_value, a.m_value);
+    }
+
+
     DiffArray not_() const {
         if constexpr ((!is_mask_v<Value> && !std::is_integral_v<Scalar>) ||
                       std::is_pointer_v<Scalar>)

@@ -8,6 +8,7 @@ extern void bind_autodiff_1d(py::module&);
 extern void bind_autodiff_2d(py::module&);
 extern void bind_autodiff_3d(py::module&);
 extern void bind_autodiff_4d(py::module&);
+extern void bind_pcg32(py::module&);
 
 PYBIND11_MODULE(enoki, m) {
     bind_cuda_1d(m);
@@ -18,6 +19,7 @@ PYBIND11_MODULE(enoki, m) {
     bind_autodiff_2d(m);
     bind_autodiff_3d(m);
     bind_autodiff_4d(m);
+    bind_pcg32(m);
 
     m.def("cuda_eval",
           [](bool log_assembly) { enoki::cuda_eval(log_assembly); },

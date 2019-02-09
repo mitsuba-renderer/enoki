@@ -293,6 +293,7 @@ if (ENOKI_PYTHON)
       ${PROJECT_SOURCE_DIR}/src/python/autodiff_2d.cpp
       ${PROJECT_SOURCE_DIR}/src/python/autodiff_3d.cpp
       ${PROJECT_SOURCE_DIR}/src/python/autodiff_4d.cpp
+      ${PROJECT_SOURCE_DIR}/src/python/pcg32.cpp
   )
   set_target_properties(enoki-python PROPERTIES OUTPUT_NAME "enoki")
   target_link_libraries(enoki-python PRIVATE enoki-cuda enoki-autodiff cuda)
