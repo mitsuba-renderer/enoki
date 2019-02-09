@@ -56,8 +56,14 @@ struct type_caster<Value, std::enable_if_t<enoki::is_array_v<Value> &&
             return true;
         }
 
-        if (!convert && !isinstance<array_t<Scalar>>(src))
-            return false;
+        if (!isinstance<array_t<Scalar>>(src)) {
+            if (!convert)
+                return false;
+
+            /// Don't cast enoki CUDA/autodiff types
+            if (strncmp(((PyTypeObject *) src.get_type().ptr())->tp_name, "enoki.", 6) == 0)
+                return false;
+        }
 
         constexpr size_t ndim = enoki::array_depth_v<Value>;
 

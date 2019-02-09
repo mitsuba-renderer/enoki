@@ -13,9 +13,27 @@
 
 #include <cuda.h>
 #include <stdio.h>
+#include <iostream>
 #include "common.cuh"
 
 NAMESPACE_BEGIN(enoki)
+
+std::string mem_string(size_t size) {
+    const char *orders[] = {
+        "B", "KiB", "MiB", "GiB",
+        "TiB", "PiB", "EiB"
+    };
+    float value = (float) size;
+
+    int i = 0;
+    for (i = 0; i < 6 && value > 1024.f; ++i)
+        value /= 1024.f;
+
+    char buf[32];
+    snprintf(buf, 32, "%.5g %s", value, orders[i]);
+
+    return buf;
+}
 
 ENOKI_EXPORT void* cuda_malloc(size_t size) {
     void *result = nullptr;

@@ -195,6 +195,10 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     }
 
     template <typename T, enable_if_t<std::is_scalar_v<T>> = 0>
+    CUDAArray(const T &value, detail::reinterpret_flag)
+        : CUDAArray(memcpy_cast<Value>(value)) { }
+
+    template <typename T, enable_if_t<std::is_scalar_v<T>> = 0>
     CUDAArray(T value) : CUDAArray((Value) value) { }
 
     CUDAArray(Value value) {
@@ -310,7 +314,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
     CUDAArray mod_(const CUDAArray &v) const {
         return CUDAArray::from_index(cuda_trace_append(Type,
-            std::string("rem.$t1 $r1, $r2, $r3"), index_(), v.index_()));
+            "rem.$t1 $r1, $r2, $r3", index_(), v.index_()));
     }
 
     CUDAArray fmadd_(const CUDAArray &a, const CUDAArray &b) const {

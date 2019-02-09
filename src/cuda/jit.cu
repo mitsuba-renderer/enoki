@@ -87,7 +87,7 @@ struct Variable {
 
     Variable(EnokiType type) : type(type) { }
 
-    ~Variable() { if (free && data != nullptr) cuda_check(cudaFree(data)); }
+    ~Variable() { if (free && data != nullptr) cuda_free(data); }
 
     Variable(Variable &&a)
         : type(a.type), cmd(std::move(a.cmd)), label(std::move(a.label)),
@@ -271,8 +271,7 @@ ENOKI_EXPORT uint32_t cuda_var_copy_to_device(EnokiType type, size_t size,
     void *tmp = malloc(total_size);
     memcpy(tmp, value, total_size);
 
-    void *device_ptr;
-    cuda_check(cudaMalloc(&device_ptr, total_size));
+    void *device_ptr = cuda_malloc(total_size);
     cuda_check(cudaMemcpyAsync(device_ptr, tmp, total_size,
                                cudaMemcpyHostToDevice));
 
@@ -905,7 +904,7 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep) {
             size_t size_in_bytes =
                 cuda_var_size(index) * cuda_register_size(var.type);
 
-            cuda_check(cudaMalloc(&var.data, size_in_bytes));
+            var.data = cuda_malloc(size_in_bytes);
 #if !defined(NDEBUG)
             if (ctx.log_level >= 3)
                 std::cerr << "cuda_eval(): allocated variable " << index

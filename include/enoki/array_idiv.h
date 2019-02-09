@@ -148,8 +148,6 @@ NAMESPACE_END(detail)
 #  pragma pack(1)
 #endif
 
-template <typename T, bool UseIntrinsic = false, typename = int> struct divisor { };
-
 template <typename T, bool UseIntrinsic>
 struct divisor<T, UseIntrinsic, enable_if_t<std::is_unsigned_v<T>>> {
     T multiplier;

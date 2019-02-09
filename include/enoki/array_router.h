@@ -291,6 +291,19 @@ ENOKI_INLINE auto operator/(const T1 &a1, const T2 &a2) {
                          static_cast<const E &>(a2));
 }
 
+template <typename T1, typename T2, enable_if_array_any_t<T1, T2> = 0,
+          enable_if_t<!std::is_floating_point_v<scalar_t<expr_t<T1, T2>>> &&
+                       is_array_v<T2>> = 0>
+ENOKI_INLINE auto operator%(const T1 &a1, const T2 &a2) {
+    using E = expr_t<T1, T2>;
+
+    if constexpr (std::is_same_v<T1, E> && std::is_same_v<T2, E>)
+        return a1.derived().mod_(a2.derived());
+    else
+        return operator%(static_cast<const E &>(a1),
+                         static_cast<const E &>(a2));
+}
+
 /// Shuffle the entries of an array
 template <size_t... Is, typename T>
 ENOKI_INLINE auto shuffle(const T &a) {
@@ -674,12 +687,17 @@ ENOKI_INLINE auto mean(const Array &a) {
 }
 
 template <typename T> decltype(auto) detach(T &&value) {
-    if constexpr (is_diff_array_v<T> && array_depth_v<T> == 1)
-        return value.value_();
-    else
+    if constexpr (is_array_v<T>) {
+        if constexpr (!is_diff_array_v<T>)
+            return value;
+        else if constexpr (array_depth_v<T> == 1)
+            return value.value_();
+        else
+            return struct_support_t<T>::detach(value);
+    } else {
         return struct_support_t<T>::detach(value);
+    }
 }
-
 
 //! @}
 // -----------------------------------------------------------------------

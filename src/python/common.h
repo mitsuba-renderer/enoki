@@ -80,13 +80,36 @@ py::class_<Array> bind(py::module &m, const char *name) {
       })
       .def_static("zero", [](size_t size) { return zero<Array>(size); });
 
-    if constexpr (!is_diff_array_v<Array>) {
-        cl.def(py::init([](const py::object &obj) {
-              return torch_to_enoki<Array>(obj);
-          }))
-          .def("torch", &enoki_to_torch<Array>, "eval"_a = true)
-          .def("numpy", &enoki_to_numpy<Array>, "eval"_a = true);
-    }
+      cl.def(py::init([](const py::object &obj) -> Array {
+            using T = expr_t<decltype(detach(std::declval<Array>()))>;
+            return torch_to_enoki<T>(obj);
+        }))
+        .def("torch", [](const Array &a, bool eval) {
+            return enoki_to_torch(detach(a), eval); },
+            "eval"_a = true
+        )
+        .def("numpy", [](const Array &a, bool eval) {
+            return enoki_to_numpy(detach(a), eval); },
+            "eval"_a = true
+        )
+        .def_property_readonly("__array_interface__", [](const py::object &o) {
+            py::object np_array = o.attr("numpy")();
+            py::dict result;
+            result["data"] = np_array;
+            result["shape"] = np_array.attr("shape");
+            result["version"] = 3;
+            char typestr[4] = { '<', 0, '0' + sizeof(Scalar), 0 };
+            if (std::is_floating_point_v<Scalar>)
+                typestr[1] = 'f';
+            else if (std::is_same_v<Scalar, bool>)
+                typestr[1] = 'b';
+            else if (std::is_unsigned_v<Scalar>)
+                typestr[1] = 'u';
+            else
+                typestr[1] = 'i';
+            result["typestr"] = typestr;
+            return result;
+        });
 
     if constexpr (!IsMask) {
         cl.def(py::self + py::self)
@@ -98,6 +121,9 @@ py::class_<Array> bind(py::module &m, const char *name) {
           .def(py::self >= py::self)
           .def(py::self <= py::self)
           .def(-py::self);
+
+        if constexpr (std::is_integral_v<Scalar>)
+            cl.def(py::self % py::self);
     } else {
         cl.def(py::self | py::self)
           .def(py::self & py::self)
@@ -116,12 +142,14 @@ py::class_<Array> bind(py::module &m, const char *name) {
 
         cl.def_static("arange",
               [](size_t size) { return arange<Array>(size); }, "size"_a);
-
-        cl.def_static("full",
-                      [](const Scalar &value, size_t size) {
-                          return full<Array>(value, size);
-                      }, "value"_a, "size"_a);
     }
+
+    cl.def_static("full",
+                  [](const Scalar &value, size_t size) {
+                      Array result(value);
+                      set_slices(result, size);
+                      return result;
+                  }, "value"_a, "size"_a);
 
     cl.def("__getitem__", [](const Array &a, size_t index) -> Value {
         if (index >= a.size())
@@ -163,6 +191,8 @@ py::class_<Array> bind(py::module &m, const char *name) {
             m.def("dot", [](const Array &a, const Array &b) { return enoki::dot(a, b); });
             m.def("abs_dot", [](const Array &a, const Array &b) { return enoki::abs_dot(a, b); });
             m.def("normalize", [](const Array &a) { return enoki::normalize(a); });
+            m.def("squared_norm", [](const Array &a) { return enoki::squared_norm(a); });
+            m.def("norm", [](const Array &a) { return enoki::norm(a); });
 
             if constexpr (array_size_v<Array> == 3)
                 m.def("cross", [](const Array &a, const Array &b) { return enoki::cross(a, b); });
@@ -373,7 +403,7 @@ static void copy_array_scatter(size_t offset,
 }
 
 template <typename Array>
-py::object enoki_to_torch(const Array &src, bool eval) {
+ENOKI_NOINLINE py::object enoki_to_torch(const Array &src, bool eval) {
     constexpr size_t Depth = array_depth_v<Array>;
     using Scalar = scalar_t<Array>;
 
@@ -404,7 +434,8 @@ py::object enoki_to_torch(const Array &src, bool eval) {
     return result;
 }
 
-template <typename Array> Array torch_to_enoki(py::object src) {
+template <typename Array>
+ENOKI_NOINLINE Array torch_to_enoki(py::object src) {
     constexpr size_t Depth = array_depth_v<Array>;
     using Scalar = scalar_t<Array>;
     std::string type_name = py::cast<std::string>(src.get_type().attr("__name__"));
@@ -436,7 +467,7 @@ template <typename Array> Array torch_to_enoki(py::object src) {
 }
 
 template <typename Array>
-py::object enoki_to_numpy(const Array &src, bool eval) {
+ENOKI_NOINLINE py::object enoki_to_numpy(const Array &src, bool eval) {
     constexpr size_t Depth = array_depth_v<Array>;
     using Scalar = scalar_t<Array>;
 

@@ -200,4 +200,7 @@ inline uint32_t next_power_of_two(uint32_t n) {
     return n;
 }
 
+extern void* cuda_malloc(size_t size);
+extern void cuda_free(void *ptr);
+
 NAMESPACE_END(enoki)
