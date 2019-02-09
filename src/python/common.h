@@ -3,6 +3,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/operators.h>
 #include <pybind11/stl.h>
+#include <pybind11/numpy.h>
 #include <sstream>
 
 using namespace enoki;
@@ -41,8 +42,20 @@ using Vector4uD = Array<UInt32D, 4>;
 using Vector4bC = mask_t<Vector4fC>;
 using Vector4bD = mask_t<Vector4fD>;
 
-template <typename Array>
-py::object enoki_to_torch(const Array &array);
+struct CUDAManagedBuffer {
+    CUDAManagedBuffer(size_t size) {
+        ptr = cuda_managed_malloc(size);
+    }
+
+    ~CUDAManagedBuffer() {
+        cuda_free(ptr);
+    }
+
+    void *ptr = nullptr;
+};
+
+template <typename Array> py::object enoki_to_torch(const Array &array, bool eval);
+template <typename Array> py::object enoki_to_numpy(const Array &array, bool eval);
 template <typename Array> Array torch_to_enoki(py::object src);
 
 template <typename Array>
@@ -71,7 +84,8 @@ py::class_<Array> bind(py::module &m, const char *name) {
         cl.def(py::init([](const py::object &obj) {
               return torch_to_enoki<Array>(obj);
           }))
-          .def("torch", &enoki_to_torch<Array>);
+          .def("torch", &enoki_to_torch<Array>, "eval"_a = true)
+          .def("numpy", &enoki_to_numpy<Array>, "eval"_a = true);
     }
 
     if constexpr (!IsMask) {
@@ -359,7 +373,7 @@ static void copy_array_scatter(size_t offset,
 }
 
 template <typename Array>
-py::object enoki_to_torch(const Array &src) {
+py::object enoki_to_torch(const Array &src, bool eval) {
     constexpr size_t Depth = array_depth_v<Array>;
     using Scalar = scalar_t<Array>;
 
@@ -385,6 +399,8 @@ py::object enoki_to_torch(const Array &src) {
     CUDAArray<Scalar> target = CUDAArray<Scalar>::map(
         (Scalar *) py::cast<uintptr_t>(result.attr("data_ptr")()), size);
     copy_array_scatter<0>(0, shape, strides, src, target);
+    if (eval)
+        cuda_eval();
     return result;
 }
 
@@ -416,5 +432,36 @@ template <typename Array> Array torch_to_enoki(py::object src) {
 
     Array result;
     copy_array_gather<0>(0, shape, strides, source, result);
+    return result;
+}
+
+template <typename Array>
+py::object enoki_to_numpy(const Array &src, bool eval) {
+    constexpr size_t Depth = array_depth_v<Array>;
+    using Scalar = scalar_t<Array>;
+
+    std::array<size_t, Depth> shape = enoki::shape(src),
+                              shape_rev = shape, strides;
+    std::reverse(shape_rev.begin(), shape_rev.end());
+
+    size_t size = 1, stride = sizeof(Scalar);
+    for (ssize_t i = (ssize_t) Depth - 1; i >= 0; --i) {
+        size *= shape_rev[i];
+        strides[i] = stride;
+        stride *= shape_rev[i];
+    }
+
+    CUDAManagedBuffer *buf = new CUDAManagedBuffer(stride);
+    py::object buf_py = py::cast(buf, py::return_value_policy::take_ownership);
+
+    py::array result(py::dtype::of<Scalar>(), shape_rev, strides, buf->ptr, buf_py);
+    CUDAArray<Scalar> target = CUDAArray<Scalar>::map(buf->ptr, stride);
+    for (ssize_t i = (ssize_t) Depth - 1; i >= 0; --i)
+        strides[i] /= sizeof(Scalar);
+    std::reverse(strides.begin(), strides.end());
+    copy_array_scatter<0>(0, shape, strides, src, target);
+    if (eval)
+        cuda_eval();
+
     return result;
 }
