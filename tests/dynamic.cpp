@@ -136,15 +136,15 @@ ENOKI_TEST(test05_meshgrid) {
     auto dc = test::dealloc_count;
 
     /* Nested scope */ {
-        auto x = linspace<FloatX>(0.f, 2.f, 3);
+        auto x = linspace<FloatX>(0.f, 1.f, 2);
         auto y = linspace<FloatX>(1.f, 4.f, 4);
         auto xy = meshgrid(x, y);
 
-        assert(slices(xy) == 12);
-        assert(to_string(xy) == "[[0, 1],\n [1, 1],\n [2, 1],\n [0, 2],\n [1, 2],\n [2, 2],\n [0, 3],\n [1, 3],\n [2, 3],\n [0, 4],\n [1, 4],\n [2, 4]]");
+        assert(slices(xy) == 8);
+        assert(to_string(xy) == "[[0, 1],\n [1, 1],\n [0, 2],\n [1, 2],\n [0, 3],\n [1, 3],\n [0, 4],\n [1, 4]]");
 
         Array<FloatX, 2> yz = std::move(xy);
-        assert(to_string(yz) == "[[0, 1],\n [1, 1],\n [2, 1],\n [0, 2],\n [1, 2],\n [2, 2],\n [0, 3],\n [1, 3],\n [2, 3],\n [0, 4],\n [1, 4],\n [2, 4]]");
+        assert(to_string(yz) == "[[0, 1],\n [1, 1],\n [0, 2],\n [1, 2],\n [0, 3],\n [1, 3],\n [0, 4],\n [1, 4]]");
         assert(to_string(xy) == "[]");
     }
 

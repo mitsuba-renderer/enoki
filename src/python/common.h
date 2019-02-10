@@ -314,7 +314,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
     });
 
     if constexpr (IsFloat && is_diff_array_v<Array>) {
-        m.def("detach", [](const Array &a) { return detach(a); });
+        m.def("detach", [](const Array &a) { return eval(detach(a)); });
         m.def("requires_gradient",
               [](const Array &a) { return requires_gradient(a); },
               "array"_a);
@@ -323,16 +323,26 @@ py::class_<Array> bind(py::module &m, const char *name) {
               [](Array &a, bool value) { set_requires_gradient(a, value); },
               "array"_a, "value"_a = true);
 
-        m.def("gradient", [](Array &a) { return gradient(a); });
+        m.def("gradient", [](Array &a) { return eval(gradient(a)); });
+        m.def("gradient_index", [](Array &a) { return gradient_index(a); });
         m.def("set_gradient",
               [](Array &a, const Array &g) { set_gradient(a, detach(g)); });
 
         m.def("graphviz", [](const Array &a) { return graphviz(a); });
 
         if constexpr (array_depth_v<Array> == 1) {
-            m.def("backward", [](Array &a) { return backward(a); });
-            cl.def_static("backward", []() { return backward<Array>(); });
+            m.def("backward",
+                  [](Array &a, bool free_graph) { return backward(a); },
+                  "array"_a, "free_graph"_a = true);
+            cl.def_static("backward",
+                          [](bool free_graph) { return backward<Array>(); },
+                          "free_graph"_a = true);
         }
+    }
+
+    if constexpr (is_diff_array_v<Array>) {
+        using BaseType = expr_t<decltype(detach(std::declval<Array>()))>;
+        py::implicitly_convertible<BaseType, Array>();
     }
 
     m.def("set_label", [](const Array &a, const char *label) {

@@ -18,12 +18,9 @@
 #include <vector>
 #include "common.cuh"
 
-/// Enable heavy debug output
-#if !defined(ENOKI_CUDA_DEBUG_TRACE)
-#  define ENOKI_CUDA_DEBUG_TRACE  0
-#endif
-
 NAMESPACE_BEGIN(enoki)
+
+extern uint32_t cuda_log_level();
 
 __global__ void arange(size_t n, size_t *out) {
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n;
@@ -34,8 +31,9 @@ __global__ void arange(size_t n, size_t *out) {
 ENOKI_EXPORT
 std::pair<std::vector<std::pair<void *, size_t>>, size_t *>
 cuda_partition(size_t size, const void **ptrs_) {
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_partition(size=" << size << ")" << std::endl;
+#if !defined(NDEBUG)
+    if (cuda_log_level() >= 4)
+        std::cerr << "cuda_partition(size=" << size << ")" << std::endl;
 #endif
 
     size_t     temp_size   = 0,
@@ -98,6 +96,11 @@ cuda_partition(size_t size, const void **ptrs_) {
 }
 
 template <typename T> T cuda_hsum(size_t size, const T *data) {
+#if !defined(NDEBUG)
+    if (cuda_log_level() >= 4)
+        std::cerr << "cuda_hsum(size=" << size << ")" << std::endl;
+#endif
+
     size_t temp_size   = 0;
     void *temp        = nullptr;
 
@@ -112,10 +115,6 @@ template <typename T> T cuda_hsum(size_t size, const T *data) {
                cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(result_p));
 
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_hsum(size=" << size << ") = " << result << std::endl;
-#endif
-
     return result;
 }
 
@@ -128,6 +127,11 @@ struct ReductionOpMul {
 };
 
 template <typename T> T cuda_hprod(size_t size, const T *data) {
+#if !defined(NDEBUG)
+    if (cuda_log_level() >= 4)
+        std::cerr << "cuda_hprod(size=" << size << ")" << std::endl;
+#endif
+
     size_t temp_size  = 0;
     void *temp        = nullptr;
 
@@ -145,14 +149,15 @@ template <typename T> T cuda_hprod(size_t size, const T *data) {
                cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(result_p));
 
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_hprod(size=" << size << ") = " << result << std::endl;
-#endif
-
     return result;
 }
 
 template <typename T> T cuda_hmax(size_t size, const T *data) {
+#if !defined(NDEBUG)
+    if (cuda_log_level() >= 4)
+        std::cerr << "cuda_hmax(size=" << size << ")" << std::endl;
+#endif
+
     size_t temp_size   = 0;
     void *temp        = nullptr;
 
@@ -166,15 +171,16 @@ template <typename T> T cuda_hmax(size_t size, const T *data) {
     cuda_check(cudaMemcpy(&result, result_p, sizeof(T),
                cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(result_p));
-
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_hmax(size=" << size << ") = " << result << std::endl;
-#endif
 
     return result;
 }
 
 template <typename T> T cuda_hmin(size_t size, const T *data) {
+#if !defined(NDEBUG)
+    if (cuda_log_level() >= 4)
+        std::cerr << "cuda_hmin(size=" << size << ")" << std::endl;
+#endif
+
     size_t temp_size   = 0;
     void *temp        = nullptr;
 
@@ -188,10 +194,6 @@ template <typename T> T cuda_hmin(size_t size, const T *data) {
     cuda_check(cudaMemcpy(&result, result_p, sizeof(T),
                cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(result_p));
-
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_hmin(size=" << size << ") = " << result << std::endl;
-#endif
 
     return result;
 }
@@ -211,6 +213,11 @@ struct ReductionOpAny {
 };
 
 bool cuda_all(size_t size, const bool *data) {
+#if !defined(NDEBUG)
+    if (cuda_log_level() >= 4)
+        std::cerr << "cuda_all(size=" << size << ")" << std::endl;
+#endif
+
     size_t temp_size   = 0;
     void *temp        = nullptr;
 
@@ -228,14 +235,15 @@ bool cuda_all(size_t size, const bool *data) {
                cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(result_p));
 
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_all(size=" << size << ") = " << result << std::endl;
-#endif
-
     return result;
 }
 
 bool cuda_any(size_t size, const bool *data) {
+#if !defined(NDEBUG)
+    if (cuda_log_level() >= 4)
+        std::cerr << "cuda_any(size=" << size << ")" << std::endl;
+#endif
+
     size_t temp_size   = 0;
     void *temp        = nullptr;
 
@@ -252,10 +260,6 @@ bool cuda_any(size_t size, const bool *data) {
     cuda_check(cudaMemcpy(&result, result_p, sizeof(bool),
                cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(result_p));
-
-#if ENOKI_CUDA_DEBUG_TRACE
-    std::cerr << "cuda_any(size=" << size << ") = " << result << std::endl;
-#endif
 
     return result;
 }

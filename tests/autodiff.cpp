@@ -45,7 +45,8 @@ ENOKI_TEST(test00_identity) {
 
 ENOKI_TEST(test01_add) {
     FloatD x = 2.f, y = 3.f;
-    set_requires_gradient(x, y);
+    set_requires_gradient(x);
+    set_requires_gradient(y);
     FloatD z = x + y;
     backward(z);
     assert(gradient(x)[0] == 1.f);
@@ -304,8 +305,8 @@ ENOKI_TEST(test28_linear_to_srgb) {
     set_requires_gradient(x);
     FloatD y = linear_to_srgb(x);
 
-    backward(y);
     std::cout << graphviz(y) << std::endl;
+    backward(y);
     /// from mathematica
     FloatX ref{ 12.92f,   1.58374f,  1.05702f, 0.834376f, 0.705474f,
                 0.61937f, 0.556879f, 0.50899f, 0.470847f, 0.439583f };

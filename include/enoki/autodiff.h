@@ -62,6 +62,7 @@ private:
     Index append_node(size_t size, const char *label);
     Index append_leaf(size_t size);
     void append_edge(Index src, Index dst, const Value &weight);
+    void append_edge_prod(Index src, Index dst, const Value &weight1, const Value &weight2);
 
     //! @}
     // -----------------------------------------------------------------------
@@ -84,7 +85,7 @@ private:
     void set_scatter_gather_operand(Index *index, size_t size, bool permute);
     void push_prefix(const char *);
     void pop_prefix();
-    void backward(bool free_edges);
+    void backward(bool free_graph);
     void set_gradient(Index index, const Value &value);
     void set_label(Index index, const char *name);
     const Value &gradient(Index index);
@@ -1115,18 +1116,18 @@ public:
         set_label(m_value, label);
     }
 
-    void backward_(bool free_edges) const {
+    void backward_(bool free_graph) const {
         if constexpr (!Enabled) {
             fail_unsupported("backward_");
         } else {
             auto t = tape();
             t->set_gradient(m_index, Scalar(1));
-            t->backward(free_edges);
+            t->backward(free_graph);
         }
     }
 
-    static void backward_static_(bool free_edges) {
-        tape()->backward(free_edges);
+    static void backward_static_(bool free_graph) {
+        tape()->backward(free_graph);
     }
 
     static std::string graphviz_(const std::vector<Index> &indices) {
@@ -1238,20 +1239,17 @@ template <typename T> ENOKI_INLINE void set_requires_gradient(T& a, bool value =
     }
 }
 
-template <typename T1 = void, typename T2> decltype(auto) gradient(const T2 &a) {
-    using Target = std::conditional_t<std::is_void_v<T1>, T2, T1>;
-
-    if constexpr (array_depth_v<Target> >= 2) {
-        Target result;
-        for (size_t i = 0; i < array_size_v<Target>; ++i)
-            result.coeff(i) = gradient<value_t<Target>>(a[i]);
+template <typename T> auto gradient_index(const T &a) {
+    if constexpr (array_depth_v<T> >= 2) {
+        using Result = std::array<decltype(gradient_index(a.coeff(0))), T::Size>;
+        Result result;
+        for (size_t i = 0; i < T::Size; ++i)
+            result[i] = gradient_index(a.coeff(i));
         return result;
-    } else if constexpr (is_diff_array_v<T2>) {
-        return a.gradient_();
-    } else if constexpr (std::is_integral_v<T2>) {
-        return T1::gradient_static_(a);
+    } else if constexpr (is_diff_array_v<T>) {
+        return a.index_();
     } else {
-        static_assert(detail::false_v<T1, T2>, "The given array does not have derivatives.");
+        static_assert(detail::false_v<T>, "The given array does not have derivatives.");
     }
 }
 
@@ -1268,12 +1266,12 @@ template <typename T1, typename T2> decltype(auto) set_gradient(T1 &a, const T2 
     }
 }
 
-template <typename T> void backward(const T& a, bool free_edges = true) {
-    a.backward_(free_edges);
+template <typename T> void backward(const T& a, bool free_graph = true) {
+    a.backward_(free_graph);
 }
 
-template <typename T> void backward(bool free_edges = true) {
-    T::backward_static_(free_edges);
+template <typename T> void backward(bool free_graph = true) {
+    T::backward_static_(free_graph);
 }
 
 

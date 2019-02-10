@@ -699,6 +699,19 @@ template <typename T> decltype(auto) detach(T &&value) {
     }
 }
 
+template <typename T> decltype(auto) gradient(T &&value) {
+    if constexpr (is_array_v<T>) {
+        if constexpr (!is_diff_array_v<T>)
+            return value;
+        else if constexpr (array_depth_v<T> == 1)
+            return value.gradient_();
+        else
+            return struct_support_t<T>::gradient(value);
+    } else {
+        return struct_support_t<T>::gradient(value);
+    }
+}
+
 //! @}
 // -----------------------------------------------------------------------
 
@@ -768,7 +781,11 @@ ENOKI_INLINE Arg linspace(scalar_t<Arg> min, scalar_t<Arg>, size_t size = 1) {
 template <typename Outer, typename Inner,
           typename Return = replace_scalar_t<Outer, Inner>>
 ENOKI_INLINE Return full(const Inner &inner, size_t size = 1) {
-    return Return::full_(inner, size);
+    ENOKI_MARK_USED(size);
+    if constexpr (std::is_scalar_v<Return>)
+        return inner;
+    else
+        return Return::full_(inner, size);
 }
 
 /// Load an array from aligned memory

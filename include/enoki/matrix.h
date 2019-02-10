@@ -589,6 +589,11 @@ struct struct_support<Matrix<T, Size, Approx>,
         return detach(value, std::make_index_sequence<Size>());
     }
 
+    template <typename T2>
+    static ENOKI_INLINE auto gradient(T2&& value) {
+        return gradient(value, std::make_index_sequence<Size>());
+    }
+
     static ENOKI_INLINE Value zero(size_t size) {
         return Value::zero_(size);
     }
@@ -639,6 +644,12 @@ private:
     static ENOKI_INLINE auto detach(T2&& value, std::index_sequence<Index...>) {
         return Matrix<decltype(enoki::detach(value.coeff(0, 0))), Size, Approx>(
             enoki::detach(value.coeff(Index))...);
+    }
+
+    template <typename T2, size_t... Index>
+    static ENOKI_INLINE auto gradient(T2&& value, std::index_sequence<Index...>) {
+        return Matrix<decltype(enoki::gradient(value.coeff(0, 0))), Size, Approx>(
+            enoki::gradient(value.coeff(Index))...);
     }
 };
 

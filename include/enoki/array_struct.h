@@ -241,6 +241,14 @@ struct struct_support<T, enable_if_static_array_t<T>> {
     }
 
     template <typename T2>
+    static ENOKI_INLINE decltype(auto) gradient(T2 &value) {
+        if constexpr (!is_diff_array_v<T>)
+            return value;
+        else
+            return gradient(value, std::make_index_sequence<Size>());
+    }
+
+    template <typename T2>
     static ENOKI_INLINE decltype(auto) slice(T2 &value, size_t i) {
         if constexpr (array_depth_v<T> == 1)
             return value.coeff(i);
@@ -326,6 +334,13 @@ private:
         using Value = decltype(enoki::detach(a.coeff(0)));
         using Return = typename T::template ReplaceValue<Value>;
         return Return(enoki::detach(a.coeff(Is))...);
+    }
+
+    template <typename T2, size_t... Is>
+    static ENOKI_INLINE decltype(auto) gradient(T2 &a, std::index_sequence<Is...>) {
+        using Value = decltype(enoki::gradient(a.coeff(0)));
+        using Return = typename T::template ReplaceValue<Value>;
+        return Return(enoki::gradient(a.coeff(Is))...);
     }
 
     template <typename Dst, typename Index, typename Mask, size_t... Is>

@@ -33,6 +33,11 @@ NAMESPACE_BEGIN(enoki)
 
 using Index = uint32_t;
 
+template <typename Value>
+Value safe_mul(const Value &value1, const Value &value2);
+template <typename Value>
+Value safe_fmadd(const Value &value1, const Value &value2, const Value &value3);
+
 template <typename Value> struct Tape<Value>::Node {
     /// Descriptive label
     std::string label;
@@ -118,8 +123,11 @@ template <typename Value> struct Tape<Value>::Special {
 
 template <typename Value> struct Tape<Value>::Detail {
     Index node_counter = 1,
+          node_counter_last = 1,
           edge_contractions = 0,
-          edge_merges = 0;
+          edge_contractions_last = 0,
+          edge_merges = 0,
+          edge_merges_last = 0;
 
     std::unordered_map<Index, Node> nodes;
     std::vector<std::string> prefix;
@@ -430,8 +438,7 @@ void Tape<Value>::append_edge(Index source_idx, Index target_idx,
 
 #if !defined(NDEBUG)
     if (d->log_level >= 4)
-        std::cerr << "autodiff: append_edge(" << target_idx << " <- " << source_idx
-                  << ")" << std::endl;
+        std::cerr << "autodiff: append_edge(" << target_idx << " <- " << source_idx << ")" << std::endl;
 #endif
 
     Node &source = d->node(source_idx),
@@ -448,10 +455,7 @@ void Tape<Value>::append_edge(Index source_idx, Index target_idx,
             if (d->log_level >= 4)
                 std::cerr << " ... contracting with edge -> "  << edge->source << std::endl;
 #endif
-            Value zero = (Scalar) 0;
-            mask_t<Value> edge_is_zero = eq(weight, zero) || eq(edge->weight, zero);
-            Value combined = select(edge_is_zero, zero, weight * edge->weight);
-            append_edge(edge->source, target_idx, combined);
+            append_edge_prod(edge->source, target_idx, weight, edge->weight);
             d->edge_contractions++;
             edge = edge->next.get();
         }
@@ -461,27 +465,99 @@ void Tape<Value>::append_edge(Index source_idx, Index target_idx,
     Edge *edge = target.edges.get();
     while (edge) {
         if (edge->source == source_idx) {
-#if !defined(NDEBUG)
-            if (d->log_level >= 4)
-                std::cerr << " ... merging into existing edge" << std::endl;
-#endif
 
             edge->weight += weight;
-            enoki::set_label(edge->weight,
-                             ("edge[" + std::to_string(source_idx) + " -> " +
-                              std::to_string(target_idx) + "]").c_str());
+#if !defined(NDEBUG)
+            if (d->log_level >= 4) {
+                std::cerr << " ... merging into existing edge" << std::endl;
+
+                enoki::set_label(edge->weight,
+                                 ("edge[" + std::to_string(source_idx) + " -> " +
+                                  std::to_string(target_idx) + "]").c_str());
+            }
+#endif
             d->edge_merges++;
             return;
         }
         edge = edge->next.get();
     }
 
-    enoki::set_label(weight, ("edge[" + std::to_string(source_idx) + " -> " +
-                              std::to_string(target_idx) + "]").c_str());
+#if !defined(NDEBUG)
+    if (d->log_level >= 4)
+        enoki::set_label(weight, ("edge[" + std::to_string(source_idx) + " -> " +
+                                  std::to_string(target_idx) + "]").c_str());
+#endif
 
     target.append_edge(new Edge(source_idx, weight));
     inc_ref(source_idx);
 }
+
+template <typename Value>
+void Tape<Value>::append_edge_prod(Index source_idx, Index target_idx,
+                                   const Value &weight1, const Value &weight2) {
+    using Scalar = scalar_t<Value>;
+    if (source_idx == 0)
+        return;
+    assert(target_idx != 0);
+
+#if !defined(NDEBUG)
+    if (d->log_level >= 4)
+        std::cerr << "autodiff: append_edge(" << target_idx << " <- " << source_idx << ")" << std::endl;
+#endif
+
+    Node &source = d->node(source_idx),
+         &target = d->node(target_idx);
+
+    Index source_deg = source.degree();
+    bool has_special = source.has_special();
+    bool compat_size = source.size == target.size;
+
+    if (!has_special && compat_size && source_deg > 0 && d->contract_edges) {
+        Edge *edge = source.edges.get();
+        while (edge) {
+#if !defined(NDEBUG)
+            if (d->log_level >= 4)
+                std::cerr << " ... contracting with edge -> "  << edge->source << std::endl;
+#endif
+            append_edge_prod(edge->source, target_idx,
+                             safe_mul(weight1, weight2), edge->weight);
+            d->edge_contractions++;
+            edge = edge->next.get();
+        }
+        return;
+    }
+
+    Edge *edge = target.edges.get();
+    while (edge) {
+        if (edge->source == source_idx) {
+            edge->weight = safe_fmadd(weight1, weight2, edge->weight);
+
+#if !defined(NDEBUG)
+            if (d->log_level >= 4) {
+                std::cerr << " ... merging into existing edge" << std::endl;
+                enoki::set_label(edge->weight,
+                                 ("edge[" + std::to_string(source_idx) + " -> " +
+                                  std::to_string(target_idx) + "]").c_str());
+            }
+#endif
+
+            d->edge_merges++;
+            return;
+        }
+        edge = edge->next.get();
+    }
+
+    Value weight = safe_mul(weight1, weight2);
+#if !defined(NDEBUG)
+    if (d->log_level >= 4)
+        enoki::set_label(weight, ("edge[" + std::to_string(source_idx) + " -> " +
+                                  std::to_string(target_idx) + "]").c_str());
+#endif
+
+    target.append_edge(new Edge(source_idx, weight));
+    inc_ref(source_idx);
+}
+
 
 template <typename Value> void Tape<Value>::inc_ref(Index index) {
     if (index == 0)
@@ -570,10 +646,15 @@ void Tape<Value>::set_gradient(Index index, const Value &value) {
 }
 
 template <typename Value>
-void Tape<Value>::backward(bool free_edges) {
+void Tape<Value>::backward(bool free_graph) {
     using Scalar = scalar_t<Value>;
     auto &scheduled = d->scheduled;
     uint32_t edge_count = 0;
+
+    if (free_graph) {
+        for (auto it = scheduled.rbegin(); it != scheduled.rend(); ++it)
+            inc_ref(*it);
+    }
 
     for (auto it = scheduled.rbegin(); it != scheduled.rend(); ++it) {
         Index target_idx = *it;
@@ -592,32 +673,35 @@ void Tape<Value>::backward(bool free_edges) {
                 Value &weight = edge->weight;
                 Node  &source = d->node(source_idx);
 
-                Value zero = (Scalar) 0;
-                mask_t<Value> is_nonzero =
-                    neq(weight, zero) & neq(target.grad, zero);
-                masked(source.grad, is_nonzero) =
-                    fmadd(weight, target.grad, source.grad);
-
-                if constexpr (is_dynamic_v<Value>) {
-                    if (free_edges)
-                        edge->weight = Value();
-                }
+                source.grad = safe_fmadd(weight, target.grad, source.grad);
 
                 ++edge_count;
             } else {
                 edge->special->compute_gradients(d, target_idx, *edge);
-                if (free_edges)
+                if (free_graph)
                     edge->special.reset();
             }
+            if (free_graph)
+                dec_ref(edge->source);
             edge = edge->next.get();
+        }
+        if (free_graph) {
+            target.edges.reset();
+            dec_ref(target_idx);
         }
     }
 
     if (d->log_level >= 1)
-        std::cerr << "autodiff: processed " << scheduled.size() << "/" << d->node_counter
-                  << " nodes, " << edge_count << " edges [" << d->edge_contractions
-                  << " edge contractions, " << d->edge_merges << " edge merges].. "
-              << std::endl;
+        std::cerr << "autodiff: processed " << scheduled.size() << "/" << (d->node_counter - d->node_counter_last)
+                  << " nodes, " << edge_count << " edges [" << (d->edge_contractions - d->edge_contractions_last)
+                  << " edge contractions, " << (d->edge_merges - d->edge_merges_last) << " edge merges].. "
+                  << std::endl;
+
+    if (free_graph) {
+        d->node_counter_last = d->node_counter;
+        d->edge_contractions_last = d->edge_contractions;
+        d->edge_merges_last = d->edge_merges;
+    }
 
     scheduled.clear();
 }
@@ -711,6 +795,34 @@ std::string Tape<Value>::graphviz(const std::vector<Index> &indices_) {
     oss << "}";
     indices.clear();
     return oss.str();
+}
+
+template <typename Value> Value safe_mul(const Value &value1, const Value &value2) {
+    Value tentative = value1 * value2;
+    if constexpr (!is_cuda_array_v<Value>) {
+        Value zero = scalar_t<Value>(0);
+        mask_t<Value> is_zero = eq(value1, zero) || eq(value2, zero);
+        return select(is_zero, zero, tentative);
+    } else {
+        using Mask = mask_t<Value>;
+        Mask m1 = Mask::from_index_(cuda_trace_append(EnokiType::Bool, "setp.eq.f32 $r1, $r2, 0.0", value1.index_())),
+             m2 = Mask::from_index_(cuda_trace_append(EnokiType::Bool, "setp.eq.or.f32 $r1, $r2, 0.0, $r3", value2.index_(), m1.index_()));
+        return Value::from_index_(cuda_trace_append(Value::Type, "selp.$t1 $r1, 0.0, $r2, $r3", tentative.index_(), m2.index_()));
+    }
+}
+
+template <typename Value> Value safe_fmadd(const Value &value1, const Value &value2, const Value &value3) {
+    Value tentative = fmadd(value1, value2, value3);
+    if constexpr (!is_cuda_array_v<Value>) {
+        Value zero = scalar_t<Value>(0);
+        mask_t<Value> is_zero = eq(value1, zero) || eq(value2, zero);
+        return select(is_zero, value3, tentative);
+    } else {
+        using Mask = mask_t<Value>;
+        Mask m1 = Mask::from_index_(cuda_trace_append(EnokiType::Bool, "setp.eq.f32 $r1, $r2, 0.0", value1.index_())),
+             m2 = Mask::from_index_(cuda_trace_append(EnokiType::Bool, "setp.eq.or.f32 $r1, $r2, 0.0, $r3", value2.index_(), m1.index_()));
+        return Value::from_index_(cuda_trace_append(Value::Type, "selp.$t1 $r1, $r2, $r3, $r4", value3.index_(), tentative.index_(), m2.index_()));
+    }
 }
 
 template struct ENOKI_EXPORT Tape<float>;
