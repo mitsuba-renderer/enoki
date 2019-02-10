@@ -1,5 +1,7 @@
 #include <enoki/cuda.h>
 #include <enoki/autodiff.h>
+#include <enoki/matrix.h>
+#include <enoki/transform.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/operators.h>
 #include <pybind11/stl.h>
@@ -42,6 +44,9 @@ using Vector4uD = Array<UInt32D, 4>;
 using Vector4bC = mask_t<Vector4fC>;
 using Vector4bD = mask_t<Vector4fD>;
 
+using Matrix4fC = Matrix<FloatC, 4>;
+using Matrix4fD = Matrix<FloatD, 4>;
+
 struct CUDAManagedBuffer {
     CUDAManagedBuffer(size_t size) {
         ptr = cuda_managed_malloc(size);
@@ -78,7 +83,10 @@ py::class_<Array> bind(py::module &m, const char *name) {
           oss << a;
           return oss.str();
       })
-      .def_static("zero", [](size_t size) { return zero<Array>(size); });
+      .def_static("zero", [](size_t size) { return zero<Array>(size); },
+                  "size"_a = 1)
+      .def_static("empty", [](size_t size) { return empty<Array>(size); },
+                  "size"_a = 1);
 
       cl.def(py::init([](const py::object &obj) -> Array {
             using T = expr_t<decltype(detach(std::declval<Array>()))>;
@@ -173,6 +181,15 @@ py::class_<Array> bind(py::module &m, const char *name) {
             cl.def(py::init<Value, Value, Value>());
         else if constexpr (array_size_v<Array> == 4)
             cl.def(py::init<Value, Value, Value, Value>());
+
+        cl.def(py::init([](std::array<Value, Array::Size> a) {
+            Array result;
+            for (size_t i = 0; i<Array::Size; ++i)
+                result.coeff(i) = a[i];
+            return result;
+        }));
+
+        py::implicitly_convertible<py::sequence, Array>();
 
         if constexpr (array_size_v<Array> >= 1)
             cl.def_property("x", [](const Array &a) { return a.x(); },
@@ -331,6 +348,67 @@ py::class_<Array> bind(py::module &m, const char *name) {
         py::implicitly_convertible<Scalar, Array>();
 
     return cl;
+}
+
+template <typename Matrix>
+py::class_<Matrix> bind_matrix(py::module &m, const char *name) {
+    using Vector = typename Matrix::Column;
+    using Value  = typename Matrix::Entry;
+    using Vector3 = Array<Value, 3>;
+
+    auto cls = py::class_<Matrix>(m, name)
+        .def(py::init<>())
+        .def(py::init<const Value &>())
+        .def(py::init<const Vector &, const Vector &, const Vector &, const Vector &>())
+        .def(py::init<const Value &, const Value &, const Value &, const Value &,
+                      const Value &, const Value &, const Value &, const Value &,
+                      const Value &, const Value &, const Value &, const Value &,
+                      const Value &, const Value &, const Value &, const Value &>())
+        .def(py::self == py::self)
+        .def(py::self != py::self)
+        .def(py::self - py::self)
+        .def(py::self + py::self)
+        .def(py::self * py::self)
+        .def(py::self * Vector())
+        .def(py::self * Value())
+        .def(-py::self)
+        .def("__repr__", [](const Matrix &a) {
+            std::ostringstream oss;
+            oss << a;
+            return oss.str();
+        })
+        .def("__getitem__", [](const Matrix &a, std::pair<size_t, size_t> index) {
+            if (index.first >= Matrix::Size || index.second >= Matrix::Size)
+                throw py::index_error();
+            return a.coeff(index.second, index.first);
+        })
+        .def("__setitem__", [](Matrix &a, std::pair<size_t, size_t> index, const Value &value) {
+            if (index.first >= Matrix::Size || index.second >= Matrix::Size)
+                throw py::index_error();
+            a.coeff(index.second, index.first) = value;
+        })
+        .def_static("identity", [](size_t size) { return identity<Matrix>(size); }, "size"_a = 1)
+        .def_static("zero", [](size_t size) { return zero<Matrix>(size); }, "size"_a = 1)
+        .def_static("translate", [](const Vector3 &v) { return translate<Matrix>(v); })
+        .def_static("scale", [](const Vector3 &v) { return scale<Matrix>(v); })
+        .def_static("rotate", [](const Vector3 &axis, const Value &angle) {
+                return rotate<Matrix>(axis, angle);
+            },
+            "axis"_a, "angle"_a
+        )
+        .def_static("look_at", [](const Vector3 &origin,
+                                  const Vector3 &target,
+                                  const Vector3 &up) {
+                return look_at<Matrix>(origin, target, up);
+            },
+            "origin"_a, "target"_a, "up"_a
+        );
+
+    m.def("transpose", [](const Matrix &m) { return transpose(m); });
+    m.def("det", [](const Matrix &m) { return det(m); });
+    m.def("inverse", [](const Matrix &m) { return inverse(m); });
+    m.def("inverse_transpose", [](const Matrix &m) { return inverse_transpose(m); });
+    return cls;
 }
 
 template <typename Scalar> py::object torch_dtype() {

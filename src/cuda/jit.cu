@@ -539,6 +539,8 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
 ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
                                         const char *cmd,
                                         uint32_t arg1) {
+    assert(arg1 != 0);
+
     Context &ctx = context();
     const Variable &v1 = ctx[arg1];
 
@@ -567,6 +569,8 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
                                         const char *cmd,
                                         uint32_t arg1,
                                         uint32_t arg2) {
+    assert(arg1 != 0 && arg2 != 0);
+
     Context &ctx = context();
 
     const Variable &v1 = ctx[arg1],
@@ -600,6 +604,8 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
                                         uint32_t arg1,
                                         uint32_t arg2,
                                         uint32_t arg3) {
+    assert(arg1 != 0 && arg2 != 0 && arg3 != 0);
+
     Context &ctx = context();
 
     const Variable &v1 = ctx[arg1],
@@ -1103,10 +1109,8 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
         if (std::get<0>(result).empty())
             continue;
 
-#if !defined(NDEBUG)
         if (ctx.log_level >= 2)
             log_assembly = true;
-#endif
 
         cuda_jit_run(std::get<0>(result),
                      std::get<1>(result),

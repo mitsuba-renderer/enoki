@@ -4,10 +4,12 @@ extern void bind_cuda_1d(py::module&);
 extern void bind_cuda_2d(py::module&);
 extern void bind_cuda_3d(py::module&);
 extern void bind_cuda_4d(py::module&);
+extern void bind_cuda_matrix_4d(py::module&);
 extern void bind_autodiff_1d(py::module&);
 extern void bind_autodiff_2d(py::module&);
 extern void bind_autodiff_3d(py::module&);
 extern void bind_autodiff_4d(py::module&);
+extern void bind_autodiff_matrix_4d(py::module&);
 extern void bind_pcg32(py::module&);
 
 PYBIND11_MODULE(enoki, m) {
@@ -15,10 +17,12 @@ PYBIND11_MODULE(enoki, m) {
     bind_cuda_2d(m);
     bind_cuda_3d(m);
     bind_cuda_4d(m);
+    bind_cuda_matrix_4d(m);
     bind_autodiff_1d(m);
     bind_autodiff_2d(m);
     bind_autodiff_3d(m);
     bind_autodiff_4d(m);
+    bind_autodiff_matrix_4d(m);
     bind_pcg32(m);
 
     m.def("cuda_eval",

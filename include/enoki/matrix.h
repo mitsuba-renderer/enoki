@@ -220,10 +220,10 @@ ENOKI_INLINE expr_t<Value> frob(const Matrix<Value, Size, Approx> &matrix) {
 }
 
 template <typename T, enable_if_matrix_t<T> = 0>
-ENOKI_INLINE T identity() {
-    T result = zero<T>();
+ENOKI_INLINE T identity(size_t size = 1) {
+    T result = zero<T>(size);
     for (size_t i = 0; i < T::Size; ++i)
-        result(i, i) = 1;
+        result(i, i) = full<typename T::Entry>(1.f, size);
     return result;
 }
 
@@ -584,6 +584,11 @@ struct struct_support<Matrix<T, Size, Approx>,
         return ref_wrap(value, std::make_index_sequence<Size>());
     }
 
+    template <typename T2>
+    static ENOKI_INLINE auto detach(T2&& value) {
+        return detach(value, std::make_index_sequence<Size>());
+    }
+
     static ENOKI_INLINE Value zero(size_t size) {
         return Value::zero_(size);
     }
@@ -628,6 +633,12 @@ private:
     static ENOKI_INLINE auto ref_wrap(T2&& value, std::index_sequence<Index...>) {
         return Matrix<decltype(enoki::ref_wrap(value.coeff(0, 0))), Size, Approx>(
             enoki::ref_wrap(value.coeff(Index))...);
+    }
+
+    template <typename T2, size_t... Index>
+    static ENOKI_INLINE auto detach(T2&& value, std::index_sequence<Index...>) {
+        return Matrix<decltype(enoki::detach(value.coeff(0, 0))), Size, Approx>(
+            enoki::detach(value.coeff(Index))...);
     }
 };
 

@@ -91,6 +91,7 @@ private:
     std::string graphviz(const std::vector<Index> &indices);
     /// Current log level (0 == none, 1 == minimal, 2 == moderate, 3 == high, 4 == everything)
     void set_log_level(uint32_t);
+    void set_contract_edges(bool value);
 
     //! @}
     // -----------------------------------------------------------------------
@@ -1171,6 +1172,11 @@ public:
     static void set_log_level_(uint32_t level) {
         if constexpr (Enabled)
             tape()->set_log_level(level);
+    }
+
+    static void set_contract_edges_(uint32_t level) {
+        if constexpr (Enabled)
+            tape()->set_contract_edges(level);
     }
 
     auto operator->() const {

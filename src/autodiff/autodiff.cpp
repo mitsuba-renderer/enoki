@@ -23,10 +23,6 @@
 #include <set>
 #include <sstream>
 
-#if !defined(ENOKI_AUTODIFF_EXPAND_LIMIT)
-#  define ENOKI_AUTODIFF_EXPAND_LIMIT 3
-#endif
-
 #if defined(NDEBUG)
 #  define ENOKI_AUTODIFF_DEFAULT_LOG_LEVEL 0
 #else
@@ -131,6 +127,7 @@ template <typename Value> struct Tape<Value>::Detail {
     size_t scatter_gather_size = 0;
     bool scatter_gather_permute = false;
     uint32_t log_level = ENOKI_AUTODIFF_DEFAULT_LOG_LEVEL;
+    bool contract_edges = true;
 
     /// Set of indices selected for next backward pass
     std::set<uint32_t> scheduled;
@@ -184,6 +181,10 @@ template <typename Value> Tape<Value>::~Tape() {
 
 template <typename Value> void Tape<Value>::set_log_level(uint32_t level) {
     d->log_level = level;
+}
+
+template <typename Value> void Tape<Value>::set_contract_edges(bool value) {
+    d->contract_edges = value;
 }
 
 template <typename Value>
@@ -253,7 +254,7 @@ Index Tape<Value>::append_node(size_t size, const char *label) {
 
 template <typename Value>
 Index Tape<Value>::append_leaf(size_t size) {
-    Index idx = append_node(size, "\"unnamed\"");
+    Index idx = append_node(size, "'unnamed'");
     Node &n = d->node(idx);
     n.grad = zero<Value>(n.size);
     return idx;
@@ -267,9 +268,9 @@ void Tape<Value>::set_label(Index idx, const char *label) {
     if (d->log_level >= 3)
         std::cerr << "autodiff: set_label(" << idx << ") -> " << label << std::endl;
 #endif
-    std::string name = "\\\"" + std::string(label) + "\\\"";
+    std::string name = "'" + std::string(label) + "'";
     Node &n = d->node(idx);
-    n.label = label;
+    n.label = name;
     enoki::set_label(n.grad, (label + std::string(".grad")).c_str());
 }
 
@@ -440,8 +441,7 @@ void Tape<Value>::append_edge(Index source_idx, Index target_idx,
     bool has_special = source.has_special();
     bool compat_size = source.size == target.size;
 
-    if (!has_special && compat_size && source_deg > 0 &&
-        source_deg <= ENOKI_AUTODIFF_EXPAND_LIMIT) {
+    if (!has_special && compat_size && source_deg > 0 && d->contract_edges) {
         Edge *edge = source.edges.get();
         while (edge) {
 #if !defined(NDEBUG)
@@ -537,7 +537,8 @@ template <typename Value> void Tape<Value>::push_prefix(const char *value) {
 }
 
 template <typename Value> void Tape<Value>::pop_prefix() {
-    assert(!d->prefix.empty());
+    if (d->prefix.empty())
+        throw std::runtime_error("pop_prefix(): prefix list is already empty!");
     d->prefix.pop_back();
 }
 
@@ -681,7 +682,7 @@ std::string Tape<Value>::graphviz(const std::vector<Index> &indices_) {
         oss << "\\n#" << std::to_string(index) << " ["
             << std::to_string(node.ref_count) << "]"
             << "\"";
-        if (node.label[0] == '\\')
+        if (node.label[0] == '\'')
             oss << " fillcolor=salmon style=filled";
         oss << "];" << std::endl;
     }
