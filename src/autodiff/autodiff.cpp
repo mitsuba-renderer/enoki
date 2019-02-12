@@ -12,16 +12,13 @@
 */
 
 #include <enoki/dynamic.h>
-
-#if ENOKI_BUILD_CUDA
-#  include <enoki/cuda.h>
-#endif
-
+#include <enoki/cuda.h>
 #include <enoki/autodiff.h>
 
 #include <unordered_map>
 #include <set>
 #include <sstream>
+#include <iomanip>
 
 #if defined(NDEBUG)
 #  define ENOKI_AUTODIFF_DEFAULT_LOG_LEVEL 0
@@ -46,13 +43,19 @@ template <typename Value> struct Tape<Value>::Node {
     Value grad;
 
     /// Pointer to incident edge linked list
-    std::unique_ptr<Edge> edges;
+    std::vector<Edge> edges;
+
+    /// Reverse edge list
+    std::vector<uint32_t> edges_rev;
 
     /// External (i.e. by Enoki) reference count
-    uint32_t ref_count = 0;
+    uint32_t ref_count_ext = 0;
+
+    /// Internal (i.e. within the computation graph) reference count
+    uint32_t ref_count_int = 0;
 
     /// Size of the variable
-    uint32_t size;
+    uint32_t size = 0;
 
     Node(size_t size, const char *label)
         : label(label ? label : ""), size((uint32_t) size) { }
@@ -61,36 +64,38 @@ template <typename Value> struct Tape<Value>::Node {
         return size == 1;
     }
 
-    Index degree() const {
-        Index result = 0;
-        Edge *edge = edges.get();
-        while (edge) {
-            edge = edge->next.get();
-            result += 1;
-        }
-        return result;
+    bool collapse_allowed() const {
+        return !edges.empty() && !edges_rev.empty();
     }
 
-    bool has_special() const {
-        bool result = false;
-        Edge *edge = edges.get();
-        while (edge) {
-            result |= edge->is_special();
-            edge = edge->next.get();
-        }
-        return result;
+    Index score() const {
+        return (uint32_t) (edges.size() * edges_rev.size());
     }
 
-    void append_edge(Edge *edge) {
-        if (edges.get() == nullptr) {
-            edges = std::unique_ptr<Edge>(edge);
-        } else {
-            Edge *cur = edges.get();
-            while (cur->next.get())
-                cur = cur->next.get();
-            cur->next = std::unique_ptr<Edge>(edge);
+    Edge *edge(Index source) {
+        for (auto &e: edges) {
+            if (e.source == source)
+                return &e;
         }
+        return nullptr;
     }
+
+    Edge remove_edge(Index source) {
+        for (auto it = edges.begin(); it != edges.end(); ++it) {
+            if (it->source == source) {
+                Edge temp(std::move(*it));
+                edges.erase(it);
+                return temp;
+            }
+        }
+        throw std::runtime_error("Node::remove_edge(): not found!");
+    }
+
+    Node() = default;
+    Node(const Node &) = delete;
+    Node(Node&&) = default;
+    Node& operator=(const Node &) = delete;
+    Node& operator=(Node&&) = default;
 };
 
 template <typename Value> struct Tape<Value>::Edge {
@@ -113,6 +118,12 @@ template <typename Value> struct Tape<Value>::Edge {
         : source(source), special(special) { }
 
     bool is_special() const { return special != nullptr; }
+
+    Edge() = default;
+    Edge(const Edge &) = delete;
+    Edge(Edge&&) = default;
+    Edge& operator=(const Edge &) = delete;
+    Edge& operator=(Edge&&) = default;
 };
 
 template <typename Value> struct Tape<Value>::Special {
@@ -123,11 +134,7 @@ template <typename Value> struct Tape<Value>::Special {
 
 template <typename Value> struct Tape<Value>::Detail {
     Index node_counter = 1,
-          node_counter_last = 1,
-          edge_contractions = 0,
-          edge_contractions_last = 0,
-          edge_merges = 0,
-          edge_merges_last = 0;
+          node_counter_last = 1;
 
     std::unordered_map<Index, Node> nodes;
     std::vector<std::string> prefix;
@@ -135,7 +142,8 @@ template <typename Value> struct Tape<Value>::Detail {
     size_t scatter_gather_size = 0;
     bool scatter_gather_permute = false;
     uint32_t log_level = ENOKI_AUTODIFF_DEFAULT_LOG_LEVEL;
-    bool contract_edges = true;
+    bool graph_simplification = true,
+         is_simplified = true;
 
     /// Set of indices selected for next backward pass
     std::set<uint32_t> scheduled;
@@ -156,14 +164,14 @@ template <typename Value> struct Tape<Value>::Detail {
         Node &n = node(k);
         if (clear_grad) {
             n.grad = zero<Value>(n.size);
-            if (!n.label.empty())
-                enoki::set_label(n.grad, (n.label + ".grad").c_str());
+            if (!n.label.empty()) {
+                std::string label = (n.label[0] == '\'') ? n.label.substr(1, n.label.size() - 2) : n.label;
+                enoki::set_label(n.grad, (label + ".grad").c_str());
+            }
         }
-        const Edge *edge = n.edges.get();
-        while (edge) {
-            dfs(edge->source, clear_grad);
-            edge = edge->next.get();
-        }
+
+        for (const Edge &edge : n.edges)
+            dfs(edge.source, clear_grad);
     }
 };
 
@@ -172,27 +180,43 @@ template <typename Value> Tape<Value> *Tape<Value>::get() { return &s_tape; }
 
 template <typename Value> Tape<Value>::Tape() {
     d = new Detail();
+
+    if constexpr (is_cuda_array_v<Value>)
+        cuda_register_callback((void (*)(void *)) & Tape::cuda_callback, this);
 }
 
 template <typename Value> Tape<Value>::~Tape() {
+    if constexpr (is_cuda_array_v<Value>)
+        cuda_register_callback((void (*)(void *)) & Tape::cuda_callback, this);
+
 #if !defined(NDEBUG)
     if (d->log_level >= 1) {
+        if (d->node_counter != 1)
+            std::cerr << "autodiff: shutdown." << std::endl;
         for (const auto &it : d->nodes) {
             std::cerr << "autodiff: variable " << it.first
-                      << " still live at shutdown. (ref_count="
-                      << it.second.ref_count << ")" << std::endl;
+                      << " still live at shutdown. (ref_count_int="
+                      << it.second.ref_count_int
+                      << ", ref_count_ext=" << it.second.ref_count_ext << ")"
+                      << std::endl;
         }
     }
 #endif
     delete d;
 }
 
+template <typename Value> void Tape<Value>::cuda_callback(void *ptr) {
+    Tape *tape = (Tape *) ptr;
+    if (tape->d->graph_simplification)
+        tape->simplify_graph();
+}
+
 template <typename Value> void Tape<Value>::set_log_level(uint32_t level) {
     d->log_level = level;
 }
 
-template <typename Value> void Tape<Value>::set_contract_edges(bool value) {
-    d->contract_edges = value;
+template <typename Value> void Tape<Value>::set_graph_simplification(bool value) {
+    d->graph_simplification = value;
 }
 
 template <typename Value>
@@ -256,7 +280,8 @@ Index Tape<Value>::append_node(size_t size, const char *label) {
         std::cerr << "autodiff: append_node(\"" << (label ? label : "")
                   << "\", size=" << size << ") -> " << idx << std::endl;
 #endif
-    inc_ref(idx);
+    inc_ref_ext(idx);
+    d->is_simplified = false;
     return idx;
 }
 
@@ -309,16 +334,17 @@ Index Tape<Value>::append_gather(const Int64 &offset, const Mask &mask) {
                     scatter_add(grad_source, grad_target, offset, mask);
             }
         };
+        Node &source_node = d->node(source);
 
         Gather *gather = new Gather();
         gather->offset = offset;
         gather->mask = mask;
-        gather->size = d->node(source).size;
+        gather->size = source_node.size;
         gather->permute = d->scatter_gather_permute;
 
         Index target = append_node(slices(offset), "gather");
-        d->node(target).append_edge(new Edge(source, gather));
-        inc_ref(source);
+        d->node(target).edges.emplace_back(source, gather);
+        inc_ref_int(source, target);
 
 #if !defined(NDEBUG)
         if (d->log_level >= 3)
@@ -356,8 +382,8 @@ void Tape<Value>::append_scatter(Index source, const Int64 &offset, const Mask &
         s->mask = mask;
 
         Index target_new = append_node(d->scatter_gather_size, "scatter");
-        d->node(target_new).append_edge(new Edge(source, s));
-        inc_ref(source);
+        d->node(target_new).edges.emplace_back(source, s);
+        inc_ref_int(source, target_new);
 
         if (target_orig != 0) {
             Index sa_node = target_new;
@@ -368,8 +394,8 @@ void Tape<Value>::append_scatter(Index source, const Int64 &offset, const Mask &
             }
             target_new = append("scatter_combine", d->scatter_gather_size,
                                 target_new, target_orig, 1, weight);
-            dec_ref(sa_node);
-            dec_ref(target_orig);
+            dec_ref_ext(sa_node);
+            dec_ref_ext(target_orig);
         }
 
         *d->scatter_gather_index = target_new;
@@ -407,15 +433,15 @@ void Tape<Value>::append_scatter_add(Index source, const Int64 &offset,
         s->mask = mask;
 
         Index target_new = append_node(d->scatter_gather_size, "scatter_add");
-        d->node(target_new).append_edge(new Edge(source, s));
-        inc_ref(source);
+        d->node(target_new).edges.emplace_back(source, s);
+        inc_ref_int(source, target_new);
 
         if (target_orig != 0) {
             Index sa_node = target_new;
             target_new = append("add", d->scatter_gather_size, target_new,
                                 target_orig, 1, 1);
-            dec_ref(sa_node);
-            dec_ref(target_orig);
+            dec_ref_ext(sa_node);
+            dec_ref_ext(target_orig);
         }
 
         *d->scatter_gather_index = target_new;
@@ -438,58 +464,29 @@ void Tape<Value>::append_edge(Index source_idx, Index target_idx,
 
 #if !defined(NDEBUG)
     if (d->log_level >= 4)
-        std::cerr << "autodiff: append_edge(" << target_idx << " <- " << source_idx << ")" << std::endl;
-#endif
-
-    Node &source = d->node(source_idx),
-         &target = d->node(target_idx);
-
-    Index source_deg = source.degree();
-    bool has_special = source.has_special();
-    bool compat_size = source.size == target.size;
-
-    if (!has_special && compat_size && source_deg > 0 && d->contract_edges) {
-        Edge *edge = source.edges.get();
-        while (edge) {
-#if !defined(NDEBUG)
-            if (d->log_level >= 4)
-                std::cerr << " ... contracting with edge -> "  << edge->source << std::endl;
-#endif
-            append_edge_prod(edge->source, target_idx, weight, edge->weight);
-            d->edge_contractions++;
-            edge = edge->next.get();
-        }
-        return;
-    }
-
-    Edge *edge = target.edges.get();
-    while (edge) {
-        if (edge->source == source_idx) {
-
-            edge->weight += weight;
-#if !defined(NDEBUG)
-            if (d->log_level >= 4) {
-                std::cerr << " ... merging into existing edge" << std::endl;
-
-                enoki::set_label(edge->weight,
-                                 ("edge[" + std::to_string(source_idx) + " -> " +
-                                  std::to_string(target_idx) + "]").c_str());
-            }
-#endif
-            d->edge_merges++;
-            return;
-        }
-        edge = edge->next.get();
-    }
-
-#if !defined(NDEBUG)
-    if (d->log_level >= 4)
         enoki::set_label(weight, ("edge[" + std::to_string(source_idx) + " -> " +
                                   std::to_string(target_idx) + "]").c_str());
 #endif
 
-    target.append_edge(new Edge(source_idx, weight));
-    inc_ref(source_idx);
+    Node &target = d->node(target_idx);
+    if (Edge *edge = target.edge(source_idx); edge != nullptr) {
+#if !defined(NDEBUG)
+        if (d->log_level >= 4)
+            std::cerr << "autodiff: append_edge(" << target_idx << " <- "
+                      << source_idx << "): merging."
+                      << std::endl;
+#endif
+        edge->weight += weight;
+    } else {
+#if !defined(NDEBUG)
+        if (d->log_level >= 4)
+            std::cerr << "autodiff: append_edge(" << target_idx << " <- "
+                      << source_idx << "): creating."
+                      << std::endl;
+#endif
+        target.edges.emplace_back(source_idx, weight);
+        inc_ref_int(source_idx, target_idx);
+    }
 }
 
 template <typename Value>
@@ -500,90 +497,110 @@ void Tape<Value>::append_edge_prod(Index source_idx, Index target_idx,
         return;
     assert(target_idx != 0);
 
+    Node &target = d->node(target_idx);
+    if (Edge *edge = target.edge(source_idx); edge != nullptr) {
+        Value weight = safe_fmadd(weight1, weight2, edge->weight);
 #if !defined(NDEBUG)
-    if (d->log_level >= 4)
-        std::cerr << "autodiff: append_edge(" << target_idx << " <- " << source_idx << ")" << std::endl;
-#endif
-
-    Node &source = d->node(source_idx),
-         &target = d->node(target_idx);
-
-    Index source_deg = source.degree();
-    bool has_special = source.has_special();
-    bool compat_size = source.size == target.size;
-
-    if (!has_special && compat_size && source_deg > 0 && d->contract_edges) {
-        Edge *edge = source.edges.get();
-        while (edge) {
-#if !defined(NDEBUG)
-            if (d->log_level >= 4)
-                std::cerr << " ... contracting with edge -> "  << edge->source << std::endl;
-#endif
-            append_edge_prod(edge->source, target_idx,
-                             safe_mul(weight1, weight2), edge->weight);
-            d->edge_contractions++;
-            edge = edge->next.get();
+        if (d->log_level >= 4) {
+            std::cerr << "autodiff: append_edge_prod(" << target_idx << " <- "
+                      << source_idx << "): merging."
+                      << std::endl;
+            enoki::set_label(weight, ("edge[" + std::to_string(source_idx) + " -> " +
+                                      std::to_string(target_idx) + "]").c_str());
         }
-        return;
-    }
-
-    Edge *edge = target.edges.get();
-    while (edge) {
-        if (edge->source == source_idx) {
-            edge->weight = safe_fmadd(weight1, weight2, edge->weight);
-
-#if !defined(NDEBUG)
-            if (d->log_level >= 4) {
-                std::cerr << " ... merging into existing edge" << std::endl;
-                enoki::set_label(edge->weight,
-                                 ("edge[" + std::to_string(source_idx) + " -> " +
-                                  std::to_string(target_idx) + "]").c_str());
-            }
 #endif
-
-            d->edge_merges++;
-            return;
+        edge->weight = weight;
+    } else {
+        Value weight = safe_mul(weight1, weight2);
+#if !defined(NDEBUG)
+        if (d->log_level >= 4) {
+            std::cerr << "autodiff: append_edge_prod(" << target_idx << " <- "
+                      << source_idx << "): creating."
+                      << std::endl;
+            enoki::set_label(weight, ("edge[" + std::to_string(source_idx) + " -> " +
+                                      std::to_string(target_idx) + "]").c_str());
         }
-        edge = edge->next.get();
-    }
-
-    Value weight = safe_mul(weight1, weight2);
-#if !defined(NDEBUG)
-    if (d->log_level >= 4)
-        enoki::set_label(weight, ("edge[" + std::to_string(source_idx) + " -> " +
-                                  std::to_string(target_idx) + "]").c_str());
 #endif
-
-    target.append_edge(new Edge(source_idx, weight));
-    inc_ref(source_idx);
+        target.edges.emplace_back(source_idx, weight);
+        inc_ref_int(source_idx, target_idx);
+    }
 }
 
+template <typename Value> void Tape<Value>::inc_ref_int(Index index, Index from) {
+    Node &node = d->node(index);
 
-template <typename Value> void Tape<Value>::inc_ref(Index index) {
+#if !defined(NDEBUG)
+    if (d->log_level >= 4)
+        std::cerr << "autodiff: inc_ref_int(" << index << ", " << from
+                  << ") -> " << (node.ref_count_int + 1) << std::endl;
+#endif
+
+    auto it = std::find(node.edges_rev.begin(), node.edges_rev.end(), from);
+    if (it != node.edges_rev.end())
+        throw std::runtime_error("inc_ref_int(): internal error -- edge already exists!");
+
+    node.edges_rev.push_back(from);
+    node.ref_count_int++;
+}
+
+template <typename Value> void Tape<Value>::dec_ref_int(Index index, Index from) {
     if (index == 0)
         return;
     Node &node = d->node(index);
-    node.ref_count++;
+
 #if !defined(NDEBUG)
     if (d->log_level >= 4)
-        std::cerr << "autodiff: inc_ref(" << index << ") -> " << node.ref_count << std::endl;
+        std::cerr << "autodiff: dec_ref_int(" << index << ", " << from
+                  << ") -> " << (node.ref_count_int - 1) << std::endl;
 #endif
-}
 
-template <typename Value> void Tape<Value>::dec_ref(Index index) {
-    if (index == 0)
-        return;
-    Node &node = d->node(index);
-    if (node.ref_count == 0)
-        throw std::runtime_error("autodiff: dec_ref(): Node " +
+    if (node.ref_count_int > 0)
+        --node.ref_count_int;
+    else
+        throw std::runtime_error("autodiff: dec_ref_int(): Node " +
                                  std::to_string(index) +
                                  " has zero references!");
-    --node.ref_count;
+
+    auto it = std::find(node.edges_rev.begin(), node.edges_rev.end(), from);
+    if (it == node.edges_rev.end())
+        throw std::runtime_error("dec_ref_int(): internal error -- edge not found!");
+
+    node.edges_rev.erase(it);
+
+    if (node.ref_count_int == 0 && node.ref_count_ext == 0)
+        free_node(index);
+}
+
+template <typename Value> void Tape<Value>::inc_ref_ext(Index index) {
+    if (index == 0)
+        return;
+    Node &node = d->node(index);
+    node.ref_count_ext++;
+
 #if !defined(NDEBUG)
     if (d->log_level >= 4)
-        std::cerr << "autodiff: dec_ref(" << index << ") -> " << node.ref_count << std::endl;
+        std::cerr << "autodiff: inc_ref_ext(" << index << ") -> " << node.ref_count_ext << std::endl;
 #endif
-    if (node.ref_count == 0)
+}
+
+template <typename Value> void Tape<Value>::dec_ref_ext(Index index) {
+    if (index == 0)
+        return;
+    Node &node = d->node(index);
+
+#if !defined(NDEBUG)
+    if (d->log_level >= 4)
+        std::cerr << "autodiff: dec_ref_ext(" << index << ") -> " << (node.ref_count_ext - 1) << std::endl;
+#endif
+
+    if (node.ref_count_ext > 0)
+        --node.ref_count_ext;
+    else
+        throw std::runtime_error("autodiff: dec_ref_ext(): Node " +
+                                 std::to_string(index) +
+                                 " has zero references!");
+
+    if (node.ref_count_int == 0 && node.ref_count_ext == 0)
         free_node(index);
 }
 
@@ -597,13 +614,10 @@ template <typename Value> void Tape<Value>::free_node(Index index) {
     if (it == d->nodes.end())
         throw std::runtime_error("autodiff: free_node(): Unknown index " +
                                  std::to_string(index));
-    Node &node = it->second;
-    Edge *edge = node.edges.get();
 
-    while (edge) {
-        dec_ref(edge->source);
-        edge = edge->next.get();
-    }
+    Node &node = it->second;
+    for (const Edge &edge : node.edges)
+        dec_ref_int(edge.source, index);
 
     d->nodes.erase(it);
 }
@@ -649,11 +663,10 @@ template <typename Value>
 void Tape<Value>::backward(bool free_graph) {
     using Scalar = scalar_t<Value>;
     auto &scheduled = d->scheduled;
-    uint32_t edge_count = 0;
 
     if (free_graph) {
-        for (auto it = scheduled.rbegin(); it != scheduled.rend(); ++it)
-            inc_ref(*it);
+        for (auto it = scheduled.begin(); it != scheduled.end(); ++it)
+            inc_ref_ext(*it);
     }
 
     for (auto it = scheduled.rbegin(); it != scheduled.rend(); ++it) {
@@ -665,45 +678,105 @@ void Tape<Value>::backward(bool free_graph) {
                 target.grad = hsum(target.grad);
         }
 
-        Edge *edge = target.edges.get();
-        while (edge) {
-            Index source_idx = edge->source;
-
-            if (ENOKI_LIKELY(!edge->is_special())) {
-                Value &weight = edge->weight;
-                Node  &source = d->node(source_idx);
-
-                source.grad = safe_fmadd(weight, target.grad, source.grad);
-
-                ++edge_count;
+        for (const Edge &edge : target.edges) {
+            if (ENOKI_LIKELY(!edge.is_special())) {
+                Node &source = d->node(edge.source);
+                source.grad = safe_fmadd(edge.weight, target.grad, source.grad);
             } else {
-                edge->special->compute_gradients(d, target_idx, *edge);
-                if (free_graph)
-                    edge->special.reset();
+                edge.special->compute_gradients(d, target_idx, edge);
             }
             if (free_graph)
-                dec_ref(edge->source);
-            edge = edge->next.get();
+                dec_ref_int(edge.source, target_idx);
         }
         if (free_graph) {
-            target.edges.reset();
-            dec_ref(target_idx);
+            target.edges.clear();
+            dec_ref_ext(target_idx);
         }
     }
 
     if (d->log_level >= 1)
-        std::cerr << "autodiff: processed " << scheduled.size() << "/" << (d->node_counter - d->node_counter_last)
-                  << " nodes, " << edge_count << " edges [" << (d->edge_contractions - d->edge_contractions_last)
-                  << " edge contractions, " << (d->edge_merges - d->edge_merges_last) << " edge merges].. "
+        std::cerr << "autodiff: backward(): processed " << scheduled.size() << "/"
+                  << (d->node_counter - d->node_counter_last) << " nodes."
                   << std::endl;
 
-    if (free_graph) {
+    if (free_graph)
         d->node_counter_last = d->node_counter;
-        d->edge_contractions_last = d->edge_contractions;
-        d->edge_merges_last = d->edge_merges;
-    }
 
     scheduled.clear();
+}
+
+template <typename Value> void Tape<Value>::simplify_graph() {
+    if (d->is_simplified)
+        return;
+    if (d->log_level >= 2)
+        std::cerr << "autodiff: simplify_graph(): starting.." << std::endl;
+
+    std::set<std::pair<Index, Index>> todo;
+    std::vector<std::pair<Index, Index>> update;
+    std::vector<Index> edges_rev;
+    for (const auto &it : d->nodes)
+        todo.emplace(it.second.score(), it.first);
+    size_t cost = 0;
+
+    while (!todo.empty()) {
+        auto it = todo.begin();
+        uint32_t score = it->first, index = it->second;
+        todo.erase(it);
+        Node &node = d->node(index);
+        if (!node.collapse_allowed())
+            continue;
+
+        if (d->log_level >= 3)
+            std::cerr << "autodiff: simplify_graph(): collapsing node " << index << std::endl;
+
+        update.clear();
+        bool skip = false;
+
+        /* Collect predecessors and successors */ {
+            for (Index k : node.edges_rev)
+                update.emplace_back(d->node(k).score(), k);
+            for (const Edge &edge : node.edges) {
+                const Node &node2 = d->node(edge.source);
+                update.emplace_back(node2.score(), edge.source);
+                if (node2.size != node.size)
+                    skip = true;
+            }
+        }
+
+        if (skip)
+            continue;
+
+        /* Remove node and create edges */ {
+            edges_rev = node.edges_rev;
+            for (Index other : edges_rev) {
+                Edge edge1 = d->node(other).remove_edge(index);
+
+                for (auto const &edge2 : node.edges) {
+                    append_edge_prod(edge2.source, other, edge1.weight, edge2.weight);
+                    cost++;
+                }
+
+                dec_ref_int(index, other);
+            }
+        }
+
+        /* Update costs (if changed) */ {
+            for (auto [old_score, id] : update) {
+                auto it = todo.find({ old_score, id });
+                if (it == todo.end())
+                    continue;
+                uint32_t new_score = d->node(id).score();
+                if (old_score != new_score) {
+                    todo.erase(it);
+                    todo.emplace(new_score, id);
+                }
+            }
+        }
+    }
+
+    if (d->log_level >= 2)
+        std::cerr << "autodiff: simplify_graph(): done. (cost = " << cost << ")" << std::endl;
+    d->is_simplified = true;
 }
 
 template <typename Value>
@@ -763,8 +836,9 @@ std::string Tape<Value>::graphviz(const std::vector<Index> &indices_) {
         if (node.is_scalar())
             oss << " [s]";
 
-        oss << "\\n#" << std::to_string(index) << " ["
-            << std::to_string(node.ref_count) << "]"
+        oss << "\\n#" << std::to_string(index) << " [E/I: "
+            << std::to_string(node.ref_count_ext) << "/"
+            << std::to_string(node.ref_count_int) << "]"
             << "\"";
         if (node.label[0] == '\'')
             oss << " fillcolor=salmon style=filled";
@@ -775,16 +849,13 @@ std::string Tape<Value>::graphviz(const std::vector<Index> &indices_) {
 
     for (Index index : indices) {
         const Node &node = d->node(index);
-        const Edge *edge = node.edges.get();
-
-        while (edge) {
+        for (const Edge &edge : node.edges) {
             oss << "  " << std::to_string(index) << " -> "
-                << std::to_string(edge->source) << ";" << std::endl;
+                << std::to_string(edge.source) << ";" << std::endl;
 
-            if (edge->is_special())
+            if (edge.is_special())
                 oss << "  " << std::to_string(index)
                     << " [shape=doubleoctagon];" << std::endl;
-            edge = edge->next.get();
         }
     }
 
@@ -794,6 +865,32 @@ std::string Tape<Value>::graphviz(const std::vector<Index> &indices_) {
 
     oss << "}";
     indices.clear();
+    return oss.str();
+}
+
+template <typename Value> std::string Tape<Value>::whos() const {
+    std::ostringstream oss;
+    oss << std::endl
+        << "  ID      E/I Refs   Size        Label" << std::endl
+        << "  ====================================" << std::endl;
+
+    std::vector<uint32_t> indices;
+    indices.reserve(d->nodes.size());
+    for (const auto& it : d->nodes)
+        indices.push_back(it.first);
+    std::sort(indices.begin(), indices.end());
+
+    for (uint32_t id : indices) {
+        const Node &n = d->node(id);
+        oss << "  " << std::left << std::setw(7) << id << " ";
+        oss << std::left << std::setw(10) << (std::to_string(n.ref_count_ext) + " / " + std::to_string(n.ref_count_int)) << " ";
+        oss << std::left << std::setw(12) << n.size;
+        oss << n.label;
+        oss << std::endl;
+    }
+
+    oss << "  ====================================" << std::endl << std::endl;
+
     return oss.str();
 }
 

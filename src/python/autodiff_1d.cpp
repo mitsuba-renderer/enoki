@@ -16,8 +16,9 @@ void bind_autodiff_1d(py::module& m) {
         .def_static("set_log_level",
              [](int log_level) { FloatD::set_log_level_(log_level); },
              "Sets the current log level (0 == none, 1 == minimal, 2 == moderate, 3 == high, 4 == everything)")
-        .def_static("set_contract_edges",
-             [](bool contract_edges) { FloatD::set_contract_edges_(contract_edges); });
+        .def("set_graph_simplification", [](bool value) { FloatD::set_graph_simplification_(value); })
+        .def("whos", []() { py::print(FloatD::whos_()); })
+        .def_static("simplify_graph", []() { FloatD::simplify_graph_(); });
 
     py::class_<Scope>(fd, "Scope")
         .def(py::init<const std::string &>())

@@ -33,11 +33,11 @@ PYBIND11_MODULE(enoki, m) {
           [](bool log_assembly) { enoki::cuda_eval(log_assembly); },
           py::arg("log_assembly") = false);
 
-    m.def("cuda_whos", &cuda_whos);
+    m.def("cuda_whos", []() { py::print(cuda_whos()); });
 
     m.def("cuda_set_log_level",
           [](int log_level) { enoki::cuda_set_log_level(log_level); },
-          "Sets the current log level (0: none, 1: kernel launches, * 2: +ptxas "
+          "Sets the current log level (0: none, 1: kernel launches, 2: +ptxas "
           "statistics, 3: +ptx source, 4: +jit trace, 5: +ref counting)");
 
     py::class_<CUDAManagedBuffer>(m, "CUDAManagedBuffer");

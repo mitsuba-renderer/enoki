@@ -141,6 +141,12 @@ extern ENOKI_IMPORT void cuda_free(void *);
 /// Print detailed information about currently allocated arrays
 extern ENOKI_IMPORT std::string cuda_whos();
 
+/// Register a callback that will be invoked before cuda_eval()
+extern void cuda_register_callback(void (*callback)(void *), void *payload);
+
+/// Unregister a callback installed via 'cuda_register_callback()'
+extern void cuda_unregister_callback(void (*callback)(void *), void *payload);
+
 /**
  * \brief Current log level (0: none, 1: kernel launches,
  * 2: +ptxas statistics, 3: +ptx source, 4: +jit trace, 5: +ref counting)

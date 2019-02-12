@@ -71,8 +71,10 @@ private:
     //! @{ \name Reference counting
     // -----------------------------------------------------------------------
 
-    void dec_ref(Index index);
-    void inc_ref(Index index);
+    void dec_ref_ext(Index index);
+    void inc_ref_ext(Index index);
+    void dec_ref_int(Index index, Index from);
+    void inc_ref_int(Index index, Index from);
     void free_node(Index index);
 
     //! @}
@@ -92,7 +94,10 @@ private:
     std::string graphviz(const std::vector<Index> &indices);
     /// Current log level (0 == none, 1 == minimal, 2 == moderate, 3 == high, 4 == everything)
     void set_log_level(uint32_t);
-    void set_contract_edges(bool value);
+    void set_graph_simplification(bool);
+    void simplify_graph();
+    std::string whos() const;
+    static void cuda_callback(void*);
 
     //! @}
     // -----------------------------------------------------------------------
@@ -141,12 +146,12 @@ public:
 
     ~DiffArray() {
         if constexpr (Enabled)
-            tape()->dec_ref(m_index);
+            tape()->dec_ref_ext(m_index);
     }
 
     DiffArray(const DiffArray &a) : m_value(a.m_value), m_index(a.m_index) {
         if constexpr (Enabled)
-            tape()->inc_ref(m_index);
+            tape()->inc_ref_ext(m_index);
     }
 
     DiffArray(DiffArray &&a) : m_value(std::move(a.m_value)) {
@@ -177,7 +182,7 @@ public:
         m_value = a.m_value;
         if constexpr (Enabled) {
             m_index = a.m_index;
-            tape()->inc_ref(m_index);
+            tape()->inc_ref_ext(m_index);
         }
         return *this;
     }
@@ -1099,7 +1104,7 @@ public:
             if (value && m_index == 0) {
                 m_index = tape()->append_leaf(slices(m_value));
             } else if (!value && m_index != 0) {
-                tape()->dec_ref(m_index);
+                tape()->dec_ref_ext(m_index);
                 m_index = 0;
             }
         }
@@ -1147,14 +1152,14 @@ public:
             tape()->pop_prefix();
     }
 
-    static void inc_ref_(Index index) {
+    static void inc_ref_ext_(Index index) {
         if constexpr (Enabled)
-            tape()->inc_ref(index);
+            tape()->inc_ref_ext(index);
     }
 
-    static void dec_ref_(Index index) {
+    static void dec_ref_ext_(Index index) {
         if constexpr (Enabled)
-            tape()->dec_ref(index);
+            tape()->dec_ref_ext(index);
     }
 
     static void set_scatter_gather_operand_(const DiffArray &v, bool permute) {
@@ -1175,9 +1180,21 @@ public:
             tape()->set_log_level(level);
     }
 
-    static void set_contract_edges_(uint32_t level) {
+    static void set_graph_simplification_(uint32_t level) {
         if constexpr (Enabled)
-            tape()->set_contract_edges(level);
+            tape()->set_graph_simplification(level);
+    }
+
+    static void simplify_graph_() {
+        if constexpr (Enabled)
+            tape()->simplify_graph();
+    }
+
+    static std::string whos_() {
+        if constexpr (!Enabled)
+            fail_unsupported("whos");
+        else
+            return tape()->whos();
     }
 
     auto operator->() const {

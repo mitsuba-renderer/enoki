@@ -11,6 +11,8 @@ option(ENOKI_AUTODIFF "Build Enoki automatic differentation library?" OFF)
 option(ENOKI_PYTHON   "Build pybind11 interface to CUDA & automatic differntiation libraries?" OFF)
 
 if (ENOKI_CUDA)
+  set(ENOKI_CUDA_COMPUTE_CAPABILITY "75" CACHE STRING "Compute capability as specified by https://developer.nvidia.com/cuda-gpus")
+  set(CMAKE_CUDA_FLAGS "-gencode arch=compute_${ENOKI_CUDA_COMPUTE_CAPABILITY},code=sm_${ENOKI_CUDA_COMPUTE_CAPABILITY} --cudart shared")
   project(enoki CXX CUDA)
   add_definitions(-DENOKI_BUILD_CUDA=1)
 else()
@@ -244,7 +246,6 @@ add_definitions(-DENOKI_BUILD=1)
 
 if (ENOKI_CUDA)
   include_directories(ext/cub)
-  string(APPEND CMAKE_CUDA_FLAGS "-gencode arch=compute_75,code=sm_75")
   set(CMAKE_SHARED_LINKER_FLAGS_BACKUP "${CMAKE_SHARED_LINKER_FLAGS}")
   string(REPLACE "-stdlib=libc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
   add_library(enoki-cuda SHARED
@@ -253,6 +254,7 @@ if (ENOKI_CUDA)
       src/cuda/horiz.cu
       src/cuda/jit.cu
   )
+  target_compile_definitions(enoki-cuda PRIVATE -DENOKI_CUDA_COMPUTE_CAPABILITY=${ENOKI_CUDA_COMPUTE_CAPABILITY})
 endif()
 
 enoki_set_native_flags()

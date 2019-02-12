@@ -101,7 +101,7 @@ template <typename T> T cuda_hsum(size_t size, const T *data) {
         std::cerr << "cuda_hsum(size=" << size << ")" << std::endl;
 #endif
 
-    size_t temp_size   = 0;
+    size_t temp_size  = 0;
     void *temp        = nullptr;
 
     T result = 0, *result_p = nullptr;
@@ -218,7 +218,7 @@ bool cuda_all(size_t size, const bool *data) {
         std::cerr << "cuda_all(size=" << size << ")" << std::endl;
 #endif
 
-    size_t temp_size   = 0;
+    size_t temp_size  = 0;
     void *temp        = nullptr;
 
     bool result = false, *result_p = nullptr;
