@@ -59,6 +59,11 @@ struct CUDAManagedBuffer {
     void *ptr = nullptr;
 };
 
+
+namespace enoki {
+extern ENOKI_IMPORT uint32_t cuda_var_copy_to_device(EnokiType type,
+                                                     size_t size, const void *value);
+};
 template <typename Array> py::object enoki_to_torch(const Array &array, bool eval);
 template <typename Array> py::object enoki_to_numpy(const Array &array, bool eval);
 template <typename Array> Array torch_to_enoki(py::object src);
@@ -182,14 +187,12 @@ py::class_<Array> bind(py::module &m, const char *name) {
         else if constexpr (array_size_v<Array> == 4)
             cl.def(py::init<Value, Value, Value, Value>());
 
-        cl.def(py::init([](std::array<Value, Array::Size> a) {
+        cl.def(py::init([](const std::array<Value, Array::Size> &a) {
             Array result;
             for (size_t i = 0; i<Array::Size; ++i)
                 result.coeff(i) = a[i];
             return result;
         }));
-
-        py::implicitly_convertible<py::sequence, Array>();
 
         if constexpr (array_size_v<Array> >= 1)
             cl.def_property("x", [](const Array &a) { return a.x(); },
@@ -214,7 +217,22 @@ py::class_<Array> bind(py::module &m, const char *name) {
             if constexpr (array_size_v<Array> == 3)
                 m.def("cross", [](const Array &a, const Array &b) { return enoki::cross(a, b); });
         }
+
+        py::implicitly_convertible<py::sequence, Array>();
+    } else if constexpr (!IsMask) {
+        cl.def(py::init([](std::vector<Value> &a) -> Array {
+            if constexpr (!is_diff_array_v<Array>) {
+                uint32_t index = cuda_var_copy_to_device(Array::Type, a.size(), a.data());
+                return Array::from_index_(index);
+            } else {
+                uint32_t index = cuda_var_copy_to_device(Array::UnderlyingType::Type, a.size(), a.data());
+                return Array::UnderlyingType::from_index_(index);
+            }
+        }));
     }
+
+    if constexpr (!is_diff_array_v<Array>)
+        m.def("compress", [](const Array &array, const mask_t<Array> &mask) { return compress(array, mask); });
 
     if constexpr (array_depth_v<Array> == 1) {
         m.def("gather",

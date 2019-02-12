@@ -155,7 +155,6 @@ struct Context {
         variables.clear();
         live.clear();
         scatter_gather_operand = 0;
-        log_level = ENOKI_CUDA_DEFAULT_LOG_LEVEL;
         include_printf = false;
     }
 

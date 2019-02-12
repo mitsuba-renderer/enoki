@@ -10,6 +10,9 @@ void bind_autodiff_1d(py::module& m) {
         std::string name;
     };
 
+    bind<mask_t<FloatD>>(m, "BoolD")
+        .def(py::init<const BoolC &>());
+
     auto fd = bind<FloatD>(m, "FloatD")
         .def(py::init<const FloatC &>())
         .def(py::init<const UInt32D &>())
@@ -28,7 +31,4 @@ void bind_autodiff_1d(py::module& m) {
     bind<UInt32D>(m, "UInt32D")
         .def(py::init<const UInt32C &>())
         .def(py::init<const FloatD &>());
-
-    bind<mask_t<FloatD>>(m, "BoolD")
-        .def(py::init<const BoolC &>());
 }

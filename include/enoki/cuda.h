@@ -100,6 +100,10 @@ template <typename T> extern ENOKI_IMPORT T cuda_hmax(size_t, const T *);
 /// Computes the horizontal minimum of a given memory region
 template <typename T> extern ENOKI_IMPORT T cuda_hmin(size_t, const T *);
 
+template <typename T>
+extern ENOKI_IMPORT std::pair<T *, size_t> cuda_compress(size_t, const T *,
+                                                         const bool *mask);
+
 /// Computes a horizontal reduction of a mask array via AND
 extern ENOKI_IMPORT bool cuda_all(size_t, const bool *);
 
@@ -634,9 +638,9 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         return cuda_any(cuda_var_size(m_index), (const Value *) cuda_var_ptr(m_index));
     }
 
-    static CUDAArray map(void *ptr, size_t size) {
+    static CUDAArray map(void *ptr, size_t size, bool dealloc = false) {
         return CUDAArray::from_index_(
-            cuda_var_register(Type, size, ptr, 0, false));
+            cuda_var_register(Type, size, ptr, 0, dealloc));
     }
 
     template <typename T = Value, enable_if_t<std::is_pointer_v<T>> = 0>
@@ -718,6 +722,21 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         );
 
         cuda_var_mark_side_effect(var);
+    }
+
+    template <typename Mask> CUDAArray compress_(const Mask &mask) const {
+        if (mask.size() == 0)
+            return CUDAArray();
+        else if (size() == 1 && mask.size() != 0)
+            return *this;
+        else if (mask.size() != size())
+            throw std::runtime_error("CUDAArray::compress_(): size mismatch!");
+        cuda_eval_var(m_index);
+        cuda_eval_var(mask.index_());
+
+        auto [ptr, new_size] = cuda_compress(size(), (const Value *) data(),
+                                             (const bool *) mask.data());
+        return map(ptr, new_size, true);
     }
 
     auto operator->() const {

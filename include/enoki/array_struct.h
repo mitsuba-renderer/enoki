@@ -172,6 +172,11 @@ ENOKI_INLINE size_t compress(Mem &mem, const Value &value, const Mask& mask) {
     return struct_support_t<Value>::compress(mem, value, mask);
 }
 
+template <typename Value, typename Mask>
+ENOKI_INLINE Value compress(const Value &value, const Mask& mask) {
+    return struct_support_t<Value>::compress(value, mask);
+}
+
 template <typename T> using enable_if_dynamic_t = enable_if_t<is_dynamic_v<T>>;
 template <typename T> using enable_if_static_t = enable_if_t<!is_dynamic_v<T>>;
 
@@ -284,6 +289,13 @@ struct struct_support<T, enable_if_static_array_t<T>> {
         }
     }
 
+    static ENOKI_INLINE T compress(const T &value, const mask_t<T> &mask) {
+        T result;
+        for (size_t i = 0; i < Size; ++i)
+            result.coeff(i) = enoki::compress(value.coeff(i), mask.coeff(i));
+        return result;
+    }
+
     template <typename Src, typename Index, typename Mask>
     static ENOKI_INLINE T gather(const Src &src, const Index &index, const Mask &mask) {
         return gather(src, index, mask, std::make_index_sequence<Size>());
@@ -380,6 +392,9 @@ struct struct_support<T, enable_if_dynamic_array_t<T>> {
     template <typename Mem>
     static ENOKI_INLINE size_t compress(Mem &mem, const T& value, const mask_t<T> &mask) {
         return value.compress_(mem, mask);
+    }
+    static ENOKI_INLINE T compress(const T &value, const mask_t<T> &mask) {
+        return value.compress_(mask);
     }
 };
 
