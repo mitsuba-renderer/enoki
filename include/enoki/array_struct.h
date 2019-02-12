@@ -12,16 +12,19 @@ template <typename Array, size_t Stride = 0, bool Packed = true,
 ENOKI_INLINE Array gather(const Source &source, const Index &index,
                           const identity_t<Mask> &mask = true) {
     if constexpr (array_depth_v<Source> == 1) {
-        if constexpr (is_diff_array_v<Source>)
+        if constexpr (is_diff_array_v<Source>) {
             Source::set_scatter_gather_operand_(source, IsPermute);
-        else if constexpr (is_cuda_array_v<Source>)
+            if constexpr (is_cuda_array_v<Source>)
+                cuda_set_scatter_gather_operand(source.value_().index_());
+        } else if constexpr (is_cuda_array_v<Source>) {
             cuda_set_scatter_gather_operand(source.index_());
+        }
 
         Array result = gather<Array, Stride, Packed>(source.data(), index, mask);
 
         if constexpr (is_diff_array_v<Source>)
             Source::clear_scatter_gather_operand_();
-        else if constexpr (is_cuda_array_v<Source>)
+        if constexpr (is_cuda_array_v<Source>)
             cuda_set_scatter_gather_operand(0);
 
        return result;
@@ -39,15 +42,22 @@ ENOKI_INLINE void scatter(Target &target,
                           const Index &index,
                           const identity_t<Mask> &mask = true) {
     if constexpr (array_depth_v<Target> == 1) {
-        if constexpr (is_diff_array_v<Target>)
+        if constexpr (is_diff_array_v<Target>) {
             Target::set_scatter_gather_operand_(target, IsPermute);
-        else if constexpr (is_cuda_array_v<Target>)
+            if constexpr (is_cuda_array_v<Target>)
+                cuda_set_scatter_gather_operand(target.value_().index_());
+        } else if constexpr (is_cuda_array_v<Target>) {
             cuda_set_scatter_gather_operand(target.index_());
+        }
 
         scatter<Stride, Packed>(target.data(), value, index, mask);
 
         if constexpr (is_diff_array_v<Target>) {
             Target::clear_scatter_gather_operand_();
+            if constexpr (is_cuda_array_v<Target>) {
+                cuda_var_mark_dirty(target.value_().index_());
+                cuda_set_scatter_gather_operand(0);
+            }
         } else if constexpr (is_cuda_array_v<Target>) {
             cuda_var_mark_dirty(target.index_());
             cuda_set_scatter_gather_operand(0);
@@ -66,15 +76,22 @@ ENOKI_INLINE void scatter_add(Target &target,
                               const Index &index,
                               const identity_t<Mask> &mask = true) {
     if constexpr (array_depth_v<Target> == 1) {
-        if constexpr (is_diff_array_v<Target>)
+        if constexpr (is_diff_array_v<Target>) {
             Target::set_scatter_gather_operand_(target, IsPermute);
-        else if constexpr (is_cuda_array_v<Target>)
+            if constexpr (is_cuda_array_v<Target>)
+                cuda_set_scatter_gather_operand(target.value_().index_());
+        } else if constexpr (is_cuda_array_v<Target>) {
             cuda_set_scatter_gather_operand(target.index_());
+        }
 
         scatter_add<Stride>(target.data(), value, index, mask);
 
         if constexpr (is_diff_array_v<Target>) {
             Target::clear_scatter_gather_operand_();
+            if constexpr (is_cuda_array_v<Target>) {
+                cuda_var_mark_dirty(target.value_().index_());
+                cuda_set_scatter_gather_operand(0);
+            }
         } else if constexpr (is_cuda_array_v<Target>) {
             cuda_var_mark_dirty(target.index_());
             cuda_set_scatter_gather_operand(0);

@@ -231,8 +231,11 @@ py::class_<Array> bind(py::module &m, const char *name) {
         }));
     }
 
-    if constexpr (!is_diff_array_v<Array>)
-        m.def("compress", [](const Array &array, const mask_t<Array> &mask) { return compress(array, mask); });
+    if constexpr (!is_diff_array_v<Array>) {
+        m.def("compress", [](const Array &array, const mask_t<Array> &mask) {
+            return compress(array, mask);
+        });
+    }
 
     if constexpr (array_depth_v<Array> == 1) {
         m.def("gather",
