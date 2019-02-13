@@ -130,7 +130,13 @@ ENOKI_TEST(test06_nested_reductions) {
         Vector3fP(arange<FloatP>() + 0.f, arange<FloatP>() + 1.f,
                   arange<FloatP>() + 2.f);
 
-    auto str = [](auto x) {
+    auto to_string = [](auto value) {
+        std::ostringstream oss;
+        detail::print(oss, value, false, shape(value));
+        return oss.str();
+    };
+
+    auto str = [&](auto x) {
         return to_string(select(reinterpret_array<mask_t<IntP>>(x), IntP(1), IntP(0)));
     };
 

@@ -180,9 +180,10 @@ namespace detail {
     }
 
     template <typename Stream, typename Array, size_t N, typename... Indices>
-    Stream &print(Stream &os, const Array &a,
+    Stream &print(Stream &os, const Array &a, bool abbrev,
                   const std::array<size_t, N> &size, Indices... indices) {
         ENOKI_MARK_USED(size);
+        ENOKI_MARK_USED(abbrev);
         if constexpr (sizeof...(Indices) == N) {
             os << a.derived().coeff(indices...);
         } else {
@@ -190,7 +191,7 @@ namespace detail {
             os << "[";
             for (size_t i = 0; i < size[k]; ++i) {
                 if constexpr (is_dynamic_array_v<Array>) {
-                    if (size[k] > 10 && i == 2) {
+                    if (size[k] > 10 && i == 2 && abbrev) {
                         if (k > 0) {
                             os << "...,\n";
                             for (size_t j = 0; j <= sizeof...(Indices); ++j)
@@ -202,7 +203,7 @@ namespace detail {
                         continue;
                     }
                 }
-                print(os, a, size, i, indices...);
+                print(os, a, abbrev, size, i, indices...);
                 if (i + 1 < size[k]) {
                     if constexpr (k == 0) {
                         os << ", ";
@@ -221,7 +222,7 @@ namespace detail {
 
 template <typename Value, typename Derived>
 ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os, const ArrayBase<Value, Derived> &a) {
-    return detail::print(os, a, shape(a));
+    return detail::print(os, a, true, shape(a));
 }
 
 

@@ -136,7 +136,7 @@ struct Context {
     void clear() {
 #if !defined(NDEBUG)
         if (log_level >= 1) {
-            if (ctr != 0 || variables.size() > 0)
+            if (ctr != 0 || !variables.empty())
                 std::cerr << "cuda_shutdown()" << std::endl;
             size_t n_live = 0;
             for (auto const &var : variables) {
@@ -164,6 +164,7 @@ struct Context {
 };
 
 static Context *__context = nullptr;
+bool installed_shutdown_handler = false;
 void cuda_init();
 
 inline static Context &context() {
@@ -191,7 +192,10 @@ ENOKI_EXPORT void cuda_init() {
     ctx.append(EnokiType::UInt64);
     while (ctx.variables.size() != ENOKI_CUDA_REG_RESERVED)
         ctx.append(EnokiType::UInt32);
-    atexit(cuda_shutdown);
+    if (!installed_shutdown_handler) {
+        installed_shutdown_handler = true;
+        atexit(cuda_shutdown);
+    }
 }
 
 ENOKI_EXPORT void cuda_shutdown() {
@@ -546,9 +550,12 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
 ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
                                         const char *cmd,
                                         uint32_t arg1) {
-    if (ENOKI_UNLIKELY(arg1 == 0))
-        throw std::runtime_error("cuda_trace_append(): arithmetic involving "
-                                 "uninitialized variable!");
+    if (ENOKI_UNLIKELY(arg1 == 0)) {
+        throw std::runtime_error(
+            std::string("cuda_trace_append(): arithmetic involving "
+                        "uninitialized variable! (") +
+            cmd + " with arguments " + std::to_string(arg1) + ")");
+    }
 
     Context &ctx = context();
     const Variable &v1 = ctx[arg1];
@@ -580,9 +587,13 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
                                         const char *cmd,
                                         uint32_t arg1,
                                         uint32_t arg2) {
-    if (ENOKI_UNLIKELY(arg1 == 0 || arg2 == 0))
-        throw std::runtime_error("cuda_trace_append(): arithmetic involving "
-                                 "uninitialized variable!");
+    if (ENOKI_UNLIKELY(arg1 == 0 || arg2 == 0)) {
+        throw std::runtime_error(
+            std::string("cuda_trace_append(): arithmetic involving "
+                        "uninitialized variable! (") +
+            cmd + " with arguments " + std::to_string(arg1) + ", " +
+            std::to_string(arg2) + ")");
+    }
 
     Context &ctx = context();
     const Variable &v1 = ctx[arg1],
@@ -617,9 +628,13 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
                                         uint32_t arg1,
                                         uint32_t arg2,
                                         uint32_t arg3) {
-    if (ENOKI_UNLIKELY(arg1 == 0 || arg2 == 0 || arg3 == 0))
-        throw std::runtime_error("cuda_trace_append(): arithmetic involving "
-                                 "uninitialized variable!");
+    if (ENOKI_UNLIKELY(arg1 == 0 || arg2 == 0 || arg3 == 0)) {
+        throw std::runtime_error(
+            std::string("cuda_trace_append(): arithmetic involving "
+                        "uninitialized variable! (") +
+            cmd + " with arguments " + std::to_string(arg1) + ", " +
+            std::to_string(arg2) + ", " + std::to_string(arg3)+ ")");
+    }
 
     Context &ctx = context();
     const Variable &v1 = ctx[arg1],
@@ -1245,7 +1260,9 @@ ENOKI_EXPORT std::string cuda_whos() {
         indices.push_back(it.first);
     std::sort(indices.begin(), indices.end());
 
-    size_t mem_size_all = 0, mem_size_ready = 0;
+    size_t mem_size_scheduled = 0,
+           mem_size_ready = 0,
+           mem_size_arith = 0;
     for (uint32_t id : indices) {
         if (id < ENOKI_CUDA_REG_RESERVED)
             continue;
@@ -1264,7 +1281,7 @@ ENOKI_EXPORT std::string cuda_whos() {
             case EnokiType::Float32: oss << "f32"; break;
             case EnokiType::Float64: oss << "f64"; break;
             case EnokiType::Bool:    oss << "msk"; break;
-            case EnokiType::Pointer :   oss << "ptr"; break;
+            case EnokiType::Pointer: oss << "ptr"; break;
             default: throw std::runtime_error("Invalid array type!");
         }
         size_t mem_size = v.size * cuda_register_size(v.type);
@@ -1275,14 +1292,21 @@ ENOKI_EXPORT std::string cuda_whos() {
         oss << (v.data ? "[x]" : "[ ]") << "     ";
         oss << v.label;
         oss << std::endl;
-        mem_size_all += mem_size;
-        if (v.data)
+        if (v.data) {
             mem_size_ready += mem_size;
+        } else {
+            if (v.ref_count_ext == 0)
+                mem_size_arith += mem_size;
+            else
+                mem_size_scheduled += mem_size;
+        }
     }
 
     oss << "  ===============================================================" << std::endl << std::endl
-        << "  Memory usage (ready) : " << mem_string(mem_size_ready)  << std::endl
-        << "  Memory usage (all)   : " << mem_string(mem_size_all)    << std::endl;
+        << "  Memory usage (ready)     : " << mem_string(mem_size_ready)     << std::endl
+        << "  Memory usage (scheduled) : " << mem_string(mem_size_ready) << " + "
+        << mem_string(mem_size_scheduled) << " = " << mem_string(mem_size_ready + mem_size_scheduled) << std::endl
+        << "  Memory savings           : " << mem_string(mem_size_arith)     << std::endl;
 
     return oss.str();
 }

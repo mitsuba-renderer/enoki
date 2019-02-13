@@ -726,25 +726,28 @@ template <typename Value> void Tape<Value>::simplify_graph() {
         if (!node.collapse_allowed())
             continue;
 
-        if (d->log_level >= 3)
-            std::cerr << "autodiff: simplify_graph(): collapsing node " << index << std::endl;
-
         update.clear();
         bool skip = false;
 
         /* Collect predecessors and successors */ {
-            for (Index k : node.edges_rev)
+            for (Index k : node.edges_rev) {
+                if (d->node(k).edge(index)->is_special())
+                    skip = true;
                 update.emplace_back(d->node(k).score(), k);
+            }
             for (const Edge &edge : node.edges) {
                 const Node &node2 = d->node(edge.source);
                 update.emplace_back(node2.score(), edge.source);
-                if (node2.size != node.size)
+                if (node2.size != node.size || edge.is_special())
                     skip = true;
             }
         }
 
         if (skip)
             continue;
+
+        if (d->log_level >= 3)
+            std::cerr << "autodiff: simplify_graph(): collapsing node " << index << std::endl;
 
         /* Remove node and create edges */ {
             edges_rev = node.edges_rev;

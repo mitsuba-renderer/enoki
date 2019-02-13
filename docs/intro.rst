@@ -8,8 +8,7 @@ Introduction
 **Enoki** is a C++ template library that enables transparent vectorization and
 automatic differentation of numerical code. The core parts of the library are
 implemented as a set of header files with no dependencies other than a
-sufficiently C++17-capable compiler (GCC >= 8.2, Clang >= 7.0, Visual Studio
->= 2017).
+sufficiently C++17-capable compiler (GCC >= 8.2, Clang >= 7.0, Visual Studio >= 2017).
 
 Enoki code reduces to efficient SIMD instructions available on modern processor
 architectures and GPUs, and it generates scalar fallback code if no vector
@@ -18,7 +17,7 @@ supported:
 
 * **Intel**: AVX512, AVX2, AVX, and SSE4.2,
 * **ARM**: NEON/VFPV4 on armv7-a, Advanced SIMD on 64-bit armv8-a,
-* **NVIDIA**: CUDA via the *Parallel Thread Execution* (PTX) JIT compiler
+* **NVIDIA**: CUDA via a *Parallel Thread Execution* (PTX) just-in-time compiler
 
 Deploying a program on top of Enoki usually serves three goals:
 
