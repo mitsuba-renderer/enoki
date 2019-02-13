@@ -204,5 +204,6 @@ extern void* cuda_malloc(size_t size);
 extern void cuda_free(void *ptr);
 
 extern std::string mem_string(size_t size);
+extern std::string time_string(size_t size);
 
 NAMESPACE_END(enoki)

@@ -22,6 +22,7 @@
 #include <cassert>
 #include <unordered_map>
 #include <unordered_set>
+#include <chrono>
 #include "common.cuh"
 
 /// Reserved registers for grid-stride loop indexing
@@ -34,6 +35,8 @@
 #endif
 
 NAMESPACE_BEGIN(enoki)
+
+using TimePoint = std::chrono::time_point<std::chrono::high_resolution_clock>;
 
 // Forward declarations
 void cuda_inc_ref_ext(uint32_t);
@@ -1001,7 +1004,9 @@ ENOKI_EXPORT void cuda_jit_run(const std::string &source,
                                const std::vector<void *> &ptrs_,
                                uint32_t size,
                                cudaStream_t stream,
-                               uint32_t log_level) {
+                               uint32_t log_level,
+                               TimePoint start,
+                               TimePoint mid) {
     if (log_level >= 3)
         std::cout << source << std::endl;
 
@@ -1038,6 +1043,10 @@ ENOKI_EXPORT void cuda_jit_run(const std::string &source,
         exit(-1);
     }
 
+    TimePoint end = std::chrono::high_resolution_clock::now();
+    size_t duration_1 = std::chrono::duration_cast<std::chrono::microseconds>(mid - start).count();
+    size_t duration_2 = std::chrono::duration_cast<std::chrono::microseconds>(end - mid).count();
+
     if (log_level >= 3) {
         std::cerr << "CUDA Link completed. Linker output:" << std::endl
                   << info_log << std::endl;
@@ -1050,7 +1059,9 @@ ENOKI_EXPORT void cuda_jit_run(const std::string &source,
             details[details_len] = '\0';
             std::cerr << "cuda_jit_run(): "
                 << ((ptax_details == nullptr) ? "cache hit, " : "cache miss, ")
-                << details << std::endl;
+                << "codegen: " << time_string(duration_1)
+                << ", jit: " << time_string(duration_2)
+                << ", " << details << std::endl;
         }
     }
 
@@ -1155,15 +1166,18 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
             streams.push_back(stream);
         }
 
+        TimePoint start = std::chrono::high_resolution_clock::now();
         auto result = cuda_jit_assemble(size, schedule, ctx.include_printf);
         if (std::get<0>(result).empty())
             continue;
+        TimePoint mid = std::chrono::high_resolution_clock::now();
 
         cuda_jit_run(std::get<0>(result),
                      std::get<1>(result),
                      std::get<0>(sweep),
                      stream,
-                     ctx.log_level);
+                     ctx.log_level,
+                     start, mid);
     }
     ctx.include_printf = false;
 

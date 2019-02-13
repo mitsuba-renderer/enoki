@@ -2,6 +2,7 @@
 #include <enoki/autodiff.h>
 #include <enoki/matrix.h>
 #include <enoki/transform.h>
+#include <enoki/special.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/operators.h>
 #include <pybind11/stl.h>
@@ -305,6 +306,8 @@ py::class_<Array> bind(py::module &m, const char *name) {
 
         m.def("log", [](const Array &a) { return enoki::log(a); });
         m.def("exp", [](const Array &a) { return enoki::exp(a); });
+        m.def("erfinv", [](const Array &a) { return enoki::erfinv(a); });
+        m.def("erf", [](const Array &a) { return enoki::erf(a); });
         m.def("pow", [](const Array &a, const Array &b) {
             return enoki::pow(a, b);
         });

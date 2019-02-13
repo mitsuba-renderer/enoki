@@ -35,6 +35,24 @@ std::string mem_string(size_t size) {
     return buf;
 }
 
+std::string time_string(size_t value_) {
+    struct Order { float factor; const char* suffix; };
+    const Order orders[] = { { 0, "us" },   { 1000, "ms" },
+                             { 1000, "s" }, { 60, "m" },
+                             { 60, "h" },   { 24, "d" },
+                             { 7, "w" },    { (float) 52.1429, "y" } };
+
+    int i = 0;
+    float value = (float) value_;
+    for (i = 0; i < 7 && value > orders[i+1].factor; ++i)
+        value /= orders[i+1].factor;
+
+    char buf[32];
+    snprintf(buf, 32, "%.5g %s", value, orders[i].suffix);
+
+    return buf;
+}
+
 ENOKI_EXPORT void* cuda_malloc(size_t size) {
     void *result = nullptr;
     cuda_check(cudaMalloc(&result, size));

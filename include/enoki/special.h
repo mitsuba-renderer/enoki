@@ -59,7 +59,7 @@ Expr erfc(const T &x) {
     using Scalar = scalar_t<T>;
 
     Expr r;
-    if (Expr::Approx) {
+    if constexpr (Expr::Approx) {
         Expr xa = abs(x),
              z  = exp(-x*x);
 
@@ -68,18 +68,18 @@ Expr erfc(const T &x) {
 
         ENOKI_MARK_USED(erf_mask);
 
-        if (Single) {
+        if constexpr (Single) {
             Expr q  = rcp(xa),
                  y  = q*q, p_small, p_large;
 
-            if (!all_nested(large_mask))
+            if (is_cuda_array_v<Expr> || !all_nested(large_mask))
                 p_small = poly8(y, 5.638259427386472e-1, -2.741127028184656e-1,
                                    3.404879937665872e-1, -4.944515323274145e-1,
                                    6.210004621745983e-1, -5.824733027278666e-1,
                                    3.687424674597105e-1, -1.387039388740657e-1,
                                    2.326819970068386e-2);
 
-            if (any_nested(large_mask))
+            if (is_cuda_array_v<Expr> || any_nested(large_mask))
                 p_large = poly7(y, 5.641895067754075e-1, -2.820767439740514e-1,
                                    4.218463358204948e-1, -1.015265279202700e+0,
                                    2.921019019210786e+0, -7.495518717768503e+0,
@@ -88,7 +88,7 @@ Expr erfc(const T &x) {
         } else {
             Expr p_small, p_large, q_small, q_large;
 
-            if (!all_nested(large_mask)) {
+            if (is_cuda_array_v<Expr> || !all_nested(large_mask)) {
                 p_small = poly8(xa, 5.57535335369399327526e2, 1.02755188689515710272e3,
                                     9.34528527171957607540e2, 5.26445194995477358631e2,
                                     1.96520832956077098242e2, 4.86371970985681366614e1,
@@ -103,7 +103,7 @@ Expr erfc(const T &x) {
             }
 
 
-            if (any_nested(large_mask)) {
+            if (is_cuda_array_v<Expr> || any_nested(large_mask)) {
                 p_large = poly5(xa, 2.97886665372100240670e0, 7.40974269950448939160e0,
                                     6.16021097993053585195e0, 5.01905042251180477414e0,
                                     1.27536670759978104416e0, 5.64189583547755073984e-1);
@@ -123,7 +123,7 @@ Expr erfc(const T &x) {
         r[x < Scalar(0)] = Scalar(2) - r;
 
         if constexpr (Recurse) {
-            if (ENOKI_UNLIKELY(any_nested(erf_mask)))
+            if (ENOKI_UNLIKELY(is_cuda_array_v<Expr> || any_nested(erf_mask)))
                 r[erf_mask] = Scalar(1) - erf<T, false>(x);
         }
     } else {
@@ -145,7 +145,7 @@ Expr erf(const T &x) {
         Expr z = x * x;
 
         constexpr bool Single = std::is_same_v<scalar_t<T>, float>;
-        if (Single) {
+        if constexpr (Single) {
             r = poly6(z, 1.128379165726710e+0, -3.761262582423300e-1,
                          1.128358514861418e-1, -2.685381193529856e-2,
                          5.188327685732524e-3, -8.010193625184903e-4,
@@ -162,7 +162,7 @@ Expr erf(const T &x) {
         r *= x;
 
         if constexpr (Recurse) {
-            if (ENOKI_UNLIKELY(any_nested(erfc_mask)))
+            if (ENOKI_UNLIKELY(is_cuda_array_v<Expr> || any_nested(erfc_mask)))
                 r[erfc_mask] = Scalar(1) - erfc<T, false>(x);
         }
     } else {
