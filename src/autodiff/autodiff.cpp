@@ -162,13 +162,8 @@ template <typename Value> struct Tape<Value>::Detail {
         scheduled.insert(k);
 
         Node &n = node(k);
-        if (clear_grad) {
-            n.grad = zero<Value>(n.size);
-            if (!n.label.empty()) {
-                std::string label = (n.label[0] == '\'') ? n.label.substr(1, n.label.size() - 2) : n.label;
-                enoki::set_label(n.grad, (label + ".grad").c_str());
-            }
-        }
+        if (!is_dynamic_v<Value> && clear_grad)
+            n.grad = zero<Value>();
 
         for (const Edge &edge : n.edges)
             dfs(edge.source, clear_grad);
@@ -681,7 +676,15 @@ void Tape<Value>::backward(bool free_graph) {
         for (const Edge &edge : target.edges) {
             if (ENOKI_LIKELY(!edge.is_special())) {
                 Node &source = d->node(edge.source);
-                source.grad = safe_fmadd(edge.weight, target.grad, source.grad);
+
+                if constexpr (is_dynamic_v<Value>) {
+                    if (source.grad.size() == 0)
+                        source.grad = safe_mul(edge.weight, target.grad);
+                    else
+                        source.grad = safe_fmadd(edge.weight, target.grad, source.grad);
+                } else {
+                    source.grad = safe_fmadd(edge.weight, target.grad, source.grad);
+                }
             } else {
                 edge.special->compute_gradients(d, target_idx, edge);
             }
@@ -689,7 +692,10 @@ void Tape<Value>::backward(bool free_graph) {
                 dec_ref_int(edge.source, target_idx);
         }
         if (free_graph) {
-            target.edges.clear();
+            if (target.edges.size() > 0) {
+                target.edges.clear();
+                target.grad = Value();
+            }
             dec_ref_ext(target_idx);
         }
     }
