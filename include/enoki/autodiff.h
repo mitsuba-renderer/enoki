@@ -89,6 +89,7 @@ private:
     void push_prefix(const char *);
     void pop_prefix();
     void backward(bool free_graph);
+    void backward(Index index, bool free_graph);
     void set_gradient(Index index, const Value &value);
     void set_label(Index index, const char *name);
     const Value &gradient(Index index);
@@ -1128,9 +1129,7 @@ public:
         if constexpr (!Enabled) {
             fail_unsupported("backward_");
         } else {
-            auto t = tape();
-            t->set_gradient(m_index, Scalar(1));
-            t->backward(free_graph);
+            tape()->backward(m_index, free_graph);
         }
     }
 

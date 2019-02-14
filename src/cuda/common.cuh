@@ -16,6 +16,10 @@
 #  define ENOKI_UNLIKELY(x)            __builtin_expect(!!(x), 0)
 #endif
 
+#if defined(__SSE4_2__)
+#  include <x86intrin.h>
+#endif
+
 NAMESPACE_BEGIN(enoki)
 
 enum EnokiType { Invalid = 0, Int8, UInt8, Int16, UInt16,
@@ -201,9 +205,30 @@ inline uint32_t next_power_of_two(uint32_t n) {
 }
 
 extern void* cuda_malloc(size_t size);
-extern void cuda_free(void *ptr);
+extern void cuda_sync();
 
 extern std::string mem_string(size_t size);
 extern std::string time_string(size_t size);
+
+struct StringHasher {
+    size_t operator()(const std::string& k) const {
+#if defined(__SSE4_2__)
+        const char *ptr = k.c_str(),
+                   *end = ptr + k.length();
+
+        uint64_t state64 = 0;
+        while (ptr + 8 < end) {
+            state64 = _mm_crc32_u64(state64, *((uint64_t *) ptr));
+            ptr += 8;
+        }
+        uint32_t state32 = (uint32_t) state64;
+        while (ptr < end)
+            state32 = _mm_crc32_u8(state32, *ptr++);
+        return (size_t) state32;
+#else
+        return std::hash<std::string>()(k);
+#endif
+    }
+};
 
 NAMESPACE_END(enoki)

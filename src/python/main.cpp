@@ -29,9 +29,11 @@ PYBIND11_MODULE(enoki, m) {
 
     bind_pcg32(m);
 
-    m.def("cuda_eval",
-          [](bool log_assembly) { enoki::cuda_eval(log_assembly); },
-          py::arg("log_assembly") = false);
+    m.def("cuda_eval", &cuda_eval, "log_assembly"_a = false,
+          py::call_guard<py::gil_scoped_release>());
+
+    m.def("cuda_sync", &cuda_sync,
+          py::call_guard<py::gil_scoped_release>());
 
     m.def("cuda_whos", []() { py::print(cuda_whos()); });
 

@@ -148,6 +148,9 @@ extern ENOKI_IMPORT void* cuda_managed_malloc(size_t);
 /// Release unified memory (wrapper around cudaFree)
 extern ENOKI_IMPORT void cuda_free(void *);
 
+/// Execute postponed tasks requiring device synchronization (e.g. freeing memory)
+extern ENOKI_IMPORT void cuda_sync();
+
 /// Print detailed information about currently allocated arrays
 extern ENOKI_IMPORT std::string cuda_whos();
 

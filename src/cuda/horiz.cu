@@ -97,6 +97,7 @@ cuda_partition(size_t size, const void **ptrs_) {
     cuda_check(cudaFree(num_runs_p));
     cuda_check(cudaFree(unique_p));
     cuda_check(cudaFree(counts_p));
+    cuda_sync();
     delete[] unique;
     delete[] counts;
 
@@ -128,6 +129,7 @@ std::pair<T *, size_t> cuda_compress_impl(size_t size, const T *data, const bool
     cuda_check(cudaMemcpy(&out_size, out_size_p, sizeof(size_t), cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(temp));
     cuda_check(cudaFree(out_size_p));
+    cuda_sync();
 
     return std::make_pair(result_p, out_size);
 }
@@ -168,6 +170,7 @@ template <typename T> T cuda_hsum(size_t size, const T *data) {
     cuda_check(cudaMemcpy(&result, result_p, sizeof(T),
                cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(result_p));
+    cuda_sync();
 
     return result;
 }
@@ -202,6 +205,7 @@ template <typename T> T cuda_hprod(size_t size, const T *data) {
     cuda_check(cudaMemcpy(&result, result_p, sizeof(T),
                cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(result_p));
+    cuda_sync();
 
     return result;
 }
@@ -248,6 +252,7 @@ template <typename T> T cuda_hmin(size_t size, const T *data) {
     cuda_check(cudaMemcpy(&result, result_p, sizeof(T),
                cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(result_p));
+    cuda_sync();
 
     return result;
 }
@@ -288,6 +293,7 @@ bool cuda_all(size_t size, const bool *data) {
     cuda_check(cudaMemcpy(&result, result_p, sizeof(bool),
                cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(result_p));
+    cuda_sync();
 
     return result;
 }
@@ -314,6 +320,7 @@ bool cuda_any(size_t size, const bool *data) {
     cuda_check(cudaMemcpy(&result, result_p, sizeof(bool),
                cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(result_p));
+    cuda_sync();
 
     return result;
 }

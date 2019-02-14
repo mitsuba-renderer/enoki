@@ -12,7 +12,7 @@ option(ENOKI_PYTHON   "Build pybind11 interface to CUDA & automatic differntiati
 
 if (ENOKI_CUDA)
   set(ENOKI_CUDA_COMPUTE_CAPABILITY "75" CACHE STRING "Compute capability as specified by https://developer.nvidia.com/cuda-gpus")
-  set(CMAKE_CUDA_FLAGS "-gencode arch=compute_${ENOKI_CUDA_COMPUTE_CAPABILITY},code=sm_${ENOKI_CUDA_COMPUTE_CAPABILITY} --cudart shared")
+  set(CMAKE_CUDA_FLAGS "-gencode arch=compute_${ENOKI_CUDA_COMPUTE_CAPABILITY},code=sm_${ENOKI_CUDA_COMPUTE_CAPABILITY} --cudart shared -Xcompiler -march=native")
   project(enoki CXX CUDA)
   add_definitions(-DENOKI_BUILD_CUDA=1)
 else()

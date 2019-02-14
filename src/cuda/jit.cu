@@ -22,6 +22,7 @@
 #include <cassert>
 #include <unordered_map>
 #include <unordered_set>
+#include <mutex>
 #include <chrono>
 #include "common.cuh"
 
@@ -46,6 +47,7 @@ void cuda_dec_ref_int(uint32_t);
 void cuda_eval(bool log_assembly = false);
 size_t cuda_register_size(EnokiType type);
 uint32_t cuda_trace_append(EnokiType type, const char *cmd, uint32_t arg1);
+void cuda_free(void *ptr);
 
 // -----------------------------------------------------------------------
 //! @{ \name 'Variable' type that is used to record instruction traces
@@ -102,6 +104,37 @@ struct Variable {
 
 void cuda_shutdown();
 
+struct Stream {
+    cudaStream_t stream = nullptr;
+    cudaEvent_t event = nullptr;
+    void *args_device = nullptr;
+    void *args_host = nullptr;
+    size_t nargs = 0;
+
+    void init() {
+        nargs = 1000;
+        cuda_check(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
+        cuda_check(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
+        cuda_check(cudaMalloc(&args_device, sizeof(void*) * nargs));
+        cuda_check(cudaMallocHost(&args_host, sizeof(void*) * nargs));
+    }
+
+    void release() {
+        cuda_check(cudaFreeHost(args_host));
+        cuda_check(cudaFree(args_device));
+        cuda_check(cudaEventDestroy(event));
+        cuda_check(cudaStreamDestroy(stream));
+    }
+
+    void resize(size_t size) {
+        cuda_check(cudaFreeHost(args_host));
+        cuda_check(cudaFree(args_device));
+        nargs = size;
+        cuda_check(cudaMalloc(&args_device, sizeof(void*) * nargs));
+        cuda_check(cudaMallocHost(&args_host, sizeof(void*) * nargs));
+    }
+};
+
 struct Context {
     /// Current variable index
     uint32_t ctr = 0;
@@ -126,6 +159,24 @@ struct Context {
 
     /// Include printf function declaration in PTX assembly?
     bool include_printf = false;
+
+    /// Streams for parallel execution
+    std::vector<Stream> streams;
+
+    /// Hash table of previously compiled kernels
+    std::unordered_map<std::string, std::pair<CUmodule, CUfunction>, StringHasher> kernels;
+
+    /// Event on default stream
+    cudaEvent_t stream_0_event = nullptr;
+
+    /// Default thread and block count for kernels
+    uint32_t block_count = 0, thread_count = 0;
+
+    /// List of pointers to be freed (will be done at synchronization points)
+    std::vector<void *> free_list;
+
+    /// Mutex protecting 'free_list'
+    std::mutex free_mutex;
 
     ~Context() { clear(); }
 
@@ -159,6 +210,18 @@ struct Context {
         live.clear();
         scatter_gather_operand = 0;
         include_printf = false;
+
+        for (Stream &stream : streams)
+            stream.release();
+        streams.clear();
+        if (stream_0_event) {
+            cuda_check(cudaEventDestroy(stream_0_event));
+            stream_0_event = nullptr;
+        }
+        for (auto &kv : kernels)
+            cuda_check(cuModuleUnload(kv.second.first));
+        kernels.clear();
+        cuda_sync();
     }
 
     Variable& append(EnokiType type) {
@@ -195,6 +258,20 @@ ENOKI_EXPORT void cuda_init() {
     ctx.append(EnokiType::UInt64);
     while (ctx.variables.size() != ENOKI_CUDA_REG_RESERVED)
         ctx.append(EnokiType::UInt32);
+
+    ctx.streams.resize(5);
+    for (size_t i = 0; i < 5; ++i)
+        ctx.streams[i].init();
+    cuda_check(cudaEventCreateWithFlags(&ctx.stream_0_event, cudaEventDisableTiming));
+    ctx.kernels.reserve(1000);
+
+    int device, num_sm;
+    cudaGetDevice(&device);
+    cudaDeviceGetAttribute(&num_sm, cudaDevAttrMultiProcessorCount, device);
+
+    ctx.block_count = next_power_of_two(num_sm) * 2;
+    ctx.thread_count = 128;
+
     if (!installed_shutdown_handler) {
         installed_shutdown_handler = true;
         atexit(cuda_shutdown);
@@ -208,6 +285,31 @@ ENOKI_EXPORT void cuda_shutdown() {
         __context = nullptr;
     }
 }
+
+ENOKI_EXPORT void cuda_free(void *ptr) {
+    Context &ctx = context();
+    std::lock_guard<std::mutex> guard(ctx.free_mutex);
+    ctx.free_list.push_back(ptr);
+}
+
+ENOKI_EXPORT void cuda_sync() {
+    Context &ctx = context();
+    cuda_check(cudaStreamSynchronize(nullptr));
+#if !defined(NDEBUG)
+    if (ctx.log_level >= 4)
+        std::cerr << "cuda_sync()" << std::endl;
+#endif
+    std::vector<void *> free_list;
+    /* acquire free list, but don't call cudaFree() yet */ {
+        std::lock_guard<std::mutex> guard(ctx.free_mutex);
+        if (ctx.free_list.empty())
+            return;
+        free_list.swap(ctx.free_list);
+    }
+    for (void *ptr : free_list)
+        cuda_check(cudaFree(ptr));
+}
+
 
 ENOKI_EXPORT void *cuda_var_ptr(uint32_t index) {
     return context()[index].data;
@@ -281,7 +383,10 @@ ENOKI_EXPORT uint32_t cuda_var_register(EnokiType type, size_t size, void *ptr,
 ENOKI_EXPORT uint32_t cuda_var_copy_to_device(EnokiType type, size_t size,
                                               const void *value) {
     size_t total_size = size * cuda_register_size(type);
-    void *tmp = malloc(total_size);
+
+
+    void *tmp = nullptr;
+    cuda_check(cudaMallocHost(&tmp, total_size));
     memcpy(tmp, value, total_size);
 
     void *device_ptr = cuda_malloc(total_size);
@@ -289,7 +394,7 @@ ENOKI_EXPORT uint32_t cuda_var_copy_to_device(EnokiType type, size_t size,
                                cudaMemcpyHostToDevice));
 
     cuda_check(cudaLaunchHostFunc(nullptr,
-        [](void *ptr) { free(ptr); },
+        [](void *ptr) { cudaFreeHost(ptr); },
         tmp
     ));
 
@@ -875,8 +980,8 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
             << std::endl;
     }
 
-    oss << ".visible .entry enoki_kernel(.param .u64 ptr," << std::endl
-        << "                             .param .u32 size) {" << std::endl
+    oss << ".visible .entry enoki_@@@@@@@@(.param .u64 ptr," << std::endl
+        << "                               .param .u32 size) {" << std::endl
         << "    .reg.b8 %b<" << n_vars << ">;" << std::endl
         << "    .reg.b16 %w<" << n_vars << ">;" << std::endl
         << "    .reg.b32 %r<" << n_vars << ">;" << std::endl
@@ -1016,110 +1121,116 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
     return { oss.str(), ptrs };
 }
 
-ENOKI_EXPORT void cuda_jit_run(const std::string &source,
+ENOKI_EXPORT void cuda_jit_run(Context &ctx,
+                               std::string &&source_,
                                const std::vector<void *> &ptrs_,
                                uint32_t size,
-                               cudaStream_t stream,
-                               cudaEvent_t event,
-                               uint32_t log_level,
+                               Stream &stream,
                                TimePoint start,
                                TimePoint mid) {
-    if (log_level >= 3)
+    if (source_.empty())
+        return;
+
+    uint32_t hash = (uint32_t) StringHasher()(source_);
+    char kernel_name[9];
+    snprintf(kernel_name, 9, "%08x", hash);
+    char *id = strchr((char *) source_.c_str(), '@');
+    memcpy(id, kernel_name, 8);
+
+    auto hash_entry = ctx.kernels.emplace(
+        std::move(source_), std::pair<CUmodule, CUfunction>{ nullptr, nullptr });
+    const std::string &source = hash_entry.first->first;
+    CUmodule &module = hash_entry.first->second.first;
+    CUfunction &kernel = hash_entry.first->second.second;
+
+    if (ctx.log_level >= 3)
         std::cout << source << std::endl;
 
-    CUjit_option arg[5];
-    void *argv[5];
-    char error_log[8192], info_log[8192];
-    unsigned int logSize = 8192;
-    arg[0] = CU_JIT_INFO_LOG_BUFFER;
-    argv[0] = (void *) info_log;
-    arg[1] = CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES;
-    argv[1] = (void *) (long) logSize;
-    arg[2] = CU_JIT_ERROR_LOG_BUFFER;
-    argv[2] = (void *) error_log;
-    arg[3] = CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES;
-    argv[3] = (void *) (long) logSize;
-    arg[4] = CU_JIT_LOG_VERBOSE;
-    argv[4] = (void *) 1;
+    if (hash_entry.second) {
+        CUjit_option arg[5];
+        void *argv[5];
+        char error_log[8192], info_log[8192];
+        unsigned int logSize = 8192;
+        arg[0] = CU_JIT_INFO_LOG_BUFFER;
+        argv[0] = (void *) info_log;
+        arg[1] = CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES;
+        argv[1] = (void *) (long) logSize;
+        arg[2] = CU_JIT_ERROR_LOG_BUFFER;
+        argv[2] = (void *) error_log;
+        arg[3] = CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES;
+        argv[3] = (void *) (long) logSize;
+        arg[4] = CU_JIT_LOG_VERBOSE;
+        argv[4] = (void *) 1;
 
-    CUlinkState link_state;
-    cuda_check(cuLinkCreate(5, arg, argv, &link_state));
+        CUlinkState link_state;
+        cuda_check(cuLinkCreate(5, arg, argv, &link_state));
 
-    int rt = cuLinkAddData(link_state, CU_JIT_INPUT_PTX, (void *) source.c_str(),
-                           source.length(), nullptr, 0, nullptr, nullptr);
-    if (rt != CUDA_SUCCESS) {
-        fprintf(stderr, "PTX Linker Error:\n%s\n", error_log);
-        exit(-1);
-    }
-
-    void *link_output = nullptr;
-    size_t link_output_size = 0;
-    cuda_check(cuLinkComplete(link_state, &link_output, &link_output_size));
-    if (rt != CUDA_SUCCESS) {
-        fprintf(stderr, "PTX Linker Error:\n%s\n", error_log);
-        exit(-1);
-    }
-
-    TimePoint end = std::chrono::high_resolution_clock::now();
-    size_t duration_1 = std::chrono::duration_cast<
-            std::chrono::microseconds>(mid - start).count(),
-           duration_2 = std::chrono::duration_cast<
-            std::chrono::microseconds>(end - mid).count();
-
-    if (log_level >= 3) {
-        std::cerr << "CUDA Link completed. Linker output:" << std::endl
-                  << info_log << std::endl;
-    } else if (log_level >= 2) {
-        char *ptax_details = strstr(info_log, "ptxas info");
-        char *details = strstr(info_log, "\ninfo    : used");
-        if (details) {
-            details += 16;
-            char *details_len = strstr(details, "registers,");
-            if (details_len)
-                details_len[9] = '\0';
-            std::cerr << "cuda_jit_run(): "
-                << ((ptax_details == nullptr) ? "cache hit, " : "cache miss, ")
-                << "codegen: " << time_string(duration_1)
-                << ", jit: " << time_string(duration_2)
-                << ", " << details << std::endl;
+        int rt = cuLinkAddData(link_state, CU_JIT_INPUT_PTX, (void *) source.c_str(),
+                               source.length(), nullptr, 0, nullptr, nullptr);
+        if (rt != CUDA_SUCCESS) {
+            std::cerr << "PTX linker error:" << std::endl << error_log << std::endl;
+            exit(EXIT_FAILURE);
         }
+
+        void *link_output = nullptr;
+        size_t link_output_size = 0;
+        cuda_check(cuLinkComplete(link_state, &link_output, &link_output_size));
+        if (rt != CUDA_SUCCESS) {
+            std::cerr << "PTX linker error:" << std::endl << error_log << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        TimePoint end = std::chrono::high_resolution_clock::now();
+        size_t duration_1 = std::chrono::duration_cast<
+                std::chrono::microseconds>(mid - start).count(),
+               duration_2 = std::chrono::duration_cast<
+                std::chrono::microseconds>(end - mid).count();
+
+        if (ctx.log_level >= 3) {
+            std::cerr << "CUDA Link completed. Linker output:" << std::endl
+                      << info_log << std::endl;
+        } else if (ctx.log_level >= 2) {
+            char *ptax_details = strstr(info_log, "ptxas info");
+            char *details = strstr(info_log, "\ninfo    : used");
+            if (details) {
+                details += 16;
+                char *details_len = strstr(details, "registers,");
+                if (details_len)
+                    details_len[9] = '\0';
+                std::cerr << "cuda_jit_run(): "
+                    << ((ptax_details == nullptr) ? "cache hit, " : "cache miss, ")
+                    << "codegen: " << time_string(duration_1)
+                    << ", jit: " << time_string(duration_2)
+                    << ", " << details << std::endl;
+            }
+        }
+
+        cuda_check(cuModuleLoadData(&module, link_output));
+
+        // Locate the kernel entry point
+        cuda_check(cuModuleGetFunction(&kernel, module, (std::string("enoki_") + kernel_name).c_str()));
+
+        // Destroy the linker invocation
+        cuda_check(cuLinkDestroy(link_state));
     }
 
-    CUmodule module;
-    cuda_check(cuModuleLoadData(&module, link_output));
+    if (ptrs_.size() > stream.nargs)
+        stream.resize(ptrs_.size());
 
-    // Locate the kernel entry point
-    CUfunction kernel;
-    cuda_check(cuModuleGetFunction(&kernel, module, "enoki_kernel"));
+    memcpy(stream.args_host, ptrs_.data(), ptrs_.size() * sizeof(void*));
+    cuda_check(cudaMemcpyAsync(stream.args_device, stream.args_host,
+                               ptrs_.size() * sizeof(void *),
+                               cudaMemcpyHostToDevice, stream.stream));
 
-    // Destroy the linker invocation
-    cuda_check(cuLinkDestroy(link_state));
-
-    int device, num_sm;
-    cudaGetDevice(&device);
-    cudaDeviceGetAttribute(&num_sm,
-        cudaDevAttrMultiProcessorCount, device);
-
-    void **ptrs = nullptr;
-    cuda_check(cudaMalloc(&ptrs, ptrs_.size() * sizeof(void *)));
-    cuda_check(cudaMemcpyAsync(ptrs, ptrs_.data(), ptrs_.size() * sizeof(void *),
-                               cudaMemcpyHostToDevice));
-
-    void *args[2] = { &ptrs, &size };
-
-    uint32_t thread_count = next_power_of_two(num_sm) * 2;
-    uint32_t block_count = 128;
+    uint32_t thread_count = ctx.thread_count,
+             block_count = ctx.block_count;
 
     if (size == 1)
         thread_count = block_count = 1;
 
+    void *args[2] = { &stream.args_device, &size };
     cuda_check(cuLaunchKernel(kernel, block_count, 1, 1, thread_count,
-                              1, 1, 0, stream, args, nullptr));
-    if (event)
-        cuda_check(cudaEventRecord(event, stream));
-
-    cuda_check(cudaFree(ptrs));
-    cuda_check(cuModuleUnload(module));
+                              1, 1, 0, stream.stream, args, nullptr));
 }
 
 static void sweep_recursive(Context &ctx,
@@ -1172,26 +1283,25 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
 
     ctx.live.clear();
     ctx.dirty.clear();
+
+    if (ctx.streams.size() < sweeps.size()) {
+        size_t cur = ctx.streams.size();
+        ctx.streams.resize(sweeps.size());
+        for (size_t i = cur; i<ctx.streams.size(); ++i)
+            ctx.streams[i].init();
+    }
     if (ctx.log_level >= 2 && sweeps.size() > 1)
         std::cerr << "cuda_eval(): begin parallel group" << std::endl;
 
-    std::vector<std::pair<cudaStream_t, cudaEvent_t>> streams;
-    if (sweeps.size() > 1)
-        streams.reserve(sweeps.size());
+    cuda_check(cudaEventRecord(ctx.stream_0_event, nullptr));
 
+    size_t ctr = 0;
     for (auto const &sweep : sweeps) {
         size_t size = std::get<0>(sweep);
         const std::vector<uint32_t> &schedule = std::get<1>(std::get<1>(sweep));
 
-        cudaStream_t stream = nullptr;
-        cudaEvent_t event = nullptr;
-
-        if (sweeps.size() > 1) {
-            /* Run in parallel */
-            /*cuda_check(cudaStreamCreate(&stream));*/
-            /*cuda_check(cudaEventCreate(&event));*/
-            /*streams.emplace_back(stream, event);*/
-        }
+        Stream &stream = ctx.streams[ctr++];
+        cudaStreamWaitEvent(stream.stream, ctx.stream_0_event, 0);
 
         TimePoint start = std::chrono::high_resolution_clock::now();
         auto result = cuda_jit_assemble(size, schedule, ctx.include_printf);
@@ -1199,21 +1309,18 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
             continue;
         TimePoint mid = std::chrono::high_resolution_clock::now();
 
-        cuda_jit_run(std::get<0>(result),
+        cuda_jit_run(ctx,
+                     std::move(std::get<0>(result)),
                      std::get<1>(result),
                      std::get<0>(sweep),
                      stream,
-                     event,
-                     ctx.log_level,
                      start, mid);
+
+        cuda_check(cudaEventRecord(stream.event, stream.stream));
+        cuda_check(cudaStreamWaitEvent(nullptr, stream.event, 0));
     }
     ctx.include_printf = false;
 
-    for (auto const &stream : streams) {
-        cuda_check(cudaStreamWaitEvent(nullptr, stream.second, 0));
-        cuda_check(cudaEventDestroy(stream.second));
-        cuda_check(cudaStreamDestroy(stream.first));
-    }
     if (ctx.log_level >= 2 && sweeps.size() > 1)
         std::cerr << "cuda_eval(): end parallel group" << std::endl;
 

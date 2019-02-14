@@ -14,8 +14,6 @@
 #include <cuda.h>
 #include <stdio.h>
 #include <iostream>
-#include <vector>
-#include <mutex>
 #include "common.cuh"
 
 NAMESPACE_BEGIN(enoki)
@@ -57,7 +55,12 @@ std::string time_string(size_t value_) {
 
 ENOKI_EXPORT void* cuda_malloc(size_t size) {
     void *result = nullptr;
-    cuda_check(cudaMalloc(&result, size));
+    cudaError_t ret = cudaMalloc(&result, size);
+    if (ret != cudaSuccess) {
+        cuda_sync();
+        ret = cudaMalloc(&result, size);
+    }
+    cuda_check(ret);
     return result;
 }
 
@@ -106,10 +109,6 @@ ENOKI_EXPORT void* cuda_managed_malloc(size_t size) {
     void *result = nullptr;
     cuda_check(cudaMallocManaged(&result, size));
     return result;
-}
-
-void cuda_free(void *ptr) {
-    cuda_check(cudaFree(ptr));
 }
 
 ENOKI_EXPORT void cuda_memcpy_to_device(void *dst, const void *src, size_t size) {

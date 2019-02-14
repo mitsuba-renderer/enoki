@@ -489,7 +489,6 @@ void Tape<Value>::append_scatter_add(Index source, const Int64 &offset,
 template <typename Value>
 void Tape<Value>::append_edge(Index source_idx, Index target_idx,
                               const Value &weight) {
-    using Scalar = scalar_t<Value>;
     if (source_idx == 0)
         return;
     assert(target_idx != 0);
@@ -525,7 +524,6 @@ void Tape<Value>::append_edge(Index source_idx, Index target_idx,
 template <typename Value>
 void Tape<Value>::append_edge_prod(Index source_idx, Index target_idx,
                                    const Value &weight1, const Value &weight2) {
-    using Scalar = scalar_t<Value>;
     if (source_idx == 0)
         return;
     assert(target_idx != 0);
@@ -682,6 +680,18 @@ template <typename Value> const Value &Tape<Value>::gradient(Index index) {
     return d->node(index).grad;
 }
 
+
+template <typename Value>
+void Tape<Value>::backward(Index index, bool free_graph) {
+    using Scalar = scalar_t<Value>;
+    if (d->graph_simplification)
+        simplify_graph();
+
+    SimplificationLock lock(*this);
+    set_gradient(index, Scalar(1));
+    backward(free_graph);
+}
+
 template <typename Value>
 void Tape<Value>::set_gradient(Index index, const Value &value) {
     if (index == 0)
@@ -695,8 +705,6 @@ void Tape<Value>::set_gradient(Index index, const Value &value) {
 
 template <typename Value>
 void Tape<Value>::backward(bool free_graph) {
-    SimplificationLock lock(*this);
-    using Scalar = scalar_t<Value>;
     auto &scheduled = d->scheduled;
 
     if (free_graph) {
