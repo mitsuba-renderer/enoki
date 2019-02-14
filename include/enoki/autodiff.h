@@ -28,6 +28,7 @@ private:
     struct Node;
     struct Edge;
     struct Special;
+    struct SimplificationLock;
 
     using Index = uint32_t;
     using Mask = mask_t<Value>;
@@ -868,12 +869,14 @@ public:
         static_assert(!Enabled || Stride == sizeof(Scalar),
                       "Differentiable gather: unsupported stride!");
 
+
+        Value result = gather<Value, Stride>(ptr, offset.value_(), mask.value_());
+
         Index index_new = 0;
         if constexpr (Enabled)
             index_new = tape()->append_gather(offset.value_(), mask.value_());
 
-        return DiffArray::create(
-            index_new, gather<Value, Stride>(ptr, offset.value_(), mask.value_()));
+        return DiffArray::create(index_new, std::move(result));
     }
 
     template <size_t Stride, typename Offset, typename Mask>
@@ -881,10 +884,10 @@ public:
         static_assert(!Enabled || Stride == sizeof(Scalar),
                       "Differentiable scatter: unsupported stride!");
 
+        scatter<Stride>(ptr, m_value, offset.value_(), mask.value_());
+
         if constexpr (Enabled)
             tape()->append_scatter(m_index, offset.value_(), mask.value_());
-
-        scatter<Stride>(ptr, m_value, offset.value_(), mask.value_());
     }
 
     template <size_t Stride, typename Offset, typename Mask>
@@ -892,10 +895,10 @@ public:
         static_assert(!Enabled || Stride == sizeof(Scalar),
                       "Differentiable scatter_add: unsupported stride!");
 
+        scatter_add<Stride>(ptr, m_value, offset.value_(), mask.value_());
+
         if constexpr (Enabled)
             tape()->append_scatter_add(m_index, offset.value_(), mask.value_());
-
-        scatter_add<Stride>(ptr, m_value, offset.value_(), mask.value_());
     }
 
     //! @}

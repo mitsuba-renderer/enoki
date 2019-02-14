@@ -24,7 +24,7 @@ NAMESPACE_BEGIN(enoki)
 extern uint32_t cuda_log_level();
 
 __global__ void arange(size_t n, size_t *out) {
-    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n;
+    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n;
          i += blockDim.x * gridDim.x)
         out[i] = i;
 }
@@ -63,33 +63,42 @@ cuda_partition(size_t size, const void **ptrs_) {
     cuda_check(cudaFree(perm));
     temp_size = 0; temp = nullptr;
 
-    uintptr_t *unique = nullptr;
-    size_t *counts = nullptr,
-           *num_runs = nullptr;
+    uintptr_t *unique_p = nullptr;
+    size_t *counts_p = nullptr,
+           *num_runs_p = nullptr;
 
-    cuda_check(cudaMallocManaged(&num_runs, sizeof(size_t)));
-    cuda_check(cudaMallocManaged(&unique, size*sizeof(uintptr_t)));
-    cuda_check(cudaMallocManaged(&counts, size*sizeof(size_t)));
+    cuda_check(cudaMalloc(&num_runs_p, sizeof(size_t)));
+    cuda_check(cudaMalloc(&unique_p, size*sizeof(uintptr_t)));
+    cuda_check(cudaMalloc(&counts_p, size*sizeof(size_t)));
 
     // RLE-encode the sorted pointer list
     cuda_check(cub::DeviceRunLengthEncode::Encode(
-        temp, temp_size, ptrs_sorted, unique, counts, num_runs, size));
+        temp, temp_size, ptrs_sorted, unique_p, counts_p, num_runs_p, size));
     cuda_check(cudaMalloc(&temp, temp_size));
     cuda_check(cub::DeviceRunLengthEncode::Encode(
-        temp, temp_size, ptrs_sorted, unique, counts, num_runs, size));
+        temp, temp_size, ptrs_sorted, unique_p, counts_p, num_runs_p, size));
 
     // Release memory that is no longer needed
     cuda_check(cudaFree(temp));
     cuda_check(cudaFree(ptrs_sorted));
-    cuda_check(cudaDeviceSynchronize());
 
-    std::vector<std::pair<void *, size_t>> result(*num_runs);
-    for (size_t i = 0; i < *num_runs; ++i)
+    size_t num_runs = 0;
+    cuda_check(cudaMemcpy(&num_runs, num_runs_p, sizeof(size_t), cudaMemcpyDeviceToHost));
+
+    uintptr_t *unique = new uintptr_t[num_runs];
+    size_t *counts = new size_t[num_runs];
+    cuda_check(cudaMemcpy(&unique, unique_p, sizeof(size_t), cudaMemcpyDeviceToHost));
+    cuda_check(cudaMemcpy(&counts, counts_p, sizeof(uintptr_t), cudaMemcpyDeviceToHost));
+
+    std::vector<std::pair<void *, size_t>> result(num_runs);
+    for (size_t i = 0; i < num_runs; ++i)
         result[i] = std::make_pair((void *) unique[i], counts[i]);
 
-    cuda_check(cudaFree(num_runs));
-    cuda_check(cudaFree(unique));
-    cuda_check(cudaFree(counts));
+    cuda_check(cudaFree(num_runs_p));
+    cuda_check(cudaFree(unique_p));
+    cuda_check(cudaFree(counts_p));
+    delete[] unique;
+    delete[] counts;
 
     return std::pair<std::vector<std::pair<void *, size_t>>, size_t *>(
         std::move(result),
@@ -337,7 +346,7 @@ template ENOKI_EXPORT uint64_t cuda_hmin(size_t, const uint64_t *);
 template ENOKI_EXPORT float    cuda_hmin(size_t, const float *);
 template ENOKI_EXPORT double   cuda_hmin(size_t, const double *);
 
-template ENOKI_EXPORT std::pair<bool *,  size_t>    cuda_compress(size_t, const bool *,     const bool *mask);
+template ENOKI_EXPORT std::pair<bool *,     size_t> cuda_compress(size_t, const bool *,     const bool *mask);
 template ENOKI_EXPORT std::pair<int32_t *,  size_t> cuda_compress(size_t, const int32_t *,  const bool *mask);
 template ENOKI_EXPORT std::pair<uint32_t *, size_t> cuda_compress(size_t, const uint32_t *, const bool *mask);
 template ENOKI_EXPORT std::pair<int64_t *,  size_t> cuda_compress(size_t, const int64_t *,  const bool *mask);

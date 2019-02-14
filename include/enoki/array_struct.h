@@ -22,10 +22,13 @@ ENOKI_INLINE Array gather(const Source &source, const Index &index,
 
         Array result = gather<Array, Stride, Packed>(source.data(), index, mask);
 
-        if constexpr (is_diff_array_v<Source>)
+        if constexpr (is_diff_array_v<Source>) {
             Source::clear_scatter_gather_operand_();
-        if constexpr (is_cuda_array_v<Source>)
+            if constexpr (is_cuda_array_v<Source>)
+                cuda_set_scatter_gather_operand(0);
+        } else if constexpr (is_cuda_array_v<Source>) {
             cuda_set_scatter_gather_operand(0);
+        }
 
        return result;
     } else {

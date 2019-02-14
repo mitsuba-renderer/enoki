@@ -136,8 +136,7 @@ template <typename Storage_> struct call_support_base {
                     masked(result, active) = func(value, active, std::get<Indices>(tuple)...);
                 }
             } else {
-                Storage instance = self & mask;
-                auto partitioned = partition(instance);
+                auto partitioned = partition(self & mask);
 
                 if (partitioned.size() == 1 && partitioned[0].first != nullptr) {
                     result = func(partitioned[0].first, true,
@@ -166,13 +165,12 @@ template <typename Storage_> struct call_support_base {
                     func(value, active, std::get<Indices>(tuple)...);
                 }
             } else {
-                Storage instance = self & mask;
-                auto partitioned = partition(instance);
+                auto partitioned = partition(self & mask);
 
                 if (partitioned.size() == 1 && partitioned[0].first != nullptr) {
                     func(partitioned[0].first, true, std::get<Indices>(tuple)...);
                 } else {
-                    for (auto [value, permutation] : partition(instance)) {
+                    for (auto [value, permutation] : partitioned) {
                         if (value == nullptr)
                             continue;
 

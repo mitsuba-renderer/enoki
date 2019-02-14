@@ -191,15 +191,15 @@ namespace detail {
             os << "[";
             for (size_t i = 0; i < size[k]; ++i) {
                 if constexpr (is_dynamic_array_v<Array>) {
-                    if (size[k] > 10 && i == 2 && abbrev) {
+                    if (size[k] > 20 && i == 5 && abbrev) {
                         if (k > 0) {
-                            os << "...,\n";
+                            os << ".. " << size[k] - 10 << " skipped ..,\n";
                             for (size_t j = 0; j <= sizeof...(Indices); ++j)
                                 os << " ";
                         } else {
-                            os << "..., ";
+                            os << ".. " << size[k] - 10 << " skipped .., ";
                         }
-                        i = size[k] - 3;
+                        i = size[k] - 6;
                         continue;
                     }
                 }

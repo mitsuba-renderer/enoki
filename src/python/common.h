@@ -240,6 +240,8 @@ py::class_<Array> bind(py::module &m, const char *name) {
         }
 
         py::implicitly_convertible<py::sequence, Array>();
+    } else {
+        cl.def_property_readonly("index", [](const Array &a) { return a.index_(); });
     }
 
     if constexpr (!is_diff_array_v<Array>) {

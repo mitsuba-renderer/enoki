@@ -14,6 +14,8 @@
 #include <cuda.h>
 #include <stdio.h>
 #include <iostream>
+#include <vector>
+#include <mutex>
 #include "common.cuh"
 
 NAMESPACE_BEGIN(enoki)
@@ -66,13 +68,47 @@ ENOKI_EXPORT void* cuda_malloc_zero(size_t size) {
     return result;
 }
 
+template <typename T> __global__ void fill(size_t n, T value, T *out) {
+    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n;
+         i += blockDim.x * gridDim.x)
+        out[i] = value;
+}
+
+ENOKI_EXPORT void* cuda_malloc_fill(size_t size, uint8_t value) {
+    uint8_t *result = nullptr;
+    cuda_check(cudaMalloc(&result, size * sizeof(uint8_t)));
+    cuda_check(cudaMemsetAsync(result, value, size));
+    return result;
+}
+
+ENOKI_EXPORT void* cuda_malloc_fill(size_t size, uint16_t value) {
+    uint16_t *result = nullptr;
+    cuda_check(cudaMalloc(&result, size * sizeof(uint16_t)));
+    fill<<<256, 256>>>(size, value, result);
+    return result;
+}
+
+ENOKI_EXPORT void* cuda_malloc_fill(size_t size, uint32_t value) {
+    uint32_t *result = nullptr;
+    cuda_check(cudaMalloc(&result, size * sizeof(uint32_t)));
+    fill<<<256, 256>>>(size, value, result);
+    return result;
+}
+
+ENOKI_EXPORT void* cuda_malloc_fill(size_t size, uint64_t value) {
+    uint64_t *result = nullptr;
+    cuda_check(cudaMalloc(&result, size * sizeof(uint64_t)));
+    fill<<<256, 256>>>(size, value, result);
+    return result;
+}
+
 ENOKI_EXPORT void* cuda_managed_malloc(size_t size) {
     void *result = nullptr;
     cuda_check(cudaMallocManaged(&result, size));
     return result;
 }
 
-ENOKI_EXPORT void cuda_free(void *ptr) {
+void cuda_free(void *ptr) {
     cuda_check(cudaFree(ptr));
 }
 

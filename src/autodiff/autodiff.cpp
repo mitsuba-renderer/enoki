@@ -170,6 +170,19 @@ template <typename Value> struct Tape<Value>::Detail {
     }
 };
 
+template <typename Value> struct Tape<Value>::SimplificationLock {
+    SimplificationLock(Tape &tape) : tape(tape) {
+        std::swap(state, tape.d->graph_simplification);
+    }
+
+    ~SimplificationLock() {
+        std::swap(state, tape.d->graph_simplification);
+    }
+
+    Tape &tape;
+    bool state = false;
+};
+
 template <typename Value> Tape<Value> Tape<Value>::s_tape;
 template <typename Value> Tape<Value> *Tape<Value>::get() { return &s_tape; }
 
@@ -356,7 +369,9 @@ Index Tape<Value>::append_gather(const Int64 &offset, const Mask &mask) {
 template <typename Value>
 void Tape<Value>::append_scatter(Index source, const Int64 &offset, const Mask &mask) {
     if constexpr (is_dynamic_v<Value>) {
-        if (d->scatter_gather_index == nullptr)
+        SimplificationLock lock(*this);
+
+        if (d->scatter_gather_index == nullptr || source == 0)
             return;
         Index target_orig = *d->scatter_gather_index;
 
@@ -368,7 +383,18 @@ void Tape<Value>::append_scatter(Index source, const Int64 &offset, const Mask &
                                    const Edge &edge) const override {
                 const Value &grad_target = detail->node(target).grad;
                 Value &grad_source = detail->node(edge.source).grad;
-                grad_source += gather<Value>(grad_target, offset, mask);
+                if (grad_target.size() > 1) {
+                    if (grad_source.empty())
+                        grad_source = gather<Value>(grad_target, offset, mask);
+                    else
+                        grad_source += gather<Value>(grad_target, offset, mask);
+                } else {
+                    assert(!grad_target.empty());
+                    if (grad_source.empty())
+                        grad_source = grad_target & mask;
+                    else
+                        grad_source += grad_target & mask;
+                }
             }
         };
 
@@ -407,7 +433,7 @@ template <typename Value>
 void Tape<Value>::append_scatter_add(Index source, const Int64 &offset,
                                      const Mask &mask) {
     if constexpr (is_dynamic_v<Value>) {
-        if (d->scatter_gather_index == nullptr)
+        if (d->scatter_gather_index == nullptr || source == 0)
             return;
         Index target_orig = *d->scatter_gather_index;
 
@@ -419,7 +445,18 @@ void Tape<Value>::append_scatter_add(Index source, const Int64 &offset,
                                    const Edge &edge) const override {
                 const Value &grad_target = detail->node(target).grad;
                 Value &grad_source = detail->node(edge.source).grad;
-                grad_source += gather<Value>(grad_target, offset, mask);
+                if (grad_target.size() > 1) {
+                    if (grad_source.empty())
+                        grad_source = gather<Value>(grad_target, offset, mask);
+                    else
+                        grad_source += gather<Value>(grad_target, offset, mask);
+                } else {
+                    assert(!grad_target.empty());
+                    if (grad_source.empty())
+                        grad_source = grad_target & mask;
+                    else
+                        grad_source += grad_target & mask;
+                }
             }
         };
 
@@ -471,6 +508,7 @@ void Tape<Value>::append_edge(Index source_idx, Index target_idx,
                       << source_idx << "): merging."
                       << std::endl;
 #endif
+        SimplificationLock lock(*this);
         edge->weight += weight;
     } else {
 #if !defined(NDEBUG)
@@ -547,17 +585,16 @@ template <typename Value> void Tape<Value>::dec_ref_int(Index index, Index from)
     if (d->log_level >= 4)
         std::cerr << "autodiff: dec_ref_int(" << index << ", " << from
                   << ") -> " << (node.ref_count_int - 1) << std::endl;
-#endif
 
-    if (node.ref_count_int > 0)
-        --node.ref_count_int;
-    else
+    if (node.ref_count_int == 0)
         throw std::runtime_error("autodiff: dec_ref_int(): Node " +
                                  std::to_string(index) +
-                                 " has zero references!");
+                                 " has no internal references!");
+#endif
+    --node.ref_count_int;
 
     auto it = std::find(node.edges_rev.begin(), node.edges_rev.end(), from);
-    if (it == node.edges_rev.end())
+    if (ENOKI_UNLIKELY(it == node.edges_rev.end()))
         throw std::runtime_error("dec_ref_int(): internal error -- edge not found!");
 
     node.edges_rev.erase(it);
@@ -586,14 +623,14 @@ template <typename Value> void Tape<Value>::dec_ref_ext(Index index) {
 #if !defined(NDEBUG)
     if (d->log_level >= 4)
         std::cerr << "autodiff: dec_ref_ext(" << index << ") -> " << (node.ref_count_ext - 1) << std::endl;
-#endif
 
-    if (node.ref_count_ext > 0)
-        --node.ref_count_ext;
-    else
+    if (node.ref_count_ext == 0)
         throw std::runtime_error("autodiff: dec_ref_ext(): Node " +
                                  std::to_string(index) +
-                                 " has zero references!");
+                                 " has no external references!");
+#endif
+
+    --node.ref_count_ext;
 
     if (node.ref_count_int == 0 && node.ref_count_ext == 0)
         free_node(index);
@@ -630,6 +667,8 @@ template <typename Value> void Tape<Value>::pop_prefix() {
 template <typename Value>
 void Tape<Value>::set_scatter_gather_operand(Index *index, size_t size,
                                              bool permute) {
+    if (ENOKI_UNLIKELY(index != nullptr && d->scatter_gather_index != 0))
+        throw std::runtime_error("set_scatter_gather_operand(): attempted to override an existing operand!");
     d->scatter_gather_index = index;
     d->scatter_gather_size = size;
     d->scatter_gather_permute = permute;
@@ -656,6 +695,7 @@ void Tape<Value>::set_gradient(Index index, const Value &value) {
 
 template <typename Value>
 void Tape<Value>::backward(bool free_graph) {
+    SimplificationLock lock(*this);
     using Scalar = scalar_t<Value>;
     auto &scheduled = d->scheduled;
 
@@ -673,12 +713,12 @@ void Tape<Value>::backward(bool free_graph) {
                 target.grad = hsum(target.grad);
         }
 
-        for (const Edge &edge : target.edges) {
+        for (Edge &edge : target.edges) {
             if (ENOKI_LIKELY(!edge.is_special())) {
                 Node &source = d->node(edge.source);
 
                 if constexpr (is_dynamic_v<Value>) {
-                    if (source.grad.size() == 0)
+                    if (source.grad.empty())
                         source.grad = safe_mul(edge.weight, target.grad);
                     else
                         source.grad = safe_fmadd(edge.weight, target.grad, source.grad);
@@ -686,10 +726,14 @@ void Tape<Value>::backward(bool free_graph) {
                     source.grad = safe_fmadd(edge.weight, target.grad, source.grad);
                 }
             } else {
+                cuda_eval();
                 edge.special->compute_gradients(d, target_idx, edge);
+                Node &source = d->node(edge.source);
             }
-            if (free_graph)
+            if (free_graph) {
                 dec_ref_int(edge.source, target_idx);
+                edge.source = 0;
+            }
         }
         if (free_graph) {
             if (target.edges.size() > 0) {
@@ -714,6 +758,7 @@ void Tape<Value>::backward(bool free_graph) {
 template <typename Value> void Tape<Value>::simplify_graph() {
     if (d->is_simplified)
         return;
+    SimplificationLock lock(*this);
     if (d->log_level >= 2)
         std::cerr << "autodiff: simplify_graph(): starting.." << std::endl;
 
@@ -737,7 +782,9 @@ template <typename Value> void Tape<Value>::simplify_graph() {
 
         /* Collect predecessors and successors */ {
             for (Index k : node.edges_rev) {
-                if (d->node(k).edge(index)->is_special())
+                Edge *e = d->node(k).edge(index);
+                assert(e != nullptr);
+                if (e->is_special())
                     skip = true;
                 update.emplace_back(d->node(k).score(), k);
             }

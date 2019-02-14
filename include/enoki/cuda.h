@@ -136,6 +136,12 @@ extern ENOKI_IMPORT void* cuda_malloc(size_t);
 /// Allocate unified memory (wrapper around cudaMalloc & cudaMemset)
 extern ENOKI_IMPORT void* cuda_malloc_zero(size_t);
 
+/// Allocate unified memory (wrapper around cudaMalloc & cudaMemsetAsync)
+extern ENOKI_IMPORT void* cuda_malloc_fill(size_t, uint8_t values);
+extern ENOKI_IMPORT void* cuda_malloc_fill(size_t, uint16_t values);
+extern ENOKI_IMPORT void* cuda_malloc_fill(size_t, uint32_t values);
+extern ENOKI_IMPORT void* cuda_malloc_fill(size_t, uint64_t values);
+
 /// Allocate unified memory (wrapper around cudaMalloc)
 extern ENOKI_IMPORT void* cuda_managed_malloc(size_t);
 
@@ -589,23 +595,25 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         return fmadd(index, CUDAArray(step), CUDAArray(min));
     }
 
+    static CUDAArray empty_(size_t size) {
+        return CUDAArray::from_index_(cuda_var_register(
+            Type, size, cuda_malloc(size * sizeof(Value)), 0, true));
+    }
+
     static CUDAArray zero_(size_t size) {
-        if (size <= 1)
+        if (size == 1)
             return CUDAArray(Value(0));
         else
             return CUDAArray::from_index_(cuda_var_register(
                 Type, size, cuda_malloc_zero(size * sizeof(Value)), 0, true));
     }
 
-    static CUDAArray empty_(size_t size) {
-        return CUDAArray::from_index_(cuda_var_register(
-            Type, size, cuda_malloc(size * sizeof(Value)), 0, true));
-    }
-
     static CUDAArray full_(const Value &value, size_t size) {
-        CUDAArray result(value);
-        cuda_var_set_size(result.index_(), size);
-        return result;
+        if (size == 1)
+            return CUDAArray(value);
+        else
+            return CUDAArray::from_index_(cuda_var_register(
+                Type, size, cuda_malloc_fill(size, memcpy_cast<uint_array_t<Value>>(value)), 0, true));
     }
 
     Value hsum_() const {
@@ -746,6 +754,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
     Index index_() const { return m_index; }
     size_t size() const { return cuda_var_size(m_index); }
+    bool empty() const { return size() == 0; }
     const void *data() const { return cuda_var_ptr(m_index); }
     void *data() { return cuda_var_ptr(m_index); }
     void resize(size_t size) {

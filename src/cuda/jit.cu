@@ -309,7 +309,7 @@ ENOKI_EXPORT void cuda_var_free(uint32_t idx) {
 #endif
     for (int i = 0; i < 3; ++i)
         cuda_dec_ref_int(v.dep[i]);
-    cuda_dec_ref_int(v.extra_dep);
+    cuda_dec_ref_ext(v.extra_dep);
     ctx.variables.erase(idx); // invokes Variable destructor + cudaFree().
 }
 
@@ -317,8 +317,10 @@ ENOKI_EXPORT void cuda_set_scatter_gather_operand(uint32_t idx) {
     Context &ctx = context();
     if (idx != 0) {
         Variable &v = ctx[idx];
-        if (v.data == nullptr)
+        if (v.data == nullptr) {
+            printf("Scatter/gather: forcing cuda_eval()\n");
             cuda_eval();
+        }
     }
     ctx.scatter_gather_operand = idx;
 }
@@ -450,7 +452,7 @@ ENOKI_EXPORT void cuda_dec_ref_ext(uint32_t index) {
     if (v.ref_count_ext == 0)
         throw std::runtime_error("cuda_dec_ref_ext(): Node " +
                                  std::to_string(index) +
-                                 " has zero external reference count!");
+                                 " has no external references!");
 
     if (ctx.log_level >= 5)
         std::cerr << "cuda_dec_ref_ext(" << index << ") -> "
@@ -462,7 +464,7 @@ ENOKI_EXPORT void cuda_dec_ref_ext(uint32_t index) {
 
     v.ref_count_ext--;
 
-    if (v.ref_count_ext == 0)
+    if (v.ref_count_ext == 0 && !v.side_effect)
         ctx.live.erase(index);
 
     if (v.is_collected())
@@ -479,7 +481,7 @@ ENOKI_EXPORT void cuda_dec_ref_int(uint32_t index) {
     if (v.ref_count_int == 0)
         throw std::runtime_error("cuda_dec_ref_int(): Node " +
                                  std::to_string(index) +
-                                 " has zero internal reference count!");
+                                 " has no internal references!");
 
     if (ctx.log_level >= 5)
         std::cerr << "cuda_dec_ref_int(" << index << ") -> "
@@ -553,13 +555,10 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
 ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
                                         const char *cmd,
                                         uint32_t arg1) {
-    if (ENOKI_UNLIKELY(arg1 == 0)) {
+    if (ENOKI_UNLIKELY(arg1 == 0))
         throw std::runtime_error(
-            std::string("cuda_trace_append(): arithmetic involving "
-                        "uninitialized variable! (") +
-            cmd + " with arguments " + std::to_string(arg1) + ")");
-    }
-
+            "cuda_trace_append(): arithmetic involving "
+                        "uninitialized variable!");
     Context &ctx = context();
     const Variable &v1 = ctx[arg1];
 
@@ -590,13 +589,10 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
                                         const char *cmd,
                                         uint32_t arg1,
                                         uint32_t arg2) {
-    if (ENOKI_UNLIKELY(arg1 == 0 || arg2 == 0)) {
+    if (ENOKI_UNLIKELY(arg1 == 0 || arg2 == 0))
         throw std::runtime_error(
-            std::string("cuda_trace_append(): arithmetic involving "
-                        "uninitialized variable! (") +
-            cmd + " with arguments " + std::to_string(arg1) + ", " +
-            std::to_string(arg2) + ")");
-    }
+            "cuda_trace_append(): arithmetic involving "
+                        "uninitialized variable!");
 
     Context &ctx = context();
     const Variable &v1 = ctx[arg1],
@@ -613,8 +609,14 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
                   << "): " << cmd << std::endl;
 #endif
 
+    size_t size = std::max(v1.size, v2.size);
+    if (ENOKI_UNLIKELY((v1.size != 1 && v1.size != size) ||
+                       (v2.size != 1 && v2.size != size)))
+        throw std::runtime_error("cuda_trace_append(): arithmetic involving "
+                                 "arrays of incompatible size!");
+
     Variable &v = ctx.append(type);
-    v.size = std::max(v1.size, v2.size);
+    v.size = size;
     v.dep = { arg1, arg2, 0 };
     v.cmd = cmd;
     v.subtree_size = v1.subtree_size + v2.subtree_size + 1;
@@ -622,7 +624,15 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
     cuda_inc_ref_int(arg2);
     cuda_inc_ref_ext(idx);
     ctx.live.insert(idx);
-    strip_ftz(v);
+
+    if (v.cmd.find("ld.global") != std::string::npos) {
+        assert(ctx.scatter_gather_operand != 0);
+        v.extra_dep = ctx.scatter_gather_operand;
+        cuda_inc_ref_ext(v.extra_dep);
+    } else {
+        strip_ftz(v);
+    }
+
     return idx;
 }
 
@@ -631,13 +641,10 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
                                         uint32_t arg1,
                                         uint32_t arg2,
                                         uint32_t arg3) {
-    if (ENOKI_UNLIKELY(arg1 == 0 || arg2 == 0 || arg3 == 0)) {
+    if (ENOKI_UNLIKELY(arg1 == 0 || arg2 == 0 || arg3 == 0))
         throw std::runtime_error(
-            std::string("cuda_trace_append(): arithmetic involving "
-                        "uninitialized variable! (") +
-            cmd + " with arguments " + std::to_string(arg1) + ", " +
-            std::to_string(arg2) + ", " + std::to_string(arg3)+ ")");
-    }
+            "cuda_trace_append(): arithmetic involving "
+                        "uninitialized variable!");
 
     Context &ctx = context();
     const Variable &v1 = ctx[arg1],
@@ -655,8 +662,15 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
                   << ", " << arg3 << "): " << cmd << std::endl;
 #endif
 
+    size_t size = std::max(std::max(v1.size, v2.size), v3.size);
+    if (ENOKI_UNLIKELY((v1.size != 1 && v1.size != size) ||
+                       (v2.size != 1 && v2.size != size) ||
+                       (v3.size != 1 && v3.size != size)))
+        throw std::runtime_error("cuda_trace_append(): arithmetic involving "
+                                 "arrays of incompatible size!");
+
     Variable &v = ctx.append(type);
-    v.size = std::max(std::max(v1.size, v2.size), v3.size);
+    v.size = size;
     v.dep = { arg1, arg2, arg3 };
     v.cmd = cmd;
     v.subtree_size = v1.subtree_size +
@@ -667,13 +681,15 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
     cuda_inc_ref_int(arg3);
     cuda_inc_ref_ext(idx);
     ctx.live.insert(idx);
-    if (ctx.scatter_gather_operand != 0 &&
-        (v.cmd.find("st.global") != std::string::npos ||
-         v.cmd.find("ld.global") != std::string::npos)) {
+
+    if (v.cmd.find("st.global") != std::string::npos) {
+        assert(ctx.scatter_gather_operand != 0);
         v.extra_dep = ctx.scatter_gather_operand;
-        cuda_inc_ref_int(v.extra_dep);
+        cuda_inc_ref_ext(v.extra_dep);
+    } else {
+        strip_ftz(v);
     }
-    strip_ftz(v);
+
     return idx;
 }
 
@@ -1004,6 +1020,7 @@ ENOKI_EXPORT void cuda_jit_run(const std::string &source,
                                const std::vector<void *> &ptrs_,
                                uint32_t size,
                                cudaStream_t stream,
+                               cudaEvent_t event,
                                uint32_t log_level,
                                TimePoint start,
                                TimePoint mid) {
@@ -1044,8 +1061,10 @@ ENOKI_EXPORT void cuda_jit_run(const std::string &source,
     }
 
     TimePoint end = std::chrono::high_resolution_clock::now();
-    size_t duration_1 = std::chrono::duration_cast<std::chrono::microseconds>(mid - start).count();
-    size_t duration_2 = std::chrono::duration_cast<std::chrono::microseconds>(end - mid).count();
+    size_t duration_1 = std::chrono::duration_cast<
+            std::chrono::microseconds>(mid - start).count(),
+           duration_2 = std::chrono::duration_cast<
+            std::chrono::microseconds>(end - mid).count();
 
     if (log_level >= 3) {
         std::cerr << "CUDA Link completed. Linker output:" << std::endl
@@ -1055,8 +1074,9 @@ ENOKI_EXPORT void cuda_jit_run(const std::string &source,
         char *details = strstr(info_log, "\ninfo    : used");
         if (details) {
             details += 16;
-            size_t details_len = strcspn(details, "\n");
-            details[details_len] = '\0';
+            char *details_len = strstr(details, "registers,");
+            if (details_len)
+                details_len[9] = '\0';
             std::cerr << "cuda_jit_run(): "
                 << ((ptax_details == nullptr) ? "cache hit, " : "cache miss, ")
                 << "codegen: " << time_string(duration_1)
@@ -1095,6 +1115,8 @@ ENOKI_EXPORT void cuda_jit_run(const std::string &source,
 
     cuda_check(cuLaunchKernel(kernel, block_count, 1, 1, thread_count,
                               1, 1, 0, stream, args, nullptr));
+    if (event)
+        cuda_check(cudaEventRecord(event, stream));
 
     cuda_check(cudaFree(ptrs));
     cuda_check(cuModuleUnload(module));
@@ -1150,20 +1172,25 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
 
     ctx.live.clear();
     ctx.dirty.clear();
+    if (ctx.log_level >= 2 && sweeps.size() > 1)
+        std::cerr << "cuda_eval(): begin parallel group" << std::endl;
 
-    std::vector<cudaStream_t> streams;
-    streams.reserve(sweeps.size());
+    std::vector<std::pair<cudaStream_t, cudaEvent_t>> streams;
+    if (sweeps.size() > 1)
+        streams.reserve(sweeps.size());
 
     for (auto const &sweep : sweeps) {
         size_t size = std::get<0>(sweep);
         const std::vector<uint32_t> &schedule = std::get<1>(std::get<1>(sweep));
 
         cudaStream_t stream = nullptr;
+        cudaEvent_t event = nullptr;
 
         if (sweeps.size() > 1) {
             /* Run in parallel */
-            cuda_check(cudaStreamCreate(&stream));
-            streams.push_back(stream);
+            /*cuda_check(cudaStreamCreate(&stream));*/
+            /*cuda_check(cudaEventCreate(&event));*/
+            /*streams.emplace_back(stream, event);*/
         }
 
         TimePoint start = std::chrono::high_resolution_clock::now();
@@ -1176,15 +1203,19 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
                      std::get<1>(result),
                      std::get<0>(sweep),
                      stream,
+                     event,
                      ctx.log_level,
                      start, mid);
     }
     ctx.include_printf = false;
 
     for (auto const &stream : streams) {
-        cuda_check(cudaStreamSynchronize(stream));
-        cuda_check(cudaStreamDestroy(stream));
+        cuda_check(cudaStreamWaitEvent(nullptr, stream.second, 0));
+        cuda_check(cudaEventDestroy(stream.second));
+        cuda_check(cudaStreamDestroy(stream.first));
     }
+    if (ctx.log_level >= 2 && sweeps.size() > 1)
+        std::cerr << "cuda_eval(): end parallel group" << std::endl;
 
     for (auto const &sweep : sweeps) {
         const std::vector<uint32_t> &schedule =
@@ -1204,7 +1235,7 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
                     cuda_dec_ref_int(v.dep[j]);
                     v.dep[j] = 0;
                 }
-                cuda_dec_ref_int(v.extra_dep);
+                cuda_dec_ref_ext(v.extra_dep);
                 v.extra_dep = 0;
             }
         }
