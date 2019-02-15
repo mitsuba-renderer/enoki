@@ -35,7 +35,7 @@ PYBIND11_MODULE(enoki, m) {
     m.def("cuda_sync", &cuda_sync,
           py::call_guard<py::gil_scoped_release>());
 
-    m.def("cuda_whos", []() { py::print(cuda_whos()); });
+    m.def("cuda_whos", []() { char *w = cuda_whos(); py::print(w); free(w); });
 
     m.def("cuda_set_log_level",
           [](int log_level) { enoki::cuda_set_log_level(log_level); },

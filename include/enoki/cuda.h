@@ -101,8 +101,8 @@ template <typename T> extern ENOKI_IMPORT T cuda_hmax(size_t, const T *);
 template <typename T> extern ENOKI_IMPORT T cuda_hmin(size_t, const T *);
 
 template <typename T>
-extern ENOKI_IMPORT std::pair<T *, size_t> cuda_compress(size_t, const T *,
-                                                         const bool *mask);
+extern ENOKI_IMPORT void cuda_compress(size_t, const T *, const bool *mask,
+                                       T **, size_t *);
 
 /// Computes a horizontal reduction of a mask array via AND
 extern ENOKI_IMPORT bool cuda_all(size_t, const bool *);
@@ -110,8 +110,11 @@ extern ENOKI_IMPORT bool cuda_all(size_t, const bool *);
 /// Computes a horizontal reduction of a mask array via OR
 extern ENOKI_IMPORT bool cuda_any(size_t, const bool *);
 
-extern ENOKI_IMPORT std::pair<std::vector<std::pair<void *, size_t>>, size_t *>
-cuda_partition(size_t, const void **);
+/// Sort 'ptrs' and return unique instances and their count, as well as a permutation
+extern ENOKI_IMPORT size_t cuda_partition(size_t size, const void **ptrs,
+                                          uintptr_t **unique_out,
+                                          size_t **counts_out,
+                                          size_t **perm_out);
 
 extern ENOKI_IMPORT uint32_t cuda_var_copy_to_device(EnokiType type,
                                                      size_t size, const void *value);
@@ -152,7 +155,7 @@ extern ENOKI_IMPORT void cuda_free(void *);
 extern ENOKI_IMPORT void cuda_sync();
 
 /// Print detailed information about currently allocated arrays
-extern ENOKI_IMPORT std::string cuda_whos();
+extern ENOKI_IMPORT char *cuda_whos();
 
 /// Register a callback that will be invoked before cuda_eval()
 extern void cuda_register_callback(void (*callback)(void *), void *payload);
@@ -657,19 +660,29 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     template <typename T = Value, enable_if_t<std::is_pointer_v<T>> = 0>
     std::vector<std::pair<Value, CUDAArray<uint64_t>>> partition_() const {
         cuda_eval_var(m_index);
-        auto [rle, perm] = cuda_partition(size(), (const void **) data());
+
+        uintptr_t *unique = nullptr;
+        size_t *counts = nullptr;
+        size_t *perm = nullptr;
+
+        size_t num_unique = cuda_partition(size(), (const void **) data(),
+                                           &unique, &counts, &perm);
+
         uint32_t parent =
-            cuda_var_register(EnokiType::UInt64, 1, perm, 0, true);
+            cuda_var_register(EnokiType::UInt64, size(), perm, 0, true);
 
         std::vector<std::pair<Value, CUDAArray<uint64_t>>> result;
-        result.reserve(rle.size());
-        for (auto [ptr_r, size_r] : rle) {
+        result.reserve(num_unique);
+        for (size_t i = 0; i< num_unique; ++i) {
             result.emplace_back(
-                (Value) ptr_r,
+                (Value) unique[i],
                 CUDAArray<uint64_t>::from_index_(cuda_var_register(
-                    EnokiType::UInt64, size_r, perm, parent, false)));
-            perm += size_r;
+                    EnokiType::UInt64, counts[i], perm, parent, false)));
+            perm += counts[i];
         }
+
+        free(unique);
+        free(counts);
 
         cuda_dec_ref_ext(parent);
         return result;
@@ -745,8 +758,11 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         cuda_eval_var(m_index);
         cuda_eval_var(mask.index_());
 
-        auto [ptr, new_size] = cuda_compress(size(), (const Value *) data(),
-                                             (const bool *) mask.data());
+        Value *ptr;
+        size_t new_size;
+        cuda_compress(size(), (const Value *) data(),
+                      (const bool *) mask.data(), &ptr, &new_size);
+
         return map(ptr, new_size, true);
     }
 

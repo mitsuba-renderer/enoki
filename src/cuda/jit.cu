@@ -1399,7 +1399,7 @@ ENOKI_EXPORT void cuda_unregister_callback(void (*callback)(void *), void *paylo
     cb.erase(it);
 }
 
-ENOKI_EXPORT std::string cuda_whos() {
+ENOKI_EXPORT char *cuda_whos() {
     std::ostringstream oss;
     oss << std::endl
         << "  ID      Type   E/I Refs   Size        Memory     Ready    Label" << std::endl
@@ -1460,7 +1460,7 @@ ENOKI_EXPORT std::string cuda_whos() {
         << mem_string(mem_size_scheduled) << " = " << mem_string(mem_size_ready + mem_size_scheduled) << std::endl
         << "  Memory savings           : " << mem_string(mem_size_arith)     << std::endl;
 
-    return oss.str();
+    return strdup(oss.str().c_str());
 }
 
 NAMESPACE_END(enoki)

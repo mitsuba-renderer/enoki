@@ -29,9 +29,10 @@ __global__ void arange(size_t n, size_t *out) {
         out[i] = i;
 }
 
+
 ENOKI_EXPORT
-std::pair<std::vector<std::pair<void *, size_t>>, size_t *>
-cuda_partition(size_t size, const void **ptrs_) {
+size_t cuda_partition(size_t size, const void **ptrs_, uintptr_t **unique_out,
+                      size_t **counts_out, size_t **perm_out) {
 #if !defined(NDEBUG)
     if (cuda_log_level() >= 4)
         std::cerr << "cuda_partition(size=" << size << ")" << std::endl;
@@ -85,37 +86,28 @@ cuda_partition(size_t size, const void **ptrs_) {
     size_t num_runs = 0;
     cuda_check(cudaMemcpy(&num_runs, num_runs_p, sizeof(size_t), cudaMemcpyDeviceToHost));
 
-    uintptr_t *unique = new uintptr_t[num_runs];
-    size_t *counts = new size_t[num_runs];
-    cuda_check(cudaMemcpy(&unique, unique_p, sizeof(size_t), cudaMemcpyDeviceToHost));
-    cuda_check(cudaMemcpy(&counts, counts_p, sizeof(uintptr_t), cudaMemcpyDeviceToHost));
-
-    std::vector<std::pair<void *, size_t>> result(num_runs);
-    for (size_t i = 0; i < num_runs; ++i)
-        result[i] = std::make_pair((void *) unique[i], counts[i]);
+    *unique_out = (uintptr_t *) malloc(sizeof(uintptr_t) * num_runs);
+    *counts_out = (size_t *) malloc(sizeof(size_t) * num_runs);
+    *perm_out   = perm_sorted;
+    cuda_check(cudaMemcpy(&unique_out, unique_p, sizeof(size_t), cudaMemcpyDeviceToHost));
+    cuda_check(cudaMemcpy(&counts_out, counts_p, sizeof(uintptr_t), cudaMemcpyDeviceToHost));
 
     cuda_check(cudaFree(num_runs_p));
     cuda_check(cudaFree(unique_p));
     cuda_check(cudaFree(counts_p));
     cuda_sync();
-    delete[] unique;
-    delete[] counts;
 
-    return std::pair<std::vector<std::pair<void *, size_t>>, size_t *>(
-        std::move(result),
-        perm_sorted
-    );
+    return num_runs;
 }
 
 template <typename T, std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
-std::pair<T *, size_t> cuda_compress_impl(size_t size, const T *data, const bool *mask) {
+void cuda_compress_impl(size_t size, const T *data, const bool *mask, T **out_data, size_t *out_size) {
 #if !defined(NDEBUG)
     if (cuda_log_level() >= 4)
         std::cerr << "cuda_compress(size=" << size << ")" << std::endl;
 #endif
 
     size_t temp_size    = 0,
-           out_size     = 0,
            *out_size_p  = nullptr;
     void *temp          = nullptr;
 
@@ -123,33 +115,28 @@ std::pair<T *, size_t> cuda_compress_impl(size_t size, const T *data, const bool
 
     cuda_check(cub::DeviceSelect::Flagged(temp, temp_size, data, mask, result_p, out_size_p, size));
     cuda_check(cudaMalloc(&temp, temp_size));
-    cuda_check(cudaMalloc(&result_p, size * sizeof(T)));
+    cuda_check(cudaMalloc(out_data, size * sizeof(T)));
     cuda_check(cudaMalloc(&out_size_p, sizeof(size_t)));
-    cuda_check(cub::DeviceSelect::Flagged(temp, temp_size, data, mask, result_p, out_size_p, size));
-    cuda_check(cudaMemcpy(&out_size, out_size_p, sizeof(size_t), cudaMemcpyDeviceToHost));
+    cuda_check(cub::DeviceSelect::Flagged(temp, temp_size, data, mask, *out_data, out_size_p, size));
+    cuda_check(cudaMemcpy(out_size, out_size_p, sizeof(size_t), cudaMemcpyDeviceToHost));
     cuda_check(cudaFree(temp));
     cuda_check(cudaFree(out_size_p));
     cuda_sync();
-
-    return std::make_pair(result_p, out_size);
 }
 
 template <typename T, std::enable_if_t<!std::is_unsigned<T>::value && sizeof(T) == 4, int> = 0>
-std::pair<T *, size_t> cuda_compress_impl(size_t size, const T *data, const bool *mask) {
-    auto result = cuda_compress_impl(size, (const uint32_t *) data, mask);
-    return std::make_pair((T *) result.first, result.second);
+void cuda_compress_impl(size_t size, const T *data, const bool *mask, T **out_data, size_t *out_size) {
+    cuda_compress_impl(size, (const uint32_t *) data, mask, (uint32_t **) out_data, out_size);
 }
 
 template <typename T, std::enable_if_t<!std::is_unsigned<T>::value && sizeof(T) == 8, int> = 0>
-std::pair<T *, size_t> cuda_compress_impl(size_t size, const T *data, const bool *mask) {
-    auto result = cuda_compress_impl(size, (const uint32_t *) data, mask);
-    return std::make_pair((T *) result.first, result.second);
+void cuda_compress_impl(size_t size, const T *data, const bool *mask, T **out_data, size_t *out_size) {
+    cuda_compress_impl(size, (const uint64_t *) data, mask, (uint64_t **) out_data, out_size);
 }
 
-template <typename T> std::pair<T *, size_t> cuda_compress(size_t size, const T *data, const bool *mask) {
-    return cuda_compress_impl(size, data, mask);
+template <typename T> void cuda_compress(size_t size, const T *data, const bool *mask, T **out_data, size_t *out_size) {
+    cuda_compress_impl(size, data, mask, out_data, out_size);
 }
-
 
 template <typename T> T cuda_hsum(size_t size, const T *data) {
 #if !defined(NDEBUG)
@@ -353,12 +340,12 @@ template ENOKI_EXPORT uint64_t cuda_hmin(size_t, const uint64_t *);
 template ENOKI_EXPORT float    cuda_hmin(size_t, const float *);
 template ENOKI_EXPORT double   cuda_hmin(size_t, const double *);
 
-template ENOKI_EXPORT std::pair<bool *,     size_t> cuda_compress(size_t, const bool *,     const bool *mask);
-template ENOKI_EXPORT std::pair<int32_t *,  size_t> cuda_compress(size_t, const int32_t *,  const bool *mask);
-template ENOKI_EXPORT std::pair<uint32_t *, size_t> cuda_compress(size_t, const uint32_t *, const bool *mask);
-template ENOKI_EXPORT std::pair<int64_t *,  size_t> cuda_compress(size_t, const int64_t *,  const bool *mask);
-template ENOKI_EXPORT std::pair<uint64_t *, size_t> cuda_compress(size_t, const uint64_t *, const bool *mask);
-template ENOKI_EXPORT std::pair<float *,    size_t> cuda_compress(size_t, const float *,    const bool *mask);
-template ENOKI_EXPORT std::pair<double *,   size_t> cuda_compress(size_t, const double *,   const bool *mask);
+template ENOKI_EXPORT void cuda_compress(size_t, const bool *,     const bool *mask, bool     **out_ptr, size_t *out_size);
+template ENOKI_EXPORT void cuda_compress(size_t, const int32_t *,  const bool *mask, int32_t  **out_ptr, size_t *out_size);
+template ENOKI_EXPORT void cuda_compress(size_t, const uint32_t *, const bool *mask, uint32_t **out_ptr, size_t *out_size);
+template ENOKI_EXPORT void cuda_compress(size_t, const int64_t *,  const bool *mask, int64_t  **out_ptr, size_t *out_size);
+template ENOKI_EXPORT void cuda_compress(size_t, const uint64_t *, const bool *mask, uint64_t **out_ptr, size_t *out_size);
+template ENOKI_EXPORT void cuda_compress(size_t, const float *,    const bool *mask, float    **out_ptr, size_t *out_size);
+template ENOKI_EXPORT void cuda_compress(size_t, const double *,   const bool *mask, double   **out_ptr, size_t *out_size);
 
 NAMESPACE_END(enoki)
