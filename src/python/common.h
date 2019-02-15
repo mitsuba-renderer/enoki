@@ -97,7 +97,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
       cl.def(py::init([](const py::object &obj) -> Array {
             const char *tp_name = ((PyTypeObject *) obj.get_type().ptr())->tp_name;
             if (strstr(tp_name, "Tensor") != nullptr) {
-                using T = expr_t<decltype(detach(std::declval<Array>()))>;
+                using T = expr_t<decltype(detach(std::declval<Array&>()))>;
                 return torch_to_enoki<T>(obj);
             }
 
@@ -379,7 +379,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
     }
 
     if constexpr (is_diff_array_v<Array>) {
-        using BaseType = expr_t<decltype(detach(std::declval<Array>()))>;
+        using BaseType = expr_t<decltype(detach(std::declval<Array&>()))>;
         py::implicitly_convertible<BaseType, Array>();
     }
 

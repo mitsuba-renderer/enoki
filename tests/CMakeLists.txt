@@ -50,36 +50,7 @@ elseif(WIN32)
   add_compile_options("/bigobj")
 endif()
 
-include(CheckCXXSourceRuns)
-include(CheckCXXCompilerFlag)
-
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-
-macro(CHECK_CXX_COMPILER_AND_LINKER_FLAGS _RESULT _CXX_FLAGS _LINKER_FLAGS)
-  set(CMAKE_REQUIRED_FLAGS ${_CXX_FLAGS})
-  set(CMAKE_REQUIRED_LIBRARIES ${_LINKER_FLAGS})
-  set(CMAKE_REQUIRED_QUIET TRUE)
-  check_cxx_source_runs("#include <iostream>\nint main(int argc, char **argv) { std::cout << \"test\"; return 0; }" ${_RESULT})
-  set(CMAKE_REQUIRED_FLAGS "")
-  set(CMAKE_REQUIRED_LIBRARIES "")
-endmacro()
-
-# Prefer libc++ in conjunction with Clang
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  if (CMAKE_CXX_FLAGS MATCHES "-stdlib=libc\\+\\+")
-    message(STATUS "Enoki: using libc++.")
-  else()
-    CHECK_CXX_COMPILER_AND_LINKER_FLAGS(HAS_LIBCPP "-stdlib=libc++" "-stdlib=libc++")
-    if (HAS_LIBCPP)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
-      set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -stdlib=libc++")
-      message(STATUS "Enoki: using libc++.")
-    else()
-      message(STATUS "Enoki: NOT using libc++.")
-    endif()
-  endif()
-endif()
 
 add_custom_target(check
         ${CMAKE_COMMAND} -E echo CWD=${CMAKE_BINARY_DIR}

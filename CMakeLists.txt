@@ -8,7 +8,7 @@ set(CMAKE_MACOSX_RPATH ON)
 
 option(ENOKI_CUDA     "Build Enoki CUDA library?" OFF)
 option(ENOKI_AUTODIFF "Build Enoki automatic differentation library?" OFF)
-option(ENOKI_PYTHON   "Build pybind11 interface to CUDA & automatic differntiation libraries?" OFF)
+option(ENOKI_PYTHON   "Build pybind11 interface to CUDA & automatic differentiation libraries?" OFF)
 
 if (ENOKI_CUDA)
   set(ENOKI_CUDA_COMPUTE_CAPABILITY "75" CACHE STRING "Compute capability as specified by https://developer.nvidia.com/cuda-gpus")
@@ -24,11 +24,11 @@ if (${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
   set(ENOKI_MASTER_PROJECT ON)
 endif()
 
-option(ENOKI_TEST "Build Enoki test suite?" ${ENOKI_MASTER_PROJECT})
+option(ENOKI_TEST "Build Enoki test suite?" OFF)
 
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-  message(STATUS "Setting build type to 'Debug' as none was specified.")
-  set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build." FORCE)
+  message(STATUS "Setting build type to 'Release' as none was specified.")
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release"
     "MinSizeRel" "RelWithDebInfo")
 endif()
@@ -237,6 +237,31 @@ set(ENOKI_HEADERS
     ${PROJECT_SOURCE_DIR}/include/enoki/transform.h
 )
 
+include(CheckCXXSourceRuns)
+
+macro(CHECK_CXX_COMPILER_AND_LINKER_FLAGS _RESULT _CXX_FLAGS _LINKER_FLAGS)
+  set(CMAKE_REQUIRED_FLAGS ${_CXX_FLAGS})
+  set(CMAKE_REQUIRED_LIBRARIES ${_LINKER_FLAGS})
+  set(CMAKE_REQUIRED_QUIET TRUE)
+  check_cxx_source_runs("#include <iostream>\nint main(int argc, char **argv) { std::cout << \"test\"; return 0; }" ${_RESULT})
+  set(CMAKE_REQUIRED_FLAGS "")
+  set(CMAKE_REQUIRED_LIBRARIES "")
+endmacro()
+
+# Prefer libc++ in conjunction with Clang
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT CMAKE_CXX_FLAGS MATCHES "-stdlib=libc\\+\\+")
+  CHECK_CXX_COMPILER_AND_LINKER_FLAGS(HAS_LIBCPP "-stdlib=libc++" "-stdlib=libc++")
+  if (HAS_LIBCPP)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -D_LIBCPP_VERSION")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -stdlib=libc++")
+    message(STATUS "Enoki: using libc++.")
+  else()
+    message(FATAL_ERROR "When Clang is used to compile Enoki, libc++ must be available -- GCC's libstdc++ is not supported! (please insteall the libc++ development headers, provided e.g. by the packages 'libc++-dev' and 'libc++abi-dev' on Debian/Ubuntu).")
+  endif()
+endif()
+
+
 if (ENOKI_TEST)
   enable_testing()
   add_subdirectory(tests)
@@ -285,6 +310,7 @@ if (ENOKI_PYTHON)
   add_subdirectory(${ENOKI_PYBIND11_DIR} pybind11)
   pybind11_add_module(
       enoki-python
+      THIN_LTO
       ${PROJECT_SOURCE_DIR}/src/python/common.h
       ${PROJECT_SOURCE_DIR}/src/python/main.cpp
       ${PROJECT_SOURCE_DIR}/src/python/cuda_1d.cpp

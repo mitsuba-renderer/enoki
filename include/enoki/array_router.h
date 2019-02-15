@@ -686,7 +686,7 @@ ENOKI_INLINE auto mean(const Array &a) {
     return hsum(a) * (1.f / a.size());
 }
 
-template <typename T> decltype(auto) detach(T &&value) {
+template <typename T> decltype(auto) detach(T &value) {
     if constexpr (is_array_v<T>) {
         if constexpr (!is_diff_array_v<T>)
             return value;
