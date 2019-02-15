@@ -294,11 +294,13 @@ ENOKI_EXPORT void cuda_free(void *ptr) {
 
 ENOKI_EXPORT void cuda_sync() {
     Context &ctx = context();
-    cuda_check(cudaStreamSynchronize(nullptr));
 #if !defined(NDEBUG)
-    if (ctx.log_level >= 4)
-        std::cerr << "cuda_sync()" << std::endl;
+    if (ctx.log_level >= 4) {
+        std::cerr << "cuda_sync(): ";
+        std::cerr.flush();
+    }
 #endif
+    cuda_check(cudaStreamSynchronize(nullptr));
     std::vector<void *> free_list;
     /* acquire free list, but don't call cudaFree() yet */ {
         std::lock_guard<std::mutex> guard(ctx.free_mutex);
@@ -308,6 +310,10 @@ ENOKI_EXPORT void cuda_sync() {
     }
     for (void *ptr : free_list)
         cuda_check(cudaFree(ptr));
+#if !defined(NDEBUG)
+    if (ctx.log_level >= 4)
+        std::cerr << "freed " << free_list.size() << " arrays" << std::endl;
+#endif
 }
 
 

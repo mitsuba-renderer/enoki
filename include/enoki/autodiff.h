@@ -978,7 +978,7 @@ public:
 
     template <typename T = Scalar, enable_if_t<std::is_pointer_v<T>> = 0>
     auto partition_() const {
-        std::vector<std::pair<T, uint64_array_t<DiffArray, false>>> result;
+        std::vector<std::pair<T, uint32_array_t<DiffArray, false>>> result;
 
         auto p = partition(m_value);
         result.reserve(p.size());

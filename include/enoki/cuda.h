@@ -112,9 +112,9 @@ extern ENOKI_IMPORT bool cuda_any(size_t, const bool *);
 
 /// Sort 'ptrs' and return unique instances and their count, as well as a permutation
 extern ENOKI_IMPORT size_t cuda_partition(size_t size, const void **ptrs,
-                                          uintptr_t **unique_out,
-                                          size_t **counts_out,
-                                          size_t **perm_out);
+                                          void ***unique_out,
+                                          uint32_t **counts_out,
+                                          uint32_t **perm_out);
 
 extern ENOKI_IMPORT uint32_t cuda_var_copy_to_device(EnokiType type,
                                                      size_t size, const void *value);
@@ -658,26 +658,25 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     }
 
     template <typename T = Value, enable_if_t<std::is_pointer_v<T>> = 0>
-    std::vector<std::pair<Value, CUDAArray<uint64_t>>> partition_() const {
+    std::vector<std::pair<Value, CUDAArray<uint32_t>>> partition_() const {
         cuda_eval_var(m_index);
 
-        uintptr_t *unique = nullptr;
-        size_t *counts = nullptr;
-        size_t *perm = nullptr;
+        void **unique = nullptr;
+        uint32_t *counts = nullptr;
+        uint32_t *perm = nullptr;
 
         size_t num_unique = cuda_partition(size(), (const void **) data(),
                                            &unique, &counts, &perm);
 
-        uint32_t parent =
-            cuda_var_register(EnokiType::UInt64, size(), perm, 0, true);
+        uint32_t parent = cuda_var_register(EnokiType::UInt32, 1, perm, 0, true);
 
-        std::vector<std::pair<Value, CUDAArray<uint64_t>>> result;
+        std::vector<std::pair<Value, CUDAArray<uint32_t>>> result;
         result.reserve(num_unique);
         for (size_t i = 0; i< num_unique; ++i) {
             result.emplace_back(
                 (Value) unique[i],
-                CUDAArray<uint64_t>::from_index_(cuda_var_register(
-                    EnokiType::UInt64, counts[i], perm, parent, false)));
+                CUDAArray<uint32_t>::from_index_(cuda_var_register(
+                    EnokiType::UInt32, counts[i], perm, parent, false)));
             perm += counts[i];
         }
 
@@ -700,7 +699,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         UInt64 ptr    = UInt64::alloc_const_(memcpy_cast<uintptr_t>(ptr_)),
                ptr_gl = UInt64::from_index_(cuda_trace_append(
                           UInt64::Type, "cvta.to.global.$t1 $r1, $r2", ptr.index_())),
-               addr   = fmadd(index, (uint64_t) Stride, ptr_gl);
+               addr   = fmadd(UInt64(index), (uint64_t) Stride, ptr_gl);
 
         return CUDAArray::from_index_(cuda_trace_append(Type,
             "@$r3 ld.global.$t1 $r1, [$r2];\n    @!$r3 mov.$b1 $r1, 0",
@@ -718,7 +717,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         UInt64 ptr    = UInt64::alloc_const_(memcpy_cast<uintptr_t>(ptr_)),
                ptr_gl = UInt64::from_index_(cuda_trace_append(
                           UInt64::Type, "cvta.to.global.$t1 $r1, $r2", ptr.index_())),
-               addr   = fmadd(index, (uint64_t) Stride, ptr_gl);
+               addr   = fmadd(UInt64(index), (uint64_t) Stride, ptr_gl);
 
         CUDAArray::Index var = cuda_trace_append(EnokiType::UInt64,
             "@$r4 st.global.$t3 [$r2], $r3",
@@ -738,7 +737,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         UInt64 ptr    = UInt64::alloc_const_(memcpy_cast<uintptr_t>(ptr_)),
                ptr_gl = UInt64::from_index_(cuda_trace_append(
                           UInt64::Type, "cvta.to.global.$t1 $r1, $r2", ptr.index_())),
-               addr   = fmadd(index, (uint64_t) Stride, ptr_gl);
+               addr   = fmadd(UInt64(index), (uint64_t) Stride, ptr_gl);
 
         CUDAArray::Index var = cuda_trace_append(Type,
             "@$r4 atom.global.add.$t1 $r1, [$r2], $r3",

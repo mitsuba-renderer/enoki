@@ -734,7 +734,6 @@ void Tape<Value>::backward(bool free_graph) {
                     source.grad = safe_fmadd(edge.weight, target.grad, source.grad);
                 }
             } else {
-                cuda_eval();
                 edge.special->compute_gradients(d, target_idx, edge);
                 Node &source = d->node(edge.source);
             }
