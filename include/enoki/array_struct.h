@@ -36,6 +36,17 @@ ENOKI_INLINE Array gather(const Source &source, const Index &index,
     }
 }
 
+template <typename Array, size_t = 0, bool = true, bool = false,
+          typename Source, typename Index, typename Mask = mask_t<Index>,
+          enable_if_t<!is_dynamic_v<Source> && !std::is_pointer_v<std::decay_t<Source>> &&
+                      !std::is_same_v<std::decay_t<Source>, std::nullptr_t>> = 0>
+ENOKI_INLINE Array gather(Source &&source, const Index &index,
+                          const identity_t<Mask> &mask= true) {
+    ENOKI_MARK_USED(index);
+    ENOKI_MARK_USED(mask);
+    return (Array) source;
+}
+
 /// Scatter operations with an array or other data structure as target
 template <size_t Stride = 0, bool Packed = true, bool IsPermute = false,
           typename Target, typename Index, typename Value,
