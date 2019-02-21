@@ -837,6 +837,9 @@ public:
     void deallocate(value_type *ptr, size_t) {
         cuda_free(ptr);
     }
+
+    bool operator==(const cuda_managed_allocator &) { return true; }
+    bool operator!=(const cuda_managed_allocator &) { return false; }
 };
 
 #if defined(ENOKI_AUTODIFF) && !defined(ENOKI_BUILD)
