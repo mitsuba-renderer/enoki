@@ -737,7 +737,6 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
     ctx.live.insert(idx);
 
     if (v.cmd.find("ld.global") != std::string::npos) {
-        assert(ctx.scatter_gather_operand != 0);
         v.extra_dep = ctx.scatter_gather_operand;
         cuda_inc_ref_ext(v.extra_dep);
     } else {
@@ -794,7 +793,6 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
     ctx.live.insert(idx);
 
     if (v.cmd.find("st.global") != std::string::npos) {
-        assert(ctx.scatter_gather_operand != 0);
         v.extra_dep = ctx.scatter_gather_operand;
         cuda_inc_ref_ext(v.extra_dep);
     } else {
