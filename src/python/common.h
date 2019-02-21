@@ -340,6 +340,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
         m.def("any", [](const Array &a) { return enoki::any(a); });
         m.def("none", [](const Array &a) { return enoki::none(a); });
         m.def("all", [](const Array &a) { return enoki::all(a); });
+        m.def("count", [](const Array &a) { return enoki::count(a); });
     }
 
     m.def("eq", [](const Array &a, const Array &b) { return eq(a, b); });

@@ -100,6 +100,9 @@ template <typename T> extern ENOKI_IMPORT T cuda_hmax(size_t, const T *);
 /// Computes the horizontal minimum of a given memory region
 template <typename T> extern ENOKI_IMPORT T cuda_hmin(size_t, const T *);
 
+/// Compute the number of entries set to 'true'
+extern ENOKI_IMPORT size_t cuda_count(size_t, const bool *);
+
 template <typename T>
 extern ENOKI_IMPORT void cuda_compress(size_t, const T *, const bool *mask,
                                        T **, size_t *);
@@ -650,6 +653,11 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     bool any_() const {
         cuda_eval_var(m_index);
         return cuda_any(cuda_var_size(m_index), (const Value *) cuda_var_ptr(m_index));
+    }
+
+    size_t count_() const {
+        cuda_eval_var(m_index);
+        return cuda_count(cuda_var_size(m_index), (const Value *) cuda_var_ptr(m_index));
     }
 
     static CUDAArray map(void *ptr, size_t size, bool dealloc = false) {

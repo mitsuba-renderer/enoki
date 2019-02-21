@@ -312,6 +312,30 @@ bool cuda_any(size_t size, const bool *data) {
     return result;
 }
 
+size_t cuda_count(size_t size, const bool *data) {
+#if !defined(NDEBUG)
+    if (cuda_log_level() >= 4)
+        std::cerr << "cuda_count(size=" << size << ")" << std::endl;
+#endif
+
+    size_t temp_size  = 0;
+    void *temp        = nullptr;
+
+    size_t result = 0, *result_p = nullptr;
+
+    cuda_check(cub::DeviceReduce::Sum(temp, temp_size, data, result_p, size));
+    cuda_check(cudaMalloc(&temp, temp_size));
+    cuda_check(cudaMalloc(&result_p, sizeof(size_t)));
+    cuda_check(cub::DeviceReduce::Sum(temp, temp_size, data, result_p, size));
+    cuda_free(temp);
+    cuda_check(cudaMemcpy(&result, result_p, sizeof(size_t),
+               cudaMemcpyDeviceToHost));
+    cuda_free(result_p);
+    cuda_sync();
+
+    return result;
+}
+
 template ENOKI_EXPORT int32_t  cuda_hsum(size_t, const int32_t *);
 template ENOKI_EXPORT uint32_t cuda_hsum(size_t, const uint32_t *);
 template ENOKI_EXPORT int64_t  cuda_hsum(size_t, const int64_t *);
