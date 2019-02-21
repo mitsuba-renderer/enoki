@@ -121,6 +121,11 @@
 #define ENOKI_MAP_EXPR_GATHER_1(x, peek, ...) \
     enoki::gather<decltype(Value::x)>(src.x, index, mask) ENOKI_MAP_EXPR_NEXT(peek, ENOKI_MAP_EXPR_GATHER_0)(peek, __VA_ARGS__)
 
+#define ENOKI_MAP_EXPR_SCATTER_0(x, peek, ...) \
+    enoki::scatter(dst.x, value.x, index, mask) ENOKI_MAP_EXPR_NEXT(peek, ENOKI_MAP_EXPR_SCATTER_1)(peek, __VA_ARGS__)
+#define ENOKI_MAP_EXPR_SCATTER_1(x, peek, ...) \
+    enoki::scatter(dst.x, value.x, index, mask) ENOKI_MAP_EXPR_NEXT(peek, ENOKI_MAP_EXPR_SCATTER_0)(peek, __VA_ARGS__)
+
 // ENOKI_MAP_TEMPLATE_FWD(a1, a2, ...) expands to typename Ta1, typename Ta2, ...
 #define ENOKI_MAP_TEMPLATE_FWD(...) \
     ENOKI_EVAL(ENOKI_MAP_TEMPLATE_FWD_0(__VA_ARGS__, (), 0))
@@ -176,6 +181,10 @@
 // ENOKI_MAP_EXPR_GATHER(a1, a2, ...) expands to enoki::gather<decltype(Value::a1)>(src.a1, index, mask), ..
 #define ENOKI_MAP_EXPR_GATHER(...) \
     ENOKI_EVAL(ENOKI_MAP_EXPR_GATHER_0(__VA_ARGS__, (), 0))
+
+// ENOKI_MAP_EXPR_SCATTER(a1, a2, ...) expands to enoki::scatter(dst.a1, src.a1, index, mask), ..
+#define ENOKI_MAP_EXPR_SCATTER(...) \
+    ENOKI_EVAL(ENOKI_MAP_EXPR_SCATTER_0(__VA_ARGS__, (), 0))
 
 #define ENOKI_STRUCT(Struct, ...)                                              \
     Struct() = default;                                                        \
@@ -265,6 +274,11 @@
         static ENOKI_INLINE Value gather(Src &src, const Index &index,         \
                                          const Mask &mask) {                   \
             return Value(ENOKI_MAP_EXPR_GATHER(__VA_ARGS__));                  \
+        }                                                                      \
+        template <typename Dst, typename Index, typename Mask>                 \
+        static void scatter(Dst &dst, const Value &value, const Index &index,  \
+                            const Mask &mask) {                                \
+            ENOKI_MAP_EXPR_SCATTER(__VA_ARGS__);                               \
         }                                                                      \
         template <typename T>                                                  \
         static ENOKI_INLINE auto slice(T &&value, size_t index) {              \

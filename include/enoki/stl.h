@@ -71,6 +71,20 @@ template <typename Arg0, typename Arg1> struct struct_support<std::pair<Arg0, Ar
             enoki::masked(value.first, mask), enoki::masked(value.second, mask));
     }
 
+    template <typename T2, typename Index, typename Mask>
+    static ENOKI_INLINE void scatter(T2 &dst, const Value &value, const Index &index, const Mask &mask) {
+        enoki::scatter(dst.first, value.first, index, mask);
+        enoki::scatter(dst.second, value.second, index, mask);
+    }
+
+    template <typename T2, typename Index, typename Mask>
+    static ENOKI_INLINE Value gather(const T2 &src, const Index &index, const Mask &mask) {
+        return Value(
+            enoki::gather<Arg0>(src.first, index, mask),
+            enoki::gather<Arg1>(src.second, index, mask)
+        );
+    }
+
     static ENOKI_INLINE Value zero(size_t size) {
         return Value(enoki::zero<Arg0>(size), enoki::zero<Arg1>(size));
     }
@@ -129,6 +143,16 @@ template <typename... Args> struct struct_support<std::tuple<Args...>> {
     static ENOKI_INLINE Value empty(size_t size) {
         return Value(enoki::empty<Args>(size)...);
     }
+
+    template <typename T2, typename Index, typename Mask>
+    static ENOKI_INLINE void scatter(T2 &dst, const Value &value, const Index &index, const Mask &mask) {
+        scatter(dst, value, index, mask, std::make_index_sequence<sizeof...(Args)>());
+    }
+
+    template <typename T2, typename Index, typename Mask>
+    static ENOKI_INLINE Value gather(const T2 &src, const Index &index, const Mask &mask) {
+        return gather(src, index, mask, std::make_index_sequence<sizeof...(Args)>());
+    }
 private:
     template <size_t... Index>
     static ENOKI_INLINE void set_slices(Value &value, size_t i, std::index_sequence<Index...>) {
@@ -164,6 +188,20 @@ private:
     static ENOKI_INLINE auto masked(T2 &value, const Mask &mask, std::index_sequence<Index...>) {
         return std::tuple<decltype(enoki::masked(std::get<Index>(value), mask))...>(
             enoki::masked(std::get<Index>(value), mask)...);
+    }
+
+    template <typename T2, typename Index, typename Mask, size_t... Is>
+    static ENOKI_INLINE void scatter(T2 &dst, const Value &value, const Index &index, const Mask &mask, std::index_sequence<Is...>) {
+        bool unused[] = { (enoki::scatter(std::get<Is>(dst),
+                                          std::get<Is>(value), index, mask), false)... };
+        ENOKI_MARK_USED(unused);
+    }
+
+    template <typename T2, typename Index, typename Mask, size_t... Is>
+    static ENOKI_INLINE Value gather(const T2 &src, const Index &index, const Mask &mask, std::index_sequence<Is...>) {
+        return Value(
+            enoki::gather<std::tuple_element_t<Is, Value>>(std::get<Is>(src), index, mask)...
+        );
     }
 };
 
@@ -208,6 +246,16 @@ template <typename T, size_t Size> struct struct_support<std::array<T, Size>> {
     template <typename T2, typename Mask>
     static ENOKI_INLINE auto masked(T2 &value, const Mask &mask) {
         return masked(value, mask, std::make_index_sequence<Size>());
+    }
+
+    template <typename T2, typename Index, typename Mask>
+    static ENOKI_INLINE void scatter(T2 &dst, const Value &value, const Index &index, const Mask &mask) {
+        scatter(dst, value, index, mask, std::make_index_sequence<Size>());
+    }
+
+    template <typename T2, typename Index, typename Mask>
+    static ENOKI_INLINE Value gather(const T2 &src, const Index &index, const Mask &mask) {
+        return gather(src, index, mask, std::make_index_sequence<Size>());
     }
 
     static ENOKI_INLINE auto zero(size_t size) {
@@ -256,6 +304,19 @@ private:
     template <size_t... Index>
     static ENOKI_INLINE auto empty(size_t size, std::index_sequence<Index...>) {
         return Value{{ empty<T>(Index, size)... }};
+    }
+
+    template <typename T2, typename Index, typename Mask, size_t... Is>
+    static ENOKI_INLINE void scatter(T2 &dst, const Value &value, const Index &index, const Mask &mask, std::index_sequence<Is...>) {
+        bool unused[] = { (enoki::scatter(dst[Is], value[Is], index, mask), false)... };
+        ENOKI_MARK_USED(unused);
+    }
+
+    template <typename T2, typename Index, typename Mask, size_t... Is>
+    static ENOKI_INLINE Value gather(const T2 &src, const Index &index, const Mask &mask, std::index_sequence<Is...>) {
+        return Value{
+            enoki::gather<T>(src[Is], index, mask)...
+        };
     }
 };
 
