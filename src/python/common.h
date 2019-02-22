@@ -313,6 +313,10 @@ py::class_<Array> bind(py::module &m, const char *name) {
         m.def("pow", [](const Array &a, const Array &b) {
             return enoki::pow(a, b);
         });
+    } else if constexpr (!IsMask) {
+        m.def("popcnt", [](const Array &a) { return enoki::popcnt(a); });
+        m.def("lzcnt", [](const Array &a) { return enoki::lzcnt(a); });
+        m.def("tzcnt", [](const Array &a) { return enoki::tzcnt(a); });
     }
 
     if constexpr (!IsMask) {

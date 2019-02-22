@@ -810,6 +810,30 @@ public:
             return extract(m_value, mask.value_());
     }
 
+    DiffArray lzcnt_() const {
+        if constexpr ((!is_mask_v<Value> && !std::is_integral_v<Scalar>) ||
+                      std::is_pointer_v<Scalar>)
+            fail_unsupported("lzcnt_");
+        else
+            return DiffArray::create(0, lzcnt(m_value));
+    }
+
+    DiffArray tzcnt_() const {
+        if constexpr ((!is_mask_v<Value> && !std::is_integral_v<Scalar>) ||
+                      std::is_pointer_v<Scalar>)
+            fail_unsupported("tzcnt_");
+        else
+            return DiffArray::create(0, tzcnt(m_value));
+    }
+
+    DiffArray popcnt_() const {
+        if constexpr ((!is_mask_v<Value> && !std::is_integral_v<Scalar>) ||
+                      std::is_pointer_v<Scalar>)
+            fail_unsupported("popcnt_");
+        else
+            return DiffArray::create(0, popcnt(m_value));
+    }
+
     template <size_t Imm>
     DiffArray sl_() const { return DiffArray::create(0, sl<Imm>(m_value)); }
 

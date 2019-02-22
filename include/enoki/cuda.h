@@ -496,6 +496,11 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
             "clz.$b1 $r1, $r2", index_()));
     }
 
+    CUDAArray tzcnt_() const {
+        return CUDAArray::from_index_(cuda_trace_append(Type,
+            "brev.$b1 $r1, $r2;\n    clz.$b1 $r1, $r1", index_()));
+    }
+
     template <typename T>
     CUDAArray or_(const CUDAArray<T> &v) const {
         Value all_ones = memcpy_cast<Value>(int_array_t<Value>(-1));
