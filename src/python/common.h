@@ -68,6 +68,7 @@ extern ENOKI_IMPORT uint32_t cuda_var_copy_to_device(EnokiType type,
 template <typename Array> py::object enoki_to_torch(const Array &array, bool eval);
 template <typename Array> py::object enoki_to_numpy(const Array &array, bool eval);
 template <typename Array> Array torch_to_enoki(py::object src);
+template <typename Array> Array numpy_to_enoki(py::array src);
 
 template <typename Array>
 py::class_<Array> bind(py::module &m, const char *name) {
@@ -99,6 +100,11 @@ py::class_<Array> bind(py::module &m, const char *name) {
             if (strstr(tp_name, "Tensor") != nullptr) {
                 using T = expr_t<decltype(detach(std::declval<Array&>()))>;
                 return torch_to_enoki<T>(obj);
+            }
+
+            if (strstr(tp_name, "numpy.ndarray") != nullptr) {
+                using T = expr_t<decltype(detach(std::declval<Array&>()))>;
+                return numpy_to_enoki<T>(obj);
             }
 
             if constexpr (!IsMask && array_depth_v<Array> == 1) {
@@ -238,8 +244,6 @@ py::class_<Array> bind(py::module &m, const char *name) {
             if constexpr (array_size_v<Array> == 3)
                 m.def("cross", [](const Array &a, const Array &b) { return enoki::cross(a, b); });
         }
-
-        py::implicitly_convertible<py::sequence, Array>();
     } else {
         cl.def_property_readonly("index", [](const Array &a) { return a.index_(); });
     }
@@ -250,25 +254,25 @@ py::class_<Array> bind(py::module &m, const char *name) {
         });
     }
 
-    if constexpr (array_depth_v<Array> == 1) {
-        m.def("gather",
-              [](const Array &source, const uint32_array_t<Array> &index, mask_t<Array> &mask) {
-                  return gather<Array>(source, index, mask);
-              },
-              "source"_a, "index"_a, "mask"_a = true);
+    using Index = uint32_array_t<
+        std::conditional_t<array_depth_v<Array> == 1, Array, value_t<Array>>>;
+    m.def("gather",
+          [](const Array &source, const Index &index, mask_t<Index> &mask) {
+              return gather<Array>(source, index, mask);
+          },
+          "source"_a, "index"_a, "mask"_a = true);
 
-        m.def("scatter",
-              [](Array &target, const Array &source,
-                 const uint32_array_t<Array> &index,
-                 mask_t<Array> &mask) { scatter(target, source, index, mask); },
-              "target"_a, "source"_a, "index"_a, "mask"_a = true);
+    m.def("scatter",
+          [](Array &target, const Array &source,
+             const Index &index,
+             mask_t<Index> &mask) { scatter(target, source, index, mask); },
+          "target"_a, "source"_a, "index"_a, "mask"_a = true);
 
-        m.def("scatter_add",
-              [](Array &target, const Array &source,
-                 const uint32_array_t<Array> &index,
-                 mask_t<Array> &mask) { scatter_add(target, source, index, mask); },
-              "target"_a, "source"_a, "index"_a, "mask"_a = true);
-    }
+    m.def("scatter_add",
+          [](Array &target, const Array &source,
+             const Index &index,
+             mask_t<Index> &mask) { scatter_add(target, source, index, mask); },
+          "target"_a, "source"_a, "index"_a, "mask"_a = true);
 
     if constexpr (IsFloat) {
         m.def("abs", [](const Array &a) { return enoki::abs(a); });
@@ -622,5 +626,37 @@ ENOKI_NOINLINE py::object enoki_to_numpy(const Array &src, bool eval) {
     if (eval)
         cuda_eval();
 
+    return result;
+}
+
+template <typename Array>
+ENOKI_NOINLINE Array numpy_to_enoki(py::array src) {
+    constexpr size_t Depth = array_depth_v<Array>;
+    using Scalar = scalar_t<Array>;
+
+    py::tuple shape_obj = src.attr("shape");
+    py::object dtype_obj = src.attr("dtype");
+    py::object target_dtype = py::dtype::of<Scalar>();
+
+    if (shape_obj.size() != Depth || !dtype_obj.is(target_dtype))
+        throw py::reference_cast_error();
+
+    auto shape = py::cast<std::array<size_t, Depth>>(shape_obj);
+    auto strides = py::cast<std::array<size_t, Depth>>(src.attr("strides"));
+    std::reverse(shape.begin(), shape.end());
+    std::reverse(strides.begin(), strides.end());
+
+    size_t size = 1;
+    for (size_t i : shape)
+        size *= i;
+
+    CUDAArray<Scalar> source = CUDAArray<Scalar>::from_index_(
+        cuda_var_copy_to_device(enoki_type_v<Scalar>, size, src.data()));
+
+    for (ssize_t i = 0; i < Depth; ++i)
+        strides[i] /= sizeof(Scalar);
+
+    Array result;
+    copy_array_gather<0>(0, shape, strides, source, result);
     return result;
 }

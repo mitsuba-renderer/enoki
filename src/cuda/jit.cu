@@ -792,7 +792,8 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
     cuda_inc_ref_ext(idx);
     ctx.live.insert(idx);
 
-    if (v.cmd.find("st.global") != std::string::npos) {
+    if (v.cmd.find("st.global") != std::string::npos ||
+        v.cmd.find("atom.global.add") != std::string::npos) {
         v.extra_dep = ctx.scatter_gather_operand;
         cuda_inc_ref_ext(v.extra_dep);
     } else {
@@ -1210,6 +1211,7 @@ ENOKI_EXPORT void cuda_jit_run(Context &ctx,
         }
 
         cuda_check(cuModuleLoadData(&module, link_output));
+        cuda_sync();
 
         // Locate the kernel entry point
         cuda_check(cuModuleGetFunction(&kernel, module, (std::string("enoki_") + kernel_name).c_str()));

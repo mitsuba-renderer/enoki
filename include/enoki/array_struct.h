@@ -337,6 +337,11 @@ struct struct_support<T, enable_if_static_array_t<T>> {
         scatter(dst, value, index, mask, std::make_index_sequence<Size>());
     }
 
+    template <typename Dst, typename Index, typename Mask>
+    static ENOKI_INLINE void scatter_add(Dst &dst, const T &value, const Index &index, const Mask &mask) {
+        scatter_add(dst, value, index, mask, std::make_index_sequence<Size>());
+    }
+
 private:
     template <typename T2, size_t... Is>
     static ENOKI_INLINE decltype(auto) packet(T2 &value, size_t i, std::index_sequence<Is...>) {
@@ -390,6 +395,13 @@ private:
     static ENOKI_INLINE void scatter(Dst &src, const T &value, const Index &index,
                                      const Mask &mask, std::index_sequence<Is...>) {
         bool unused[] = { (enoki::scatter(src.coeff(Is), value.coeff(Is), index, mask), false) ... };
+        ENOKI_MARK_USED(unused);
+    }
+
+    template <typename Dst, typename Index, typename Mask, size_t... Is>
+    static ENOKI_INLINE void scatter_add(Dst &src, const T &value, const Index &index,
+                                     const Mask &mask, std::index_sequence<Is...>) {
+        bool unused[] = { (enoki::scatter_add(src.coeff(Is), value.coeff(Is), index, mask), false) ... };
         ENOKI_MARK_USED(unused);
     }
 };
