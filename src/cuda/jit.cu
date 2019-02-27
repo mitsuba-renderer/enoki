@@ -428,10 +428,8 @@ ENOKI_EXPORT void cuda_set_scatter_gather_operand(uint32_t idx) {
     Context &ctx = context();
     if (idx != 0) {
         Variable &v = ctx[idx];
-        if (v.data == nullptr) {
-            printf("Scatter/gather: forcing cuda_eval()\n");
+        if (v.data == nullptr)
             cuda_eval();
-        }
     }
     ctx.scatter_gather_operand = idx;
 }

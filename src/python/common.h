@@ -65,10 +65,45 @@ namespace enoki {
 extern ENOKI_IMPORT uint32_t cuda_var_copy_to_device(EnokiType type,
                                                      size_t size, const void *value);
 };
+
 template <typename Array> py::object enoki_to_torch(const Array &array, bool eval);
 template <typename Array> py::object enoki_to_numpy(const Array &array, bool eval);
 template <typename Array> Array torch_to_enoki(py::object src);
 template <typename Array> Array numpy_to_enoki(py::array src);
+
+extern bool disable_print_flag;
+
+/// Customized version of pybind11::implicitly_convertible() which disables
+/// __repr__ during implicit casts (this can be triggered at implicit cast
+/// failures and causes a totally unnecessary/undesired cuda_eval() invocation)
+template <typename InputType, typename OutputType> void implicitly_convertible() {
+    struct set_flag {
+        bool &flag, backup;
+        set_flag(bool &flag) : flag(flag), backup(flag) { flag = true; }
+        ~set_flag() { flag = backup; }
+    };
+
+    auto implicit_caster = [](PyObject *obj, PyTypeObject *type) -> PyObject * {
+        static bool currently_used = false;
+        if (currently_used) // implicit conversions are non-reentrant
+            return nullptr;
+        set_flag flag_helper(currently_used);
+        set_flag flag_helper_2(disable_print_flag);
+        if (!py::detail::make_caster<InputType>().load(obj, false))
+            return nullptr;
+        py::tuple args(1);
+        args[0] = obj;
+        PyObject *result = PyObject_Call((PyObject *) type, args.ptr(), nullptr);
+        if (result == nullptr)
+            PyErr_Clear();
+        return result;
+    };
+
+    if (auto tinfo = py::detail::get_type_info(typeid(OutputType)))
+        tinfo->implicit_conversions.push_back(implicit_caster);
+    else
+        py::pybind11_fail("implicitly_convertible: Unable to find type " + pybind11::type_id<OutputType>());
+}
 
 template <typename Array>
 py::class_<Array> bind(py::module &m, const char *name) {
@@ -85,7 +120,9 @@ py::class_<Array> bind(py::module &m, const char *name) {
       .def(py::init<const Value &>())
       .def(py::self == py::self)
       .def(py::self != py::self)
-      .def("__repr__", [](const Array &a) {
+      .def("__repr__", [](const Array &a) -> std::string {
+          if (disable_print_flag)
+              return "";
           std::ostringstream oss;
           oss << a;
           return oss.str();
@@ -389,20 +426,20 @@ py::class_<Array> bind(py::module &m, const char *name) {
 
     if constexpr (is_diff_array_v<Array>) {
         using BaseType = expr_t<decltype(detach(std::declval<Array&>()))>;
-        py::implicitly_convertible<BaseType, Array>();
+        implicitly_convertible<BaseType, Array>();
     }
 
     m.def("set_label", [](const Array &a, const char *label) {
         set_label(a, label);
     });
 
-    py::implicitly_convertible<Value, Array>();
+    implicitly_convertible<Value, Array>();
 
     if constexpr (IsFloat)
-        py::implicitly_convertible<int, Array>();
+        implicitly_convertible<int, Array>();
 
     if constexpr (!std::is_same_v<Value, Scalar>)
-        py::implicitly_convertible<Scalar, Array>();
+        implicitly_convertible<Scalar, Array>();
 
     return cl;
 }
@@ -429,7 +466,9 @@ py::class_<Matrix> bind_matrix(py::module &m, const char *name) {
         .def(py::self * Vector())
         .def(py::self * Value())
         .def(-py::self)
-        .def("__repr__", [](const Matrix &a) {
+        .def("__repr__", [](const Matrix &a) -> std::string {
+            if (disable_print_flag)
+                return "";
             std::ostringstream oss;
             oss << a;
             return oss.str();

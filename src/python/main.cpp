@@ -14,6 +14,8 @@ extern void bind_autodiff_matrix_4d(py::module&);
 
 extern void bind_pcg32(py::module&);
 
+bool disable_print_flag = false;
+
 PYBIND11_MODULE(enoki, m) {
     bind_cuda_1d(m);
     bind_cuda_2d(m);
