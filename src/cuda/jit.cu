@@ -173,7 +173,7 @@ struct Context {
     uint32_t block_count = 0, thread_count = 0;
 
     /// List of pointers to be freed (will be done at synchronization points)
-    std::vector<void *> free_list;
+    std::vector<void *> free_list, host_free_list;
 
     /// Mutex protecting 'free_list'
     std::mutex free_mutex;
@@ -292,6 +292,12 @@ ENOKI_EXPORT void cuda_free(void *ptr) {
     ctx.free_list.push_back(ptr);
 }
 
+ENOKI_EXPORT void cuda_host_free(void *ptr) {
+    Context &ctx = context();
+    std::lock_guard<std::mutex> guard(ctx.free_mutex);
+    ctx.host_free_list.push_back(ptr);
+}
+
 ENOKI_EXPORT void cuda_sync() {
     Context &ctx = context();
 #if !defined(NDEBUG)
@@ -301,18 +307,22 @@ ENOKI_EXPORT void cuda_sync() {
     }
 #endif
     cuda_check(cudaStreamSynchronize(nullptr));
-    std::vector<void *> free_list;
+    std::vector<void *> free_list, host_free_list;
     /* acquire free list, but don't call cudaFree() yet */ {
         std::lock_guard<std::mutex> guard(ctx.free_mutex);
-        if (ctx.free_list.empty())
+        if (ctx.free_list.empty() && ctx.host_free_list.empty())
             return;
         free_list.swap(ctx.free_list);
+        host_free_list.swap(ctx.host_free_list);
     }
     for (void *ptr : free_list)
         cuda_check(cudaFree(ptr));
+    for (void *ptr : host_free_list)
+        cuda_check(cudaFreeHost(ptr));
 #if !defined(NDEBUG)
     if (ctx.log_level >= 4)
-        std::cerr << "freed " << free_list.size() << " arrays" << std::endl;
+        std::cerr << "freed " << free_list.size() << " device arrays and "
+                  << host_free_list.size() << " host arrays." << std::endl;
 #endif
 }
 
@@ -390,19 +400,14 @@ ENOKI_EXPORT uint32_t cuda_var_copy_to_device(EnokiType type, size_t size,
                                               const void *value) {
     size_t total_size = size * cuda_register_size(type);
 
+    void *tmp        = cuda_host_malloc(total_size),
+         *device_ptr = cuda_malloc(total_size);
 
-    void *tmp = nullptr;
-    cuda_check(cudaMallocHost(&tmp, total_size));
     memcpy(tmp, value, total_size);
-
-    void *device_ptr = cuda_malloc(total_size);
     cuda_check(cudaMemcpyAsync(device_ptr, tmp, total_size,
                                cudaMemcpyHostToDevice));
 
-    cuda_check(cudaLaunchHostFunc(nullptr,
-        [](void *ptr) { cudaFreeHost(ptr); },
-        tmp
-    ));
+    cuda_host_free(tmp);
 
     return cuda_var_register(type, size, device_ptr, 0, true);
 }

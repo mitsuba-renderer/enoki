@@ -131,28 +131,36 @@ extern ENOKI_IMPORT uint32_t cuda_var_register(EnokiType type, size_t size,
 extern ENOKI_IMPORT void cuda_fetch_element(void *, uint32_t, size_t, size_t);
 
 /// Copy a memory region to the device
-extern ENOKI_IMPORT void cuda_memcpy_to_device(void *dst, const void *src, size_t);
+extern ENOKI_IMPORT void cuda_memcpy_to_device(void *dst, const void *src, size_t size);
+extern ENOKI_IMPORT void cuda_memcpy_to_device_async(void *dst, const void *src, size_t size);
 
 /// Copy a memory region from  the device
-extern ENOKI_IMPORT void cuda_memcpy_from_device(void *dst, const void *src, size_t);
+extern ENOKI_IMPORT void cuda_memcpy_from_device(void *dst, const void *src, size_t size);
+extern ENOKI_IMPORT void cuda_memcpy_from_device_async(void *dst, const void *src, size_t size);
 
 /// Allocate unified memory (wrapper around cudaMalloc)
 extern ENOKI_IMPORT void* cuda_malloc(size_t);
 
-/// Allocate unified memory (wrapper around cudaMalloc & cudaMemset)
-extern ENOKI_IMPORT void* cuda_malloc_zero(size_t);
+/// Allocate host-pinned memory (wrapper around cudaMallocHost)
+extern ENOKI_IMPORT void* cuda_host_malloc(size_t);
+
+/// Allocate unified/device-local memory (wrapper around cudaMallocManaged)
+extern ENOKI_IMPORT void* cuda_managed_malloc(size_t);
 
 /// Allocate unified memory (wrapper around cudaMalloc & cudaMemsetAsync)
+extern ENOKI_IMPORT void* cuda_malloc_zero(size_t);
+
+/// Allocate unified memory (wrapper around cudaMalloc & analogues of cudaMemsetAsync)
 extern ENOKI_IMPORT void* cuda_malloc_fill(size_t, uint8_t values);
 extern ENOKI_IMPORT void* cuda_malloc_fill(size_t, uint16_t values);
 extern ENOKI_IMPORT void* cuda_malloc_fill(size_t, uint32_t values);
 extern ENOKI_IMPORT void* cuda_malloc_fill(size_t, uint64_t values);
 
-/// Allocate unified memory (wrapper around cudaMalloc)
-extern ENOKI_IMPORT void* cuda_managed_malloc(size_t);
-
-/// Release unified memory (wrapper around cudaFree)
+/// Release unified/device-local memory (in contrast to cudaFree(), this is done asynchronously)
 extern ENOKI_IMPORT void cuda_free(void *);
+
+/// Release host-local memory (in contrast to cudaHostFree(), this is done asynchronously)
+extern ENOKI_IMPORT void cuda_host_free(void *);
 
 /// Execute postponed tasks requiring device synchronization (e.g. freeing memory)
 extern ENOKI_IMPORT void cuda_sync();
@@ -668,6 +676,10 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     static CUDAArray map(void *ptr, size_t size, bool dealloc = false) {
         return CUDAArray::from_index_(
             cuda_var_register(Type, size, ptr, 0, dealloc));
+    }
+
+    static CUDAArray copy(void *ptr, size_t size) {
+        return CUDAArray::from_index_(cuda_var_copy_to_device(Type, size, ptr));
     }
 
     template <typename T = Value, enable_if_t<std::is_pointer_v<T>> = 0>
