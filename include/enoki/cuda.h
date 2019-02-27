@@ -60,7 +60,7 @@ extern ENOKI_IMPORT void cuda_var_set_label(uint32_t, const char *);
 extern ENOKI_IMPORT void cuda_var_mark_side_effect(uint32_t);
 
 /// Set the current scatter/source operand array
-extern ENOKI_IMPORT void cuda_set_scatter_gather_operand(uint32_t);
+extern ENOKI_IMPORT void cuda_set_scatter_gather_operand(uint32_t index, bool gather);
 
 /// Append an operation to the trace (0 arguments)
 extern ENOKI_IMPORT uint32_t cuda_trace_append(EnokiType type,

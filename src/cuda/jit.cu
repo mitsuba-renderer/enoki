@@ -424,11 +424,11 @@ ENOKI_EXPORT void cuda_var_free(uint32_t idx) {
     ctx.variables.erase(idx); // invokes Variable destructor + cudaFree().
 }
 
-ENOKI_EXPORT void cuda_set_scatter_gather_operand(uint32_t idx) {
+ENOKI_EXPORT void cuda_set_scatter_gather_operand(uint32_t idx, bool gather) {
     Context &ctx = context();
     if (idx != 0) {
         Variable &v = ctx[idx];
-        if (v.data == nullptr)
+        if (v.data == nullptr || (gather && v.dirty))
             cuda_eval();
     }
     ctx.scatter_gather_operand = idx;

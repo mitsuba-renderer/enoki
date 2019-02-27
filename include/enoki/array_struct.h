@@ -15,9 +15,9 @@ ENOKI_INLINE Array gather(const Source &source, const Index &index,
         if constexpr (is_diff_array_v<Source>) {
             Source::set_scatter_gather_operand_(source, IsPermute);
             if constexpr (is_cuda_array_v<Source>)
-                cuda_set_scatter_gather_operand(source.value_().index_());
+                cuda_set_scatter_gather_operand(source.value_().index_(), true);
         } else if constexpr (is_cuda_array_v<Source>) {
-            cuda_set_scatter_gather_operand(source.index_());
+            cuda_set_scatter_gather_operand(source.index_(), true);
         }
 
         Array result = gather<Array, Stride, Packed>(source.data(), index, mask);
