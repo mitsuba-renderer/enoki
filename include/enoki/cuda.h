@@ -459,12 +459,12 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     }
 
     template <typename T> T floor2int_() const {
-        return CUDAArray::from_index_(cuda_trace_append(T::Type,
+        return T::from_index_(cuda_trace_append(T::Type,
             "cvt.rmi.$t1.$t2 $r1, $r2", index_()));
     }
 
     template <typename T> T ceil2int_() const {
-        return CUDAArray::from_index_(cuda_trace_append(T::Type,
+        return T::from_index_(cuda_trace_append(T::Type,
             "cvt.rpi.$t1.$t2 $r1, $r2", index_()));
     }
 

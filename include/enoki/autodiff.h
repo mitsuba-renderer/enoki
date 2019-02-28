@@ -1038,6 +1038,13 @@ public:
             return slices(m_value);
     }
 
+    ENOKI_INLINE bool empty() const {
+        if constexpr (is_scalar_v<Value>)
+            return false;
+        else
+            return slices(m_value) == 0;
+    }
+
     ENOKI_NOINLINE void resize(size_t size) {
         ENOKI_MARK_USED(size);
         if constexpr (!is_scalar_v<Value>)
@@ -1112,7 +1119,7 @@ public:
     // -----------------------------------------------------------------------
 
     template <typename... Args>
-    static DiffArray empty_(Args... args) { return empty<Value>(args...); }
+    static DiffArray empty_(Args... args) { return enoki::empty<Value>(args...); }
     template <typename... Args>
     static DiffArray zero_(Args... args) { return zero<Value>(args...); }
     template <typename... Args>
