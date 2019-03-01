@@ -1267,7 +1267,7 @@ ENOKI_UNARY_OPERATION(atanh, std::atanh(x)) {
 /// Linearly interpolate between 'a' and 'b', using 't'
 template <typename Value1, typename Value2, typename Value3>
 auto lerp(const Value1 &a, const Value2 &b, const Value3 &t) {
-    return fmadd(a, scalar_t<Value3>(1) - t, t * b);
+    return fmadd(b, t, fnmadd(a, t, a));
 }
 
 /// Clamp the value 'value' to the range [min, max]
