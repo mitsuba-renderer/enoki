@@ -190,13 +190,21 @@ py::class_<Array> bind(py::module &m, const char *name) {
 
     if constexpr (!IsMask) {
         cl.def(py::self + py::self)
+          .def(Value() + py::self)
           .def(py::self - py::self)
+          .def(Value() - py::self)
           .def(py::self / py::self)
+          .def(Value() / py::self)
           .def(py::self * py::self)
+          .def(Value() * py::self)
           .def(py::self < py::self)
+          .def(Value() < py::self)
           .def(py::self > py::self)
+          .def(Value() > py::self)
           .def(py::self >= py::self)
+          .def(Value() >= py::self)
           .def(py::self <= py::self)
+          .def(Value() <= py::self)
           .def(-py::self);
 
         if constexpr (std::is_integral_v<Scalar>)
