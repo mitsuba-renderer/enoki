@@ -19,7 +19,7 @@ pipeline {
 rm -Rf build-debug
 mkdir build-debug
 cd build-debug
-cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
+cmake -GNinja -DENOKI_TEST=1 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
 ninja
 ctest .'''
                          }
@@ -31,7 +31,7 @@ ctest .'''
 rm -Rf build-debug
 mkdir build-debug
 cd build-debug
-cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
+cmake -GNinja -DENOKI_TEST=1 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
 ninja -j3
 ctest .'''
                          }
@@ -48,7 +48,7 @@ ctest .'''
 rm -Rf build-release
 mkdir build-release
 cd build-release
-cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
+cmake -GNinja -DENOKI_TEST=1 -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
 ninja
 ctest .'''
                          }
@@ -59,7 +59,7 @@ ctest .'''
 rm -Rf build-release
 mkdir build-release
 cd build-release
-cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
+cmake -GNinja -DENOKI_TEST=1 -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
 ninja -j3
 ctest .'''
                          }
