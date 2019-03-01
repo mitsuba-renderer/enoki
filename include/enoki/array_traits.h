@@ -310,7 +310,7 @@ namespace detail {
     private:
         using R = std::remove_reference_t<S>;
         using T1 = std::conditional_t<std::is_const_v<R>, std::add_const_t<T>, T>;
-        using T2 = std::conditional_t<std::is_pointer_v<S> && !std::is_pointer_v<T1>,
+        using T2 = std::conditional_t<std::is_pointer_v<S>,
                                       std::add_pointer_t<T1>, T1>;
         using T3 = std::conditional_t<std::is_lvalue_reference_v<S>,
                                       std::add_lvalue_reference_t<T2>, T2>;

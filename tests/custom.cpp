@@ -89,8 +89,10 @@ ENOKI_STRUCT_SUPPORT(TrickyStruct, ptr, mask);
 
 ENOKI_TEST(test03_tricky) {
     using FloatP = Packet<float>;
+    using FloatX = DynamicArray<FloatP>;
     using Tricky = TrickyStruct<float>;
     using TrickyP = TrickyStruct<FloatP>;
+    using TrickyX = TrickyStruct<FloatX>;
 
     TrickyP x;
     for (size_t i = 0; i<FloatP::Size; ++i)
@@ -100,6 +102,14 @@ ENOKI_TEST(test03_tricky) {
         assert(x.mask.coeff(i) == ((i & 1) != 0));
         assert(x.ptr.coeff(i) == (Test *) (0xdeadbeef + i));
     }
+
+    TrickyX xl;
+    set_slices(xl, 3);
+    xl.ptr = (Test *) 0x1337c0d3;
+    auto pslice = slice_ptr(xl, 1);
+    static_assert(std::is_same_v<decltype(pslice.ptr), Test**>);
+    *pslice.ptr = (Test *) 0xdeadbeef;
+    assert(slice(xl.ptr, 1) == (Test *) 0xdeadbeef);
 }
 
 ENOKI_TEST(test04_gather_custom_struct) {
