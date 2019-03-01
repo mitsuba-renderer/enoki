@@ -726,9 +726,17 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
                           UInt64::Type, "cvta.to.global.$t1 $r1, $r2", ptr.index_())),
                addr   = fmadd(UInt64(index), (uint64_t) Stride, ptr_gl);
 
-        return CUDAArray::from_index_(cuda_trace_append(Type,
-            "@$r3 ld.global.$t1 $r1, [$r2];\n    @!$r3 mov.$b1 $r1, 0",
-            addr.index_(), mask.index_()));
+        if constexpr (!std::is_same_v<Value, bool>) {
+            return CUDAArray::from_index_(cuda_trace_append(
+                Type,
+                "@$r3 ld.global.$t1 $r1, [$r2];\n    @!$r3 mov.$b1 $r1, 0",
+                addr.index_(), mask.index_()));
+        } else {
+            return neq(CUDAArray<uint32_t>::from_index_(cuda_trace_append(
+                EnokiType::UInt32,
+                "@$r3 ld.global.u8 $r1, [$r2];\n    @!$r3 mov.$b1 $r1, 0",
+                addr.index_(), mask.index_())), 0u);
+        }
     }
 
     template <size_t Stride, typename Index, typename Mask>
@@ -744,10 +752,21 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
                           UInt64::Type, "cvta.to.global.$t1 $r1, $r2", ptr.index_())),
                addr   = fmadd(UInt64(index), (uint64_t) Stride, ptr_gl);
 
-        CUDAArray::Index var = cuda_trace_append(EnokiType::UInt64,
-            "@$r4 st.global.$t3 [$r2], $r3",
-            addr.index_(), m_index, mask.index_()
-        );
+        CUDAArray::Index var;
+
+        if constexpr (!std::is_same_v<Value, bool>) {
+            var = cuda_trace_append(EnokiType::UInt64,
+                "@$r4 st.global.$t3 [$r2], $r3",
+                addr.index_(), m_index, mask.index_()
+            );
+        } else {
+            using UInt32 = CUDAArray<uint32_t>;
+            UInt32 value = select(*this, UInt32(1), UInt32(0));
+            var = cuda_trace_append(EnokiType::UInt64,
+                "@$r4 st.global.u8 [$r2], $r3",
+                addr.index_(), value.index_(), mask.index_()
+            );
+        }
 
         cuda_var_mark_side_effect(var);
     }
