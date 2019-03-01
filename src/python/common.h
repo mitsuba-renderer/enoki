@@ -321,6 +321,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
 
     if constexpr (IsFloat) {
         m.def("abs", [](const Array &a) { return enoki::abs(a); });
+        m.def("sqr", [](const Array &a) { return enoki::sqr(a); });
         m.def("sqrt", [](const Array &a) { return enoki::sqrt(a); });
         m.def("rcp", [](const Array &a) { return enoki::rcp(a); });
         m.def("rsqrt", [](const Array &a) { return enoki::rsqrt(a); });
@@ -361,6 +362,13 @@ py::class_<Array> bind(py::module &m, const char *name) {
         m.def("erf", [](const Array &a) { return enoki::erf(a); });
         m.def("pow", [](const Array &a, const Array &b) {
             return enoki::pow(a, b);
+        });
+
+        m.def("lerp", [](const Array &a, const Array &b, const Array &t) {
+            return enoki::lerp(a, b, t);
+        });
+        m.def("clamp", [](const Array &value, const Array &min, const Array &max) {
+            return enoki::clamp(value, min, max);
         });
     } else if constexpr (!IsMask) {
         m.def("popcnt", [](const Array &a) { return enoki::popcnt(a); });
