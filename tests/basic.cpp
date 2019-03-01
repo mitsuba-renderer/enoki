@@ -518,8 +518,13 @@ ENOKI_TEST_ALL(test29_pointer_arithmetic) {
     /* Power of two sized instance */ {
         struct Class { uint32_t x; };
         static_assert(sizeof(Class) == 4);
-        using ClassP = Packet<Class*, Size>;
+        using ClassP = Packet<Class *, Size>;
         using UInt32P = Packet<uint32_t, Size>;
+
+        using Ptr = value_t<ClassP>;
+        using PtrPtr = value_t<replace_scalar_t<ClassP, Class *>>;
+        static_assert(std::is_same_v<Ptr, Class *>);
+        static_assert(std::is_same_v<PtrPtr, Class **>);
 
         Class *a = (Class *) 0x1234;
         ClassP x(a), y(x);
