@@ -603,8 +603,10 @@ ENOKI_NOINLINE py::object enoki_to_torch(const Array &src, bool eval) {
     CUDAArray<Scalar> target = CUDAArray<Scalar>::map(
         (Scalar *) py::cast<uintptr_t>(result.attr("data_ptr")()), size);
     copy_array_scatter<0>(0, shape, strides, src, target);
-    if (eval)
+    if (eval) {
         cuda_eval();
+        cuda_sync();
+    }
     return result;
 }
 
@@ -662,8 +664,10 @@ ENOKI_NOINLINE py::object enoki_to_numpy(const Array &src, bool eval) {
         strides[i] /= sizeof(Scalar);
     std::reverse(strides.begin(), strides.end());
     copy_array_scatter<0>(0, shape, strides, src, target);
-    if (eval)
+    if (eval) {
         cuda_eval();
+        cuda_sync();
+    }
 
     return result;
 }

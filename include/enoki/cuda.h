@@ -145,7 +145,7 @@ extern ENOKI_IMPORT void* cuda_malloc(size_t);
 extern ENOKI_IMPORT void* cuda_host_malloc(size_t);
 
 /// Allocate unified/device-local memory (wrapper around cudaMallocManaged)
-extern ENOKI_IMPORT void* cuda_managed_malloc(size_t);
+extern ENOKI_IMPORT void* cuda_managed_malloc(size_t size, bool mostly_read = false);
 
 /// Allocate unified memory (wrapper around cudaMalloc & cudaMemsetAsync)
 extern ENOKI_IMPORT void* cuda_malloc_zero(size_t);

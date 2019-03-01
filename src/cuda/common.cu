@@ -64,7 +64,7 @@ ENOKI_EXPORT void* cuda_malloc(size_t size) {
     return result;
 }
 
-ENOKI_EXPORT void* cuda_managed_malloc(size_t size) {
+ENOKI_EXPORT void* cuda_managed_malloc(size_t size, bool mostly_read) {
     void *result = nullptr;
     cudaError_t ret = cudaMallocManaged(&result, size);
     if (ret != cudaSuccess) {
@@ -72,6 +72,8 @@ ENOKI_EXPORT void* cuda_managed_malloc(size_t size) {
         ret = cudaMallocManaged(&result, size);
     }
     cuda_check(ret);
+    if (mostly_read)
+        cudaMemAdvise(result, size, cudaMemAdviseSetReadMostly, 0);
     return result;
 }
 
