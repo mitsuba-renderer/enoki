@@ -207,8 +207,15 @@ py::class_<Array> bind(py::module &m, const char *name) {
           .def(Value() <= py::self)
           .def(-py::self);
 
-        if constexpr (std::is_integral_v<Scalar>)
+        if constexpr (std::is_integral_v<Scalar>) {
             cl.def(py::self % py::self);
+            cl.def("__truediv__", [](const Array &a1, Scalar a2) {
+                return (a2 == 1) ? a1 : (a1 / a2);
+            });
+            cl.def("__mod__", [](const Array &a1, Scalar a2) {
+                return (a2 == 1) ? 1 : (a1 % a2);
+            });
+        }
     } else {
         cl.def(py::self | py::self)
           .def(py::self & py::self)
@@ -374,6 +381,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
         m.def("popcnt", [](const Array &a) { return enoki::popcnt(a); });
         m.def("lzcnt", [](const Array &a) { return enoki::lzcnt(a); });
         m.def("tzcnt", [](const Array &a) { return enoki::tzcnt(a); });
+        m.def("mulhi", [](const Array &a, const Array &b) { return enoki::mulhi(a, b); });
     }
 
     if constexpr (!IsMask) {
