@@ -26,7 +26,7 @@ std::string mem_string(size_t size) {
     float value = (float) size;
 
     int i = 0;
-    for (i = 0; i < 6 && value > 1024.f; ++i)
+    for (i = 0; i < 6 && value >= 1024.f; ++i)
         value /= 1024.f;
 
     char buf[32];

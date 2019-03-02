@@ -48,6 +48,7 @@ void cuda_eval(bool log_assembly = false);
 size_t cuda_register_size(EnokiType type);
 uint32_t cuda_trace_append(EnokiType type, const char *cmd, uint32_t arg1);
 void cuda_free(void *ptr);
+void cuda_host_free(void *ptr);
 
 // -----------------------------------------------------------------------
 //! @{ \name 'Variable' type that is used to record instruction traces
@@ -115,8 +116,8 @@ struct Stream {
         nargs = 1000;
         cuda_check(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
         cuda_check(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
-        cuda_check(cudaMalloc(&args_device, sizeof(void*) * nargs));
-        cuda_check(cudaMallocHost(&args_host, sizeof(void*) * nargs));
+        args_device = cuda_malloc(sizeof(void *) * nargs);
+        args_host = cuda_host_malloc(sizeof(void *) * nargs);
     }
 
     void release() {
@@ -127,11 +128,11 @@ struct Stream {
     }
 
     void resize(size_t size) {
-        cuda_check(cudaFreeHost(args_host));
-        cuda_check(cudaFree(args_device));
+        cuda_host_free(args_host);
+        cuda_free(args_device);
         nargs = size;
-        cuda_check(cudaMalloc(&args_device, sizeof(void*) * nargs));
-        cuda_check(cudaMallocHost(&args_host, sizeof(void*) * nargs));
+        args_device = cuda_malloc(sizeof(void *) * nargs);
+        args_host = cuda_host_malloc(sizeof(void *) * nargs);
     }
 };
 
