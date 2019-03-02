@@ -1289,6 +1289,56 @@ bool allclose(const T1 &a1, const T2 &a2,
 //! @}
 // -----------------------------------------------------------------------
 
+// -----------------------------------------------------------------------
+//! @{ \name Reduction operators that return a default argument when
+//           invoked using CUDA arrays
+// -----------------------------------------------------------------------
+
+template <bool Default, typename T> auto any_or(const T &value) {
+    if constexpr (is_cuda_array_v<T>)
+        return Default;
+    else
+        return any(value);
+}
+
+template <bool Default, typename T> auto any_nested_or(const T &value) {
+    if constexpr (is_cuda_array_v<T>)
+        return Default;
+    else
+        return any_nested(value);
+}
+
+template <bool Default, typename T> auto none_or(const T &value) {
+    if constexpr (is_cuda_array_v<T>)
+        return Default;
+    else
+        return none(value);
+}
+
+template <bool Default, typename T> auto none_nested_or(const T &value) {
+    if constexpr (is_cuda_array_v<T>)
+        return Default;
+    else
+        return none_nested(value);
+}
+
+template <bool Default, typename T> auto all_or(const T &value) {
+    if constexpr (is_cuda_array_v<T>)
+        return Default;
+    else
+        return all(value);
+}
+
+template <bool Default, typename T> auto all_nested_or(const T &value) {
+    if constexpr (is_cuda_array_v<T>)
+        return Default;
+    else
+        return all_nested(value);
+}
+
+//! @}
+// -----------------------------------------------------------------------
+
 #undef ENOKI_ROUTE_UNARY
 #undef ENOKI_ROUTE_UNARY_IMM
 #undef ENOKI_ROUTE_UNARY_SCALAR
