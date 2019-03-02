@@ -715,10 +715,6 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     template <size_t Stride, typename Index, typename Mask>
     static CUDAArray gather_(const void *ptr_, const Index &index,
                              const Mask &mask) {
-        if (ptr_ == nullptr)
-            throw std::runtime_error(
-                "CUDAArray::gather_() invoked with base pointer NULL.");
-
         using UInt64 = CUDAArray<uint64_t>;
 
         UInt64 ptr    = UInt64::alloc_const_(memcpy_cast<uintptr_t>(ptr_)),
@@ -741,10 +737,6 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
     template <size_t Stride, typename Index, typename Mask>
     ENOKI_INLINE void scatter_(void *ptr_, const Index &index, const Mask &mask) const {
-        if (ptr_ == nullptr)
-            throw std::runtime_error(
-                "CUDAArray::scatter_() invoked with base pointer NULL.");
-
         using UInt64 = CUDAArray<uint64_t>;
 
         UInt64 ptr    = UInt64::alloc_const_(memcpy_cast<uintptr_t>(ptr_)),
@@ -773,11 +765,8 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
     template <size_t Stride, typename Index, typename Mask>
     void scatter_add_(void *ptr_, const Index &index, const Mask &mask) const {
-        if (ptr_ == nullptr)
-            throw std::runtime_error(
-                "CUDAArray::scatter_add_() invoked with base pointer NULL.");
-
         using UInt64  = CUDAArray<uint64_t>;
+
         UInt64 ptr    = UInt64::alloc_const_(memcpy_cast<uintptr_t>(ptr_)),
                ptr_gl = UInt64::from_index_(cuda_trace_append(
                           UInt64::Type, "cvta.to.global.$t1 $r1, $r2", ptr.index_())),
@@ -877,6 +866,24 @@ public:
     bool operator==(const cuda_managed_allocator &) { return true; }
     bool operator!=(const cuda_managed_allocator &) { return false; }
 };
+
+#define ENOKI_MANAGED_OPERATOR_NEW()                                           \
+    void *operator new(size_t size) { return cuda_managed_malloc(size, true); }\
+    void operator delete(void *ptr) { cuda_free(ptr); }                        \
+    void *operator new(size_t size, std::align_val_t) {                        \
+        return operator new(size);                                             \
+    }                                                                          \
+    void *operator new[](size_t size) { return operator new(size); }           \
+    void *operator new[](size_t size, std::align_val_t) {                      \
+        return operator new(size);                                             \
+    }                                                                          \
+    void operator delete(void *ptr, std::align_val_t) {                        \
+        operator delete(ptr);                                                  \
+    }                                                                          \
+    void operator delete[](void *ptr) { operator delete(ptr); }                \
+    void operator delete[](void *ptr, std::align_val_t) {                      \
+        operator delete(ptr);                                                  \
+    }
 
 #if defined(ENOKI_AUTODIFF) && !defined(ENOKI_BUILD)
     extern ENOKI_IMPORT template struct Tape<CUDAArray<float>>;

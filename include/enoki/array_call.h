@@ -249,23 +249,14 @@ public:                                                                        \
         typename Field = decltype(Class::field),                               \
         typename Return = replace_scalar_t<Storage, type, false>>              \
     Return name(Mask mask = true) const {                                      \
-        if constexpr (!is_cuda_array_v<Storage>) {                             \
-            using IntType = replace_scalar_t<Storage, std::uintptr_t, false>;  \
-            auto offset =                                                      \
-               IntType(self) + (std::uintptr_t) &(((Class *) nullptr)->field); \
-            mask &= neq(self, nullptr);                                        \
-            return gather<Return, 1>(nullptr, offset, mask);                   \
-        } else {                                                               \
-            auto l = [](InstancePtr inst, const Mask &) ENOKI_INLINE_LAMBDA {  \
-                return inst->name();                                           \
-            };                                                                 \
-            return Base::dispatch(                                             \
-                l, mask, std::tie(mask),                                       \
-                std::make_index_sequence<0>());                                \
-        }                                                                      \
+        using IntType = replace_scalar_t<Storage, std::uintptr_t, false>;      \
+        auto offset =                                                          \
+           IntType(self) + (std::uintptr_t) &(((Class *) nullptr)->field);     \
+        mask &= neq(self, nullptr);                                            \
+        return gather<Return, 1>(nullptr, offset, mask);                       \
     }
 
-#define ENOKI_CALL_SUPPORT_GETTER(name, field) \
+#define ENOKI_CALL_SUPPORT_GETTER(name, field)                                 \
     ENOKI_CALL_SUPPORT_GETTER_TYPE(name, field, Field)
 
 #define ENOKI_CALL_SUPPORT_END(PacketType)                                     \
