@@ -12,6 +12,9 @@ template <typename Array, size_t Stride = 0, bool Packed = true,
 ENOKI_INLINE Array gather(const Source &source, const Index &index,
                           const identity_t<Mask> &mask = true) {
     if constexpr (array_depth_v<Source> == 1) {
+        if (source.size() <= 1)
+            return source;
+
         if constexpr (is_diff_array_v<Source>) {
             Source::set_scatter_gather_operand_(source, IsPermute);
             if constexpr (is_cuda_array_v<Source>)
@@ -64,6 +67,9 @@ ENOKI_INLINE void scatter(Target &target,
             cuda_set_scatter_gather_operand(target.index_());
         }
 
+        if (target.size() <= 1 && value.size() > 1)
+            throw std::runtime_error("scatter(): target array has invalid size!");
+
         scatter<Stride, Packed>(target.data(), value, index, mask);
 
         if constexpr (is_diff_array_v<Target>) {
@@ -97,6 +103,9 @@ ENOKI_INLINE void scatter_add(Target &target,
         } else if constexpr (is_cuda_array_v<Target>) {
             cuda_set_scatter_gather_operand(target.index_());
         }
+
+        if (target.size() <= 1 && value.size() > 1)
+            throw std::runtime_error("scatter_add(): target array has invalid size!");
 
         scatter_add<Stride>(target.data(), value, index, mask);
 

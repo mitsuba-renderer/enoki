@@ -53,44 +53,8 @@ std::string time_string(size_t value_) {
     return buf;
 }
 
-ENOKI_EXPORT void* cuda_malloc(size_t size) {
-    void *result = nullptr;
-    cudaError_t ret = cudaMalloc(&result, size);
-    if (ret != cudaSuccess) {
-        cuda_sync();
-        ret = cudaMalloc(&result, size);
-    }
-    cuda_check(ret);
-    return result;
-}
-
-ENOKI_EXPORT void* cuda_managed_malloc(size_t size, bool mostly_read) {
-    void *result = nullptr;
-    cudaError_t ret = cudaMallocManaged(&result, size);
-    if (ret != cudaSuccess) {
-        cuda_sync();
-        ret = cudaMallocManaged(&result, size);
-    }
-    cuda_check(ret);
-    if (mostly_read)
-        cudaMemAdvise(result, size, cudaMemAdviseSetReadMostly, 0);
-    return result;
-}
-
-ENOKI_EXPORT void* cuda_host_malloc(size_t size) {
-    void *result = nullptr;
-    cudaError_t ret = cudaMallocHost(&result, size);
-    if (ret != cudaSuccess) {
-        cuda_sync();
-        ret = cudaMallocHost(&result, size);
-    }
-    cuda_check(ret);
-    return result;
-}
-
 ENOKI_EXPORT void* cuda_malloc_zero(size_t size) {
-    void *result = nullptr;
-    cuda_check(cudaMalloc(&result, size));
+    void *result = cuda_malloc(size);
     cuda_check(cudaMemsetAsync(result, 0, size));
     return result;
 }
@@ -102,29 +66,25 @@ template <typename T> __global__ void fill(size_t n, T value, T *out) {
 }
 
 ENOKI_EXPORT void* cuda_malloc_fill(size_t size, uint8_t value) {
-    uint8_t *result = nullptr;
-    cuda_check(cudaMalloc(&result, size * sizeof(uint8_t)));
+    uint8_t *result = (uint8_t *) cuda_malloc(size);
     cuda_check(cudaMemsetAsync(result, value, size));
     return result;
 }
 
 ENOKI_EXPORT void* cuda_malloc_fill(size_t size, uint16_t value) {
-    uint16_t *result = nullptr;
-    cuda_check(cudaMalloc(&result, size * sizeof(uint16_t)));
+    uint16_t *result = (uint16_t *) cuda_malloc(size * sizeof(uint16_t));
     fill<<<256, 256>>>(size, value, result);
     return result;
 }
 
 ENOKI_EXPORT void* cuda_malloc_fill(size_t size, uint32_t value) {
-    uint32_t *result = nullptr;
-    cuda_check(cudaMalloc(&result, size * sizeof(uint32_t)));
+    uint32_t *result = (uint32_t *) cuda_malloc(size * sizeof(uint32_t));
     fill<<<256, 256>>>(size, value, result);
     return result;
 }
 
 ENOKI_EXPORT void* cuda_malloc_fill(size_t size, uint64_t value) {
-    uint64_t *result = nullptr;
-    cuda_check(cudaMalloc(&result, size * sizeof(uint64_t)));
+    uint64_t *result = (uint64_t *) cuda_malloc(size * sizeof(uint64_t));
     fill<<<256, 256>>>(size, value, result);
     return result;
 }

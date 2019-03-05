@@ -22,8 +22,9 @@
 #include <cassert>
 #include <unordered_map>
 #include <unordered_set>
-#include <mutex>
+#include <map>
 #include <chrono>
+#include <mutex>
 #include "common.cuh"
 
 /// Reserved registers for grid-stride loop indexing
@@ -47,8 +48,6 @@ void cuda_dec_ref_int(uint32_t);
 void cuda_eval(bool log_assembly = false);
 size_t cuda_register_size(EnokiType type);
 uint32_t cuda_trace_append(EnokiType type, const char *cmd, uint32_t arg1);
-void cuda_free(void *ptr);
-void cuda_host_free(void *ptr);
 
 // -----------------------------------------------------------------------
 //! @{ \name 'Variable' type that is used to record instruction traces
@@ -121,8 +120,8 @@ struct Stream {
     }
 
     void release() {
-        cuda_check(cudaFreeHost(args_host));
-        cuda_check(cudaFree(args_device));
+        cuda_host_free(args_host);
+        cuda_free(args_device);
         cuda_check(cudaEventDestroy(event));
         cuda_check(cudaStreamDestroy(stream));
     }
@@ -133,6 +132,23 @@ struct Stream {
         nargs = size;
         args_device = cuda_malloc(sizeof(void *) * nargs);
         args_host = cuda_host_malloc(sizeof(void *) * nargs);
+    }
+};
+
+enum MallocType { Normal, Managed, Host };
+
+struct TaggedSize {
+    MallocType type;
+    size_t size;
+
+    TaggedSize(MallocType type, size_t size) : type(type), size(size) { }
+    bool operator==(const TaggedSize &ts) const { return type == ts.type && size == ts.size; }
+    bool operator!=(const TaggedSize &ts) const { return type != ts.type || size != ts.size; }
+};
+
+struct TaggedSizeHasher {
+    size_t operator()(const TaggedSize &ts) const {
+        return std::hash<size_t>()((ts.size << 2) + (size_t) ts.type);
     }
 };
 
@@ -173,11 +189,14 @@ struct Context {
     /// Default thread and block count for kernels
     uint32_t block_count = 0, thread_count = 0;
 
-    /// List of pointers to be freed (will be done at synchronization points)
-    std::vector<void *> free_list, host_free_list;
+    /// Map of unused memory regions
+    std::unordered_multimap<TaggedSize, void *, TaggedSizeHasher> free_map;
 
-    /// Mutex protecting 'free_list'
-    std::mutex free_mutex;
+    /// Map of currently used memory regions
+    std::unordered_map<void *, TaggedSize> used_map;
+
+    /// Mutex protecting the malloc-related data structures
+    std::recursive_mutex malloc_mutex;
 
     ~Context() { clear(); }
 
@@ -197,8 +216,12 @@ struct Context {
             for (auto const &var : variables) {
                 if (var.first < ENOKI_CUDA_REG_RESERVED)
                     continue;
+                if (n_live < 10) {
+                    std::cerr << "cuda_shutdown(): variable " << var.first << " is still live. "<< std::endl;
+                    if (n_live == 9)
+                        std::cerr << "(skipping remainder)" << std::endl;
+                }
                 ++n_live;
-                std::cerr << "cuda_shutdown(): variable " << var.first << " is still live. "<< std::endl;
             }
             if (n_live > 0)
                 std::cerr << "cuda_shutdown(): " << n_live
@@ -222,7 +245,7 @@ struct Context {
         for (auto &kv : kernels)
             cuda_check(cuModuleUnload(kv.second.first));
         kernels.clear();
-        cuda_sync();
+        cuda_malloc_trim();
     }
 
     Variable& append(EnokiType type) {
@@ -244,10 +267,8 @@ ENOKI_EXPORT void cuda_init() {
     // initialize CUDA
     cudaFree(0);
 
-    /* We don't really use shared memory, so put more into L1 cache.
-       Intentionally ignore errors if they arise from this operation
-       (which happens when somebody else is already using the GPU) */
-    cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
+    // We don't really use shared memory, so put more into L1 cache.
+    cuda_check(cudaDeviceSetCacheConfig(cudaFuncCachePreferL1));
 
     /// Reserve indices for reserved kernel variables
     if (__context)
@@ -286,47 +307,6 @@ ENOKI_EXPORT void cuda_shutdown() {
         __context = nullptr;
     }
 }
-
-ENOKI_EXPORT void cuda_free(void *ptr) {
-    Context &ctx = context();
-    std::lock_guard<std::mutex> guard(ctx.free_mutex);
-    ctx.free_list.push_back(ptr);
-}
-
-ENOKI_EXPORT void cuda_host_free(void *ptr) {
-    Context &ctx = context();
-    std::lock_guard<std::mutex> guard(ctx.free_mutex);
-    ctx.host_free_list.push_back(ptr);
-}
-
-ENOKI_EXPORT void cuda_sync() {
-    Context &ctx = context();
-#if !defined(NDEBUG)
-    if (ctx.log_level >= 4) {
-        std::cerr << "cuda_sync(): ";
-        std::cerr.flush();
-    }
-#endif
-    cuda_check(cudaStreamSynchronize(nullptr));
-    std::vector<void *> free_list, host_free_list;
-    /* acquire free list, but don't call cudaFree() yet */ {
-        std::lock_guard<std::mutex> guard(ctx.free_mutex);
-        if (ctx.free_list.empty() && ctx.host_free_list.empty())
-            return;
-        free_list.swap(ctx.free_list);
-        host_free_list.swap(ctx.host_free_list);
-    }
-    for (void *ptr : free_list)
-        cuda_check(cudaFree(ptr));
-    for (void *ptr : host_free_list)
-        cuda_check(cudaFreeHost(ptr));
-#if !defined(NDEBUG)
-    if (ctx.log_level >= 4)
-        std::cerr << "freed " << free_list.size() << " device arrays and "
-                  << host_free_list.size() << " host arrays." << std::endl;
-#endif
-}
-
 
 ENOKI_EXPORT void *cuda_var_ptr(uint32_t index) {
     return context()[index].data;
@@ -370,7 +350,6 @@ ENOKI_EXPORT uint32_t cuda_var_set_size(uint32_t index, size_t size, bool copy) 
             " which was already allocated (current size = " +
             std::to_string(var.size) +
             ", requested size = " + std::to_string(size) + ")");
-
     }
     var.size = size;
     return index;
@@ -756,9 +735,8 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
                                         uint32_t arg2,
                                         uint32_t arg3) {
     if (ENOKI_UNLIKELY(arg1 == 0 || arg2 == 0 || arg3 == 0))
-        throw std::runtime_error(
-            "cuda_trace_append(): arithmetic involving "
-                        "uninitialized variable!");
+        throw std::runtime_error("cuda_trace_append(): arithmetic involving "
+                                 "uninitialized variable!");
 
     Context &ctx = context();
     const Variable &v1 = ctx[arg1],
@@ -1001,7 +979,6 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
         << std::endl
         << "    // Grid-stride loop setup" << std::endl
         << "    ld.param.u64 %rd0, [ptr];" << std::endl
-        << "    cvta.to.global.u64 %rd0, %rd0;" << std::endl
         << "    ld.param.u32 %r1, [size];" << std::endl
         << "    mov.u32 %r4, %tid.x;" << std::endl
         << "    mov.u32 %r5, %ctaid.x;" << std::endl
@@ -1038,8 +1015,7 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
             if (!var.label.empty())
                 oss << ": " << var.label;
             oss << std::endl
-                << "    ldu.global.u64 %rd8, [%rd0 + " << idx * 8 << "];" << std::endl
-                << "    cvta.to.global.u64 %rd8, %rd8;" << std::endl;
+                << "    ldu.global.u64 %rd8, [%rd0 + " << idx * 8 << "];" << std::endl;
             const char *load_instr = "ldu";
             if (var.size != 1) {
                 oss << "    mul.wide.u32 %rd9, %r2, " << cuda_register_size(var.type) << ";" << std::endl
@@ -1094,8 +1070,7 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
             if (!var.label.empty())
                 oss << ": " << var.label;
             oss << std::endl
-                << "    ldu.global.u64 %rd8, [%rd0 + " << idx * 8 << "];" << std::endl
-                << "    cvta.to.global.u64 %rd8, %rd8;" << std::endl;
+                << "    ldu.global.u64 %rd8, [%rd0 + " << idx * 8 << "];" << std::endl;
             if (var.size != 1) {
                 oss << "    mul.wide.u32 %rd9, %r2, " << cuda_register_size(var.type) << ";" << std::endl
                     << "    add.u64 %rd8, %rd8, %rd9;" << std::endl;
@@ -1215,7 +1190,6 @@ ENOKI_EXPORT void cuda_jit_run(Context &ctx,
         }
 
         cuda_check(cuModuleLoadData(&module, link_output));
-        cuda_sync();
 
         // Locate the kernel entry point
         cuda_check(cuModuleGetFunction(&kernel, module, (std::string("enoki_") + kernel_name).c_str()));
@@ -1282,8 +1256,8 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
     for (auto callback: ctx.callbacks)
         callback.first(callback.second);
 
-    std::unordered_map<size_t, std::pair<std::unordered_set<uint32_t>,
-                                         std::vector<uint32_t>>> sweeps;
+    std::map<size_t, std::pair<std::unordered_set<uint32_t>,
+                               std::vector<uint32_t>>> sweeps;
     for (uint32_t idx : ctx.live) {
         auto &sweep = sweeps[ctx[idx].size];
         sweep_recursive(ctx, std::get<0>(sweep), std::get<1>(sweep), idx);
@@ -1297,7 +1271,7 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
     if (ctx.streams.size() < sweeps.size()) {
         size_t cur = ctx.streams.size();
         ctx.streams.resize(sweeps.size());
-        for (size_t i = cur; i<ctx.streams.size(); ++i)
+        for (size_t i = cur; i < ctx.streams.size(); ++i)
             ctx.streams[i].init();
     }
     if (ctx.log_level >= 2 && sweeps.size() > 1)
@@ -1306,9 +1280,9 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
     cuda_check(cudaEventRecord(ctx.stream_0_event, nullptr));
 
     size_t ctr = 0;
-    for (auto const &sweep : sweeps) {
-        size_t size = std::get<0>(sweep);
-        const std::vector<uint32_t> &schedule = std::get<1>(std::get<1>(sweep));
+    for (auto it = sweeps.rbegin(); it != sweeps.rend(); ++it) {
+        size_t size = std::get<0>(*it);
+        const std::vector<uint32_t> &schedule = std::get<1>(std::get<1>(*it));
 
         Stream &stream = ctx.streams[ctr++];
         cudaStreamWaitEvent(stream.stream, ctx.stream_0_event, 0);
@@ -1322,9 +1296,7 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
         cuda_jit_run(ctx,
                      std::move(std::get<0>(result)),
                      std::get<1>(result),
-                     std::get<0>(sweep),
-                     stream,
-                     start, mid);
+                     size, stream, start, mid);
 
         cuda_check(cudaEventRecord(stream.event, stream.stream));
         cuda_check(cudaStreamWaitEvent(nullptr, stream.event, 0));
@@ -1471,6 +1443,190 @@ ENOKI_EXPORT char *cuda_whos() {
         << "  Memory savings           : " << mem_string(mem_size_arith)     << std::endl;
 
     return strdup(oss.str().c_str());
+}
+
+ENOKI_EXPORT void cuda_malloc_trim() {
+    Context &ctx = context();
+    std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
+    size_t freed_normal = 0, freed_managed = 0, freed_host = 0,
+           count = ctx.free_map.size();
+
+    cuda_check(cudaDeviceSynchronize());
+
+    for (auto kv : ctx.free_map) {
+        switch (kv.first.type) {
+            case Normal:
+                freed_normal += kv.first.size;
+                cuda_check(cudaFree(kv.second));
+                break;
+
+            case Managed:
+                freed_managed += kv.first.size;
+                cuda_check(cudaFree(kv.second));
+                break;
+
+            case Host:
+                freed_host += kv.first.size;
+                cuda_check(cudaFreeHost(kv.second));
+                break;
+
+            default:
+                throw std::runtime_error("cuda_malloc_trim(): internal error!");
+        }
+    }
+    ctx.free_map.clear();
+    if (ctx.log_level >= 4 && count > 0)
+        std::cerr << "cuda_malloc_trim(): freed " << count << " arrays ("
+                  << mem_string(freed_normal) << " device memory, "
+                  << mem_string(freed_managed) << " unified memory, and "
+                  << mem_string(freed_host) << " host memory)." << std::endl;
+}
+
+ENOKI_EXPORT void cuda_sync() {
+    Context &ctx = context();
+    if (ctx.log_level >= 4)
+        std::cerr << "cuda_sync()." << std::endl;
+    cuda_check(cudaDeviceSynchronize());
+}
+
+size_t malloc_round(size_t x) {
+    /* Round to next higher power of two, and don't bother allocating less than
+       512 bytes (the minimum for alignment purposes) */
+    x -= 1;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+    x |= x >> 32;
+    x += 1;
+    return x;
+}
+
+ENOKI_EXPORT void* cuda_malloc(size_t size) {
+    if (size == 0)
+        return nullptr;
+
+    size = malloc_round(size);
+
+    Context &ctx = context();
+    std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
+    TaggedSize ts(Normal, size);
+    auto it = ctx.free_map.find(ts);
+
+    void *ptr = nullptr;
+    if (it != ctx.free_map.end()) {
+        ptr = it->second;
+        ctx.free_map.erase(it);
+    } else {
+        cudaError_t ret = cudaMalloc(&ptr, size);
+        if (ret != cudaSuccess) {
+            cuda_malloc_trim();
+            ret = cudaMalloc(&ptr, size);
+        }
+        cuda_check(ret);
+    }
+
+    auto result = ctx.used_map.insert(std::make_pair(ptr, ts));
+    if (!result.second)
+        throw std::runtime_error("cuda_malloc(): internal error");
+    return ptr;
+}
+
+ENOKI_EXPORT void* cuda_managed_malloc(size_t size) {
+    if (size == 0)
+        return nullptr;
+
+    size = malloc_round(size);
+
+    Context &ctx = context();
+    std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
+    TaggedSize ts(Managed, size);
+    auto it = ctx.free_map.find(ts);
+
+    void *ptr = nullptr;
+    if (it != ctx.free_map.end()) {
+        ptr = it->second;
+        ctx.free_map.erase(it);
+    } else {
+        cudaError_t ret = cudaMallocManaged(&ptr, size);
+        if (ret != cudaSuccess) {
+            cuda_malloc_trim();
+            ret = cudaMallocManaged(&ptr, size);
+        }
+        cuda_check(ret);
+    }
+
+    auto result = ctx.used_map.insert(std::make_pair(ptr, ts));
+    if (!result.second)
+        throw std::runtime_error("cuda_managed_malloc(): internal error");
+    return ptr;
+}
+
+ENOKI_EXPORT void* cuda_host_malloc(size_t size) {
+    if (size == 0)
+        return nullptr;
+
+    size = malloc_round(size);
+
+    Context &ctx = context();
+    std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
+    TaggedSize ts(Host, size);
+    auto it = ctx.free_map.find(ts);
+
+    void *ptr = nullptr;
+    if (it != ctx.free_map.end()) {
+        ptr = it->second;
+        ctx.free_map.erase(it);
+    } else {
+        cudaError_t ret = cudaMallocHost(&ptr, size);
+        if (ret != cudaSuccess) {
+            cuda_malloc_trim();
+            ret = cudaMallocHost(&ptr, size);
+        }
+        cuda_check(ret);
+    }
+
+    auto result = ctx.used_map.insert(std::make_pair(ptr, ts));
+    if (!result.second)
+        throw std::runtime_error("cuda_host_malloc(): internal error");
+    return ptr;
+}
+
+ENOKI_EXPORT void cuda_free(void *ptr) {
+    if (ptr == nullptr)
+        return;
+
+    Context &ctx = context();
+    std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
+    auto it = ctx.used_map.find(ptr);
+
+    if (it == ctx.used_map.end())
+        throw std::runtime_error("cuda_free(): unknown/unregistered pointer!");
+
+    if (it->second.type != Normal && it->second.type != Managed)
+        throw std::runtime_error("cuda_free(): tried to free a host pointer!");
+
+    ctx.free_map.insert(std::make_pair(it->second, ptr));
+    ctx.used_map.erase(it);
+}
+
+ENOKI_EXPORT void cuda_host_free(void *ptr) {
+    if (ptr == nullptr)
+        return;
+
+    Context &ctx = context();
+    std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
+    auto it = ctx.used_map.find(ptr);
+
+    if (it == ctx.used_map.end())
+        throw std::runtime_error("cuda_host_free(): unknown/unregistered pointer!");
+
+    if (it->second.type != Host)
+        throw std::runtime_error("cuda_host_free(): tried to free a device pointer!");
+
+    ctx.free_map.insert(std::make_pair(it->second, ptr));
+    ctx.used_map.erase(it);
 }
 
 NAMESPACE_END(enoki)

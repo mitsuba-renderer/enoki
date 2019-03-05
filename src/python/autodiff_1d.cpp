@@ -15,6 +15,7 @@ void bind_autodiff_1d(py::module& m) {
 
     auto fd = bind<FloatD>(m, "FloatD")
         .def(py::init<const FloatC &>())
+        .def(py::init<const UInt64D &>())
         .def(py::init<const UInt32D &>())
         .def_static("set_log_level",
              [](int log_level) { FloatD::set_log_level_(log_level); },
@@ -30,5 +31,11 @@ void bind_autodiff_1d(py::module& m) {
 
     bind<UInt32D>(m, "UInt32D")
         .def(py::init<const UInt32C &>())
+        .def(py::init<const UInt64D &>())
+        .def(py::init<const FloatD &>());
+
+    bind<UInt64D>(m, "UInt64D")
+        .def(py::init<const UInt64C &>())
+        .def(py::init<const UInt32D &>())
         .def(py::init<const FloatD &>());
 }

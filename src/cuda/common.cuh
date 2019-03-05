@@ -42,9 +42,11 @@ inline uint32_t next_power_of_two(uint32_t n) {
 }
 
 extern void* cuda_malloc(size_t size);
+extern void* cuda_managed_malloc(size_t size);
 extern void* cuda_host_malloc(size_t size);
 extern void cuda_free(void *p);
-extern void cuda_sync();
+extern void cuda_host_free(void *p);
+extern void cuda_malloc_trim();
 
 extern std::string mem_string(size_t size);
 extern std::string time_string(size_t size);

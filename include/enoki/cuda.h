@@ -138,16 +138,16 @@ extern ENOKI_IMPORT void cuda_memcpy_to_device_async(void *dst, const void *src,
 extern ENOKI_IMPORT void cuda_memcpy_from_device(void *dst, const void *src, size_t size);
 extern ENOKI_IMPORT void cuda_memcpy_from_device_async(void *dst, const void *src, size_t size);
 
-/// Allocate unified memory (wrapper around cudaMalloc)
+/// Allocate device-local memory (wrapper around cudaMalloc)
 extern ENOKI_IMPORT void* cuda_malloc(size_t);
+
+/// Allocate unified memory (wrapper around cudaMallocManaged)
+extern ENOKI_IMPORT void* cuda_managed_malloc(size_t size);
 
 /// Allocate host-pinned memory (wrapper around cudaMallocHost)
 extern ENOKI_IMPORT void* cuda_host_malloc(size_t);
 
-/// Allocate unified/device-local memory (wrapper around cudaMallocManaged)
-extern ENOKI_IMPORT void* cuda_managed_malloc(size_t size, bool mostly_read = false);
-
-/// Allocate unified memory (wrapper around cudaMalloc & cudaMemsetAsync)
+/// Allocate zero-initialized device-local memory (wrapper around cudaMalloc & cudaMemsetAsync)
 extern ENOKI_IMPORT void* cuda_malloc_zero(size_t);
 
 /// Allocate unified memory (wrapper around cudaMalloc & analogues of cudaMemsetAsync)
@@ -156,13 +156,16 @@ extern ENOKI_IMPORT void* cuda_malloc_fill(size_t, uint16_t values);
 extern ENOKI_IMPORT void* cuda_malloc_fill(size_t, uint32_t values);
 extern ENOKI_IMPORT void* cuda_malloc_fill(size_t, uint64_t values);
 
-/// Release unified/device-local memory (in contrast to cudaFree(), this is done asynchronously)
+/// Release device-local or unified memory
 extern ENOKI_IMPORT void cuda_free(void *);
 
-/// Release host-local memory (in contrast to cudaHostFree(), this is done asynchronously)
+/// Release host-local memory
 extern ENOKI_IMPORT void cuda_host_free(void *);
 
-/// Execute postponed tasks requiring device synchronization (e.g. freeing memory)
+/// Release any unused held memory back to the device
+extern ENOKI_IMPORT void cuda_malloc_trim();
+
+/// Wait for all work queued on the device to finish
 extern ENOKI_IMPORT void cuda_sync();
 
 /// Print detailed information about currently allocated arrays
@@ -718,9 +721,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         using UInt64 = CUDAArray<uint64_t>;
 
         UInt64 ptr    = UInt64::alloc_const_(memcpy_cast<uintptr_t>(ptr_)),
-               ptr_gl = UInt64::from_index_(cuda_trace_append(
-                          UInt64::Type, "cvta.to.global.$t1 $r1, $r2", ptr.index_())),
-               addr   = fmadd(UInt64(index), (uint64_t) Stride, ptr_gl);
+               addr   = fmadd(UInt64(index), (uint64_t) Stride, ptr);
 
         if constexpr (!std::is_same_v<Value, bool>) {
             return CUDAArray::from_index_(cuda_trace_append(
@@ -740,9 +741,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         using UInt64 = CUDAArray<uint64_t>;
 
         UInt64 ptr    = UInt64::alloc_const_(memcpy_cast<uintptr_t>(ptr_)),
-               ptr_gl = UInt64::from_index_(cuda_trace_append(
-                          UInt64::Type, "cvta.to.global.$t1 $r1, $r2", ptr.index_())),
-               addr   = fmadd(UInt64(index), (uint64_t) Stride, ptr_gl);
+               addr   = fmadd(UInt64(index), (uint64_t) Stride, ptr);
 
         CUDAArray::Index var;
 
@@ -768,9 +767,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         using UInt64  = CUDAArray<uint64_t>;
 
         UInt64 ptr    = UInt64::alloc_const_(memcpy_cast<uintptr_t>(ptr_)),
-               ptr_gl = UInt64::from_index_(cuda_trace_append(
-                          UInt64::Type, "cvta.to.global.$t1 $r1, $r2", ptr.index_())),
-               addr   = fmadd(UInt64(index), (uint64_t) Stride, ptr_gl);
+               addr   = fmadd(UInt64(index), (uint64_t) Stride, ptr);
 
         CUDAArray::Index var = cuda_trace_append(Type,
             "@$r4 atom.global.add.$t1 $r1, [$r2], $r3",
@@ -850,7 +847,7 @@ public:
     using reference = T &;
     using const_reference = const T &;
 
-    cuda_managed_allocator() {}
+    cuda_managed_allocator() = default;
 
     template <typename T2>
     cuda_managed_allocator(const cuda_managed_allocator<T2> &) { }
@@ -867,9 +864,32 @@ public:
     bool operator!=(const cuda_managed_allocator &) { return false; }
 };
 
+template <typename T> class cuda_host_allocator {
+public:
+    using value_type = T;
+    using reference = T &;
+    using const_reference = const T &;
+
+    cuda_host_allocator() = default;
+
+    template <typename T2>
+    cuda_host_allocator(const cuda_host_allocator<T2> &) { }
+
+    value_type *allocate(size_t n) {
+        return (value_type *) cuda_host_malloc(n * sizeof(T));
+    }
+
+    void deallocate(value_type *ptr, size_t) {
+        cuda_host_free(ptr);
+    }
+
+    bool operator==(const cuda_host_allocator &) { return true; }
+    bool operator!=(const cuda_host_allocator &) { return false; }
+};
+
 #define ENOKI_MANAGED_OPERATOR_NEW()                                           \
-    void *operator new(size_t size) { return cuda_managed_malloc(size, true); }\
-    void operator delete(void *ptr) { cuda_free(ptr); }                        \
+    void *operator new(size_t size) { return cuda_host_malloc(size); }         \
+    void operator delete(void *ptr) { cuda_host_free(ptr); }                   \
     void *operator new(size_t size, std::align_val_t) {                        \
         return operator new(size);                                             \
     }                                                                          \

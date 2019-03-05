@@ -31,7 +31,7 @@ __global__ void arange(uint32_t n, uint32_t *out) {
 
 
 ENOKI_EXPORT
-size_t cuda_partition(size_t size, const void **ptrs_, void ***unique_out,
+size_t cuda_partition(size_t size, const void **ptrs_, void ***ptrs_unique_out,
                       uint32_t **counts_out, uint32_t **perm_out) {
 #if !defined(NDEBUG)
     if (cuda_log_level() >= 4)
@@ -61,16 +61,16 @@ size_t cuda_partition(size_t size, const void **ptrs_, void ***unique_out,
     cuda_free(perm);
     temp_size = 0; temp = nullptr;
 
-    uintptr_t *unique = (uintptr_t *) cuda_malloc(size * sizeof(uintptr_t));
+    uintptr_t *ptrs_unique = (uintptr_t *) cuda_malloc(size * sizeof(uintptr_t));
     uint32_t *counts = (uint32_t *) cuda_malloc(size * sizeof(uint32_t));
     size_t *num_runs = (size_t *) cuda_malloc(sizeof(size_t));
 
     // RLE-encode the sorted pointer list
     cuda_check(cub::DeviceRunLengthEncode::Encode(
-        temp, temp_size, ptrs_sorted, unique, counts, num_runs, size));
+        temp, temp_size, ptrs_sorted, ptrs_unique, counts, num_runs, size));
     temp = cuda_malloc(temp_size);
     cuda_check(cub::DeviceRunLengthEncode::Encode(
-        temp, temp_size, ptrs_sorted, unique, counts, num_runs, size));
+        temp, temp_size, ptrs_sorted, ptrs_unique, counts, num_runs, size));
 
     // Release memory that is no longer needed
     cuda_free(temp);
@@ -79,16 +79,15 @@ size_t cuda_partition(size_t size, const void **ptrs_, void ***unique_out,
     size_t num_runs_out = 0;
     cuda_check(cudaMemcpy(&num_runs_out, num_runs, sizeof(size_t), cudaMemcpyDeviceToHost));
 
-    *unique_out = (void **) malloc(sizeof(void *) * num_runs_out);
+    *ptrs_unique_out = (void **) malloc(sizeof(void *) * num_runs_out);
     *counts_out = (uint32_t *) malloc(sizeof(uint32_t) * num_runs_out);
     *perm_out   = perm_sorted;
-    cuda_check(cudaMemcpy(*unique_out, unique, num_runs_out * sizeof(void *), cudaMemcpyDeviceToHost));
+    cuda_check(cudaMemcpy(*ptrs_unique_out, ptrs_unique, num_runs_out * sizeof(void *), cudaMemcpyDeviceToHost));
     cuda_check(cudaMemcpy(*counts_out, counts, num_runs_out * sizeof(uint32_t), cudaMemcpyDeviceToHost));
 
     cuda_free(num_runs);
-    cuda_free(unique);
+    cuda_free(ptrs_unique);
     cuda_free(counts);
-    cuda_sync();
 
     return num_runs_out;
 }
@@ -114,7 +113,6 @@ void cuda_compress_impl(size_t size, const T *data, const bool *mask, T **out_da
     cuda_check(cudaMemcpy(out_size, out_size_p, sizeof(size_t), cudaMemcpyDeviceToHost));
     cuda_free(temp);
     cuda_free(out_size_p);
-    cuda_sync();
 }
 
 template <typename T, std::enable_if_t<!std::is_unsigned<T>::value && sizeof(T) == 4, int> = 0>
@@ -147,10 +145,8 @@ template <typename T> T cuda_hsum(size_t size, const T *data) {
     result_p = (T *) cuda_malloc(sizeof(T));
     cuda_check(cub::DeviceReduce::Sum(temp, temp_size, data, result_p, size));
     cuda_free(temp);
-    cuda_check(cudaMemcpy(&result, result_p, sizeof(T),
-               cudaMemcpyDeviceToHost));
+    cuda_check(cudaMemcpy(&result, result_p, sizeof(T), cudaMemcpyDeviceToHost));
     cuda_free(result_p);
-    cuda_sync();
 
     return result;
 }
@@ -182,10 +178,8 @@ template <typename T> T cuda_hprod(size_t size, const T *data) {
     cuda_check(cub::DeviceReduce::Reduce(temp, temp_size, data, result_p, size,
                                          mul_op, T(1)));
     cuda_free(temp);
-    cuda_check(cudaMemcpy(&result, result_p, sizeof(T),
-               cudaMemcpyDeviceToHost));
+    cuda_check(cudaMemcpy(&result, result_p, sizeof(T), cudaMemcpyDeviceToHost));
     cuda_free(result_p);
-    cuda_sync();
 
     return result;
 }
@@ -229,10 +223,8 @@ template <typename T> T cuda_hmin(size_t size, const T *data) {
     result_p = (T *) cuda_malloc(sizeof(T));
     cuda_check(cub::DeviceReduce::Min(temp, temp_size, data, result_p, size));
     cuda_free(temp);
-    cuda_check(cudaMemcpy(&result, result_p, sizeof(T),
-               cudaMemcpyDeviceToHost));
+    cuda_check(cudaMemcpy(&result, result_p, sizeof(T), cudaMemcpyDeviceToHost));
     cuda_free(result_p);
-    cuda_sync();
 
     return result;
 }
@@ -270,10 +262,8 @@ bool cuda_all(size_t size, const bool *data) {
     cuda_check(cub::DeviceReduce::Reduce(temp, temp_size, data, result_p, size,
                                          all_op, true));
     cuda_free(temp);
-    cuda_check(cudaMemcpy(&result, result_p, sizeof(bool),
-               cudaMemcpyDeviceToHost));
+    cuda_check(cudaMemcpy(&result, result_p, sizeof(bool), cudaMemcpyDeviceToHost));
     cuda_free(result_p);
-    cuda_sync();
 
     return result;
 }
@@ -297,10 +287,8 @@ bool cuda_any(size_t size, const bool *data) {
     cuda_check(cub::DeviceReduce::Reduce(temp, temp_size, data, result_p, size,
                                          any_op, false));
     cuda_free(temp);
-    cuda_check(cudaMemcpy(&result, result_p, sizeof(bool),
-               cudaMemcpyDeviceToHost));
+    cuda_check(cudaMemcpy(&result, result_p, sizeof(bool), cudaMemcpyDeviceToHost));
     cuda_free(result_p);
-    cuda_sync();
 
     return result;
 }
@@ -321,10 +309,8 @@ size_t cuda_count(size_t size, const bool *data) {
     result_p = (size_t *) cuda_malloc(sizeof(size_t));
     cuda_check(cub::DeviceReduce::Sum(temp, temp_size, data, result_p, size));
     cuda_free(temp);
-    cuda_check(cudaMemcpy(&result, result_p, sizeof(size_t),
-               cudaMemcpyDeviceToHost));
+    cuda_check(cudaMemcpy(&result, result_p, sizeof(size_t), cudaMemcpyDeviceToHost));
     cuda_free(result_p);
-    cuda_sync();
 
     return result;
 }

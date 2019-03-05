@@ -37,6 +37,8 @@ PYBIND11_MODULE(enoki, m) {
     m.def("cuda_sync", &cuda_sync,
           py::call_guard<py::gil_scoped_release>());
 
+    m.def("cuda_malloc_trim", &cuda_malloc_trim);
+
     m.def("cuda_whos", []() { char *w = cuda_whos(); py::print(w); free(w); });
 
     m.def("cuda_set_log_level",
