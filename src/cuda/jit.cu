@@ -245,6 +245,7 @@ struct Context {
         for (auto &kv : kernels)
             cuda_check(cuModuleUnload(kv.second.first));
         kernels.clear();
+        cuda_sync();
         cuda_malloc_trim();
     }
 
@@ -356,23 +357,22 @@ ENOKI_EXPORT uint32_t cuda_var_set_size(uint32_t index, size_t size, bool copy) 
 }
 
 ENOKI_EXPORT uint32_t cuda_var_register(EnokiType type, size_t size, void *ptr,
-                                        uint32_t parent, bool free) {
+                                        bool free, int dep = 0) {
     Context &ctx = context();
     uint32_t idx = ctx.ctr;
 #if !defined(NDEBUG)
     if (ctx.log_level >= 4)
         std::cerr << "cuda_var_register(" << idx << "): " << ptr
-                  << ", size=" << size << ", parent=" << parent
-                  << ", free=" << free << std::endl;
+                  << ", size=" << size << ", free=" << free << std::endl;
 #endif
     Variable &v = ctx.append(type);
-    v.dep[0] = parent;
     v.cmd = "";
     v.data = ptr;
     v.size = size;
     v.free = free;
+    v.extra_dep = dep;
     cuda_inc_ref_ext(idx);
-    cuda_inc_ref_int(parent);
+    cuda_inc_ref_ext(dep);
     return idx;
 }
 
@@ -388,8 +388,7 @@ ENOKI_EXPORT uint32_t cuda_var_copy_to_device(EnokiType type, size_t size,
                                cudaMemcpyHostToDevice));
 
     cuda_host_free(tmp);
-
-    return cuda_var_register(type, size, device_ptr, 0, true);
+    return cuda_var_register(type, size, device_ptr, true);
 }
 
 ENOKI_EXPORT void cuda_var_free(uint32_t idx) {
@@ -1446,14 +1445,18 @@ ENOKI_EXPORT char *cuda_whos() {
 }
 
 ENOKI_EXPORT void cuda_malloc_trim() {
+    std::unordered_multimap<TaggedSize, void *, TaggedSizeHasher> free_map;
+
     Context &ctx = context();
-    std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
+    {
+        std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
+        free_map.swap(ctx.free_map);
+    }
+
     size_t freed_normal = 0, freed_managed = 0, freed_host = 0,
-           count = ctx.free_map.size();
+           count = free_map.size();
 
-    cuda_check(cudaDeviceSynchronize());
-
-    for (auto kv : ctx.free_map) {
+    for (auto kv : free_map) {
         switch (kv.first.type) {
             case Normal:
                 freed_normal += kv.first.size;
@@ -1474,7 +1477,6 @@ ENOKI_EXPORT void cuda_malloc_trim() {
                 throw std::runtime_error("cuda_malloc_trim(): internal error!");
         }
     }
-    ctx.free_map.clear();
     if (ctx.log_level >= 4 && count > 0)
         std::cerr << "cuda_malloc_trim(): freed " << count << " arrays ("
                   << mem_string(freed_normal) << " device memory, "
@@ -1508,28 +1510,39 @@ ENOKI_EXPORT void* cuda_malloc(size_t size) {
         return nullptr;
 
     size = malloc_round(size);
+    TaggedSize ts(Normal, size);
+    void *ptr = nullptr;
 
     Context &ctx = context();
-    std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
-    TaggedSize ts(Normal, size);
-    auto it = ctx.free_map.find(ts);
+    /* Critical section */ {
+        std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
+        auto it = ctx.free_map.find(ts);
 
-    void *ptr = nullptr;
-    if (it != ctx.free_map.end()) {
-        ptr = it->second;
-        ctx.free_map.erase(it);
-    } else {
+        if (it != ctx.free_map.end()) {
+            ptr = it->second;
+            ctx.free_map.erase(it);
+        }
+    }
+
+    if (ptr == nullptr) {
         cudaError_t ret = cudaMalloc(&ptr, size);
         if (ret != cudaSuccess) {
+            cuda_sync();
             cuda_malloc_trim();
-            ret = cudaMalloc(&ptr, size);
+            cudaError_t ret = cudaMalloc(&ptr, size);
         }
         cuda_check(ret);
     }
 
-    auto result = ctx.used_map.insert(std::make_pair(ptr, ts));
-    if (!result.second)
-        throw std::runtime_error("cuda_malloc(): internal error");
+    /* Critical section */ {
+        std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
+        auto result = ctx.used_map.insert(std::make_pair(ptr, ts));
+        if (!result.second) {
+            fprintf(stderr, "cuda_malloc(): internal error!\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
     return ptr;
 }
 
@@ -1538,28 +1551,39 @@ ENOKI_EXPORT void* cuda_managed_malloc(size_t size) {
         return nullptr;
 
     size = malloc_round(size);
+    TaggedSize ts(Managed, size);
+    void *ptr = nullptr;
 
     Context &ctx = context();
-    std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
-    TaggedSize ts(Managed, size);
-    auto it = ctx.free_map.find(ts);
+    /* Critical section */ {
+        std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
+        auto it = ctx.free_map.find(ts);
 
-    void *ptr = nullptr;
-    if (it != ctx.free_map.end()) {
-        ptr = it->second;
-        ctx.free_map.erase(it);
-    } else {
+        if (it != ctx.free_map.end()) {
+            ptr = it->second;
+            ctx.free_map.erase(it);
+        }
+    }
+
+    if (ptr == nullptr) {
         cudaError_t ret = cudaMallocManaged(&ptr, size);
         if (ret != cudaSuccess) {
+            cuda_sync();
             cuda_malloc_trim();
-            ret = cudaMallocManaged(&ptr, size);
+            cudaError_t ret = cudaMallocManaged(&ptr, size);
         }
         cuda_check(ret);
     }
 
-    auto result = ctx.used_map.insert(std::make_pair(ptr, ts));
-    if (!result.second)
-        throw std::runtime_error("cuda_managed_malloc(): internal error");
+    /* Critical section */ {
+        std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
+        auto result = ctx.used_map.insert(std::make_pair(ptr, ts));
+        if (!result.second) {
+            fprintf(stderr, "cuda_managed_malloc(): internal error!\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
     return ptr;
 }
 
@@ -1568,28 +1592,39 @@ ENOKI_EXPORT void* cuda_host_malloc(size_t size) {
         return nullptr;
 
     size = malloc_round(size);
+    TaggedSize ts(Host, size);
+    void *ptr = nullptr;
 
     Context &ctx = context();
-    std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
-    TaggedSize ts(Host, size);
-    auto it = ctx.free_map.find(ts);
+    /* Critical section */ {
+        std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
+        auto it = ctx.free_map.find(ts);
 
-    void *ptr = nullptr;
-    if (it != ctx.free_map.end()) {
-        ptr = it->second;
-        ctx.free_map.erase(it);
-    } else {
+        if (it != ctx.free_map.end()) {
+            ptr = it->second;
+            ctx.free_map.erase(it);
+        }
+    }
+
+    if (ptr == nullptr) {
         cudaError_t ret = cudaMallocHost(&ptr, size);
         if (ret != cudaSuccess) {
+            cuda_sync();
             cuda_malloc_trim();
-            ret = cudaMallocHost(&ptr, size);
+            cudaError_t ret = cudaMallocHost(&ptr, size);
         }
         cuda_check(ret);
     }
 
-    auto result = ctx.used_map.insert(std::make_pair(ptr, ts));
-    if (!result.second)
-        throw std::runtime_error("cuda_host_malloc(): internal error");
+    /* Critical section */ {
+        std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
+        auto result = ctx.used_map.insert(std::make_pair(ptr, ts));
+        if (!result.second) {
+            fprintf(stderr, "cuda_host_malloc(): internal error!\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
     return ptr;
 }
 
@@ -1597,36 +1632,54 @@ ENOKI_EXPORT void cuda_free(void *ptr) {
     if (ptr == nullptr)
         return;
 
-    Context &ctx = context();
-    std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
-    auto it = ctx.used_map.find(ptr);
+    cudaStreamAddCallback(
+        nullptr, [](cudaStream_t stream, cudaError_t status, void *data) {
+            Context &ctx = context();
+            std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
+            auto it = ctx.used_map.find(data);
 
-    if (it == ctx.used_map.end())
-        throw std::runtime_error("cuda_free(): unknown/unregistered pointer!");
+            if (it == ctx.used_map.end()) {
+                fprintf(stderr, "cuda_host_free(): unknown/unregistered pointer!\n");
+                exit(EXIT_FAILURE);
+            }
 
-    if (it->second.type != Normal && it->second.type != Managed)
-        throw std::runtime_error("cuda_free(): tried to free a host pointer!");
+            if (it->second.type != Normal && it->second.type != Managed) {
+                fprintf(stderr, "cuda_host_free(): tried to free a host pointer!");
+                exit(EXIT_FAILURE);
+            }
 
-    ctx.free_map.insert(std::make_pair(it->second, ptr));
-    ctx.used_map.erase(it);
+            ctx.free_map.insert(std::make_pair(it->second, data));
+            ctx.used_map.erase(it);
+        },
+        ptr, 0
+    );
 }
 
 ENOKI_EXPORT void cuda_host_free(void *ptr) {
     if (ptr == nullptr)
         return;
 
-    Context &ctx = context();
-    std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
-    auto it = ctx.used_map.find(ptr);
+    cudaStreamAddCallback(
+        nullptr, [](cudaStream_t stream, cudaError_t status, void *data) {
+            Context &ctx = context();
+            std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
+            auto it = ctx.used_map.find(data);
 
-    if (it == ctx.used_map.end())
-        throw std::runtime_error("cuda_host_free(): unknown/unregistered pointer!");
+            if (it == ctx.used_map.end()) {
+                fprintf(stderr, "cuda_host_free(): unknown/unregistered pointer!\n");
+                exit(EXIT_FAILURE);
+            }
 
-    if (it->second.type != Host)
-        throw std::runtime_error("cuda_host_free(): tried to free a device pointer!");
+            if (it->second.type != Host) {
+                fprintf(stderr, "cuda_host_free(): tried to free a device pointer!");
+                exit(EXIT_FAILURE);
+            }
 
-    ctx.free_map.insert(std::make_pair(it->second, ptr));
-    ctx.used_map.erase(it);
+            ctx.free_map.insert(std::make_pair(it->second, data));
+            ctx.used_map.erase(it);
+        },
+        ptr, 0
+    );
 }
 
 NAMESPACE_END(enoki)

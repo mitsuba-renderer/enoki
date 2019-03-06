@@ -124,8 +124,7 @@ extern ENOKI_IMPORT uint32_t cuda_var_copy_to_device(EnokiType type,
 
 /// Register a memory region (in device memory) as a variable
 extern ENOKI_IMPORT uint32_t cuda_var_register(EnokiType type, size_t size,
-                                               void *ptr, uint32_t parent,
-                                               bool dealloc);
+                                               void *ptr, bool dealloc, int dep = 0);
 
 /// Fetch a scalar value from a CUDA array (in device memory)
 extern ENOKI_IMPORT void cuda_fetch_element(void *, uint32_t, size_t, size_t);
@@ -622,7 +621,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
     static CUDAArray empty_(size_t size) {
         return CUDAArray::from_index_(cuda_var_register(
-            Type, size, cuda_malloc(size * sizeof(Value)), 0, true));
+            Type, size, cuda_malloc(size * sizeof(Value)), true));
     }
 
     static CUDAArray zero_(size_t size) {
@@ -630,7 +629,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
             return CUDAArray(Value(0));
         else
             return CUDAArray::from_index_(cuda_var_register(
-                Type, size, cuda_malloc_zero(size * sizeof(Value)), 0, true));
+                Type, size, cuda_malloc_zero(size * sizeof(Value)), true));
     }
 
     static CUDAArray full_(const Value &value, size_t size) {
@@ -638,7 +637,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
             return CUDAArray(value);
         else
             return CUDAArray::from_index_(cuda_var_register(
-                Type, size, cuda_malloc_fill(size, memcpy_cast<uint_array_t<Value>>(value)), 0, true));
+                Type, size, cuda_malloc_fill(size, memcpy_cast<uint_array_t<Value>>(value)), true));
     }
 
     Value hsum_() const {
@@ -677,8 +676,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     }
 
     static CUDAArray map(void *ptr, size_t size, bool dealloc = false) {
-        return CUDAArray::from_index_(
-            cuda_var_register(Type, size, ptr, 0, dealloc));
+        return CUDAArray::from_index_(cuda_var_register(Type, size, ptr, dealloc));
     }
 
     static CUDAArray copy(void *ptr, size_t size) {
@@ -692,26 +690,27 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         void **unique = nullptr;
         uint32_t *counts = nullptr;
         uint32_t *perm = nullptr;
+        size_t n = size();
 
-        size_t num_unique = cuda_partition(size(), (const void **) data(),
+        size_t num_unique = cuda_partition(n, (const void **) data(),
                                            &unique, &counts, &perm);
 
-        uint32_t parent = cuda_var_register(EnokiType::UInt32, 1, perm, 0, true);
-
         std::vector<std::pair<Value, CUDAArray<uint32_t>>> result;
-        result.reserve(num_unique);
+        result.reserve(num_unique + 1);
+        uint32_t parent = cuda_var_register(EnokiType::UInt32, n, perm, true);
+        result.emplace_back(nullptr, CUDAArray<uint32_t>::from_index_(parent));
+
         for (size_t i = 0; i< num_unique; ++i) {
             result.emplace_back(
                 (Value) unique[i],
                 CUDAArray<uint32_t>::from_index_(cuda_var_register(
-                    EnokiType::UInt32, counts[i], perm, parent, false)));
+                    EnokiType::UInt32, counts[i], perm, false, parent)));
             perm += counts[i];
         }
 
         free(unique);
         free(counts);
 
-        cuda_dec_ref_ext(parent);
         return result;
     }
 
