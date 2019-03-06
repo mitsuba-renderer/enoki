@@ -1188,7 +1188,12 @@ ENOKI_EXPORT void cuda_jit_run(Context &ctx,
             }
         }
 
-        cuda_check(cuModuleLoadData(&module, link_output));
+        CUresult ret = cuModuleLoadData(&module, link_output);
+        if (ret == CUDA_ERROR_OUT_OF_MEMORY) {
+            cuda_malloc_trim();
+            ret = cuModuleLoadData(&module, link_output);
+        }
+        cuda_check(ret);
 
         // Locate the kernel entry point
         cuda_check(cuModuleGetFunction(&kernel, module, (std::string("enoki_") + kernel_name).c_str()));
@@ -1530,8 +1535,9 @@ ENOKI_EXPORT void* cuda_malloc(size_t size) {
             cuda_sync();
             cuda_malloc_trim();
             cudaError_t ret = cudaMalloc(&ptr, size);
+            if (ret != cudaSuccess)
+                throw std::runtime_error("cuda_malloc(): out of memory!");
         }
-        cuda_check(ret);
     }
 
     /* Critical section */ {
@@ -1571,8 +1577,9 @@ ENOKI_EXPORT void* cuda_managed_malloc(size_t size) {
             cuda_sync();
             cuda_malloc_trim();
             cudaError_t ret = cudaMallocManaged(&ptr, size);
+            if (ret != cudaSuccess)
+                throw std::runtime_error("cuda_managed_malloc(): out of memory!");
         }
-        cuda_check(ret);
     }
 
     /* Critical section */ {
@@ -1612,8 +1619,9 @@ ENOKI_EXPORT void* cuda_host_malloc(size_t size) {
             cuda_sync();
             cuda_malloc_trim();
             cudaError_t ret = cudaMallocHost(&ptr, size);
+            if (ret != cudaSuccess)
+                throw std::runtime_error("cuda_host_malloc(): out of memory!");
         }
-        cuda_check(ret);
     }
 
     /* Critical section */ {
