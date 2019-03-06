@@ -440,10 +440,13 @@ py::class_<Array> bind(py::module &m, const char *name) {
 
         if constexpr (array_depth_v<Array> == 1) {
             m.def("backward",
-                  [](Array &a, bool free_graph) { return backward(a); },
+                  [](Array &a, bool free_graph) { backward(a, free_graph); },
                   "array"_a, "free_graph"_a = true);
+            m.def("forward",
+                  [](Array &in, Array &out, bool free_graph) { return forward(in, out, free_graph); },
+                  "in"_a, "out"_a, "free_graph"_a = true);
             cl.def_static("backward",
-                          [](bool free_graph) { return backward<Array>(); },
+                          [](bool free_graph) { backward<Array>(); },
                           "free_graph"_a = true);
         }
     }

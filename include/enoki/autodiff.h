@@ -90,7 +90,8 @@ private:
     void pop_prefix();
     void backward(bool free_graph);
     void backward(Index index, bool free_graph);
-    void set_gradient(Index index, const Value &value);
+    void set_gradient(Index index, const Value &value,
+                      bool clear_grad = !is_dynamic_v<Value>);
     void set_label(Index index, const char *name);
     const Value &gradient(Index index);
     std::string graphviz(const std::vector<Index> &indices);
@@ -1097,18 +1098,11 @@ public:
             return tape()->gradient(index);
     }
 
-    void set_gradient_(const Value &value) {
+    void set_gradient_(const Value &value, bool clear_grad = !is_dynamic_v<Value>) {
         if constexpr (!Enabled)
             fail_unsupported("set_gradient_");
         else
-            return tape()->set_gradient(m_index, value);
-    }
-
-    static void set_gradient_static_(Index index, const Value &value) {
-        if constexpr (!Enabled)
-            fail_unsupported("set_gradient_static_");
-        else
-            return tape()->set_gradient(index, value);
+            return tape()->set_gradient(m_index, value, clear_grad);
     }
 
     //! @}
@@ -1309,11 +1303,37 @@ template <typename T1, typename T2> decltype(auto) set_gradient(T1 &a, const T2 
             set_gradient(a[i], b[i]);
     } else if constexpr (is_diff_array_v<T1>) {
         a.set_gradient_(b);
-    } else if constexpr (std::is_integral_v<T2>) {
-        T1::set_gradient_static_(a, b);
     } else {
         static_assert(detail::false_v<T1, T2>, "The given array does not have derivatives.");
     }
+}
+
+template <typename T> auto forward(const T& in, T &out, bool free_graph = true) {
+    if (in.size() != 1)
+        throw std::runtime_error("forward(): first (input) argument must be a scalar array!");
+
+    using Array = typename T::UnderlyingType;
+    T::simplify_graph_();
+
+    Array result      = zero<Array>(out.size()),
+          output_grad = zero<Array>(out.size()),
+          one         = 1.f,
+          zero        = 0.f;
+
+    uint32_array_t<Array> idx = 0;
+
+
+    for (size_t i = 0; i < out.size(); ++i) {
+        std::cout << "Iteration " << i << std::endl;
+        scatter(output_grad, one, idx);
+        out.set_gradient_(output_grad, true);
+        T::backward_static_((i == out.size() - 1) ? free_graph : false);
+        scatter(result, gradient(in), idx);
+        scatter(output_grad, zero, idx);
+        idx += 1;
+    }
+
+    return result;
 }
 
 template <typename T> void backward(const T& a, bool free_graph = true) {

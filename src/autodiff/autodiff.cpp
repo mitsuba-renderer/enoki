@@ -162,7 +162,7 @@ template <typename Value> struct Tape<Value>::Detail {
         scheduled.insert(k);
 
         Node &n = node(k);
-        if (!is_dynamic_v<Value> && clear_grad)
+        if (clear_grad)
             n.grad = zero<Value>();
 
         for (const Edge &edge : n.edges)
@@ -699,13 +699,13 @@ void Tape<Value>::backward(Index index, bool free_graph) {
 }
 
 template <typename Value>
-void Tape<Value>::set_gradient(Index index, const Value &value) {
+void Tape<Value>::set_gradient(Index index, const Value &value, bool clear_grad) {
     if (index == 0)
         throw std::runtime_error(
             "backward(): no gradient information (a prior call to "
             "requires_gradient() on a dependent variable is required.)");
 
-    d->dfs(index, true);
+    d->dfs(index, clear_grad);
     d->node(index).grad = value;
 }
 
