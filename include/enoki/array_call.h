@@ -105,6 +105,16 @@ template <typename Guide, typename Result> struct vectorize_result<Guide, Result
     using type = replace_scalar_t<array_t<Guide>, Result, false>;
 };
 
+template <typename T, typename Perm>
+decltype(auto) gather_helper(T&& v, const Perm &perm) {
+    ENOKI_MARK_USED(perm);
+    using DT = std::decay_t<T>;
+    if constexpr (!is_cuda_array_v<DT> && !std::is_class_v<DT>)
+        return v;
+    else
+        return gather<std::decay_t<DT>, 0, true, true>(v, perm);
+}
+
 template <typename Storage_> struct call_support_base {
     using Storage = Storage_;
     using InstancePtr = value_t<Storage_>;
@@ -146,9 +156,8 @@ template <typename Storage_> struct call_support_base {
                         if (value == nullptr)
                             continue;
 
-                        Result temp = func(value, true,
-                            gather<std::decay_t<std::tuple_element_t<Indices, Tuple>>, 0, true, true>(
-                                std::get<Indices>(tuple), permutation)...);
+                        Result temp = func(value, true, gather_helper(
+                             std::get<Indices>(tuple), permutation)...);
 
                         scatter<0, true, true>(result, temp, permutation);
                     }
@@ -174,9 +183,8 @@ template <typename Storage_> struct call_support_base {
                         if (value == nullptr)
                             continue;
 
-                        func(value, true,
-                             gather<std::decay_t<std::tuple_element_t<Indices, Tuple>>, 0, true, true>(
-                                 std::get<Indices>(tuple), permutation)...);
+                        func(value, true, gather_helper(
+                             std::get<Indices>(tuple), permutation)...);
                     }
                 }
             }
