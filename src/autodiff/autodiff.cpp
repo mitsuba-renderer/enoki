@@ -394,6 +394,9 @@ void Tape<Value>::append_scatter(Index source, const Int64 &offset, const Mask &
                         grad_source = grad_target & mask;
                     else
                         grad_source += grad_target & mask;
+
+                    if (grad_source.size() == 1 && offset.size() != 1)
+                        set_slices(grad_source, offset.size());
                 }
             }
         };
@@ -456,6 +459,9 @@ void Tape<Value>::append_scatter_add(Index source, const Int64 &offset,
                         grad_source = grad_target & mask;
                     else
                         grad_source += grad_target & mask;
+
+                    if (grad_source.size() == 1 && offset.size() != 1)
+                        set_slices(grad_source, offset.size());
                 }
             }
         };
