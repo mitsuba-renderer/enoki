@@ -162,8 +162,12 @@ template <typename Value> struct Tape<Value>::Detail {
         scheduled.insert(k);
 
         Node &n = node(k);
-        if (clear_grad)
-            n.grad = zero<Value>();
+        if (clear_grad) {
+            if (is_dynamic_v<Value>)
+                n.grad = Value();
+            else
+                n.grad = zero<Value>();
+        }
 
         for (const Edge &edge : n.edges)
             dfs(edge.source, clear_grad);
@@ -201,13 +205,21 @@ template <typename Value> Tape<Value>::~Tape() {
     if (d->log_level >= 1) {
         if (d->node_counter != 1)
             std::cerr << "autodiff: shutdown." << std::endl;
+        size_t n_live = 0;
         for (const auto &it : d->nodes) {
-            std::cerr << "autodiff: variable " << it.first
-                      << " still live at shutdown. (ref_count_int="
-                      << it.second.ref_count_int
-                      << ", ref_count_ext=" << it.second.ref_count_ext << ")"
-                      << std::endl;
+            if (n_live < 10)
+                std::cerr << "autodiff: variable " << it.first
+                          << " still live at shutdown. (ref_count_int="
+                          << it.second.ref_count_int
+                          << ", ref_count_ext=" << it.second.ref_count_ext << ")"
+                          << std::endl;
+            if (n_live == 9)
+                std::cerr << "(skipping remainder)" << std::endl;
+            n_live++;
         }
+        if (n_live > 0)
+            std::cerr << "autodiff: " << n_live
+                      << " variables were still live at shutdown." << std::endl;
     }
 #endif
     delete d;
@@ -221,6 +233,10 @@ template <typename Value> void Tape<Value>::cuda_callback(void *ptr) {
 
 template <typename Value> void Tape<Value>::set_log_level(uint32_t level) {
     d->log_level = level;
+}
+
+template <typename Value> uint32_t Tape<Value>::log_level() const {
+    return d->log_level;
 }
 
 template <typename Value> void Tape<Value>::set_graph_simplification(bool value) {

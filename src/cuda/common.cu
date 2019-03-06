@@ -65,6 +65,10 @@ template <typename T> __global__ void fill(size_t n, T value, T *out) {
         out[i] = value;
 }
 
+template <typename T> __global__ void set_value(T *ptr, size_t idx, T value) {
+    ptr[idx] = value;
+}
+
 ENOKI_EXPORT void* cuda_malloc_fill(size_t size, uint8_t value) {
     uint8_t *result = (uint8_t *) cuda_malloc(size);
     cuda_check(cudaMemsetAsync(result, value, size));
@@ -103,6 +107,30 @@ ENOKI_EXPORT void cuda_memcpy_to_device_async(void *dst, const void *src, size_t
 
 ENOKI_EXPORT void cuda_memcpy_from_device_async(void *dst, const void *src, size_t size) {
     cuda_check(cudaMemcpyAsync(dst, src, size, cudaMemcpyDeviceToHost));
+}
+
+ENOKI_EXPORT void* cuda_malloc_one_hot(size_t size, size_t entry, uint8_t value) {
+    uint8_t *result = (uint8_t *) cuda_malloc_zero(size * sizeof(uint8_t));
+    set_value<<<1,1>>>(result, entry, value);
+    return result;
+}
+
+ENOKI_EXPORT void* cuda_malloc_one_hot(size_t size, size_t entry, uint16_t value) {
+    uint16_t *result = (uint16_t *) cuda_malloc_zero(size * sizeof(uint16_t));
+    set_value<<<1,1>>>(result, entry, value);
+    return result;
+}
+
+ENOKI_EXPORT void* cuda_malloc_one_hot(size_t size, size_t entry, uint32_t value) {
+    uint32_t *result = (uint32_t *) cuda_malloc_zero(size * sizeof(uint32_t));
+    set_value<<<1,1>>>(result, entry, value);
+    return result;
+}
+
+ENOKI_EXPORT void* cuda_malloc_one_hot(size_t size, size_t entry, uint64_t value) {
+    uint64_t *result = (uint64_t *) cuda_malloc_zero(size * sizeof(uint64_t));
+    set_value<<<1,1>>>(result, entry, value);
+    return result;
 }
 
 struct CUDAErrorList {

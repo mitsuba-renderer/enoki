@@ -48,6 +48,7 @@ extern void cuda_free(void *p);
 extern void cuda_host_free(void *p);
 extern void cuda_malloc_trim();
 extern void cuda_sync();
+void cuda_eval(bool log_assembly = false);
 
 extern std::string mem_string(size_t size);
 extern std::string time_string(size_t size);

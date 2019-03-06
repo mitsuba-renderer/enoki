@@ -45,7 +45,6 @@ void cuda_inc_ref_ext(uint32_t);
 void cuda_inc_ref_int(uint32_t);
 void cuda_dec_ref_ext(uint32_t);
 void cuda_dec_ref_int(uint32_t);
-void cuda_eval(bool log_assembly = false);
 size_t cuda_register_size(EnokiType type);
 uint32_t cuda_trace_append(EnokiType type, const char *cmd, uint32_t arg1);
 
@@ -356,8 +355,8 @@ ENOKI_EXPORT uint32_t cuda_var_set_size(uint32_t index, size_t size, bool copy) 
     return index;
 }
 
-ENOKI_EXPORT uint32_t cuda_var_register(EnokiType type, size_t size, void *ptr,
-                                        bool free, int dep = 0) {
+ENOKI_EXPORT uint32_t cuda_var_register(EnokiType type, size_t size,
+                                        void *ptr, bool free) {
     Context &ctx = context();
     uint32_t idx = ctx.ctr;
 #if !defined(NDEBUG)
@@ -370,9 +369,7 @@ ENOKI_EXPORT uint32_t cuda_var_register(EnokiType type, size_t size, void *ptr,
     v.data = ptr;
     v.size = size;
     v.free = free;
-    v.extra_dep = dep;
     cuda_inc_ref_ext(idx);
-    cuda_inc_ref_ext(dep);
     return idx;
 }
 

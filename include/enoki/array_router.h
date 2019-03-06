@@ -964,6 +964,12 @@ extern ENOKI_IMPORT void cuda_trace_printf(const char *, uint32_t, uint32_t*);
 extern ENOKI_IMPORT void cuda_var_mark_dirty(uint32_t);
 extern ENOKI_IMPORT void cuda_eval(bool log_assembly = false);
 extern ENOKI_IMPORT void cuda_set_scatter_gather_operand(uint32_t index, bool gather = false);
+extern ENOKI_IMPORT void* cuda_malloc_one_hot(size_t size, size_t entry, uint8_t value);
+extern ENOKI_IMPORT void* cuda_malloc_one_hot(size_t size, size_t entry, uint16_t value);
+extern ENOKI_IMPORT void* cuda_malloc_one_hot(size_t size, size_t entry, uint32_t value);
+extern ENOKI_IMPORT void* cuda_malloc_one_hot(size_t size, size_t entry, uint64_t value);
+extern ENOKI_IMPORT void cuda_set_log_level(uint32_t);
+extern ENOKI_IMPORT uint32_t cuda_log_level();
 
 /// Fancy templated 'printf', which extracts the indices of Enoki arrays
 template <typename... Args> void cuda_printf(const char *fmt, const Args&... args) {

@@ -32,7 +32,7 @@ __global__ void arange(uint32_t n, uint32_t *out) {
 
 ENOKI_EXPORT
 size_t cuda_partition(size_t size, const void **ptrs_, void ***ptrs_unique_out,
-                      uint32_t **counts_out, uint32_t **perm_out) {
+                      uint32_t **counts_out, uint32_t ***perm_out) {
 #if !defined(NDEBUG)
     if (cuda_log_level() >= 4)
         std::cerr << "cuda_partition(size=" << size << ")" << std::endl;
@@ -81,12 +81,24 @@ size_t cuda_partition(size_t size, const void **ptrs_, void ***ptrs_unique_out,
 
     *ptrs_unique_out = (void **) malloc(sizeof(void *) * num_runs_out);
     *counts_out = (uint32_t *) malloc(sizeof(uint32_t) * num_runs_out);
-    *perm_out   = perm_sorted;
+    *perm_out = (uint32_t **) malloc(sizeof(uint32_t *) * num_runs_out);
+
     cuda_check(cudaMemcpy(*ptrs_unique_out, ptrs_unique, num_runs_out * sizeof(void *), cudaMemcpyDeviceToHost));
     cuda_check(cudaMemcpy(*counts_out, counts, num_runs_out * sizeof(uint32_t), cudaMemcpyDeviceToHost));
 
+    uint32_t *ptr = perm_sorted;
+    for (size_t i = 0; i < num_runs_out; ++i) {
+        size_t size = (*counts_out)[i];
+        (*perm_out)[i] = (uint32_t *) cuda_malloc(size * sizeof(uint32_t));
+        cuda_check(cudaMemcpyAsync((*perm_out)[i], ptr,
+                                   size * sizeof(uint32_t),
+                                   cudaMemcpyDeviceToDevice));
+        ptr += size;
+    }
+
     cuda_free(num_runs);
     cuda_free(ptrs_unique);
+    cuda_free(perm_sorted);
     cuda_free(counts);
 
     return num_runs_out;
@@ -129,7 +141,7 @@ template <typename T> void cuda_compress(size_t size, const T *data, const bool 
     cuda_compress_impl(size, data, mask, out_data, out_size);
 }
 
-template <typename T> T cuda_hsum(size_t size, const T *data) {
+template <typename T> T* cuda_hsum(size_t size, const T *data) {
 #if !defined(NDEBUG)
     if (cuda_log_level() >= 4)
         std::cerr << "cuda_hsum(size=" << size << ")" << std::endl;
@@ -138,17 +150,15 @@ template <typename T> T cuda_hsum(size_t size, const T *data) {
     size_t temp_size  = 0;
     void *temp        = nullptr;
 
-    T result = 0, *result_p = nullptr;
+    T *result_p = nullptr;
 
     cuda_check(cub::DeviceReduce::Sum(temp, temp_size, data, result_p, size));
     temp = cuda_malloc(temp_size);
     result_p = (T *) cuda_malloc(sizeof(T));
     cuda_check(cub::DeviceReduce::Sum(temp, temp_size, data, result_p, size));
     cuda_free(temp);
-    cuda_check(cudaMemcpy(&result, result_p, sizeof(T), cudaMemcpyDeviceToHost));
-    cuda_free(result_p);
 
-    return result;
+    return result_p;
 }
 
 struct ReductionOpMul {
@@ -159,16 +169,15 @@ struct ReductionOpMul {
     }
 };
 
-template <typename T> T cuda_hprod(size_t size, const T *data) {
+template <typename T> T* cuda_hprod(size_t size, const T *data) {
 #if !defined(NDEBUG)
     if (cuda_log_level() >= 4)
         std::cerr << "cuda_hprod(size=" << size << ")" << std::endl;
 #endif
 
-    size_t temp_size  = 0;
-    void *temp        = nullptr;
-
-    T result = T(0), *result_p = nullptr;
+    size_t temp_size = 0;
+    void *temp       = nullptr;
+    T *result_p      = nullptr;
 
     ReductionOpMul mul_op;
     cuda_check(cub::DeviceReduce::Reduce(temp, temp_size, data, result_p, size,
@@ -178,55 +187,46 @@ template <typename T> T cuda_hprod(size_t size, const T *data) {
     cuda_check(cub::DeviceReduce::Reduce(temp, temp_size, data, result_p, size,
                                          mul_op, T(1)));
     cuda_free(temp);
-    cuda_check(cudaMemcpy(&result, result_p, sizeof(T), cudaMemcpyDeviceToHost));
-    cuda_free(result_p);
 
-    return result;
+    return result_p;
 }
 
-template <typename T> T cuda_hmax(size_t size, const T *data) {
+template <typename T> T* cuda_hmax(size_t size, const T *data) {
 #if !defined(NDEBUG)
     if (cuda_log_level() >= 4)
         std::cerr << "cuda_hmax(size=" << size << ")" << std::endl;
 #endif
 
-    size_t temp_size   = 0;
-    void *temp        = nullptr;
-
-    T result = 0, *result_p = nullptr;
+    size_t temp_size = 0;
+    void *temp       = nullptr;
+    T *result_p      = nullptr;
 
     cuda_check(cub::DeviceReduce::Max(temp, temp_size, data, result_p, size));
     temp = cuda_malloc(temp_size);
     result_p = (T *) cuda_malloc(sizeof(T));
     cuda_check(cub::DeviceReduce::Max(temp, temp_size, data, result_p, size));
     cuda_free(temp);
-    cuda_check(cudaMemcpy(&result, result_p, sizeof(T),
-               cudaMemcpyDeviceToHost));
-    cuda_free(result_p);
 
-    return result;
+    return result_p;
 }
 
-template <typename T> T cuda_hmin(size_t size, const T *data) {
+template <typename T> T* cuda_hmin(size_t size, const T *data) {
 #if !defined(NDEBUG)
     if (cuda_log_level() >= 4)
         std::cerr << "cuda_hmin(size=" << size << ")" << std::endl;
 #endif
 
-    size_t temp_size   = 0;
-    void *temp        = nullptr;
-
-    T result = 0, *result_p = nullptr;
+    size_t temp_size = 0;
+    void *temp       = nullptr;
+    T *result_p      = nullptr;
 
     cuda_check(cub::DeviceReduce::Min(temp, temp_size, data, result_p, size));
     temp = cuda_malloc(temp_size);
     result_p = (T *) cuda_malloc(sizeof(T));
     cuda_check(cub::DeviceReduce::Min(temp, temp_size, data, result_p, size));
     cuda_free(temp);
-    cuda_check(cudaMemcpy(&result, result_p, sizeof(T), cudaMemcpyDeviceToHost));
-    cuda_free(result_p);
 
-    return result;
+    return result_p;
 }
 
 struct ReductionOpAll {
@@ -243,7 +243,7 @@ struct ReductionOpAny {
     }
 };
 
-bool cuda_all(size_t size, const bool *data) {
+ENOKI_EXPORT bool cuda_all(size_t size, const bool *data) {
 #if !defined(NDEBUG)
     if (cuda_log_level() >= 4)
         std::cerr << "cuda_all(size=" << size << ")" << std::endl;
@@ -268,7 +268,7 @@ bool cuda_all(size_t size, const bool *data) {
     return result;
 }
 
-bool cuda_any(size_t size, const bool *data) {
+ENOKI_EXPORT bool cuda_any(size_t size, const bool *data) {
 #if !defined(NDEBUG)
     if (cuda_log_level() >= 4)
         std::cerr << "cuda_any(size=" << size << ")" << std::endl;
@@ -293,7 +293,7 @@ bool cuda_any(size_t size, const bool *data) {
     return result;
 }
 
-size_t cuda_count(size_t size, const bool *data) {
+ENOKI_EXPORT size_t cuda_count(size_t size, const bool *data) {
 #if !defined(NDEBUG)
     if (cuda_log_level() >= 4)
         std::cerr << "cuda_count(size=" << size << ")" << std::endl;
@@ -315,33 +315,33 @@ size_t cuda_count(size_t size, const bool *data) {
     return result;
 }
 
-template ENOKI_EXPORT int32_t  cuda_hsum(size_t, const int32_t *);
-template ENOKI_EXPORT uint32_t cuda_hsum(size_t, const uint32_t *);
-template ENOKI_EXPORT int64_t  cuda_hsum(size_t, const int64_t *);
-template ENOKI_EXPORT uint64_t cuda_hsum(size_t, const uint64_t *);
-template ENOKI_EXPORT float    cuda_hsum(size_t, const float *);
-template ENOKI_EXPORT double   cuda_hsum(size_t, const double *);
+template ENOKI_EXPORT int32_t*  cuda_hsum(size_t, const int32_t *);
+template ENOKI_EXPORT uint32_t* cuda_hsum(size_t, const uint32_t *);
+template ENOKI_EXPORT int64_t*  cuda_hsum(size_t, const int64_t *);
+template ENOKI_EXPORT uint64_t* cuda_hsum(size_t, const uint64_t *);
+template ENOKI_EXPORT float*    cuda_hsum(size_t, const float *);
+template ENOKI_EXPORT double*   cuda_hsum(size_t, const double *);
 
-template ENOKI_EXPORT int32_t  cuda_hprod(size_t, const int32_t *);
-template ENOKI_EXPORT uint32_t cuda_hprod(size_t, const uint32_t *);
-template ENOKI_EXPORT int64_t  cuda_hprod(size_t, const int64_t *);
-template ENOKI_EXPORT uint64_t cuda_hprod(size_t, const uint64_t *);
-template ENOKI_EXPORT float    cuda_hprod(size_t, const float *);
-template ENOKI_EXPORT double   cuda_hprod(size_t, const double *);
+template ENOKI_EXPORT int32_t*  cuda_hprod(size_t, const int32_t *);
+template ENOKI_EXPORT uint32_t* cuda_hprod(size_t, const uint32_t *);
+template ENOKI_EXPORT int64_t*  cuda_hprod(size_t, const int64_t *);
+template ENOKI_EXPORT uint64_t* cuda_hprod(size_t, const uint64_t *);
+template ENOKI_EXPORT float*    cuda_hprod(size_t, const float *);
+template ENOKI_EXPORT double*   cuda_hprod(size_t, const double *);
 
-template ENOKI_EXPORT int32_t  cuda_hmax(size_t, const int32_t *);
-template ENOKI_EXPORT uint32_t cuda_hmax(size_t, const uint32_t *);
-template ENOKI_EXPORT int64_t  cuda_hmax(size_t, const int64_t *);
-template ENOKI_EXPORT uint64_t cuda_hmax(size_t, const uint64_t *);
-template ENOKI_EXPORT float    cuda_hmax(size_t, const float *);
-template ENOKI_EXPORT double   cuda_hmax(size_t, const double *);
+template ENOKI_EXPORT int32_t*  cuda_hmax(size_t, const int32_t *);
+template ENOKI_EXPORT uint32_t* cuda_hmax(size_t, const uint32_t *);
+template ENOKI_EXPORT int64_t*  cuda_hmax(size_t, const int64_t *);
+template ENOKI_EXPORT uint64_t* cuda_hmax(size_t, const uint64_t *);
+template ENOKI_EXPORT float*    cuda_hmax(size_t, const float *);
+template ENOKI_EXPORT double*   cuda_hmax(size_t, const double *);
 
-template ENOKI_EXPORT int32_t  cuda_hmin(size_t, const int32_t *);
-template ENOKI_EXPORT uint32_t cuda_hmin(size_t, const uint32_t *);
-template ENOKI_EXPORT int64_t  cuda_hmin(size_t, const int64_t *);
-template ENOKI_EXPORT uint64_t cuda_hmin(size_t, const uint64_t *);
-template ENOKI_EXPORT float    cuda_hmin(size_t, const float *);
-template ENOKI_EXPORT double   cuda_hmin(size_t, const double *);
+template ENOKI_EXPORT int32_t*  cuda_hmin(size_t, const int32_t *);
+template ENOKI_EXPORT uint32_t* cuda_hmin(size_t, const uint32_t *);
+template ENOKI_EXPORT int64_t*  cuda_hmin(size_t, const int64_t *);
+template ENOKI_EXPORT uint64_t* cuda_hmin(size_t, const uint64_t *);
+template ENOKI_EXPORT float*    cuda_hmin(size_t, const float *);
+template ENOKI_EXPORT double*   cuda_hmin(size_t, const double *);
 
 template ENOKI_EXPORT void cuda_compress(size_t, const bool *,     const bool *mask, bool     **out_ptr, size_t *out_size);
 template ENOKI_EXPORT void cuda_compress(size_t, const int32_t *,  const bool *mask, int32_t  **out_ptr, size_t *out_size);

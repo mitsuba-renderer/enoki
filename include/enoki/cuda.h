@@ -89,16 +89,16 @@ extern ENOKI_IMPORT void cuda_trace_printf(const char *fmt, uint32_t narg,
                                            uint32_t *arg);
 
 /// Computes the horizontal sum of a given memory region
-template <typename T> extern ENOKI_IMPORT T cuda_hsum(size_t, const T *);
+template <typename T> extern ENOKI_IMPORT T* cuda_hsum(size_t, const T *);
 
 /// Computes the horizontal product of a given memory region
-template <typename T> extern ENOKI_IMPORT T cuda_hprod(size_t, const T *);
+template <typename T> extern ENOKI_IMPORT T* cuda_hprod(size_t, const T *);
 
 /// Computes the horizontal maximum of a given memory region
-template <typename T> extern ENOKI_IMPORT T cuda_hmax(size_t, const T *);
+template <typename T> extern ENOKI_IMPORT T* cuda_hmax(size_t, const T *);
 
 /// Computes the horizontal minimum of a given memory region
-template <typename T> extern ENOKI_IMPORT T cuda_hmin(size_t, const T *);
+template <typename T> extern ENOKI_IMPORT T* cuda_hmin(size_t, const T *);
 
 /// Compute the number of entries set to 'true'
 extern ENOKI_IMPORT size_t cuda_count(size_t, const bool *);
@@ -117,14 +117,14 @@ extern ENOKI_IMPORT bool cuda_any(size_t, const bool *);
 extern ENOKI_IMPORT size_t cuda_partition(size_t size, const void **ptrs,
                                           void ***unique_out,
                                           uint32_t **counts_out,
-                                          uint32_t **perm_out);
+                                          uint32_t ***perm_out);
 
 extern ENOKI_IMPORT uint32_t cuda_var_copy_to_device(EnokiType type,
                                                      size_t size, const void *value);
 
 /// Register a memory region (in device memory) as a variable
 extern ENOKI_IMPORT uint32_t cuda_var_register(EnokiType type, size_t size,
-                                               void *ptr, bool dealloc, int dep = 0);
+                                               void *ptr, bool dealloc);
 
 /// Fetch a scalar value from a CUDA array (in device memory)
 extern ENOKI_IMPORT void cuda_fetch_element(void *, uint32_t, size_t, size_t);
@@ -181,6 +181,7 @@ extern void cuda_unregister_callback(void (*callback)(void *), void *payload);
  * 2: +ptxas statistics, 3: +ptx source, 4: +jit trace, 5: +ref counting)
  */
 extern ENOKI_IMPORT void cuda_set_log_level(uint32_t);
+extern ENOKI_IMPORT uint32_t cuda_log_level();
 
 //! @}
 // -----------------------------------------------------------------------
@@ -640,24 +641,32 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
                 Type, size, cuda_malloc_fill(size, memcpy_cast<uint_array_t<Value>>(value)), true));
     }
 
-    Value hsum_() const {
+    CUDAArray hsum_() const {
         cuda_eval_var(m_index);
-        return cuda_hsum(cuda_var_size(m_index), (const Value *) cuda_var_ptr(m_index));
+        Value *result = cuda_hsum(cuda_var_size(m_index),
+                               (const Value *) cuda_var_ptr(m_index));
+        return CUDAArray::from_index_(cuda_var_register(Type, 1, result, true));
     }
 
-    Value hprod_() const {
+    CUDAArray hprod_() const {
         cuda_eval_var(m_index);
-        return cuda_hprod(cuda_var_size(m_index), (const Value *) cuda_var_ptr(m_index));
+        Value *result = cuda_hprod(cuda_var_size(m_index),
+                               (const Value *) cuda_var_ptr(m_index));
+        return CUDAArray::from_index_(cuda_var_register(Type, 1, result, true));
     }
 
-    Value hmax_() const {
+    CUDAArray hmax_() const {
         cuda_eval_var(m_index);
-        return cuda_hmax(cuda_var_size(m_index), (const Value *) cuda_var_ptr(m_index));
+        Value *result = cuda_hmax(cuda_var_size(m_index),
+                               (const Value *) cuda_var_ptr(m_index));
+        return CUDAArray::from_index_(cuda_var_register(Type, 1, result, true));
     }
 
-    Value hmin_() const {
+    CUDAArray hmin_() const {
         cuda_eval_var(m_index);
-        return cuda_hmin(cuda_var_size(m_index), (const Value *) cuda_var_ptr(m_index));
+        Value *result = cuda_hmin(cuda_var_size(m_index),
+                               (const Value *) cuda_var_ptr(m_index));
+        return CUDAArray::from_index_(cuda_var_register(Type, 1, result, true));
     }
 
     bool all_() const {
@@ -689,27 +698,24 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
         void **unique = nullptr;
         uint32_t *counts = nullptr;
-        uint32_t *perm = nullptr;
-        size_t n = size();
+        uint32_t **perm = nullptr;
 
-        size_t num_unique = cuda_partition(n, (const void **) data(),
+        size_t num_unique = cuda_partition(size(), (const void **) data(),
                                            &unique, &counts, &perm);
 
         std::vector<std::pair<Value, CUDAArray<uint32_t>>> result;
-        result.reserve(num_unique + 1);
-        uint32_t parent = cuda_var_register(EnokiType::UInt32, n, perm, true);
-        result.emplace_back(nullptr, CUDAArray<uint32_t>::from_index_(parent));
+        result.reserve(num_unique);
 
-        for (size_t i = 0; i< num_unique; ++i) {
+        for (size_t i = 0; i < num_unique; ++i) {
             result.emplace_back(
                 (Value) unique[i],
                 CUDAArray<uint32_t>::from_index_(cuda_var_register(
-                    EnokiType::UInt32, counts[i], perm, false, parent)));
-            perm += counts[i];
+                    EnokiType::UInt32, counts[i], perm[i], true)));
         }
 
         free(unique);
         free(counts);
+        free(perm);
 
         return result;
     }

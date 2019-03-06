@@ -97,6 +97,7 @@ private:
     std::string graphviz(const std::vector<Index> &indices);
     /// Current log level (0 == none, 1 == minimal, 2 == moderate, 3 == high, 4 == everything)
     void set_log_level(uint32_t);
+    uint32_t log_level() const;
     void set_graph_simplification(bool);
     void simplify_graph();
     std::string whos() const;
@@ -1207,6 +1208,14 @@ public:
             tape()->set_log_level(level);
     }
 
+    static uint32_t log_level_() {
+        if constexpr (Enabled)
+            return tape()->log_level();
+        else
+            return 0;
+    }
+
+
     static void set_graph_simplification_(uint32_t level) {
         if constexpr (Enabled)
             tape()->set_graph_simplification(level);
@@ -1313,25 +1322,52 @@ template <typename T> auto forward(const T& in, T &out, bool free_graph = true) 
         throw std::runtime_error("forward(): first (input) argument must be a scalar array!");
 
     using Array = typename T::UnderlyingType;
+    using UInt32 = uint32_array_t<Array>;
+    using Scalar = scalar_t<Array>;
     T::simplify_graph_();
 
     Array result      = zero<Array>(out.size()),
-          output_grad = zero<Array>(out.size()),
           one         = 1.f,
           zero        = 0.f;
 
-    uint32_array_t<Array> idx = 0;
+#if 0
+    uint32_t cuda_ll = 0;
+    ENOKI_MARK_USED(cuda_ll);
 
+    if constexpr (is_cuda_array_v<Array>) {
+        cuda_ll = cuda_log_level();
+        cuda_set_log_level(0);
+    }
 
-    for (size_t i = 0; i < out.size(); ++i) {
-        std::cout << "Iteration " << i << std::endl;
-        scatter(output_grad, one, idx);
+    uint32_t autodiff_ll = T::log_level_();
+    T::set_log_level_(0);
+#endif
+
+    for (uint32_t i = 0; i < (uint32_t) out.size(); ++i) {
+        printf("\renoki::forward(): iteration %u / %u..", i + 1u, (uint32_t) out.size());
+
+        Array output_grad;
+        UInt32 idx;
+        if constexpr (is_cuda_array_v<Array>) {
+            output_grad = Array::map(cuda_malloc_one_hot(
+                out.size(), i, memcpy_cast<uint_array_t<Scalar>>((Scalar) 1)), out.size(), true);
+            idx = UInt32::copy(&i, 1);
+        } else {
+            idx = i;
+            output_grad = select(eq(enoki::arange<UInt32>((uint32_t) out.size()), idx),
+                       UInt32(1), UInt32(0));
+        }
         out.set_gradient_(output_grad, true);
         T::backward_static_((i == out.size() - 1) ? free_graph : false);
         scatter(result, gradient(in), idx);
-        scatter(output_grad, zero, idx);
-        idx += 1;
     }
+    printf("\n");
+
+#if 0
+    if constexpr (is_cuda_array_v<Array>)
+        cuda_set_log_level(cuda_ll);
+    T::set_log_level_(autodiff_ll);
+#endif
 
     return result;
 }
