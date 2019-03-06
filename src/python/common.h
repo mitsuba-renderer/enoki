@@ -705,8 +705,11 @@ ENOKI_NOINLINE Array numpy_to_enoki(py::array src) {
     py::object dtype_obj = src.attr("dtype");
     py::object target_dtype = py::dtype::of<Scalar>();
 
-    if (shape_obj.size() != Depth || !dtype_obj.is(target_dtype))
+    if (shape_obj.size() != Depth)
         throw py::reference_cast_error();
+
+    if (!dtype_obj.is(target_dtype))
+        src = py::array_t<Scalar, py::array::forcecast>::ensure(src);
 
     auto shape = py::cast<std::array<size_t, Depth>>(shape_obj);
     auto strides = py::cast<std::array<size_t, Depth>>(src.attr("strides"));
