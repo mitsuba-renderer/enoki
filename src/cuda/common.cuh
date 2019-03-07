@@ -44,7 +44,9 @@ inline uint32_t next_power_of_two(uint32_t n) {
 extern void* cuda_malloc(size_t size);
 extern void* cuda_managed_malloc(size_t size);
 extern void* cuda_host_malloc(size_t size);
+extern void cuda_free(void *p, cudaStream_t stream);
 extern void cuda_free(void *p);
+extern void cuda_host_free(void *p, cudaStream_t stream);
 extern void cuda_host_free(void *p);
 extern void cuda_malloc_trim();
 extern void cuda_sync();

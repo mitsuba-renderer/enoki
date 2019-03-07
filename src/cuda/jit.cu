@@ -27,14 +27,20 @@
 #include <mutex>
 #include "common.cuh"
 
-/// Reserved registers for grid-stride loop indexing
-#define ENOKI_CUDA_REG_RESERVED 10
+/// Should the implementation use streams to schedule kernels in parallel if possible?
+#define ENOKI_CUDA_USE_STREAMS 1
+
+/// Synchronize with the device after each kernel launch (useful for debugging)
+#define ENOKI_CUDA_LAUNCH_BLOCKING 0
 
 #if defined(NDEBUG)
 #  define ENOKI_CUDA_DEFAULT_LOG_LEVEL 0
 #else
 #  define ENOKI_CUDA_DEFAULT_LOG_LEVEL 1
 #endif
+
+/// Reserved registers for grid-stride loop indexing
+#define ENOKI_CUDA_REG_RESERVED 10
 
 NAMESPACE_BEGIN(enoki)
 
@@ -103,36 +109,22 @@ struct Variable {
 
 void cuda_shutdown();
 
+#if ENOKI_CUDA_USE_STREAMS == 1
 struct Stream {
     cudaStream_t stream = nullptr;
     cudaEvent_t event = nullptr;
-    void *args_device = nullptr;
-    void *args_host = nullptr;
-    size_t nargs = 0;
 
     void init() {
-        nargs = 1000;
         cuda_check(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
         cuda_check(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
-        args_device = cuda_malloc(sizeof(void *) * nargs);
-        args_host = cuda_host_malloc(sizeof(void *) * nargs);
     }
 
     void release() {
-        cuda_host_free(args_host);
-        cuda_free(args_device);
         cuda_check(cudaEventDestroy(event));
         cuda_check(cudaStreamDestroy(stream));
     }
-
-    void resize(size_t size) {
-        cuda_host_free(args_host);
-        cuda_free(args_device);
-        nargs = size;
-        args_device = cuda_malloc(sizeof(void *) * nargs);
-        args_host = cuda_host_malloc(sizeof(void *) * nargs);
-    }
 };
+#endif
 
 enum MallocType { Normal, Managed, Host };
 
@@ -176,14 +168,17 @@ struct Context {
     /// Include printf function declaration in PTX assembly?
     bool include_printf = false;
 
-    /// Streams for parallel execution
-    std::vector<Stream> streams;
 
     /// Hash table of previously compiled kernels
     std::unordered_map<std::string, std::pair<CUmodule, CUfunction>, StringHasher> kernels;
 
-    /// Event on default stream
-    cudaEvent_t stream_0_event = nullptr;
+    #if ENOKI_CUDA_USE_STREAMS == 1
+        /// Streams for parallel execution
+        std::vector<Stream> streams;
+
+        /// Event on default stream
+        cudaEvent_t stream_0_event = nullptr;
+    #endif
 
     /// Default thread and block count for kernels
     uint32_t block_count = 0, thread_count = 0;
@@ -234,13 +229,16 @@ struct Context {
         scatter_gather_operand = 0;
         include_printf = false;
 
-        for (Stream &stream : streams)
-            stream.release();
-        streams.clear();
-        if (stream_0_event) {
-            cuda_check(cudaEventDestroy(stream_0_event));
-            stream_0_event = nullptr;
-        }
+        #if ENOKI_CUDA_USE_STREAMS == 1
+            for (Stream &stream : streams)
+                stream.release();
+            streams.clear();
+            if (stream_0_event) {
+                cuda_check(cudaEventDestroy(stream_0_event));
+                stream_0_event = nullptr;
+            }
+        #endif
+
         for (auto &kv : kernels)
             cuda_check(cuModuleUnload(kv.second.first));
         kernels.clear();
@@ -281,10 +279,13 @@ ENOKI_EXPORT void cuda_init() {
     while (ctx.variables.size() != ENOKI_CUDA_REG_RESERVED)
         ctx.append(EnokiType::UInt32);
 
-    ctx.streams.resize(5);
-    for (size_t i = 0; i < 5; ++i)
-        ctx.streams[i].init();
-    cuda_check(cudaEventCreateWithFlags(&ctx.stream_0_event, cudaEventDisableTiming));
+    #if ENOKI_CUDA_USE_STREAMS == 1
+        ctx.streams.resize(5);
+        for (size_t i = 0; i < 5; ++i)
+            ctx.streams[i].init();
+        cuda_check(cudaEventCreateWithFlags(&ctx.stream_0_event, cudaEventDisableTiming));
+    #endif
+
     ctx.kernels.reserve(1000);
 
     int device, num_sm;
@@ -1103,9 +1104,9 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
 
 ENOKI_EXPORT void cuda_jit_run(Context &ctx,
                                std::string &&source_,
-                               const std::vector<void *> &ptrs_,
+                               const std::vector<void *> &ptrs,
                                uint32_t size,
-                               Stream &stream,
+                               uint32_t stream_idx,
                                TimePoint start,
                                TimePoint mid) {
     if (source_.empty())
@@ -1199,13 +1200,20 @@ ENOKI_EXPORT void cuda_jit_run(Context &ctx,
         cuda_check(cuLinkDestroy(link_state));
     }
 
-    if (ptrs_.size() > stream.nargs)
-        stream.resize(ptrs_.size());
+    cudaStream_t cuda_stream = nullptr;
+    #if ENOKI_CUDA_USE_STREAMS == 1
+        cuda_stream = ctx.streams[stream_idx].stream;
+    #endif
 
-    memcpy(stream.args_host, ptrs_.data(), ptrs_.size() * sizeof(void*));
-    cuda_check(cudaMemcpyAsync(stream.args_device, stream.args_host,
-                               ptrs_.size() * sizeof(void *),
-                               cudaMemcpyHostToDevice, stream.stream));
+    size_t total_size = ptrs.size() * sizeof(void*);
+
+    void *host_args   = cuda_host_malloc(total_size),
+         *device_args = cuda_malloc(total_size);
+
+    memcpy(host_args, ptrs.data(), total_size);
+
+    cuda_check(cudaMemcpyAsync(device_args, host_args, total_size,
+                               cudaMemcpyHostToDevice, cuda_stream));
 
     uint32_t thread_count = ctx.thread_count,
              block_count = ctx.block_count;
@@ -1213,9 +1221,16 @@ ENOKI_EXPORT void cuda_jit_run(Context &ctx,
     if (size == 1)
         thread_count = block_count = 1;
 
-    void *args[2] = { &stream.args_device, &size };
+    void *args[2] = { &device_args, &size };
     cuda_check(cuLaunchKernel(kernel, block_count, 1, 1, thread_count,
-                              1, 1, 0, stream.stream, args, nullptr));
+                              1, 1, 0, cuda_stream, args, nullptr));
+
+    cuda_host_free(host_args, cuda_stream);
+    cuda_free(device_args, cuda_stream);
+
+    #if ENOKI_CUDA_LAUNCH_BLOCKING == 1
+        cuda_check(cudaStreamSynchronize(cuda_stream));
+    #endif
 }
 
 static void sweep_recursive(Context &ctx,
@@ -1278,15 +1293,19 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
     if (ctx.log_level >= 2 && sweeps.size() > 1)
         std::cerr << "cuda_eval(): begin parallel group" << std::endl;
 
-    cuda_check(cudaEventRecord(ctx.stream_0_event, nullptr));
+    #if ENOKI_CUDA_USE_STREAMS == 1
+        cuda_check(cudaEventRecord(ctx.stream_0_event, nullptr));
+    #endif
 
-    size_t ctr = 0;
+    size_t stream_idx = 0;
     for (auto it = sweeps.rbegin(); it != sweeps.rend(); ++it) {
         size_t size = std::get<0>(*it);
         const std::vector<uint32_t> &schedule = std::get<1>(std::get<1>(*it));
 
-        Stream &stream = ctx.streams[ctr++];
-        cudaStreamWaitEvent(stream.stream, ctx.stream_0_event, 0);
+        #if ENOKI_CUDA_USE_STREAMS == 1
+            Stream &stream = ctx.streams[stream_idx];
+            cuda_check(cudaStreamWaitEvent(stream.stream, ctx.stream_0_event, 0));
+        #endif
 
         TimePoint start = std::chrono::high_resolution_clock::now();
         auto result = cuda_jit_assemble(size, schedule, ctx.include_printf);
@@ -1297,10 +1316,14 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
         cuda_jit_run(ctx,
                      std::move(std::get<0>(result)),
                      std::get<1>(result),
-                     size, stream, start, mid);
+                     size, stream_idx, start, mid);
 
-        cuda_check(cudaEventRecord(stream.event, stream.stream));
-        cuda_check(cudaStreamWaitEvent(nullptr, stream.event, 0));
+        #if ENOKI_CUDA_USE_STREAMS == 1
+            cuda_check(cudaEventRecord(stream.event, stream.stream));
+            cuda_check(cudaStreamWaitEvent(nullptr, stream.event, 0));
+        #endif
+
+        stream_idx++;
     }
     ctx.include_printf = false;
 
@@ -1494,8 +1517,7 @@ ENOKI_EXPORT void cuda_sync() {
 }
 
 size_t malloc_round(size_t x) {
-    /* Round to next higher power of two, and don't bother allocating less than
-       512 bytes (the minimum for alignment purposes) */
+    /* Round to next higher power of two */
     x -= 1;
     x |= x >> 1;
     x |= x >> 2;
@@ -1633,12 +1655,12 @@ ENOKI_EXPORT void* cuda_host_malloc(size_t size) {
     return ptr;
 }
 
-ENOKI_EXPORT void cuda_free(void *ptr) {
+ENOKI_EXPORT void cuda_free(void *ptr, cudaStream_t stream) {
     if (ptr == nullptr)
         return;
 
     cudaStreamAddCallback(
-        nullptr, [](cudaStream_t stream, cudaError_t status, void *data) {
+        stream, [](cudaStream_t stream, cudaError_t status, void *data) {
             Context &ctx = context();
             std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
             auto it = ctx.used_map.find(data);
@@ -1660,12 +1682,16 @@ ENOKI_EXPORT void cuda_free(void *ptr) {
     );
 }
 
-ENOKI_EXPORT void cuda_host_free(void *ptr) {
+ENOKI_EXPORT void cuda_free(void *ptr) {
+    cuda_free(ptr, nullptr);
+}
+
+ENOKI_EXPORT void cuda_host_free(void *ptr, cudaStream_t stream) {
     if (ptr == nullptr)
         return;
 
     cudaStreamAddCallback(
-        nullptr, [](cudaStream_t stream, cudaError_t status, void *data) {
+        stream, [](cudaStream_t stream, cudaError_t status, void *data) {
             Context &ctx = context();
             std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
             auto it = ctx.used_map.find(data);
@@ -1685,6 +1711,10 @@ ENOKI_EXPORT void cuda_host_free(void *ptr) {
         },
         ptr, 0
     );
+}
+
+ENOKI_EXPORT void cuda_host_free(void *ptr) {
+    cuda_host_free(ptr, nullptr);
 }
 
 NAMESPACE_END(enoki)

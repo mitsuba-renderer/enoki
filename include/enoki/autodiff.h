@@ -1330,7 +1330,6 @@ template <typename T> auto forward(const T& in, T &out, bool free_graph = true) 
           one         = 1.f,
           zero        = 0.f;
 
-#if 0
     uint32_t cuda_ll = 0;
     ENOKI_MARK_USED(cuda_ll);
 
@@ -1341,33 +1340,35 @@ template <typename T> auto forward(const T& in, T &out, bool free_graph = true) 
 
     uint32_t autodiff_ll = T::log_level_();
     T::set_log_level_(0);
-#endif
 
+    UInt32 idx = 0;
     for (uint32_t i = 0; i < (uint32_t) out.size(); ++i) {
-        printf("\renoki::forward(): iteration %u / %u..", i + 1u, (uint32_t) out.size());
+        if (((i + 1) % 100) == 0) {
+            fprintf(stderr, "\renoki::forward(): iteration %u / %u ..", i + 1u, (uint32_t) out.size());
+            fflush(stderr);
+        }
 
         Array output_grad;
-        UInt32 idx;
         if constexpr (is_cuda_array_v<Array>) {
             output_grad = Array::map(cuda_malloc_one_hot(
                 out.size(), i, memcpy_cast<uint_array_t<Scalar>>((Scalar) 1)), out.size(), true);
             idx = UInt32::copy(&i, 1);
         } else {
-            idx = i;
             output_grad = select(eq(enoki::arange<UInt32>((uint32_t) out.size()), idx),
                        UInt32(1), UInt32(0));
         }
         out.set_gradient_(output_grad, true);
         T::backward_static_((i == out.size() - 1) ? free_graph : false);
         scatter(result, gradient(in), idx);
-    }
-    printf("\n");
 
-#if 0
+        if constexpr (!is_cuda_array_v<Array>)
+            idx += 1;
+    }
+    fprintf(stderr, "\renoki::forward(): iteration %u / %u.. done.\n", (uint32_t) out.size(), (uint32_t) out.size());
+
     if constexpr (is_cuda_array_v<Array>)
         cuda_set_log_level(cuda_ll);
     T::set_log_level_(autodiff_ll);
-#endif
 
     return result;
 }
