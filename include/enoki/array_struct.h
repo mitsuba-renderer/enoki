@@ -67,9 +67,6 @@ ENOKI_INLINE void scatter(Target &target,
             cuda_set_scatter_gather_operand(target.index_());
         }
 
-        if (target.size() <= 1 && value.size() > 1)
-            throw std::runtime_error("scatter(): target array has invalid size!");
-
         scatter<Stride, Packed>(target.data(), value, index, mask);
 
         if constexpr (is_diff_array_v<Target>) {
@@ -103,9 +100,6 @@ ENOKI_INLINE void scatter_add(Target &target,
         } else if constexpr (is_cuda_array_v<Target>) {
             cuda_set_scatter_gather_operand(target.index_());
         }
-
-        if (target.size() <= 1 && value.size() > 1)
-            throw std::runtime_error("scatter_add(): target array has invalid size!");
 
         scatter_add<Stride>(target.data(), value, index, mask);
 

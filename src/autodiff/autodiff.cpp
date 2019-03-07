@@ -739,10 +739,8 @@ void Tape<Value>::backward(bool free_graph) {
         Node &target = d->node(target_idx);
 
         if constexpr (is_dynamic_v<Value>) {
-            if (ENOKI_UNLIKELY(target.is_scalar() && target.grad.size() > 1)) {
-                assert(false); // this should never happen
+            if (ENOKI_UNLIKELY(target.is_scalar() && target.grad.size() > 1))
                 target.grad = hsum(target.grad);
-            }
         }
 
         for (Edge &edge : target.edges) {
@@ -750,10 +748,16 @@ void Tape<Value>::backward(bool free_graph) {
             if (ENOKI_LIKELY(!edge.is_special())) {
                 if constexpr (is_dynamic_v<Value>) {
                     if (source.size == 1 && (edge.weight.size() != 1 || target.grad.size() != 1)) {
+#if 0
                         if (source.grad.empty())
                             source.grad = hsum(safe_mul(edge.weight, target.grad));
                         else
                             source.grad += hsum(safe_mul(edge.weight, target.grad));
+#else
+                        if (source.grad.empty())
+                            source.grad = zero<Value>();
+                        scatter_add(source.grad, safe_mul(edge.weight, target.grad), 0);
+#endif
                     } else {
                         if (source.grad.empty())
                             source.grad = safe_mul(edge.weight, target.grad);
@@ -766,10 +770,8 @@ void Tape<Value>::backward(bool free_graph) {
             } else {
                 edge.special->compute_gradients(d, target_idx, edge);
                 if constexpr (is_dynamic_v<Value>) {
-                    if (source.size == 1 && source.grad.size() > 1) {
-                        assert(false); // this should never happen
+                    if (ENOKI_UNLIKELY(source.size == 1 && source.grad.size() > 1))
                         source.grad = hsum(source.grad);
-                    }
                 }
             }
             if (free_graph) {
@@ -833,7 +835,7 @@ template <typename Value> void Tape<Value>::simplify_graph() {
             for (const Edge &edge : node.edges) {
                 const Node &node2 = d->node(edge.source);
                 update.emplace_back(node2.score(), edge.source);
-                if (node2.size != node.size || edge.is_special())
+                if ((node.size == 1 && (node2.size != node.size)) || edge.is_special())
                     skip = true;
             }
         }

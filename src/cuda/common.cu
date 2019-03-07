@@ -109,6 +109,23 @@ ENOKI_EXPORT void cuda_memcpy_from_device_async(void *dst, const void *src, size
     cuda_check(cudaMemcpyAsync(dst, src, size, cudaMemcpyDeviceToHost));
 }
 
+ENOKI_EXPORT void* cuda_malloc_copy(size_t size, const void *data) {
+    void *result = cuda_malloc(size);
+    switch (size) {
+        case 1: set_value<<<1,1>>>((uint8_t *) result, 0, *((uint8_t *) data)); break;
+        case 2: set_value<<<1,1>>>((uint16_t *) result, 0, *((uint16_t *) data)); break;
+        case 4: set_value<<<1,1>>>((uint32_t *) result, 0, *((uint32_t *) data)); break;
+        case 8: set_value<<<1,1>>>((uint64_t *) result, 0, *((uint64_t *) data)); break;
+        default: {
+            void *tmp = cuda_host_malloc(size);
+            memcpy(tmp, data, size);
+            cuda_check(cudaMemcpyAsync(result, tmp, size, cudaMemcpyHostToDevice));
+            cuda_host_free(tmp);
+        }
+    }
+    return result;
+}
+
 ENOKI_EXPORT void* cuda_malloc_one_hot(size_t size, size_t entry, uint8_t value) {
     uint8_t *result = (uint8_t *) cuda_malloc_zero(size * sizeof(uint8_t));
     set_value<<<1,1>>>(result, entry, value);

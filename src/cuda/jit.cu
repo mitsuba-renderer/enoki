@@ -376,17 +376,8 @@ ENOKI_EXPORT uint32_t cuda_var_register(EnokiType type, size_t size,
 
 ENOKI_EXPORT uint32_t cuda_var_copy_to_device(EnokiType type, size_t size,
                                               const void *value) {
-    size_t total_size = size * cuda_register_size(type);
-
-    void *tmp        = cuda_host_malloc(total_size),
-         *device_ptr = cuda_malloc(total_size);
-
-    memcpy(tmp, value, total_size);
-    cuda_check(cudaMemcpyAsync(device_ptr, tmp, total_size,
-                               cudaMemcpyHostToDevice));
-
-    cuda_host_free(tmp);
-    return cuda_var_register(type, size, device_ptr, true);
+    void *ptr = cuda_malloc_copy(size * cuda_register_size(type), value);
+    return cuda_var_register(type, size, ptr, true);
 }
 
 ENOKI_EXPORT void cuda_var_free(uint32_t idx) {
