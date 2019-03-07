@@ -95,6 +95,9 @@ struct Variable {
     /// Free 'data' after this variable is no longer referenced?
     bool free = true;
 
+    /// Optimization: is this a direct pointer (rather than an array which stores a pointer?)
+    bool direct_pointer = false;
+
     /// Size of the (heuristic for instruction scheduling)
     uint32_t subtree_size = 0;
 
@@ -155,6 +158,9 @@ struct Context {
 
     /// Stores the mapping from variable indices to variables
     std::unordered_map<uint32_t, Variable> variables;
+
+    /// Stores the mapping from pointer addresses to variable indices
+    std::unordered_map<const void *, uint32_t> ptr_map;
 
     /// Current operand array for scatter/gather
     uint32_t scatter_gather_operand = 0;
@@ -366,7 +372,6 @@ ENOKI_EXPORT uint32_t cuda_var_register(EnokiType type, size_t size,
                   << ", size=" << size << ", free=" << free << std::endl;
 #endif
     Variable &v = ctx.append(type);
-    v.cmd = "";
     v.data = ptr;
     v.size = size;
     v.free = free;
@@ -374,10 +379,43 @@ ENOKI_EXPORT uint32_t cuda_var_register(EnokiType type, size_t size,
     return idx;
 }
 
+ENOKI_EXPORT uint32_t cuda_var_register_ptr(const void *ptr) {
+    Context &ctx = context();
+    auto it = ctx.ptr_map.find(ptr);
+    if (it != ctx.ptr_map.end()) {
+        cuda_inc_ref_ext(it->second);
+        return it->second;
+    }
+
+    uint32_t idx = ctx.ctr;
+#if !defined(NDEBUG)
+    if (ctx.log_level >= 4)
+        std::cerr << "cuda_var_register_ptr(" << idx << "): " << ptr
+                  << std::endl;
+#endif
+    Variable &v = ctx.append(EnokiType::Pointer);
+    v.data = (void *) ptr;
+    v.size = 1;
+    v.free = false;
+    v.direct_pointer = true;
+    cuda_inc_ref_ext(idx);
+    ctx.ptr_map[ptr] = idx;
+    return idx;
+}
+
 ENOKI_EXPORT uint32_t cuda_var_copy_to_device(EnokiType type, size_t size,
                                               const void *value) {
-    void *ptr = cuda_malloc_copy(size * cuda_register_size(type), value);
-    return cuda_var_register(type, size, ptr, true);
+    size_t total_size = size * cuda_register_size(type);
+
+    void *tmp        = cuda_host_malloc(total_size),
+         *device_ptr = cuda_malloc(total_size);
+
+    memcpy(tmp, value, total_size);
+    cuda_check(cudaMemcpyAsync(device_ptr, tmp, total_size,
+                               cudaMemcpyHostToDevice));
+
+    cuda_host_free(tmp);
+    return cuda_var_register(type, size, device_ptr, true);
 }
 
 ENOKI_EXPORT void cuda_var_free(uint32_t idx) {
@@ -391,6 +429,11 @@ ENOKI_EXPORT void cuda_var_free(uint32_t idx) {
         std::cerr << std::endl;
     }
 #endif
+    if (v.direct_pointer) {
+        auto it = ctx.ptr_map.find(v.data);
+        assert(it != ctx.ptr_map.end());
+        ctx.ptr_map.erase(it);
+    }
     for (int i = 0; i < 3; ++i)
         cuda_dec_ref_int(v.dep[i]);
     cuda_dec_ref_ext(v.extra_dep);
@@ -530,19 +573,16 @@ ENOKI_EXPORT void cuda_dec_ref_ext(uint32_t index) {
         return;
     Variable &v = ctx[index];
 
-#if !defined(NDEBUG)
-    if (v.ref_count_ext == 0)
-        throw std::runtime_error("cuda_dec_ref_ext(): Node " +
-                                 std::to_string(index) +
-                                 " has no external references!");
+    if (ENOKI_UNLIKELY(v.ref_count_ext == 0)) {
+        fprintf(stderr, "cuda_dec_ref_ext(): Node %u has no external references!\n", index);
+        exit(EXIT_FAILURE);
+    }
 
+#if !defined(NDEBUG)
     if (ctx.log_level >= 5)
         std::cerr << "cuda_dec_ref_ext(" << index << ") -> "
                   << (v.ref_count_ext - 1) << std::endl;
 #endif
-
-    if (v.ref_count_ext == 0)
-        throw std::runtime_error("cuda_dec_ref_ext(): Negative reference count!");
 
     v.ref_count_ext--;
 
@@ -559,12 +599,12 @@ ENOKI_EXPORT void cuda_dec_ref_int(uint32_t index) {
     Context &ctx = context();
     Variable &v = ctx[index];
 
-#if !defined(NDEBUG)
-    if (v.ref_count_int == 0)
-        throw std::runtime_error("cuda_dec_ref_int(): Node " +
-                                 std::to_string(index) +
-                                 " has no internal references!");
+    if (ENOKI_UNLIKELY(v.ref_count_int == 0)) {
+        fprintf(stderr, "cuda_dec_ref_int(): Node %u has no internal references!\n", index);
+        exit(EXIT_FAILURE);
+    }
 
+#if !defined(NDEBUG)
     if (ctx.log_level >= 5)
         std::cerr << "cuda_dec_ref_int(" << index << ") -> "
                   << (v.ref_count_int - 1) << std::endl;
@@ -984,9 +1024,9 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
     for (uint32_t index : sweep) {
         Variable &var = ctx[index];
 
-        if (var.is_collected() || (var.cmd.empty() && var.data == nullptr))
+        if (var.is_collected() || (var.cmd.empty() && var.data == nullptr && !var.direct_pointer))
             throw std::runtime_error(
-                "CUDABackend: found invalid/expired variable in schedule! " + std::to_string(index));
+                "CUDABackend: found invalid/expired variable " + std::to_string(index) + " in schedule! ");
 
         if (var.size != 1 && var.size != size)
             throw std::runtime_error(
@@ -994,7 +1034,7 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
                 std::to_string(size) + " vs " + std::to_string(var.size) + ")");
 
         oss << std::endl;
-        if (var.data) {
+        if (var.data || var.direct_pointer) {
             size_t idx = ptrs.size();
             ptrs.push_back(var.data);
 
@@ -1002,21 +1042,28 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
                 << "    // Load register " << cuda_register_name(var.type) << reg_map[index];
             if (!var.label.empty())
                 oss << ": " << var.label;
-            oss << std::endl
-                << "    ldu.global.u64 %rd8, [%rd0 + " << idx * 8 << "];" << std::endl;
-            const char *load_instr = "ldu";
-            if (var.size != 1) {
-                oss << "    mul.wide.u32 %rd9, %r2, " << cuda_register_size(var.type) << ";" << std::endl
-                    << "    add.u64 %rd8, %rd8, %rd9;" << std::endl;
-                load_instr = "ld";
-            }
-            if (var.type != EnokiType::Bool) {
-                oss << "    " << load_instr << ".global." << cuda_register_type(var.type) << " "
-                    << cuda_register_name(var.type) << reg_map[index] << ", [%rd8]"
-                    << ";" << std::endl;
+            oss << std::endl;
+
+            if (!var.direct_pointer) {
+                oss << "    ldu.global.u64 %rd8, [%rd0 + " << idx * 8 << "];" << std::endl;
+                const char *load_instr = "ldu";
+                if (var.size != 1) {
+                    oss << "    mul.wide.u32 %rd9, %r2, " << cuda_register_size(var.type) << ";" << std::endl
+                        << "    add.u64 %rd8, %rd8, %rd9;" << std::endl;
+                    load_instr = "ld";
+                }
+                if (var.type != EnokiType::Bool) {
+                    oss << "    " << load_instr << ".global." << cuda_register_type(var.type) << " "
+                        << cuda_register_name(var.type) << reg_map[index] << ", [%rd8]"
+                        << ";" << std::endl;
+                } else {
+                    oss << "    " << load_instr << ".global.u8 %w1, [%rd8];" << std::endl
+                        << "    setp.ne.u16 " << cuda_register_name(var.type) << reg_map[index] << ", %w1, 0;";
+                }
             } else {
-                oss << "    " << load_instr << ".global.u8 %w1, [%rd8];" << std::endl
-                    << "    setp.ne.u16 " << cuda_register_name(var.type) << reg_map[index] << ", %w1, 0;";
+                oss << "    ldu.global.u64 " << cuda_register_name(var.type)
+                    << reg_map[index] << ", [%rd0 + " << idx * 8 << "];"
+                    << std::endl;
             }
             n_in++;
         } else {

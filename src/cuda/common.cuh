@@ -50,7 +50,6 @@ extern void cuda_host_free(void *p, cudaStream_t stream);
 extern void cuda_host_free(void *p);
 extern void cuda_malloc_trim();
 extern void cuda_sync();
-extern void* cuda_malloc_copy(size_t size, const void *data);
 void cuda_eval(bool log_assembly = false);
 
 extern std::string mem_string(size_t size);

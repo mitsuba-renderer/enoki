@@ -119,8 +119,12 @@ extern ENOKI_IMPORT size_t cuda_partition(size_t size, const void **ptrs,
                                           uint32_t **counts_out,
                                           uint32_t ***perm_out);
 
+/// Copy some host memory region to the device and wrap it in a variable
 extern ENOKI_IMPORT uint32_t cuda_var_copy_to_device(EnokiType type,
                                                      size_t size, const void *value);
+
+/// Create a variable that stores a pointer to some (device) memory region
+extern ENOKI_IMPORT uint32_t cuda_var_register_ptr(const void *ptr);
 
 /// Register a memory region (in device memory) as a variable
 extern ENOKI_IMPORT uint32_t cuda_var_register(EnokiType type, size_t size,
@@ -725,7 +729,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
                              const Mask &mask) {
         using UInt64 = CUDAArray<uint64_t>;
 
-        UInt64 ptr    = UInt64::alloc_const_(memcpy_cast<uintptr_t>(ptr_)),
+        UInt64 ptr    = UInt64::from_index_(cuda_var_register_ptr(ptr_)),
                addr   = fmadd(UInt64(index), (uint64_t) Stride, ptr);
 
         if constexpr (!std::is_same_v<Value, bool>) {
@@ -745,7 +749,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     ENOKI_INLINE void scatter_(void *ptr_, const Index &index, const Mask &mask) const {
         using UInt64 = CUDAArray<uint64_t>;
 
-        UInt64 ptr    = UInt64::alloc_const_(memcpy_cast<uintptr_t>(ptr_)),
+        UInt64 ptr    = UInt64::from_index_(cuda_var_register_ptr(ptr_)),
                addr   = fmadd(UInt64(index), (uint64_t) Stride, ptr);
 
         CUDAArray::Index var;
@@ -771,7 +775,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     void scatter_add_(void *ptr_, const Index &index, const Mask &mask) const {
         using UInt64  = CUDAArray<uint64_t>;
 
-        UInt64 ptr    = UInt64::alloc_const_(memcpy_cast<uintptr_t>(ptr_)),
+        UInt64 ptr    = UInt64::from_index_(cuda_var_register_ptr(ptr_)),
                addr   = fmadd(UInt64(index), (uint64_t) Stride, ptr);
 
         CUDAArray::Index var = cuda_trace_append(Type,
@@ -823,12 +827,6 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     static CUDAArray from_index_(Index index) {
         CUDAArray a;
         a.m_index = index;
-        return a;
-    }
-
-    static CUDAArray alloc_const_(Value value) {
-        CUDAArray a;
-        a.m_index = cuda_var_copy_to_device(Type, 1, &value);
         return a;
     }
 
