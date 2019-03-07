@@ -739,25 +739,38 @@ void Tape<Value>::backward(bool free_graph) {
         Node &target = d->node(target_idx);
 
         if constexpr (is_dynamic_v<Value>) {
-            if (ENOKI_UNLIKELY(target.is_scalar() && target.grad.size() != 1))
+            if (ENOKI_UNLIKELY(target.is_scalar() && target.grad.size() > 1)) {
+                assert(false); // this should never happen
                 target.grad = hsum(target.grad);
+            }
         }
 
         for (Edge &edge : target.edges) {
+            Node &source = d->node(edge.source);
             if (ENOKI_LIKELY(!edge.is_special())) {
-                Node &source = d->node(edge.source);
-
                 if constexpr (is_dynamic_v<Value>) {
-                    if (source.grad.empty())
-                        source.grad = safe_mul(edge.weight, target.grad);
-                    else
-                        source.grad = safe_fmadd(edge.weight, target.grad, source.grad);
+                    if (source.size == 1 && (edge.weight.size() != 1 || target.grad.size() != 1)) {
+                        if (source.grad.empty())
+                            source.grad = hsum(safe_mul(edge.weight, target.grad));
+                        else
+                            source.grad += hsum(safe_mul(edge.weight, target.grad));
+                    } else {
+                        if (source.grad.empty())
+                            source.grad = safe_mul(edge.weight, target.grad);
+                        else
+                            source.grad = safe_fmadd(edge.weight, target.grad, source.grad);
+                    }
                 } else {
                     source.grad = safe_fmadd(edge.weight, target.grad, source.grad);
                 }
             } else {
                 edge.special->compute_gradients(d, target_idx, edge);
-                Node &source = d->node(edge.source);
+                if constexpr (is_dynamic_v<Value>) {
+                    if (source.size == 1 && source.grad.size() > 1) {
+                        assert(false); // this should never happen
+                        source.grad = hsum(source.grad);
+                    }
+                }
             }
             if (free_graph) {
                 dec_ref_int(edge.source, target_idx);
