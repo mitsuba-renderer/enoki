@@ -76,4 +76,16 @@ struct StringHasher {
     }
 };
 
+#define cuda_check_maybe_redo(expr)                                            \
+    for (int i = 0; i < 2; ++i) {                                              \
+        cudaError_t rv = expr;                                                 \
+        if (rv == cudaErrorMemoryAllocation) {                                 \
+            cuda_malloc_trim();                                                \
+        } else {                                                               \
+            cuda_check(rv);                                                    \
+            break;                                                             \
+        }                                                                      \
+    }
+
+
 NAMESPACE_END(enoki)
