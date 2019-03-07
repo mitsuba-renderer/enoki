@@ -12,8 +12,11 @@ template <typename Array, size_t Stride = 0, bool Packed = true,
 ENOKI_INLINE Array gather(const Source &source, const Index &index,
                           const identity_t<Mask> &mask = true) {
     if constexpr (array_depth_v<Source> == 1) {
-        if (source.size() <= 1)
-            return source;
+
+        if constexpr (is_dynamic_v<Array> && is_dynamic_v<Source>) {
+            if (source.size() <= 1)
+                return source;
+        }
 
         if constexpr (is_diff_array_v<Source>) {
             Source::set_scatter_gather_operand_(source, IsPermute);

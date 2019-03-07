@@ -470,12 +470,13 @@ ENOKI_TEST(test33_bcast) {
 
 ENOKI_TEST(test34_gradient_descent) {
     FloatD x = zero<FloatD>(10);
-    set_requires_gradient(x, "x");
+    set_label(x, "x");
     float loss_f = 0.f;
     for (size_t i = 0; i < 10; ++i) {
+        set_requires_gradient(x);
         FloatD loss = norm(x - linspace<FloatD>(0, 1, 10));
         my_backward(loss);
-        detach(x) -= gradient(x)*2e-1f;
+        x = detach(x) - gradient(x)*2e-1f;
         loss_f = detach(loss)[0];
     }
     assert(loss_f < 1e-1f);
