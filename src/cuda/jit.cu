@@ -1322,16 +1322,17 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
     ctx.live.clear();
     ctx.dirty.clear();
 
-    if (ctx.streams.size() < sweeps.size()) {
-        size_t cur = ctx.streams.size();
-        ctx.streams.resize(sweeps.size());
-        for (size_t i = cur; i < ctx.streams.size(); ++i)
-            ctx.streams[i].init();
-    }
     if (ctx.log_level >= 2 && sweeps.size() > 1)
         std::cerr << "cuda_eval(): begin parallel group" << std::endl;
 
     #if ENOKI_CUDA_USE_STREAMS == 1
+        if (ctx.streams.size() < sweeps.size()) {
+            size_t cur = ctx.streams.size();
+            ctx.streams.resize(sweeps.size());
+            for (size_t i = cur; i < ctx.streams.size(); ++i)
+                ctx.streams[i].init();
+        }
+
         cuda_check(cudaEventRecord(ctx.stream_0_event, nullptr));
     #endif
 
