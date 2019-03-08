@@ -15,7 +15,7 @@ ENOKI_INLINE Array gather(const Source &source, const Index &index,
 
         if constexpr (is_dynamic_v<Array> && is_dynamic_v<Source>) {
             if (source.size() <= 1)
-                return source;
+                return source & mask;
         }
 
         if constexpr (is_diff_array_v<Source>) {

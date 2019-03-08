@@ -646,41 +646,67 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     }
 
     CUDAArray hsum_() const {
-        cuda_eval_var(m_index);
-        Value *result = cuda_hsum(cuda_var_size(m_index),
-                               (const Value *) cuda_var_ptr(m_index));
-        return CUDAArray::from_index_(cuda_var_register(Type, 1, result, true));
+        size_t n = size();
+        if (n == 1) {
+            return *this;
+        } else {
+            cuda_eval_var(m_index);
+            Value *result = cuda_hsum(n, (const Value *) cuda_var_ptr(m_index));
+            return CUDAArray::from_index_(cuda_var_register(Type, 1, result, true));
+        }
     }
 
     CUDAArray hprod_() const {
-        cuda_eval_var(m_index);
-        Value *result = cuda_hprod(cuda_var_size(m_index),
-                               (const Value *) cuda_var_ptr(m_index));
-        return CUDAArray::from_index_(cuda_var_register(Type, 1, result, true));
+        size_t n = size();
+        if (n == 1) {
+            return *this;
+        } else {
+            cuda_eval_var(m_index);
+            Value *result = cuda_hprod(n, (const Value *) cuda_var_ptr(m_index));
+            return CUDAArray::from_index_(cuda_var_register(Type, 1, result, true));
+        }
     }
 
     CUDAArray hmax_() const {
-        cuda_eval_var(m_index);
-        Value *result = cuda_hmax(cuda_var_size(m_index),
-                               (const Value *) cuda_var_ptr(m_index));
-        return CUDAArray::from_index_(cuda_var_register(Type, 1, result, true));
+        size_t n = size();
+        if (n == 1) {
+            return *this;
+        } else {
+            cuda_eval_var(m_index);
+            Value *result = cuda_hmax(n, (const Value *) cuda_var_ptr(m_index));
+            return CUDAArray::from_index_(cuda_var_register(Type, 1, result, true));
+        }
     }
 
     CUDAArray hmin_() const {
-        cuda_eval_var(m_index);
-        Value *result = cuda_hmin(cuda_var_size(m_index),
-                               (const Value *) cuda_var_ptr(m_index));
-        return CUDAArray::from_index_(cuda_var_register(Type, 1, result, true));
+        size_t n = size();
+        if (n == 1) {
+            return *this;
+        } else {
+            cuda_eval_var(m_index);
+            Value *result = cuda_hmin(n, (const Value *) cuda_var_ptr(m_index));
+            return CUDAArray::from_index_(cuda_var_register(Type, 1, result, true));
+        }
     }
 
     bool all_() const {
-        cuda_eval_var(m_index);
-        return cuda_all(cuda_var_size(m_index), (const Value *) cuda_var_ptr(m_index));
+        size_t n = size();
+        if (n == 1) {
+            return coeff(0);
+        } else {
+            cuda_eval_var(m_index);
+            return cuda_all(n, (const Value *) cuda_var_ptr(m_index));
+        }
     }
 
     bool any_() const {
-        cuda_eval_var(m_index);
-        return cuda_any(cuda_var_size(m_index), (const Value *) cuda_var_ptr(m_index));
+        size_t n = size();
+        if (n == 1) {
+            return coeff(0);
+        } else {
+            cuda_eval_var(m_index);
+            return cuda_any(n, (const Value *) cuda_var_ptr(m_index));
+        }
     }
 
     size_t count_() const {

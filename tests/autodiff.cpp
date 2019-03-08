@@ -36,15 +36,27 @@ using Vector3fP = Array<FloatP, 3>;
 using Vector3fX = Array<FloatX, 3>;
 using Vector3fD = Array<FloatD, 3>;
 
-template <typename T> void my_backward(T &t) {
+template <typename T> void my_backward(T &t, bool clear_graph = true) {
     FloatD::simplify_graph_();
-    backward(t);
+    backward(t, clear_graph);
+}
+
+template <typename T> void my_forward(T &t, bool clear_graph = true) {
+    FloatD::simplify_graph_();
+    forward(t, clear_graph);
 }
 
 ENOKI_TEST(test00_identity) {
     FloatD x = 2.f;
     set_requires_gradient(x);
     my_backward(x);
+    assert(gradient(x)[0] == 1.f);
+}
+
+ENOKI_TEST(test00_identity_fwd) {
+    FloatD x = 2.f;
+    set_requires_gradient(x);
+    my_forward(x);
     assert(gradient(x)[0] == 1.f);
 }
 
@@ -58,6 +70,15 @@ ENOKI_TEST(test01_add) {
     assert(gradient(y)[0] == 1.f);
 }
 
+ENOKI_TEST(test01_add_fwd) {
+    FloatD x = 2.f, y = 3.f;
+    set_requires_gradient(x);
+    set_requires_gradient(y);
+    FloatD z = x + y;
+    my_forward(x);
+    assert(gradient(z)[0] == 1.f);
+}
+
 ENOKI_TEST(test02_sub) {
     FloatD x = 2.f, y = 3.f;
     set_requires_gradient(x);
@@ -66,6 +87,17 @@ ENOKI_TEST(test02_sub) {
     my_backward(z);
     assert(gradient(x)[0] == 1.f);
     assert(gradient(y)[0] == -1.f);
+}
+
+ENOKI_TEST(test02_sub_fwd) {
+    FloatD x = 2.f, y = 3.f;
+    set_requires_gradient(x);
+    set_requires_gradient(y);
+    FloatD z = x - y;
+    my_forward(x, false);
+    assert(gradient(z)[0] == 1.f);
+    my_forward(y);
+    assert(gradient(z)[0] == -1.f);
 }
 
 ENOKI_TEST(test03_mul) {
@@ -78,6 +110,17 @@ ENOKI_TEST(test03_mul) {
     assert(gradient(y)[0] == 2.f);
 }
 
+ENOKI_TEST(test03_mul_fwd) {
+    FloatD x = 2.f, y = 3.f;
+    set_requires_gradient(x);
+    set_requires_gradient(y);
+    FloatD z = x * y;
+    my_forward(x, false);
+    assert(gradient(z)[0] == 3.f);
+    my_forward(y);
+    assert(gradient(z)[0] == 2.f);
+}
+
 ENOKI_TEST(test04_div) {
     FloatD x = 2.f, y = 3.f;
     set_requires_gradient(x);
@@ -86,6 +129,17 @@ ENOKI_TEST(test04_div) {
     my_backward(z);
     assert(std::abs(gradient(x)[0] - 1.f / 3.f) < 1e-6f);
     assert(std::abs(gradient(y)[0] + 2.f / 9.f) < 1e-6f);
+}
+
+ENOKI_TEST(test04_div_fwd) {
+    FloatD x = 2.f, y = 3.f;
+    set_requires_gradient(x);
+    set_requires_gradient(y);
+    FloatD z = x / y;
+    my_forward(x, false);
+    assert(std::abs(gradient(z)[0] - 1.f / 3.f) < 1e-6f);
+    my_forward(y);
+    assert(std::abs(gradient(z)[0] + 2.f / 9.f) < 1e-6f);
 }
 
 ENOKI_TEST(test05_hsum_0) {
@@ -97,12 +151,29 @@ ENOKI_TEST(test05_hsum_0) {
     assert(allclose(gradient(x), 2.f * x));
 }
 
+ENOKI_TEST(test05_hsum_0_fwd) {
+    FloatD x = linspace<FloatD>(0.f, 1.f, 10);
+    set_requires_gradient(x);
+    FloatD y = hsum(x*x);
+    my_forward(x);
+    assert(y.size() == 1 && allclose(y.coeff(0), 95.f/27.f));
+    assert(allclose(gradient(y), 10));
+}
+
 ENOKI_TEST(test05_hsum_1) {
     FloatD x = linspace<FloatD>(0.f, 1.f, 11);
     set_requires_gradient(x);
     FloatD z = hsum(hsum(x)*x);
     my_backward(z);
     assert(gradient(x) == 11.f);
+}
+
+ENOKI_TEST(test05_hsum_1_fwd) {
+    FloatD x = linspace<FloatD>(0.f, 1.f, 10);
+    set_requires_gradient(x);
+    FloatD y = hsum(hsum(x)*x);
+    my_forward(x);
+    assert(allclose(gradient(y), 100));
 }
 
 ENOKI_TEST(test05_hsum_2) {
@@ -113,6 +184,14 @@ ENOKI_TEST(test05_hsum_2) {
 
     assert(allclose(gradient(x),
         FloatX(0.f, 1.54f, 3.08f, 4.62f, 6.16f, 7.7f, 9.24f, 10.78f, 12.32f, 13.86f, 15.4f)));
+}
+
+ENOKI_TEST(test05_hsum_2_fwd) {
+    FloatD x = linspace<FloatD>(0.f, 1.f, 10);
+    set_requires_gradient(x);
+    FloatD y = hsum(hsum(x*x)*hsum(x*x));
+    my_forward(x);
+    assert(allclose(gradient(y), 1900.f/27.f));
 }
 
 ENOKI_TEST(test06_hprod) {
@@ -525,4 +604,33 @@ ENOKI_TEST(test35_call) {
 
     delete reciprocal;
     delete square;
+}
+
+ENOKI_TEST(test36_gather) {
+    FloatD x = linspace<FloatD>(-1.f, 1.f, 10);
+    set_requires_gradient(x);
+    FloatD y = gather<FloatD>(x*x, UInt32D(1, 2, 3));
+    FloatD z = hsum(y);
+    my_backward(z);
+    FloatX ref_gradient { 0.f, -1.55556, -1.11111, -0.666667, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f };
+    assert(allclose(ref_gradient, gradient(x), 1e-4f, 1e-4f));
+}
+
+ENOKI_TEST(test36_gather_fwd) {
+    FloatD x = linspace<FloatD>(-1.f, 1.f, 10);
+    set_requires_gradient(x);
+    FloatD y = gather<FloatD>(x*x, UInt32D(1, 2, 3));
+    my_forward(x);
+    FloatX ref_gradient { -1.55556f, -1.11111f, -0.666667f };
+    assert(allclose(ref_gradient, gradient(y), 1e-4f, 1e-4f));
+}
+
+ENOKI_TEST(test37_scatter_fwd) {
+    FloatD x = linspace<FloatD>(-1.f, 1.f, 5);
+    set_requires_gradient(x);
+    FloatD y = zero<FloatD>(10);
+    scatter(y, x*x, arange<UInt32D>(5) + 2);
+    my_forward(x);
+    FloatX ref_gradient { 0.f, 0.f, -2.f, -1.f, 0.f, 1.f, 2.f, 0.f, 0.f, 0.f };
+    assert(allclose(ref_gradient, gradient(y), 1e-4f, 1e-4f));
 }

@@ -496,6 +496,25 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
         }
     }
 
+    template <size_t Stride, typename Index, typename Mask>
+    void scatter_add_(void *mem, const Index &index, const Mask &mask) const {
+        size_t i1 = 0, i1i = this->size() == 1 ? 0 : 1,
+               i2 = 0, i2i = index.size() == 1 ? 0 : 1,
+               i3 = 0, i3i = mask.size() == 1 ? 0 : 1,
+               size = check_size(*this, index, mask),
+               n_packets = (size + PacketSize - 1) / PacketSize,
+               i = 0;
+
+        if (n_packets > 0) {
+            for (; i < n_packets - (PacketSize > 1 ? 1 : 0); ++i, i1 += i1i, i2 += i2i, i3 += i3i)
+                scatter_add<Stride>(mem, packet(i1), index.packet(i2), mask.packet(i3));
+            if constexpr (PacketSize > 1) {
+                auto mask2 = arange<IndexPacket>() <= IndexScalar((size - 1) % PacketSize);
+                scatter_add<Stride>(mem, packet(i1), index.packet(i2), mask.packet(i3) & mask2);
+            }
+        }
+    }
+
     template <size_t Stride, typename Index, typename Func, typename... Args, typename Mask>
     static ENOKI_INLINE void transform_(void *ptr, const Index &index, const Mask &mask,
                                         const Func &func, const Args &... args) {
@@ -562,8 +581,12 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
     // -----------------------------------------------------------------------
 
     Value hsum_() const {
-        Packet result = zero<Packet>();
-        if (!empty()) {
+        if (size() == 0) {
+            return Value(Scalar(0));
+        } else if (size() == 1) {
+            return coeff(0);
+        } else {
+            Packet result = zero<Packet>();
             for (size_t i = 0, count = packets() - (PacketSize > 1 ? 1 : 0); i < count; ++i)
                 result += packet(i);
 
@@ -571,13 +594,17 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
                 result[arange<IndexPacket>() <= IndexScalar((size() - 1) % PacketSize)] +=
                     packet(packets() - 1);
             }
+            return hsum(result);
         }
-        return hsum(result);
     }
 
     Value hprod_() const {
-        Packet result = Scalar(1);
-        if (!empty()) {
+        if (size() == 0) {
+            return Value(Scalar(1));
+        } else if (size() == 1) {
+            return coeff(0);
+        } else {
+            Packet result = Scalar(1);
             for (size_t i = 0, count = packets() - (PacketSize > 1 ? 1 : 0); i < count; ++i)
                 result *= packet(i);
 
@@ -585,14 +612,17 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
                 result[arange<IndexPacket>() <= IndexScalar((size() - 1) % PacketSize)] *=
                     packet(packets() - 1);
             }
+            return hprod(result);
         }
-        return hprod(result);
     }
 
     Value hmin_() const {
-        Packet result;
-        if (!empty()) {
-            result = coeff(0);
+        if (size() == 0) {
+            return Value(std::numeric_limits<Scalar>::max());
+        } else if (size() == 1) {
+            return coeff(0);
+        } else {
+            Packet result = coeff(0);
             for (size_t i = 0, count = packets() - (PacketSize > 1 ? 1 : 0); i < count; ++i)
                 result = min(result, packet(i));
 
@@ -600,16 +630,17 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
                 result[arange<IndexPacket>() <= IndexScalar((size() - 1) % PacketSize)] =
                     min(result, packet(packets() - 1));
             }
-        } else {
-            result = std::numeric_limits<Scalar>::max();
+            return hmin(result);
         }
-        return hmin(result);
     }
 
     Value hmax_() const {
-        Packet result;
-        if (!empty()) {
-            result = coeff(0);
+        if (size() == 0) {
+            return Value(std::numeric_limits<Scalar>::min());
+        } else if (size() == 1) {
+            return coeff(0);
+        } else {
+            Packet result = coeff(0);
             for (size_t i = 0, count = packets() - (PacketSize > 1 ? 1 : 0); i < count; ++i)
                 result = max(result, packet(i));
 
@@ -617,15 +648,17 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
                 result[arange<IndexPacket>() <= IndexScalar((size() - 1) % PacketSize)] =
                     max(result, packet(packets() - 1));
             }
-        } else {
-            result = std::numeric_limits<Scalar>::lowest();
+            return hmax(result);
         }
-        return hmax(result);
     }
 
     bool any_() const {
-        Packet result(false);
-        if (!empty()) {
+        if (size() == 0) {
+            return false;
+        } else if (size() == 1) {
+            return coeff(0);
+        } else {
+            Packet result(false);
             for (size_t i = 0, count = packets() - (PacketSize > 1 ? 1 : 0); i < count; ++i)
                 result |= packet(i);
 
@@ -633,13 +666,17 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
                 result[arange<IndexPacket>() <= IndexScalar((size() - 1) % PacketSize)] |=
                     packet(packets() - 1);
             }
+            return any(result);
         }
-        return any(result);
     }
 
     bool all_() const {
-        Packet result(true);
-        if (!empty()) {
+        if (size() == 0) {
+            return true;
+        } else if (size() == 1) {
+            return coeff(0);
+        } else {
+            Packet result(true);
             for (size_t i = 0, count = packets() - (PacketSize > 1 ? 1 : 0); i < count; ++i)
                 result &= packet(i);
 
@@ -647,8 +684,8 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
                 result[arange<IndexPacket>() <= IndexScalar((size() - 1) % PacketSize)] &=
                     packet(packets() - 1);
             }
+            return all(result);
         }
-        return all(result);
     }
 
     size_t count_() const {

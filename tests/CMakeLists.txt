@@ -63,8 +63,8 @@ add_custom_target(check
 )
 
 function(enoki_test NAME)
-  if (TEST_NAME)
-    if (NOT "${TEST_NAME}" STREQUAL "${NAME}")
+  if (ENOKI_TEST_NAME)
+    if (NOT "${ENOKI_TEST_NAME}" STREQUAL "${NAME}")
       return()
     endif()
   endif()

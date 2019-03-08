@@ -50,8 +50,8 @@ private:
                  const Value &w1, const Value &w2, const Value &w3);
 
     Index append_gather(const Int64 &offset, const Mask &mask);
-    void append_scatter(Index index, const Int64 &offset, const Mask &mask);
-    void append_scatter_add(Index index, const Int64 &offset, const Mask &mask);
+    void append_scatter(Index index, const Int64 &offset, const Mask &mask,
+		        bool scatter_add);
 
     //! @}
     // -----------------------------------------------------------------------
@@ -89,8 +89,11 @@ private:
     void push_prefix(const char *);
     void pop_prefix();
     void backward(bool free_graph);
+    void forward(bool free_graph);
     void backward(Index index, bool free_graph);
+    void forward(Index index, bool free_graph);
     void set_gradient(Index index, const Value &value,
+                      bool backward = true,
                       bool clear_grad = !is_dynamic_v<Value>);
     void set_label(Index index, const char *name);
     const Value &gradient(Index index);
@@ -914,7 +917,7 @@ public:
         scatter<Stride>(ptr, m_value, offset.value_(), mask.value_());
 
         if constexpr (Enabled)
-            tape()->append_scatter(m_index, offset.value_(), mask.value_());
+            tape()->append_scatter(m_index, offset.value_(), mask.value_(), false);
     }
 
     template <size_t Stride, typename Offset, typename Mask>
@@ -925,7 +928,7 @@ public:
         scatter_add<Stride>(ptr, m_value, offset.value_(), mask.value_());
 
         if constexpr (Enabled)
-            tape()->append_scatter_add(m_index, offset.value_(), mask.value_());
+            tape()->append_scatter(m_index, offset.value_(), mask.value_(), true);
     }
 
     //! @}
@@ -1099,11 +1102,12 @@ public:
             return tape()->gradient(index);
     }
 
-    void set_gradient_(const Value &value, bool clear_grad = !is_dynamic_v<Value>) {
+    void set_gradient_(const Value &value, bool backward = true,
+                       bool clear_grad = !is_dynamic_v<Value>) {
         if constexpr (!Enabled)
             fail_unsupported("set_gradient_");
         else
-            return tape()->set_gradient(m_index, value, clear_grad);
+            return tape()->set_gradient(m_index, value, backward, clear_grad);
     }
 
     //! @}
@@ -1156,6 +1160,14 @@ public:
             fail_unsupported("backward_");
         } else {
             tape()->backward(m_index, free_graph);
+        }
+    }
+
+    void forward_(bool free_graph) const {
+        if constexpr (!Enabled) {
+            fail_unsupported("forward_");
+        } else {
+            tape()->forward(m_index, free_graph);
         }
     }
 
@@ -1306,71 +1318,19 @@ template <typename T> auto gradient_index(const T &a) {
     }
 }
 
-template <typename T1, typename T2> decltype(auto) set_gradient(T1 &a, const T2 &b) {
+template <typename T1, typename T2> decltype(auto) set_gradient(T1 &a, const T2 &b, bool backward = true) {
     if constexpr (array_depth_v<T1> >= 2) {
         for (size_t i = 0; i < array_size_v<T1>; ++i)
-            set_gradient(a[i], b[i]);
+            set_gradient(a[i], b[i], backward);
     } else if constexpr (is_diff_array_v<T1>) {
-        a.set_gradient_(b);
+        a.set_gradient_(b, backward);
     } else {
         static_assert(detail::false_v<T1, T2>, "The given array does not have derivatives.");
     }
 }
 
-template <typename T> auto forward(const T& in, T &out, bool free_graph = true) {
-    if (in.size() != 1)
-        throw std::runtime_error("forward(): first (input) argument must be a scalar array!");
-
-    using Array = typename T::UnderlyingType;
-    using UInt32 = uint32_array_t<Array>;
-    using Scalar = scalar_t<Array>;
-    T::simplify_graph_();
-
-    Array result      = zero<Array>(out.size()),
-          one         = 1.f,
-          zero        = 0.f;
-
-    uint32_t cuda_ll = 0;
-    ENOKI_MARK_USED(cuda_ll);
-
-    if constexpr (is_cuda_array_v<Array>) {
-        cuda_ll = cuda_log_level();
-        cuda_set_log_level(0);
-    }
-
-    uint32_t autodiff_ll = T::log_level_();
-    T::set_log_level_(0);
-
-    UInt32 idx = 0;
-    for (uint32_t i = 0; i < (uint32_t) out.size(); ++i) {
-        if (((i + 1) % 100) == 0) {
-            fprintf(stderr, "\renoki::forward(): iteration %u / %u ..", i + 1u, (uint32_t) out.size());
-            fflush(stderr);
-        }
-
-        Array output_grad;
-        if constexpr (is_cuda_array_v<Array>) {
-            output_grad = Array::map(cuda_malloc_one_hot(
-                out.size(), i, memcpy_cast<uint_array_t<Scalar>>((Scalar) 1)), out.size(), true);
-            idx = UInt32::copy(&i, 1);
-        } else {
-            output_grad = select(eq(enoki::arange<UInt32>((uint32_t) out.size()), idx),
-                       UInt32(1), UInt32(0));
-        }
-        out.set_gradient_(output_grad, true);
-        T::backward_static_((i == out.size() - 1) ? free_graph : false);
-        scatter(result, gradient(in), idx);
-
-        if constexpr (!is_cuda_array_v<Array>)
-            idx += 1;
-    }
-    fprintf(stderr, "\renoki::forward(): iteration %u / %u.. done.\n", (uint32_t) out.size(), (uint32_t) out.size());
-
-    if constexpr (is_cuda_array_v<Array>)
-        cuda_set_log_level(cuda_ll);
-    T::set_log_level_(autodiff_ll);
-
-    return result;
+template <typename T> void forward(const T& a, bool free_graph = true) {
+    a.forward_(free_graph);
 }
 
 template <typename T> void backward(const T& a, bool free_graph = true) {

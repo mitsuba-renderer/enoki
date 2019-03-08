@@ -434,7 +434,8 @@ py::class_<Array> bind(py::module &m, const char *name) {
         m.def("gradient", [](Array &a) { return eval(gradient(a)); });
         m.def("gradient_index", [](Array &a) { return gradient_index(a); });
         m.def("set_gradient",
-              [](Array &a, const Array &g) { set_gradient(a, detach(g)); });
+              [](Array &a, const Array &g, bool backward) { set_gradient(a, detach(g), backward); },
+              "array"_a, "gradient"_a, "backward"_a = true);
 
         m.def("graphviz", [](const Array &a) { return graphviz(a); });
 
@@ -443,8 +444,8 @@ py::class_<Array> bind(py::module &m, const char *name) {
                   [](Array &a, bool free_graph) { backward(a, free_graph); },
                   "array"_a, "free_graph"_a = true);
             m.def("forward",
-                  [](Array &in, Array &out, bool free_graph) { return forward(in, out, free_graph); },
-                  "in"_a, "out"_a, "free_graph"_a = true);
+                  [](Array &a, bool free_graph) { return forward(a, free_graph); },
+                  "array"_a, "free_graph"_a = true);
             cl.def_static("backward",
                           [](bool free_graph) { backward<Array>(); },
                           "free_graph"_a = true);

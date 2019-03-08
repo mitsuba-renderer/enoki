@@ -127,8 +127,14 @@ template <typename Value> struct Tape<Value>::Edge {
 };
 
 template <typename Value> struct Tape<Value>::Special {
-    virtual void compute_gradients(Detail *detail, Index target,
-                                   const Edge &edge) const = 0;
+    virtual void backward(Detail *detail, Index target_idx, const Edge &edge) const {
+        throw std::runtime_error("Special::backward(): not implemented!");
+    }
+
+    virtual void forward(Detail *detail, Index target_idx, const Edge &edge) const {
+        throw std::runtime_error("Special::forward(): not implemented!");
+    }
+
     virtual ~Special() = default;
 };
 
@@ -156,7 +162,7 @@ template <typename Value> struct Tape<Value>::Detail {
         return it->second;
     }
 
-    void dfs(Index k, bool clear_grad) {
+    void dfs(Index k, bool backward, bool clear_grad) {
         if (scheduled.find(k) != scheduled.end())
             return;
         scheduled.insert(k);
@@ -169,8 +175,13 @@ template <typename Value> struct Tape<Value>::Detail {
                 n.grad = zero<Value>();
         }
 
-        for (const Edge &edge : n.edges)
-            dfs(edge.source, clear_grad);
+        if (backward) {
+            for (const Edge &edge : n.edges)
+                dfs(edge.source, backward, clear_grad);
+        } else {
+            for (Index k2: n.edges_rev)
+                dfs(k2, backward, clear_grad);
+        }
     }
 };
 
@@ -331,7 +342,6 @@ void Tape<Value>::set_label(Index idx, const char *label) {
     enoki::set_label(n.grad, (label + std::string(".grad")).c_str());
 }
 
-
 template <typename Value>
 Index Tape<Value>::append_gather(const Int64 &offset, const Mask &mask) {
     if constexpr (is_dynamic_v<Value>) {
@@ -346,11 +356,31 @@ Index Tape<Value>::append_gather(const Int64 &offset, const Mask &mask) {
             size_t size;
             bool permute;
 
-            void compute_gradients(Detail *detail, Index target,
-                                   const Edge &edge) const override {
-                const Value &grad_target = detail->node(target).grad;
+            void forward(Detail *detail, Index target_idx,
+                         const Edge &edge) const override {
+                const Value &grad_source = detail->node(edge.source).grad;
+                Value &grad_target = detail->node(target_idx).grad;
+
+				if (grad_source.size() != size)
+					throw std::runtime_error("Internal error in Gather::forward()!");
+
+                Value value = gather<Value>(grad_source, offset, mask);
+
+                if (grad_target.empty())
+                    grad_target = value;
+                else
+                    grad_target += value;
+            }
+
+            void backward(Detail *detail, Index target_idx,
+                          const Edge &edge) const override {
+                const Value &grad_target = detail->node(target_idx).grad;
                 Value &grad_source = detail->node(edge.source).grad;
-                assert(grad_source.size() == size);
+
+				if (grad_source.empty())
+					grad_source = zero<Value>(size);
+				else if (grad_source.size() != size)
+					throw std::runtime_error("Internal error in Gather::backward()!");
 
                 if (permute)
                     scatter(grad_source, grad_target, offset, mask);
@@ -358,12 +388,11 @@ Index Tape<Value>::append_gather(const Int64 &offset, const Mask &mask) {
                     scatter_add(grad_source, grad_target, offset, mask);
             }
         };
-        Node &source_node = d->node(source);
 
         Gather *gather = new Gather();
         gather->offset = offset;
         gather->mask = mask;
-        gather->size = source_node.size;
+        gather->size = d->scatter_gather_size;
         gather->permute = d->scatter_gather_permute;
 
         Index target = append_node(slices(offset), "gather");
@@ -383,7 +412,7 @@ Index Tape<Value>::append_gather(const Int64 &offset, const Mask &mask) {
 }
 
 template <typename Value>
-void Tape<Value>::append_scatter(Index source, const Int64 &offset, const Mask &mask) {
+void Tape<Value>::append_scatter(Index source, const Int64 &offset, const Mask &mask, bool scatter_add) {
     if constexpr (is_dynamic_v<Value>) {
         SimplificationLock lock(*this);
 
@@ -394,41 +423,61 @@ void Tape<Value>::append_scatter(Index source, const Int64 &offset, const Mask &
         struct Scatter : Special {
             Int64 offset;
             Mask mask;
+            size_t size;
+            bool scatter_add;
 
-            void compute_gradients(Detail *detail, Index target,
-                                   const Edge &edge) const override {
-                const Value &grad_target = detail->node(target).grad;
-                Value &grad_source = detail->node(edge.source).grad;
-                if (grad_target.size() > 1) {
-                    if (grad_source.empty())
-                        grad_source = gather<Value>(grad_target, offset, mask);
-                    else
-                        grad_source += gather<Value>(grad_target, offset, mask);
-                } else {
-                    assert(!grad_target.empty());
-                    if (grad_source.empty())
-                        grad_source = grad_target & mask;
-                    else
-                        grad_source += grad_target & mask;
+            void forward(Detail *detail, Index target_idx, const Edge &edge) const override {
+                const Value &grad_source = detail->node(edge.source).grad;
+                Value &grad_target = detail->node(target_idx).grad;
 
-                    if (grad_source.size() == 1 && offset.size() != 1)
-                        set_slices(grad_source, offset.size());
-                }
+				if (grad_target.empty())
+					grad_target = zero<Value>(size);
+				else if (grad_target.size() != size)
+					throw std::runtime_error("Internal error in Scatter::forward()!");
+
+                if (scatter_add)
+                    enoki::scatter_add(grad_target, grad_source, offset, mask);
+                else
+                    enoki::scatter(grad_target, grad_source, offset, mask);
+            }
+
+            void backward(Detail *detail, Index target_idx, const Edge &edge) const override {
+                Node &source = detail->node(edge.source);
+                const Value &grad_target = detail->node(target_idx).grad;
+                Value &grad_source = source.grad;
+
+				if (grad_target.size() != size)
+					throw std::runtime_error("Internal error in Scatter::backward()!");
+
+                Value result = gather<Value>(grad_target, offset, mask);
+                if (source.size == 1)
+                    result = hsum(result);
+                else if (result.size() == 1 && source.size != 1)
+                    set_slices(result, source.size);
+
+                if (grad_source.empty())
+                    grad_source = result;
+                else
+                    grad_source += result;
             }
         };
 
         Scatter *s = new Scatter();
         s->offset = offset;
         s->mask = mask;
+        s->size = d->scatter_gather_size;
+        s->scatter_add = scatter_add;
 
-        Index target_new = append_node(d->scatter_gather_size, "scatter");
+        Index target_new = append_node(d->scatter_gather_size,
+                                       scatter_add ? "scatter_add" : "scatter");
         d->node(target_new).edges.emplace_back(source, s);
         inc_ref_int(source, target_new);
 
         if (target_orig != 0) {
             Index sa_node = target_new;
+
             Value weight = 1.f;
-            if (!d->scatter_gather_permute) {
+            if (!scatter_add && !d->scatter_gather_permute) {
                 weight = full<Value>(1.f, d->scatter_gather_size);
                 scatter(weight, Value(0), offset, mask);
             }
@@ -443,67 +492,8 @@ void Tape<Value>::append_scatter(Index source, const Int64 &offset, const Mask &
 #if !defined(NDEBUG)
         if (d->log_level >= 3)
             std::cerr << "autodiff: append_scatter(" << target_orig << " <- "
-                      << source << ") -> " << target_new << std::endl;
-#endif
-    }
-}
-
-template <typename Value>
-void Tape<Value>::append_scatter_add(Index source, const Int64 &offset,
-                                     const Mask &mask) {
-    if constexpr (is_dynamic_v<Value>) {
-        if (d->scatter_gather_index == nullptr || source == 0)
-            return;
-        Index target_orig = *d->scatter_gather_index;
-
-        struct Scatter : Special {
-            Int64 offset;
-            Mask mask;
-
-            void compute_gradients(Detail *detail, Index target,
-                                   const Edge &edge) const override {
-                const Value &grad_target = detail->node(target).grad;
-                Value &grad_source = detail->node(edge.source).grad;
-                if (grad_target.size() > 1) {
-                    if (grad_source.empty())
-                        grad_source = gather<Value>(grad_target, offset, mask);
-                    else
-                        grad_source += gather<Value>(grad_target, offset, mask);
-                } else {
-                    assert(!grad_target.empty());
-                    if (grad_source.empty())
-                        grad_source = grad_target & mask;
-                    else
-                        grad_source += grad_target & mask;
-
-                    if (grad_source.size() == 1 && offset.size() != 1)
-                        set_slices(grad_source, offset.size());
-                }
-            }
-        };
-
-        Scatter *s = new Scatter();
-        s->offset = offset;
-        s->mask = mask;
-
-        Index target_new = append_node(d->scatter_gather_size, "scatter_add");
-        d->node(target_new).edges.emplace_back(source, s);
-        inc_ref_int(source, target_new);
-
-        if (target_orig != 0) {
-            Index sa_node = target_new;
-            target_new = append("add", d->scatter_gather_size, target_new,
-                                target_orig, 1, 1);
-            dec_ref_ext(sa_node);
-            dec_ref_ext(target_orig);
-        }
-
-        *d->scatter_gather_index = target_new;
-
-#if !defined(NDEBUG)
-        if (d->log_level >= 3)
-            std::cerr << "autodiff: append_scatter_add(" << target_orig << " <- "
-                      << source << ") -> " << target_new << std::endl;
+                      << source << ", scatter_add=" << scatter_add << ") -> "
+                      << target_new << std::endl;
 #endif
     }
 }
@@ -702,7 +692,6 @@ template <typename Value> const Value &Tape<Value>::gradient(Index index) {
     return d->node(index).grad;
 }
 
-
 template <typename Value>
 void Tape<Value>::backward(Index index, bool free_graph) {
     using Scalar = scalar_t<Value>;
@@ -710,19 +699,35 @@ void Tape<Value>::backward(Index index, bool free_graph) {
         simplify_graph();
 
     SimplificationLock lock(*this);
-    set_gradient(index, Scalar(1));
+    set_gradient(index, Scalar(1), true, true);
     backward(free_graph);
 }
 
 template <typename Value>
-void Tape<Value>::set_gradient(Index index, const Value &value, bool clear_grad) {
+void Tape<Value>::forward(Index index, bool free_graph) {
+    using Scalar = scalar_t<Value>;
+    if (d->graph_simplification)
+        simplify_graph();
+
+    SimplificationLock lock(*this);
+    set_gradient(index, Scalar(1), false, true);
+    forward(free_graph);
+}
+
+template <typename Value>
+void Tape<Value>::set_gradient(Index index, const Value &value, bool backward, bool clear_grad) {
     if (index == 0)
         throw std::runtime_error(
-            "backward(): no gradient information (a prior call to "
-            "requires_gradient() on a dependent variable is required.)");
+            "set_gradient(): no gradients are associated with this variable (a "
+            "prior call to requires_gradient() is required.) ");
 
-    d->dfs(index, clear_grad);
-    d->node(index).grad = value;
+    d->dfs(index, backward, clear_grad);
+    Node &node = d->node(index);
+    node.grad = value;
+    if constexpr (is_dynamic_v<Value>) {
+        if (node.size > 1 && node.grad.size() == 1)
+            set_slices(node.grad, node.size);
+    }
 }
 
 template <typename Value>
@@ -739,8 +744,15 @@ void Tape<Value>::backward(bool free_graph) {
         Node &target = d->node(target_idx);
 
         if constexpr (is_dynamic_v<Value>) {
-            if (ENOKI_UNLIKELY(target.is_scalar() && target.grad.size() > 1))
-                target.grad = hsum(target.grad);
+            if (ENOKI_UNLIKELY(target.size != target.grad.size())) {
+                if (target.grad.size() == 1)
+                    set_slices(target.grad, target.size);
+                else
+                    throw std::runtime_error(
+                        "backward(): gradient sizes don't match: expected " +
+                        std::to_string(target.size) + ", got " +
+                        std::to_string(target.grad.size()));
+            }
         }
 
         for (Edge &edge : target.edges) {
@@ -748,16 +760,10 @@ void Tape<Value>::backward(bool free_graph) {
             if (ENOKI_LIKELY(!edge.is_special())) {
                 if constexpr (is_dynamic_v<Value>) {
                     if (source.size == 1 && (edge.weight.size() != 1 || target.grad.size() != 1)) {
-#if 0
                         if (source.grad.empty())
                             source.grad = hsum(safe_mul(edge.weight, target.grad));
                         else
                             source.grad += hsum(safe_mul(edge.weight, target.grad));
-#else
-                        if (source.grad.empty())
-                            source.grad = zero<Value>();
-                        scatter_add(source.grad, safe_mul(edge.weight, target.grad), 0);
-#endif
                     } else {
                         if (source.grad.empty())
                             source.grad = safe_mul(edge.weight, target.grad);
@@ -768,11 +774,7 @@ void Tape<Value>::backward(bool free_graph) {
                     source.grad = safe_fmadd(edge.weight, target.grad, source.grad);
                 }
             } else {
-                edge.special->compute_gradients(d, target_idx, edge);
-                if constexpr (is_dynamic_v<Value>) {
-                    if (ENOKI_UNLIKELY(source.size == 1 && source.grad.size() > 1))
-                        source.grad = hsum(source.grad);
-                }
+                edge.special->backward(d, target_idx, edge);
             }
             if (free_graph) {
                 dec_ref_int(edge.source, target_idx);
@@ -799,9 +801,75 @@ void Tape<Value>::backward(bool free_graph) {
     scheduled.clear();
 }
 
+template <typename Value>
+void Tape<Value>::forward(bool free_graph) {
+    auto &scheduled = d->scheduled;
+
+    if (free_graph) {
+        for (auto it = scheduled.begin(); it != scheduled.end(); ++it)
+            inc_ref_ext(*it);
+    }
+
+    for (auto it = scheduled.begin(); it != scheduled.end(); ++it) {
+        Index source_idx = *it;
+        Node &source = d->node(source_idx);
+
+        if constexpr (is_dynamic_v<Value>) {
+            if (source.size == 1 && source.grad.size() > 1)
+                source.grad = hsum(source.grad);
+        }
+
+        for (Index target_idx : source.edges_rev) {
+            Node &target = d->node(target_idx);
+            Edge *edge = target.edge(source_idx);
+            if (edge == nullptr)
+                throw std::runtime_error("forward(): invalid graph structure!");
+
+            if (ENOKI_LIKELY(!edge->is_special())) {
+                if constexpr (is_dynamic_v<Value>) {
+                    if (target.size == 1 && (edge->weight.size() != 1 || source.grad.size() != 1)) {
+                        if (target.grad.empty())
+                            target.grad = hsum(safe_mul(edge->weight, source.grad));
+                        else
+                            target.grad += hsum(safe_mul(edge->weight, source.grad));
+                    } else {
+                        if (target.grad.empty())
+                            target.grad = safe_mul(edge->weight, source.grad);
+                        else
+                            target.grad = safe_fmadd(edge->weight, source.grad, target.grad);
+                    }
+                } else {
+                    target.grad = safe_fmadd(edge->weight, source.grad, target.grad);
+                }
+            } else {
+                edge->special->forward(d, target_idx, *edge);
+            }
+        }
+        if (free_graph) {
+            auto edges_rev = source.edges_rev;
+            for (Index target_idx : edges_rev) {
+                dec_ref_int(source_idx, target_idx);
+                d->node(target_idx).remove_edge(source_idx);
+            }
+            dec_ref_ext(source_idx);
+        }
+    }
+
+    if (d->log_level >= 1)
+        std::cerr << "autodiff: forward(): processed " << scheduled.size() << "/"
+                  << (d->node_counter - d->node_counter_last) << " nodes."
+                  << std::endl;
+
+    if (free_graph)
+        d->node_counter_last = d->node_counter;
+
+    scheduled.clear();
+}
+
 template <typename Value> void Tape<Value>::simplify_graph() {
     if (d->is_simplified)
         return;
+
     SimplificationLock lock(*this);
     if (d->log_level >= 2)
         std::cerr << "autodiff: simplify_graph(): starting.." << std::endl;
@@ -888,7 +956,7 @@ std::string Tape<Value>::graphviz(const std::vector<Index> &indices_) {
         << "  node [shape=record fontname=Consolas];" << std::endl;
 
     for (Index index : indices_)
-        d->dfs(index, false);
+        d->dfs(index, true, false);
 
     auto &indices = d->scheduled;
 
