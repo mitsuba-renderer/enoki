@@ -195,6 +195,10 @@ struct Context {
     /// Map of currently used memory regions
     std::unordered_map<void *, TaggedSize> used_map;
 
+    /// Memory usage watermarks
+    size_t used = 0, used_managed = 0, used_host = 0;
+    size_t watermark = 0, watermark_managed = 0, watermark_host = 0;
+
     /// Mutex protecting the malloc-related data structures
     std::recursive_mutex malloc_mutex;
 
@@ -300,6 +304,13 @@ ENOKI_EXPORT void cuda_init() {
 
     ctx.block_count = next_power_of_two(num_sm) * 2;
     ctx.thread_count = 128;
+
+    ctx.used = 0;
+    ctx.used_managed = 0;
+    ctx.used_host = 0;
+    ctx.watermark = 0;
+    ctx.watermark_managed = 0;
+    ctx.watermark_host = 0;
 
     if (!installed_shutdown_handler) {
         installed_shutdown_handler = true;
@@ -1447,8 +1458,8 @@ ENOKI_EXPORT void cuda_unregister_callback(void (*callback)(void *), void *paylo
 ENOKI_EXPORT char *cuda_whos() {
     std::ostringstream oss;
     oss << std::endl
-        << "  ID      Type   E/I Refs   Size        Memory     Ready    Label" << std::endl
-        << "  ===============================================================" << std::endl;
+        << "  ID        Type   E/I Refs   Size        Memory     Ready    Label" << std::endl
+        << "  =================================================================" << std::endl;
     auto &ctx = context();
 
     std::vector<uint32_t> indices;
@@ -1464,7 +1475,7 @@ ENOKI_EXPORT char *cuda_whos() {
         if (id < ENOKI_CUDA_REG_RESERVED)
             continue;
         const Variable &v = ctx[id];
-        oss << "  " << std::left << std::setw(7) << id << " ";
+        oss << "  " << std::left << std::setw(9) << id << " ";
         switch (v.type) {
             case EnokiType::Int8:    oss << "i8 "; break;
             case EnokiType::UInt8:   oss << "u8 "; break;
@@ -1503,7 +1514,15 @@ ENOKI_EXPORT char *cuda_whos() {
         << "  Memory usage (ready)     : " << mem_string(mem_size_ready)     << std::endl
         << "  Memory usage (scheduled) : " << mem_string(mem_size_ready) << " + "
         << mem_string(mem_size_scheduled) << " = " << mem_string(mem_size_ready + mem_size_scheduled) << std::endl
-        << "  Memory savings           : " << mem_string(mem_size_arith)     << std::endl;
+        << "  Memory savings           : " << mem_string(mem_size_arith)     << std::endl << std::endl
+        << "  cuda_malloc() usage: "
+        << mem_string(ctx.used) << " device, "
+        << mem_string(ctx.used_managed) << " managed, "
+        << mem_string(ctx.used_host) << " host." << std::endl
+        << "           max. usage: "
+        << mem_string(ctx.watermark) << " device, "
+        << mem_string(ctx.watermark_managed) << " managed, "
+        << mem_string(ctx.watermark_host) << " host." << std::endl;
 
     return strdup(oss.str().c_str());
 }
@@ -1605,6 +1624,9 @@ ENOKI_EXPORT void* cuda_malloc(size_t size) {
             fprintf(stderr, "cuda_malloc(): internal error!\n");
             exit(EXIT_FAILURE);
         }
+
+        ctx.used += size;
+        ctx.watermark = std::max(ctx.watermark, ctx.used);
     }
 
     return ptr;
@@ -1647,6 +1669,9 @@ ENOKI_EXPORT void* cuda_managed_malloc(size_t size) {
             fprintf(stderr, "cuda_managed_malloc(): internal error!\n");
             exit(EXIT_FAILURE);
         }
+
+        ctx.used_managed += size;
+        ctx.watermark_managed = std::max(ctx.watermark_managed, ctx.used_managed);
     }
 
     return ptr;
@@ -1689,6 +1714,9 @@ ENOKI_EXPORT void* cuda_host_malloc(size_t size) {
             fprintf(stderr, "cuda_host_malloc(): internal error!\n");
             exit(EXIT_FAILURE);
         }
+
+        ctx.used_host += size;
+        ctx.watermark_host = std::max(ctx.watermark_host, ctx.used_host);
     }
 
     return ptr;
@@ -1709,7 +1737,11 @@ ENOKI_EXPORT void cuda_free(void *ptr, cudaStream_t stream) {
                 exit(EXIT_FAILURE);
             }
 
-            if (it->second.type != Normal && it->second.type != Managed) {
+            if (it->second.type == Normal) {
+                ctx.used -= it->second.size;
+            } else if (it->second.type == Managed) {
+                ctx.used_managed -= it->second.size;
+            } else {
                 fprintf(stderr, "cuda_host_free(): tried to free a host pointer!");
                 exit(EXIT_FAILURE);
             }
@@ -1747,6 +1779,7 @@ ENOKI_EXPORT void cuda_host_free(void *ptr, cudaStream_t stream) {
 
             ctx.free_map.insert(std::make_pair(it->second, data));
             ctx.used_map.erase(it);
+            ctx.used_host -= it->second.size;
         },
         ptr, 0
     );
