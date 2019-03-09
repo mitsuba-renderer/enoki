@@ -41,10 +41,11 @@ PYBIND11_MODULE(enoki, m) {
 
     m.def("cuda_whos", []() { char *w = cuda_whos(); py::print(w); free(w); });
 
-    m.def("cuda_set_log_level",
-          [](int log_level) { enoki::cuda_set_log_level(log_level); },
+    m.def("cuda_set_log_level", &cuda_set_log_level,
           "Sets the current log level (0: none, 1: kernel launches, 2: +ptxas "
           "statistics, 3: +ptx source, 4: +jit trace, 5: +ref counting)");
+
+    m.def("cuda_log_level", &cuda_log_level);
 
     py::class_<CUDAManagedBuffer>(m, "CUDAManagedBuffer");
 }
