@@ -361,8 +361,8 @@ Index Tape<Value>::append_gather(const Int64 &offset, const Mask &mask) {
                 const Value &grad_source = detail->node(edge.source).grad;
                 Value &grad_target = detail->node(target_idx).grad;
 
-				if (grad_source.size() != size)
-					throw std::runtime_error("Internal error in Gather::forward()!");
+                if (grad_source.size() != size)
+                    throw std::runtime_error("Internal error in Gather::forward()!");
 
                 Value value = gather<Value>(grad_source, offset, mask);
 
@@ -377,10 +377,10 @@ Index Tape<Value>::append_gather(const Int64 &offset, const Mask &mask) {
                 const Value &grad_target = detail->node(target_idx).grad;
                 Value &grad_source = detail->node(edge.source).grad;
 
-				if (grad_source.empty())
-					grad_source = zero<Value>(size);
-				else if (grad_source.size() != size)
-					throw std::runtime_error("Internal error in Gather::backward()!");
+                if (grad_source.empty())
+                    grad_source = zero<Value>(size);
+                else if (grad_source.size() != size)
+                    throw std::runtime_error("Internal error in Gather::backward()!");
 
                 if (permute)
                     scatter(grad_source, grad_target, offset, mask);
@@ -430,10 +430,10 @@ void Tape<Value>::append_scatter(Index source, const Int64 &offset, const Mask &
                 const Value &grad_source = detail->node(edge.source).grad;
                 Value &grad_target = detail->node(target_idx).grad;
 
-				if (grad_target.empty())
-					grad_target = zero<Value>(size);
-				else if (grad_target.size() != size)
-					throw std::runtime_error("Internal error in Scatter::forward()!");
+                if (grad_target.empty())
+                    grad_target = zero<Value>(size);
+                else if (grad_target.size() != size)
+                    throw std::runtime_error("Internal error in Scatter::forward()!");
 
                 if (scatter_add)
                     enoki::scatter_add(grad_target, grad_source, offset, mask);
@@ -446,8 +446,8 @@ void Tape<Value>::append_scatter(Index source, const Int64 &offset, const Mask &
                 const Value &grad_target = detail->node(target_idx).grad;
                 Value &grad_source = source.grad;
 
-				if (grad_target.size() != size)
-					throw std::runtime_error("Internal error in Scatter::backward()!");
+                if (grad_target.size() != size)
+                    throw std::runtime_error("Internal error in Scatter::backward()!");
 
                 Value result = gather<Value>(grad_target, offset, mask);
                 if (source.size == 1)

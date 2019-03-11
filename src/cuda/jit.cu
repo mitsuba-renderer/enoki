@@ -1531,7 +1531,7 @@ ENOKI_EXPORT void cuda_malloc_trim() {
     std::unordered_multimap<TaggedSize, void *, TaggedSizeHasher> free_map;
 
     Context &ctx = context();
-    {
+    /* Critical section */ {
         std::lock_guard<std::recursive_mutex> guard(ctx.malloc_mutex);
         free_map.swap(ctx.free_map);
     }

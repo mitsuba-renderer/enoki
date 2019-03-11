@@ -51,7 +51,7 @@ private:
 
     Index append_gather(const Int64 &offset, const Mask &mask);
     void append_scatter(Index index, const Int64 &offset, const Mask &mask,
-		        bool scatter_add);
+                bool scatter_add);
 
     //! @}
     // -----------------------------------------------------------------------
