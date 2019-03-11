@@ -41,6 +41,12 @@ PYBIND11_MODULE(enoki, m) {
 
     m.def("cuda_whos", []() { char *w = cuda_whos(); py::print(w); free(w); });
 
+    m.def("cuda_mem_get_info", []() {
+        size_t free = 0, total = 0;
+        cuda_mem_get_info(&free, &total);
+        return std::make_pair(free, total);
+    });
+
     m.def("cuda_set_log_level", &cuda_set_log_level,
           "Sets the current log level (0: none, 1: kernel launches, 2: +ptxas "
           "statistics, 3: +ptx source, 4: +jit trace, 5: +ref counting)");

@@ -109,6 +109,10 @@ ENOKI_EXPORT void cuda_memcpy_from_device_async(void *dst, const void *src, size
     cuda_check(cudaMemcpyAsync(dst, src, size, cudaMemcpyDeviceToHost));
 }
 
+ENOKI_EXPORT void cuda_mem_get_info(size_t *free, size_t *total) {
+    cuda_check(cudaMemGetInfo(free, total));
+}
+
 struct CUDAErrorList {
     CUresult id;
     const char *value;

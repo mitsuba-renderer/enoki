@@ -50,8 +50,9 @@ private:
                  const Value &w1, const Value &w2, const Value &w3);
 
     Index append_gather(const Int64 &offset, const Mask &mask);
+
     void append_scatter(Index index, const Int64 &offset, const Mask &mask,
-                bool scatter_add);
+                        bool scatter_add);
 
     //! @}
     // -----------------------------------------------------------------------
@@ -63,7 +64,8 @@ private:
     Index append_node(size_t size, const char *label);
     Index append_leaf(size_t size);
     void append_edge(Index src, Index dst, const Value &weight);
-    void append_edge_prod(Index src, Index dst, const Value &weight1, const Value &weight2);
+    void append_edge_prod(Index src, Index dst, const Value &weight1,
+                          const Value &weight2);
 
     //! @}
     // -----------------------------------------------------------------------
