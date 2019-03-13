@@ -353,7 +353,8 @@ ENOKI_EXPORT uint32_t cuda_var_set_size(uint32_t index, size_t size, bool copy) 
     Variable &var = ctx[index];
     if (var.size == size)
         return index;
-    if (var.data != nullptr) {
+
+    if (var.data != nullptr || var.ref_count_int > 0) {
         if (var.size == 1 && copy) {
             uint32_t index_new =
                 cuda_trace_append(var.type, "mov.$t1 $r1, $r2", index);
