@@ -298,6 +298,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
         }
     } else {
         cl.def_property_readonly("index", [](const Array &a) { return a.index_(); });
+        cl.def_property_readonly("data", [](const Array &a) { return (uintptr_t) a.data(); });
     }
 
     if constexpr (!is_diff_array_v<Array>) {
@@ -646,6 +647,8 @@ ENOKI_NOINLINE Array torch_to_enoki(py::object src) {
     py::tuple shape_obj = src.attr("shape");
     py::object dtype_obj = src.attr("dtype");
     py::object target_dtype = torch_dtype<Scalar>();
+    if (((std::string) ((py::str) src.attr("device"))).find("cuda") == std::string::npos)
+        throw std::runtime_error("Attempted to cast a Torch CPU tensor to a Enoki GPU array!");
 
     if (shape_obj.size() != Depth || !dtype_obj.is(target_dtype))
         throw py::reference_cast_error();

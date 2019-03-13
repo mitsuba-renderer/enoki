@@ -132,8 +132,8 @@ template <typename... Args> struct struct_support<std::tuple<Args...>> {
     }
 
     template <typename T2, typename Mask>
-    static ENOKI_INLINE auto masked(T2 &value, const Mask &mask) {
-        return masked(std::forward<T2>(value), mask, std::make_index_sequence<sizeof...(Args)>());
+    static ENOKI_INLINE auto masked(T2 &&value, const Mask &mask) {
+        return masked(value, mask, std::make_index_sequence<sizeof...(Args)>());
     }
 
     static ENOKI_INLINE Value zero(size_t size) {
@@ -185,7 +185,7 @@ private:
     }
 
     template <typename T2, typename Mask, size_t... Index>
-    static ENOKI_INLINE auto masked(T2 &value, const Mask &mask, std::index_sequence<Index...>) {
+    static ENOKI_INLINE auto masked(T2 &&value, const Mask &mask, std::index_sequence<Index...>) {
         return std::tuple<decltype(enoki::masked(std::get<Index>(value), mask))...>(
             enoki::masked(std::get<Index>(value), mask)...);
     }
