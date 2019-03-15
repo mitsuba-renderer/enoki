@@ -85,6 +85,17 @@ template <typename T, size_t Size = array_size_v<T>> struct PCG32 {
         return ror(xorshifted, rot_offset);
     }
 
+    /// Sparse version of \ref next_uint32 (only advances a subset of an array of RNGs)
+    template <typename Indices, enable_if_dynamic_t<Indices> = 0>
+    ENOKI_INLINE UInt32 next_uint32(const Indices &indices, const UInt64Mask &mask) {
+        UInt64 oldstate = gather<UInt64>(state, indices, mask),
+               inc_i    = gather<UInt64>(inc, indices, mask);
+        scatter(state, oldstate * uint64_t(PCG32_MULT) + inc_i, indices, mask);
+        UInt32 xorshifted = UInt32(sr<27>(sr<18>(oldstate) ^ oldstate));
+        UInt32 rot_offset = UInt32(sr<59>(oldstate));
+        return ror(xorshifted, rot_offset);
+    }
+
     /// Generate a uniformly distributed unsigned 64-bit random number
     ENOKI_INLINE UInt64 next_uint64() {
         return UInt64(next_uint32()) | sl<32>(UInt64(next_uint32()));
@@ -95,6 +106,12 @@ template <typename T, size_t Size = array_size_v<T>> struct PCG32 {
         return UInt64(next_uint32(mask)) | sl<32>(UInt64(next_uint32(mask)));
     }
 
+    /// Sparse version of \ref next_uint64 (only advances a subset of an array of RNGs)
+    template <typename Indices, enable_if_dynamic_t<Indices> = 0>
+    ENOKI_INLINE UInt64 next_uint64(const Indices &indices, const UInt64Mask &mask) {
+        return UInt64(next_uint32(indices, mask)) | sl<32>(UInt64(next_uint32(indices, mask)));
+    }
+
     /// Generate a single precision floating point value on the interval [0, 1)
     ENOKI_INLINE Float32 next_float32() {
         return reinterpret_array<Float32>(sr<9>(next_uint32()) | 0x3f800000u) - 1.f;
@@ -103,6 +120,12 @@ template <typename T, size_t Size = array_size_v<T>> struct PCG32 {
     /// Masked version of \ref next_float32
     ENOKI_INLINE Float32 next_float32(const UInt64Mask &mask) {
         return reinterpret_array<Float32>(sr<9>(next_uint32(mask)) | 0x3f800000u) - 1.f;
+    }
+
+    /// Sparse version of \ref next_float32 (only advances a subset of an array of RNGs)
+    template <typename Indices, enable_if_dynamic_t<Indices> = 0>
+    ENOKI_INLINE Float32 next_float32(const Indices &indices, const UInt64Mask &mask) {
+        return reinterpret_array<Float32>(sr<9>(next_uint32(indices, mask)) | 0x3f800000u) - 1.f;
     }
 
     /**
@@ -119,17 +142,16 @@ template <typename T, size_t Size = array_size_v<T>> struct PCG32 {
                                           0x3ff0000000000000ull) - 1.0;
     }
 
-    /**
-     * \brief Generate a double precision floating point value on the interval [0, 1)
-     *
-     * \remark Since the underlying random number generator produces 32 bit output,
-     * only the first 32 mantissa bits will be filled (however, the resolution is still
-     * finer than in \ref next_float(), which only uses 23 mantissa bits)
-     */
+    /// Masked version of next_float64
     ENOKI_INLINE Float64 next_float64(const UInt64Mask &mask) {
-        /* Trick from MTGP: generate an uniformly distributed
-           double precision number in [1,2) and subtract 1. */
         return reinterpret_array<Float64>(sl<20>(UInt64(next_uint32(mask))) |
+                                          0x3ff0000000000000ull) - 1.0;
+    }
+
+    /// Sparse version of \ref next_float64 (only advances a subset of an array of RNGs)
+    template <typename Indices, enable_if_dynamic_t<Indices> = 0>
+    ENOKI_INLINE Float64 next_float64(const Indices &indices, const UInt64Mask &mask) {
+        return reinterpret_array<Float64>(sl<20>(UInt64(next_uint32(indices, mask))) |
                                           0x3ff0000000000000ull) - 1.0;
     }
 
