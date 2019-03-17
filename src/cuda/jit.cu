@@ -747,7 +747,9 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
     if (ENOKI_UNLIKELY((v1.size != 1 && v1.size != size) ||
                        (v2.size != 1 && v2.size != size)))
         throw std::runtime_error("cuda_trace_append(): arithmetic involving "
-                                 "arrays of incompatible size!");
+                                 "arrays of incompatible size (" +
+                                 std::to_string(v1.size) + " and " + std::to_string(v2.size) +
+                                 "). The instruction was \"" + cmd + "\".");
 
     Variable &v = ctx.append(type);
     v.size = size;
@@ -799,7 +801,10 @@ ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type,
                        (v2.size != 1 && v2.size != size) ||
                        (v3.size != 1 && v3.size != size)))
         throw std::runtime_error("cuda_trace_append(): arithmetic involving "
-                                 "arrays of incompatible size!");
+                                 "arrays of incompatible size (" +
+                                 std::to_string(v1.size) + ", " + std::to_string(v2.size) +
+                                 " and " + std::to_string(v3.size) + "). The instruction was \"" +
+                                 cmd + "\".");
 
     Variable &v = ctx.append(type);
     v.size = size;
