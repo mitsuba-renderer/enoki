@@ -1177,6 +1177,10 @@ public:
         tape()->backward(free_graph);
     }
 
+    static void forward_static_(bool free_graph) {
+        tape()->forward(free_graph);
+    }
+
     static std::string graphviz_(const std::vector<Index> &indices) {
         if constexpr (!Enabled)
             fail_unsupported("graphviz_");
@@ -1343,6 +1347,9 @@ template <typename T> void backward(bool free_graph = true) {
     T::backward_static_(free_graph);
 }
 
+template <typename T> void forward(bool free_graph = true) {
+    T::forward_static_(free_graph);
+}
 
 namespace detail {
     template <typename T>
