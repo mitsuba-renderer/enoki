@@ -14,6 +14,7 @@
 #include "test.h"
 #include <enoki/array.h>
 #include <enoki/dynamic.h>
+#include <enoki/matrix.h>
 
 template <typename Value_> struct Custom {
     using Value = Value_;
@@ -153,4 +154,52 @@ ENOKI_TEST(test04_gather_custom_struct) {
     assert(s.d.z() == 2001.f);
 
     assert(s.i == 1235u);
+}
+
+template <typename Value_>
+struct MatrixHolder {
+    using Value = Value_;
+    using Matrix = enoki::Matrix<Value, 4>;
+
+    Matrix m;
+    Value o;
+
+    ENOKI_STRUCT(MatrixHolder, m, o)
+};
+
+ENOKI_STRUCT_SUPPORT(MatrixHolder, m, o)
+
+ENOKI_TEST(test05_masked_struct_with_matrix) {
+    using FloatP = Packet<float>;
+    using Matrix4fP = Matrix<FloatP, 4>;
+    using MatrixHolderfP = MatrixHolder<FloatP>;
+
+    Matrix4fP m1 = 1.f;
+    std::cout << "m1: " << m1 << std::endl << "-----"  << std::endl;
+    // Expected a matrix full of 1, actually got the identity.
+    assert(all_nested(eq(m1, 1.f)));
+    assert(all_nested(m1 == 1.f));
+    // This fails, off-diagonal elements are 0.
+    assert(m1.coeff(1) == 1.f);
+
+
+    MatrixHolderfP h1;
+    h1.m = 1.f;
+    // Now we actually got a matrix full of 1, even though we're using the same matrix type!
+    std::cout << "h1.m: " << h1.m << std::endl << "-----"  << std::endl;
+    static_assert(std::is_same_v<Matrix4fP, typename MatrixHolderfP::Matrix>);
+    for (size_t i = 0; i < 4; ++i)
+        for (size_t j = 0; j < 4; ++j)
+            assert(all_nested(eq(h1.m[i][j], 1.f)));
+
+    // These tests don't pass anymore
+    // assert(all_nested(eq(h1.m, 1.f)));
+    // assert(all_nested(h1.m == 1.f));
+
+
+    MatrixHolderfP h2;
+    h2.m = 3.f;
+    mask_t<FloatP> active = true;
+    // This fails to compile!
+    masked(h1, active) = h2;
 }
