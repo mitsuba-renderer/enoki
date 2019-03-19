@@ -1310,7 +1310,7 @@ static void sweep_recursive(Context &ctx,
     };
 
     if (prio(1) < prio(2))
-        std::swap(deps[0], deps[1]);
+        std::swap(deps[1], deps[2]);
     if (prio(0) < prio(2))
         std::swap(deps[0], deps[2]);
     if (prio(0) < prio(1))
