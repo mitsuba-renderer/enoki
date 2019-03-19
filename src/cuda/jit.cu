@@ -383,6 +383,9 @@ ENOKI_EXPORT uint32_t cuda_var_register(EnokiType type, size_t size,
         std::cerr << "cuda_var_register(" << idx << "): " << ptr
                   << ", size=" << size << ", free=" << free << std::endl;
 #endif
+    if (size == 0)
+        throw std::runtime_error("cuda_var_register(): attempted to create a "
+                                 "variable of size zero!");
     Variable &v = ctx.append(type);
     v.data = ptr;
     v.size = size;

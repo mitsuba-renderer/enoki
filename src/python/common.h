@@ -632,12 +632,14 @@ ENOKI_NOINLINE py::object enoki_to_torch(const Array &src, bool eval) {
 
     strides = py::cast<std::array<size_t, Depth>>(result.attr("stride")());
     std::reverse(strides.begin(), strides.end());
-    CUDAArray<Scalar> target = CUDAArray<Scalar>::map(
-        (Scalar *) py::cast<uintptr_t>(result.attr("data_ptr")()), size);
-    copy_array_scatter<0>(0, shape, strides, src, target);
-    if (eval) {
-        cuda_eval();
-        cuda_sync();
+    if (size > 0) {
+        CUDAArray<Scalar> target = CUDAArray<Scalar>::map(
+            (Scalar *) py::cast<uintptr_t>(result.attr("data_ptr")()), size);
+        copy_array_scatter<0>(0, shape, strides, src, target);
+        if (eval) {
+            cuda_eval();
+            cuda_sync();
+        }
     }
     return result;
 }
@@ -665,11 +667,14 @@ ENOKI_NOINLINE Array torch_to_enoki(py::object src) {
     for (size_t i : shape)
         size *= i;
 
-    CUDAArray<Scalar> source = CUDAArray<Scalar>::map(
-        (Scalar *) py::cast<uintptr_t>(src.attr("data_ptr")()), size);
-
     Array result;
-    copy_array_gather<0>(0, shape, strides, source, result);
+
+    if (size > 0) {
+        CUDAArray<Scalar> source = CUDAArray<Scalar>::map(
+            (Scalar *) py::cast<uintptr_t>(src.attr("data_ptr")()), size);
+
+        copy_array_gather<0>(0, shape, strides, source, result);
+    }
     return result;
 }
 
@@ -693,14 +698,17 @@ ENOKI_NOINLINE py::object enoki_to_numpy(const Array &src, bool eval) {
     py::object buf_py = py::cast(buf, py::return_value_policy::take_ownership);
 
     py::array result(py::dtype::of<Scalar>(), shape_rev, strides, buf->ptr, buf_py);
-    CUDAArray<Scalar> target = CUDAArray<Scalar>::map(buf->ptr, stride);
     for (ssize_t i = (ssize_t) Depth - 1; i >= 0; --i)
         strides[i] /= sizeof(Scalar);
     std::reverse(strides.begin(), strides.end());
-    copy_array_scatter<0>(0, shape, strides, src, target);
-    if (eval) {
-        cuda_eval();
-        cuda_sync();
+
+    if (size > 0) {
+        CUDAArray<Scalar> target = CUDAArray<Scalar>::map(buf->ptr, stride);
+        copy_array_scatter<0>(0, shape, strides, src, target);
+        if (eval) {
+            cuda_eval();
+            cuda_sync();
+        }
     }
 
     return result;
@@ -730,13 +738,17 @@ ENOKI_NOINLINE Array numpy_to_enoki(py::array src) {
     for (size_t i : shape)
         size *= i;
 
-    CUDAArray<Scalar> source = CUDAArray<Scalar>::from_index_(
-        cuda_var_copy_to_device(enoki_type_v<Scalar>, size, src.data()));
-
     for (ssize_t i = 0; i < Depth; ++i)
         strides[i] /= sizeof(Scalar);
 
     Array result;
-    copy_array_gather<0>(0, shape, strides, source, result);
+
+    if (size > 0) {
+        CUDAArray<Scalar> source = CUDAArray<Scalar>::from_index_(
+            cuda_var_copy_to_device(enoki_type_v<Scalar>, size, src.data()));
+
+        copy_array_gather<0>(0, shape, strides, source, result);
+    }
+
     return result;
 }
