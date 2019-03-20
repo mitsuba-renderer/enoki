@@ -26,6 +26,9 @@
 #  define ENOKI_AUTODIFF_DEFAULT_LOG_LEVEL 1
 #endif
 
+/// Max. allowed cost in number of arithmetic operations that a simplification can do
+#define ENOKI_AUTODIFF_MAX_SIMPLIFICATION_COST 10
+
 NAMESPACE_BEGIN(enoki)
 
 using Index = uint32_t;
@@ -888,6 +891,11 @@ template <typename Value> void Tape<Value>::simplify_graph() {
         Node &node = d->node(index);
         if (!node.collapse_allowed())
             continue;
+        if (score > ENOKI_AUTODIFF_MAX_SIMPLIFICATION_COST) {
+            if (d->log_level >= 2)
+                std::cerr << "autodiff: simplify_graph(): cost of next simplification = " << cost << ", giving up." << std::endl;
+            break;
+        }
 
         update.clear();
         bool skip = false;
@@ -912,7 +920,7 @@ template <typename Value> void Tape<Value>::simplify_graph() {
             continue;
 
         if (d->log_level >= 3)
-            std::cerr << "autodiff: simplify_graph(): collapsing node " << index << std::endl;
+            std::cerr << "autodiff: simplify_graph(): collapsing node " << index << ", cost = " << score << std::endl;
 
         /* Remove node and create edges */ {
             edges_rev = node.edges_rev;

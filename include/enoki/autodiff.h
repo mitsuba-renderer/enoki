@@ -1297,6 +1297,7 @@ template <typename T> ENOKI_INLINE bool requires_gradient(T& a) {
             return a.requires_gradient_();
         }
     }
+    return false;
 }
 
 template <typename T> ENOKI_INLINE void set_requires_gradient(T& a, bool value = true) {
