@@ -267,7 +267,7 @@ public:
     }
 
     DiffArray fmadd_(const DiffArray &a, const DiffArray &b) const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Value>) {
             fail_unsupported("fmadd_");
         } else {
             Index index_new = 0;
@@ -281,7 +281,7 @@ public:
     }
 
     DiffArray fmsub_(const DiffArray &a, const DiffArray &b) const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Value>) {
             fail_unsupported("fmsub_");
         } else {
             Value result = fmsub(m_value, a.m_value, b.m_value);
@@ -295,8 +295,8 @@ public:
     }
 
     DiffArray fnmadd_(const DiffArray &a, const DiffArray &b) const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
-            fail_unsupported("fnmadd");
+        if constexpr (is_mask_v<Value>) {
+            fail_unsupported("fnmadd_");
         } else {
             Value result = fnmadd(m_value, a.m_value, b.m_value);
             Index index_new = 0;
@@ -309,8 +309,8 @@ public:
     }
 
     DiffArray fnmsub_(const DiffArray &a, const DiffArray &b) const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
-            fail_unsupported("fnmsub");
+        if constexpr (is_mask_v<Value>) {
+            fail_unsupported("fnmsub_");
         } else {
             Index index_new = 0;
             Value result = fnmsub(m_value, a.m_value, b.m_value);
