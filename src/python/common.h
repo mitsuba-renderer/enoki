@@ -251,6 +251,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
 
     cl.def("__len__", [](const Array &a) { return a.size(); });
     cl.def("resize", [](Array &a, size_t size) { enoki::set_slices(a, size); });
+    m.def("slices", [](const Array &a) { return slices(a); });
 
     if constexpr (array_depth_v<Array> > 1) {
         cl.def("__setitem__", [](Array &a, size_t index, const Value &b) {
