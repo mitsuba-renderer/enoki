@@ -163,9 +163,9 @@ ENOKI_INLINE Result operator*(const Matrix<T0, Size, Approx0> &m0,
     /* 4x4 case reduced to 4 multiplications, 12 fused multiply-adds,
        and 16 broadcasts (also fused on AVX512VL) */
     for (size_t j = 0; j < Size; ++j) {
-        Column sum = m0.coeff(0) * m1(0, j);
+        Column sum = m0.coeff(0) * Column::full_(m1(0, j), 1);
         for (size_t i = 1; i < Size; ++i)
-            sum = fmadd(m0.coeff(i), Column(m1(i, j)), sum);
+            sum = fmadd(m0.coeff(i), Column::full_(m1(i, j), 1), sum);
         result.coeff(j) = sum;
     }
 
@@ -177,9 +177,9 @@ template <typename T0, typename T1, size_t Size, bool Approx,
 ENOKI_INLINE auto operator*(const Matrix<T0, Size, Approx> &m, const T1 &s) {
     if constexpr (array_size_v<T1> == Size) {
         using Return = column_t<Matrix<expr_t<T0, value_t<T1>>, Size>>;
-        Return sum = m.coeff(0) * Return(s.coeff(0));
+        Return sum = m.coeff(0) * Return::full_(s.coeff(0), 1);
         for (size_t i = 1; i < Size; ++i)
-            sum = fmadd(m.coeff(i), Return(s.coeff(i)), sum);
+            sum = fmadd(m.coeff(i), Return::full_(s.coeff(i), 1), sum);
         return sum;
     } else {
         using Result = Matrix<expr_t<T0, T1>, Size, Approx>;
@@ -194,7 +194,6 @@ ENOKI_INLINE Result operator*(const T0 &s, const Matrix<T1, Size, Approx> &m) {
     return Array<Array<expr_t<T1>, Size>, Size>(m) *
            full<Array<Array<scalar_t<T0>, Size>, Size>>(s);
 }
-
 
 template <typename T0, typename T1, size_t Size, bool Approx,
           typename Value = expr_t<T0, T1>, typename Result = Matrix<Value, Size, Approx>>
