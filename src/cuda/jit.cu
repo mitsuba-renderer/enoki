@@ -1519,7 +1519,7 @@ ENOKI_EXPORT char *cuda_whos() {
         }
     }
 
-    oss << "  ===============================================================" << std::endl << std::endl
+    oss << "  =================================================================" << std::endl << std::endl
         << "  Memory usage (ready)     : " << mem_string(mem_size_ready)     << std::endl
         << "  Memory usage (scheduled) : " << mem_string(mem_size_ready) << " + "
         << mem_string(mem_size_scheduled) << " = " << mem_string(mem_size_ready + mem_size_scheduled) << std::endl
