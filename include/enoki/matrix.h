@@ -175,7 +175,7 @@ ENOKI_INLINE Result operator*(const Matrix<T0, Size, Approx0> &m0,
 template <typename T0, typename T1, size_t Size, bool Approx,
           typename Value = expr_t<T0, T1>>
 ENOKI_INLINE auto operator*(const Matrix<T0, Size, Approx> &m, const T1 &s) {
-    if constexpr (array_size_v<T1> == Size) {
+    if constexpr (array_size_v<T1> == Size && !std::is_same_v<T1, T0>) {
         using Return = column_t<Matrix<expr_t<T0, value_t<T1>>, Size>>;
         Return sum = m.coeff(0) * Return::full_(s.coeff(0), 1);
         for (size_t i = 1; i < Size; ++i)
