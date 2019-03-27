@@ -309,9 +309,9 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     }
 
     CUDAArray &operator=(const CUDAArray &a) {
+        cuda_inc_ref_ext(a.m_index);
         cuda_dec_ref_ext(m_index);
         m_index = a.m_index;
-        cuda_inc_ref_ext(m_index);
         return *this;
     }
 

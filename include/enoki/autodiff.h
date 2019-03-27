@@ -190,9 +190,10 @@ public:
     DiffArray &operator=(const DiffArray &a) {
         m_value = a.m_value;
         if constexpr (Enabled) {
-            tape()->dec_ref_ext(m_index);
+            auto t = tape();
+            t->inc_ref_ext(a.m_index);
+            t->dec_ref_ext(m_index);
             m_index = a.m_index;
-            tape()->inc_ref_ext(m_index);
         }
         return *this;
     }
