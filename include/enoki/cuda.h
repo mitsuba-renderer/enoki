@@ -589,18 +589,30 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     }
 
     MaskType eq_(const CUDAArray &v) const {
-        return MaskType::from_index_(cuda_trace_append(EnokiType::Bool,
-            "setp.eq.$t2 $r1, $r2, $r3", index_(), v.index_()));
+        const char *op = !std::is_same_v<Value, bool>
+            ? "setp.eq.$t2 $r1, $r2, $r3" :
+              "xor.$t2 $r1, $r2, $r3;\n    not.$t2 $r1, $r1";
+
+        return MaskType::from_index_(cuda_trace_append(
+            EnokiType::Bool, op, index_(), v.index_()));
     }
 
     MaskType neq_(const CUDAArray &v) const {
-        return MaskType::from_index_(cuda_trace_append(EnokiType::Bool,
-            "setp.ne.$t2 $r1, $r2, $r3", index_(), v.index_()));
+        const char *op = !std::is_same_v<Value, bool>
+            ? "setp.ne.$t2 $r1, $r2, $r3" :
+              "xor.$t2 $r1, $r2, $r3";
+
+        return MaskType::from_index_(cuda_trace_append(
+            EnokiType::Bool, op, index_(), v.index_()));
     }
 
     static CUDAArray select_(const MaskType &m, const CUDAArray &t, const CUDAArray &f) {
-        return CUDAArray::from_index_(cuda_trace_append(Type,
-            "selp.$t1 $r1, $r2, $r3, $r4", t.index_(), f.index_(), m.index_()));
+        if constexpr (!std::is_same_v<Value, bool>) {
+            return CUDAArray::from_index_(cuda_trace_append(Type,
+                "selp.$t1 $r1, $r2, $r3, $r4", t.index_(), f.index_(), m.index_()));
+        } else {
+            return (m & t) | (~m & f);
+        }
     }
 
     static CUDAArray arange_(ssize_t start, ssize_t stop, ssize_t step) {

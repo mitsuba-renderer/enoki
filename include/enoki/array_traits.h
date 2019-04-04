@@ -422,6 +422,7 @@ namespace detail {
     template <typename T> struct expr_n<void, std::nullptr_t, T*> { using type = T*; };
     template <typename T, typename T2> struct expr_n<void, T, enoki::divisor_ext<T2>> { using type = T2; };
     template <typename T, typename T2> struct expr_n<void, T, enoki::divisor<T2>> { using type = T2; };
+    template <> struct expr_n<void, bool, bool> { using type = bool; };
 
     /// Type trait to compute the result of arbitrary expressions
     template <typename... Ts> struct expr    : detail::expr_n<deepest_array_t<Ts...>, Ts...> { };
