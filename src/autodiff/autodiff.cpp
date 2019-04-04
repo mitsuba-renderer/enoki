@@ -847,6 +847,17 @@ void Tape<Value>::forward(bool free_graph) {
             } else {
                 edge->special->forward(d, target_idx, *edge);
             }
+            if constexpr (is_dynamic_v<Value>) {
+                if (ENOKI_UNLIKELY(target.size != target.grad.size())) {
+                    if (target.grad.size() == 1)
+                        set_slices(target.grad, target.size);
+                    else
+                        throw std::runtime_error(
+                            "forward(): gradient sizes don't match: expected " +
+                            std::to_string(target.size) + ", got " +
+                            std::to_string(target.grad.size()));
+                }
+            }
         }
         if (free_graph) {
             auto edges_rev = source.edges_rev;
