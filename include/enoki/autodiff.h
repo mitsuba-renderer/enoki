@@ -1029,6 +1029,13 @@ public:
     //! @{ \name Access to internals
     // -----------------------------------------------------------------------
 
+    void set_index_(Index index) {
+        if constexpr (Enabled) {
+            auto t = tape();
+            t->inc_ref_ext(index);
+            t->dec_ref_ext(m_index);
+        }
+    }
     Index index_() const { return m_index; }
     Value &value_() { return m_value; }
     const Value &value_() const { return m_value; }
@@ -1323,7 +1330,7 @@ template <typename T> auto gradient_index(const T &a) {
     } else if constexpr (is_diff_array_v<T>) {
         return a.index_();
     } else {
-        static_assert(detail::false_v<T>, "The given array does not have derivatives.");
+        static_assert(detail::false_v<T>, "The given array does not support derivatives.");
     }
 }
 
@@ -1334,7 +1341,18 @@ template <typename T1, typename T2> decltype(auto) set_gradient(T1 &a, const T2 
     } else if constexpr (is_diff_array_v<T1>) {
         a.set_gradient_(b, backward);
     } else {
-        static_assert(detail::false_v<T1, T2>, "The given array does not have derivatives.");
+        static_assert(detail::false_v<T1, T2>, "The given array does not support derivatives.");
+    }
+}
+
+template <typename T1> void reattach(T1 &a, const T1 &b) {
+    if constexpr (array_depth_v<T1> >= 2) {
+        for (size_t i = 0; i < array_size_v<T1>; ++i)
+            reattach(a[i], b[i]);
+    } else if constexpr (is_diff_array_v<T1>) {
+        a.set_index_(b.index_());
+    } else {
+        static_assert(detail::false_v<T1>, "The given array does not support derivatives.");
     }
 }
 

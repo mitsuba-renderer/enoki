@@ -421,8 +421,10 @@ py::class_<Array> bind(py::module &m, const char *name) {
         return enoki::select(a, b, c);
     });
 
-    if constexpr (is_diff_array_v<Array>)
+    if constexpr (is_diff_array_v<Array>) {
         m.def("detach", [](const Array &a) { return eval(detach(a)); });
+        m.def("reattach", [](Array &a, Array &b) { reattach(a, b); });
+    }
 
     if constexpr (IsFloat && is_diff_array_v<Array>) {
         m.def("requires_gradient",
