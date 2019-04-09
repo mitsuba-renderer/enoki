@@ -1035,6 +1035,7 @@ public:
             t->inc_ref_ext(index);
             t->dec_ref_ext(m_index);
         }
+        m_index = index;
     }
     Index index_() const { return m_index; }
     Value &value_() { return m_value; }
