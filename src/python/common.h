@@ -132,61 +132,77 @@ py::class_<Array> bind(py::module &m, const char *name) {
       .def_static("empty", [](size_t size) { return empty<Array>(size); },
                   "size"_a = 1);
 
-      cl.def(py::init([](const py::object &obj) -> Array {
-            const char *tp_name = ((PyTypeObject *) obj.get_type().ptr())->tp_name;
-            if (strstr(tp_name, "Tensor") != nullptr) {
-                using T = expr_t<decltype(detach(std::declval<Array&>()))>;
-                return torch_to_enoki<T>(obj);
-            }
-
-            if (strstr(tp_name, "numpy.ndarray") != nullptr) {
-                using T = expr_t<decltype(detach(std::declval<Array&>()))>;
-                return numpy_to_enoki<T>(obj);
-            }
-
-            if constexpr (!IsMask && array_depth_v<Array> == 1) {
-                if (strstr(tp_name, "enoki.") == nullptr && py::isinstance<py::sequence>(obj)) {
-                    try {
-                        auto a = py::cast<std::vector<Value>>(obj);
-                        if constexpr (!is_diff_array_v<Array>) {
-                            uint32_t index = cuda_var_copy_to_device(Array::Type, a.size(), a.data());
-                            return Array::from_index_(index);
-                        } else {
-                            uint32_t index = cuda_var_copy_to_device(Array::UnderlyingType::Type, a.size(), a.data());
-                            return Array::UnderlyingType::from_index_(index);
-                        }
-                    } catch (...) { }
+    if constexpr (array_depth_v<Array> == 1 && is_cuda_array_v<Array>) {
+        cl.def(
+            py::init([](Scalar scalar, bool literal) -> Array {
+                if (literal) {
+                    return Array(scalar);
+                } else {
+                    if constexpr (is_diff_array_v<Array>)
+                        return Array::UnderlyingType::copy(&scalar, 1);
+                    else
+                        return Array::copy(&scalar, 1);
                 }
-            }
+            }),
+            "scalar"_a, "literal"_a = true
+        );
+    }
 
-            throw py::reference_cast_error();
-        }))
-        .def("torch", [](const Array &a, bool eval) {
-            return enoki_to_torch(detach(a), eval); },
-            "eval"_a = true
-        )
-        .def("numpy", [](const Array &a, bool eval) {
-            return enoki_to_numpy(detach(a), eval); },
-            "eval"_a = true
-        )
-        .def_property_readonly("__array_interface__", [](const py::object &o) {
-            py::object np_array = o.attr("numpy")();
-            py::dict result;
-            result["data"] = np_array;
-            result["shape"] = np_array.attr("shape");
-            result["version"] = 3;
-            char typestr[4] = { '<', 0, '0' + sizeof(Scalar), 0 };
-            if (std::is_floating_point_v<Scalar>)
-                typestr[1] = 'f';
-            else if (std::is_same_v<Scalar, bool>)
-                typestr[1] = 'b';
-            else if (std::is_unsigned_v<Scalar>)
-                typestr[1] = 'u';
-            else
-                typestr[1] = 'i';
-            result["typestr"] = typestr;
-            return result;
-        });
+    cl.def(py::init([](const py::object &obj) -> Array {
+          const char *tp_name = ((PyTypeObject *) obj.get_type().ptr())->tp_name;
+          if (strstr(tp_name, "Tensor") != nullptr) {
+              using T = expr_t<decltype(detach(std::declval<Array&>()))>;
+              return torch_to_enoki<T>(obj);
+          }
+
+          if (strstr(tp_name, "numpy.ndarray") != nullptr) {
+              using T = expr_t<decltype(detach(std::declval<Array&>()))>;
+              return numpy_to_enoki<T>(obj);
+          }
+
+          if constexpr (!IsMask && array_depth_v<Array> == 1) {
+              if (strstr(tp_name, "enoki.") == nullptr && py::isinstance<py::sequence>(obj)) {
+                  try {
+                      auto a = py::cast<std::vector<Value>>(obj);
+                      if constexpr (!is_diff_array_v<Array>) {
+                          uint32_t index = cuda_var_copy_to_device(Array::Type, a.size(), a.data());
+                          return Array::from_index_(index);
+                      } else {
+                          uint32_t index = cuda_var_copy_to_device(Array::UnderlyingType::Type, a.size(), a.data());
+                          return Array::UnderlyingType::from_index_(index);
+                      }
+                  } catch (...) { }
+              }
+          }
+
+          throw py::reference_cast_error();
+      }))
+      .def("torch", [](const Array &a, bool eval) {
+          return enoki_to_torch(detach(a), eval); },
+          "eval"_a = true
+      )
+      .def("numpy", [](const Array &a, bool eval) {
+          return enoki_to_numpy(detach(a), eval); },
+          "eval"_a = true
+      )
+      .def_property_readonly("__array_interface__", [](const py::object &o) {
+          py::object np_array = o.attr("numpy")();
+          py::dict result;
+          result["data"] = np_array;
+          result["shape"] = np_array.attr("shape");
+          result["version"] = 3;
+          char typestr[4] = { '<', 0, '0' + sizeof(Scalar), 0 };
+          if (std::is_floating_point_v<Scalar>)
+              typestr[1] = 'f';
+          else if (std::is_same_v<Scalar, bool>)
+              typestr[1] = 'b';
+          else if (std::is_unsigned_v<Scalar>)
+              typestr[1] = 'u';
+          else
+              typestr[1] = 'i';
+          result["typestr"] = typestr;
+          return result;
+      });
 
     if constexpr (!IsMask) {
         cl.def(py::self + py::self)
