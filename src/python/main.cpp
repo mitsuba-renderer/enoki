@@ -31,6 +31,11 @@ PYBIND11_MODULE(enoki, m) {
 
     bind_pcg32(m);
 
+    m.def("set_requires_gradient",
+          [](py::object o, bool value) {
+              throw py::type_error("set_requires_gradient(): requires a differentiable type as input!");
+          }, "array"_a, "value"_a = true);
+
     m.def("cuda_eval", &cuda_eval, "log_assembly"_a = false,
           py::call_guard<py::gil_scoped_release>());
 
