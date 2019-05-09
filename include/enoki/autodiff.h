@@ -1335,7 +1335,7 @@ template <typename T> auto gradient_index(const T &a) {
     }
 }
 
-template <typename T1, typename T2> decltype(auto) set_gradient(T1 &a, const T2 &b, bool backward = true) {
+template <typename T1, typename T2> void set_gradient(T1 &a, const T2 &b, bool backward = true) {
     if constexpr (array_depth_v<T1> >= 2) {
         for (size_t i = 0; i < array_size_v<T1>; ++i)
             set_gradient(a[i], b[i], backward);

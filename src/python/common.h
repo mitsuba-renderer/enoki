@@ -428,6 +428,12 @@ py::class_<Array> bind(py::module &m, const char *name) {
         m.def("none", [](const Array &a) { return enoki::none(a); });
         m.def("all", [](const Array &a) { return enoki::all(a); });
         m.def("count", [](const Array &a) { return enoki::count(a); });
+
+        if constexpr (array_depth_v<Array> > 1) {
+            m.def("any_nested", [](const Array &a) { return enoki::any_nested(a); });
+            m.def("none_nested", [](const Array &a) { return enoki::none_nested(a); });
+            m.def("all_nested", [](const Array &a) { return enoki::all_nested(a); });
+        }
     }
 
     m.def("eq", [](const Array &a, const Array &b) { return eq(a, b); });
