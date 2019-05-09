@@ -396,6 +396,10 @@ py::class_<Array> bind(py::module &m, const char *name) {
         m.def("clamp", [](const Array &value, const Array &min, const Array &max) {
             return enoki::clamp(value, min, max);
         });
+
+        m.def("isfinite", [](const Array &a) { return enoki::isfinite(a); });
+        m.def("isnan", [](const Array &a) { return enoki::isnan(a); });
+        m.def("isinf", [](const Array &a) { return enoki::isinf(a); });
     } else if constexpr (!IsMask) {
         m.def("popcnt", [](const Array &a) { return enoki::popcnt(a); });
         m.def("lzcnt", [](const Array &a) { return enoki::lzcnt(a); });

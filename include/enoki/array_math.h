@@ -947,7 +947,7 @@ ENOKI_UNARY_OPERATION(cbrt, std::cbrt(x)) {
 
     xm[neq(rem, 0.f)] *= f;
 
-    Value r  = ldexp(xm, mulsign(xea1, xe));
+    Value r = ldexp(xm, mulsign(xea1, xe));
     r = mulsign(r, x);
 
     // Newton iteration

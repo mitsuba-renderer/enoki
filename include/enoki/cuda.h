@@ -235,7 +235,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     template <typename T>
     CUDAArray(const CUDAArray<T> &v, detail::reinterpret_flag) {
         static_assert(sizeof(T) == sizeof(Value));
-        if (std::is_integral_v<T> == std::is_integral_v<Value>) {
+        if (std::is_integral_v<T> != std::is_integral_v<Value>) {
             m_index = cuda_trace_append(Type, "mov.$b1 $r1, $r2", v.index_());
         } else {
             m_index = v.index_();
