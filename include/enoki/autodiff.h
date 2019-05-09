@@ -360,6 +360,19 @@ public:
         }
     }
 
+    DiffArray cbrt_() const {
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            fail_unsupported("cbrt_");
+        } else {
+            Index index_new = 0;
+            Value result = cbrt(m_value);
+            if constexpr (Enabled)
+                index_new = tape()->append("cbrt", slices(result), m_index,
+                                           1.f / (3 * sqr(result)));
+            return DiffArray::create(index_new, std::move(result));
+        }
+    }
+
     DiffArray rcp_() const {
         if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("rcp_");

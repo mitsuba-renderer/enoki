@@ -903,6 +903,62 @@ ENOKI_UNARY_OPERATION(log, std::log(x)) {
     return r | ~valid_mask;
 }
 
+ENOKI_UNARY_OPERATION(cbrt, std::cbrt(x)) {
+    /* Cubic root approximation based on CEPHES
+
+       Redistributed under a BSD license with permission of the author, see
+       https://github.com/deepmind/torch-cephes/blob/master/LICENSE.txt
+
+     - cbrt (in [-10, 10]):
+       * avg abs. err = 2.91027e-17
+       * avg rel. err = 1.79292e-17
+          -> in ULPs  = 0.118351
+       * max abs. err = 4.44089e-16
+         (at x=-9.99994)
+       * max rel. err = 2.22044e-16
+         -> in ULPs   = 1
+         (at x=-9.99994)
+    */
+
+    const Scalar CBRT2 = Scalar(1.25992104989487316477),
+                 CBRT4 = Scalar(1.58740105196819947475),
+                 THIRD = Scalar(1.0 / 3.0);
+
+    Value xa = abs(x);
+
+    auto [xm, xe] = frexp(xa);
+    xe += Scalar(1);
+
+    Value xea = abs(xe),
+          xea1 = floor(xea * THIRD),
+          rem = fnmadd(xea1, Scalar(3), xea);
+
+    /* Approximate cube root of number between .5 and 1,
+       peak relative error = 9.2e-6 */
+    xm = poly4(xm, 0.40238979564544752126924,
+                   1.1399983354717293273738,
+                  -0.95438224771509446525043,
+                   0.54664601366395524503440,
+                  -0.13466110473359520655053);
+
+    Value f1 = select(xe >= Scalar(0), Value(CBRT2), Value(Scalar(1) / CBRT2)),
+          f2 = select(xe >= Scalar(0), Value(CBRT4), Value(Scalar(1) / CBRT4)),
+          f  = select(eq(rem, 1.f), f1, f2);
+
+    xm[neq(rem, 0.f)] *= f;
+
+    Value r  = ldexp(xm, mulsign(xea1, xe));
+    r = mulsign(r, x);
+
+    // Newton iteration
+    r -= (r - (x / sqr(r))) * THIRD;
+
+    if constexpr (!Single)
+        r -= (r - (x / sqr(r))) * THIRD;
+
+    return select(isfinite(x), r, x);
+}
+
 ENOKI_BINARY_OPERATION(pow, std::pow(x, y)) {
     return exp(log(x) * y);
 }

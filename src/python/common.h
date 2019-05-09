@@ -348,6 +348,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
         m.def("abs", [](const Array &a) { return enoki::abs(a); });
         m.def("sqr", [](const Array &a) { return enoki::sqr(a); });
         m.def("sqrt", [](const Array &a) { return enoki::sqrt(a); });
+        m.def("cbrt", [](const Array &a) { return enoki::cbrt(a); });
         m.def("rcp", [](const Array &a) { return enoki::rcp(a); });
         m.def("rsqrt", [](const Array &a) { return enoki::rsqrt(a); });
 

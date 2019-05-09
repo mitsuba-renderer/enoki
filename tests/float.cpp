@@ -315,3 +315,12 @@ ENOKI_TEST_FLOAT(test19_ceil2int) {
     assert(floor2int<Int>(a) == Int(-6));
     assert(ceil2int<Int>(a) == Int(-5));
 }
+
+ENOKI_TEST_FLOAT(test20_cbrt) {
+    test::probe_accuracy<T>(
+        [](const T &a) -> T { return cbrt(a); },
+        [](double a) { return std::cbrt(a); },
+        Value(-10), Value(10),
+        1
+    );
+}
