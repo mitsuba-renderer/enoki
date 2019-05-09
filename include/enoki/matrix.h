@@ -222,7 +222,7 @@ template <typename T, enable_if_matrix_t<T> = 0>
 ENOKI_INLINE T identity(size_t size = 1) {
     T result = zero<T>(size);
     for (size_t i = 0; i < T::Size; ++i)
-        result(i, i) = full<typename T::Entry>(1.f, size);
+        result(i, i) = full<typename T::Entry>(scalar_t<T>(1.f), size);
     return result;
 }
 
