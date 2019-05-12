@@ -836,6 +836,10 @@ Elementary Arithmetic Functions
 
     Computes the square root of :math:`x` (analogous to ``std::sqrt``).
 
+.. cpp:function:: template <typename Array> Array cbrt(Array x)
+
+    Computes the cube root of :math:`x` (analogous to ``std::cbrt``).
+
 .. cpp:function:: template <typename Array> Array hypot(Array x, Array y)
 
     Computes :math:`\sqrt{x^2+y^2}` while avoiding overflow and underflow.

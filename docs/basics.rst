@@ -267,7 +267,7 @@ that they are independently applied to all array elements.
 
     /* Basic math library functions */
     f2 = ceil(f1); f2 = floor(f1); f2 = round(f1); f2 = trunc(f1);
-    f2 = abs(f1);  f2 = sqrt(f1); f2 = sign(f1);
+    f2 = abs(f1);  f2 = sqrt(f1); f2 = cbrt(f1); f2 = sign(f1);
     f2 = min(f1, f2); f2 = max(f1, f2);
 
     /* Fused multiply-add/subtract */
