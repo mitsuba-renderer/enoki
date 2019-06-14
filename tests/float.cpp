@@ -321,6 +321,6 @@ ENOKI_TEST_FLOAT(test20_cbrt) {
         [](const T &a) -> T { return cbrt(a); },
         [](double a) { return std::cbrt(a); },
         Value(-10), Value(10),
-        1
+        3
     );
 }
