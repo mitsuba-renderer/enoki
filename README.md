@@ -3,8 +3,8 @@
 # Enoki — structured vectorization and differentiation on modern processor architectures
 
 [![Documentation Status](https://readthedocs.org/projects/enoki/badge/?version=master)](http://enoki.readthedocs.org/en/master/?badge=master)
-[![Build status](https://rgl-ci.epfl.ch/app/rest/builds/buildType(id:Enoki_Build)/statusIcon)](https://rgl-ci.epfl.ch/viewType.html?buildTypeId=Enoki_Build&guest=1)
-[![Build status](https://ci.appveyor.com/api/projects/status/68db7e5es7el1btd/branch/master?svg=false)](https://ci.appveyor.com/project/wjakob/enoki/branch/master)
+[![Build status](https://rgl-ci.epfl.ch/app/rest/builds/buildType(id:Enoki_Build)/statusIcon.svg)](https://rgl-ci.epfl.ch/viewType.html?buildTypeId=Enoki_Build&guest=1)
+[![Build status](https://ci.appveyor.com/api/projects/status/68db7e5es7el1btd/branch/master?svg=true)](https://ci.appveyor.com/project/wjakob/enoki/branch/master)
 
 ## Introduction
 
