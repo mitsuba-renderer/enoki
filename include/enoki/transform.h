@@ -58,17 +58,17 @@ ENOKI_INLINE Matrix rotate(const Vector3 &axis, const entry_t<Matrix> &angle) {
 
 template <typename Matrix>
 ENOKI_INLINE Matrix perspective(const entry_t<Matrix> &fov,
-                                const entry_t<Matrix> &near,
-                                const entry_t<Matrix> &far) {
+                                const entry_t<Matrix> &near_,
+                                const entry_t<Matrix> &far_) {
     static_assert(Matrix::Size == 4, "Matrix::perspective(): implementation assumes 4x4 matrix output");
 
-    auto recip = rcp(near - far);
+    auto recip = rcp(near_ - far_);
     auto c = cot(.5f * fov);
 
     Matrix trafo = diag<Matrix>(
-        column_t<Matrix>(c, c, (near + far) * recip, 0.f));
+        column_t<Matrix>(c, c, (near_ + far_) * recip, 0.f));
 
-    trafo(2, 3) = 2.f * near * far * recip;
+    trafo(2, 3) = 2.f * near_ * far_ * recip;
     trafo(3, 2) = -1.f;
 
     return trafo;
@@ -79,22 +79,22 @@ ENOKI_INLINE Matrix frustum(const entry_t<Matrix> &left,
                             const entry_t<Matrix> &right,
                             const entry_t<Matrix> &bottom,
                             const entry_t<Matrix> &top,
-                            const entry_t<Matrix> &near,
-                            const entry_t<Matrix> &far) {
+                            const entry_t<Matrix> &near_,
+                            const entry_t<Matrix> &far_) {
     static_assert(Matrix::Size == 4, "Matrix::frustum(): implementation assumes 4x4 matrix output");
 
     auto rl = rcp(right - left),
          tb = rcp(top - bottom),
-         fn = rcp(far - near);
+         fn = rcp(far_ - near_);
 
     Matrix trafo = zero<Matrix>();
-    trafo(0, 0) = (2.f * near) * rl;
-    trafo(1, 1) = (2.f * near) * tb;
+    trafo(0, 0) = (2.f * near_) * rl;
+    trafo(1, 1) = (2.f * near_) * tb;
     trafo(0, 2) = (right + left) * rl;
     trafo(1, 2) = (top + bottom) * tb;
-    trafo(2, 2) = -(far + near) * fn;
+    trafo(2, 2) = -(far_ + near_) * fn;
     trafo(3, 2) = -1.f;
-    trafo(2, 3) = -2.f * far * near * fn;
+    trafo(2, 3) = -2.f * far_ * near_ * fn;
 
     return trafo;
 }
@@ -104,13 +104,13 @@ ENOKI_INLINE Matrix ortho(const entry_t<Matrix> &left,
                           const entry_t<Matrix> &right,
                           const entry_t<Matrix> &bottom,
                           const entry_t<Matrix> &top,
-                          const entry_t<Matrix> &near,
-                          const entry_t<Matrix> &far) {
+                          const entry_t<Matrix> &near_,
+                          const entry_t<Matrix> &far_) {
     static_assert(Matrix::Size == 4, "Matrix::ortho(): implementation assumes 4x4 matrix output");
 
     auto rl = rcp(right - left),
          tb = rcp(top - bottom),
-         fn = rcp(far - near);
+         fn = rcp(far_ - near_);
 
     Matrix trafo = zero<Matrix>();
 
@@ -120,7 +120,7 @@ ENOKI_INLINE Matrix ortho(const entry_t<Matrix> &left,
     trafo(3, 3) = 1.f;
     trafo(0, 3) = -(right + left) * rl;
     trafo(1, 3) = -(top + bottom) * tb;
-    trafo(2, 3) = -(far + near) * fn;
+    trafo(2, 3) = -(far_ + near_) * fn;
 
     return trafo;
 }
