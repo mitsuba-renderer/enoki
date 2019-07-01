@@ -264,6 +264,18 @@ struct KMaskBase : StaticArrayBase<Value_, Size_, Approx_, Mode_, true, Derived_
 #endif
     }
 
+    template <typename Array, enable_if_t<std::is_same_v<Register, typename Array::Derived::Register>> = 0>
+    ENOKI_INLINE Derived& operator=(const Array &other) {
+        k = other.derived().k;
+        return derived();
+    }
+
+    template <typename T, enable_if_t<std::is_same_v<bool, T> || std::is_same_v<int, T>> = 0>
+    ENOKI_INLINE Derived& operator=(const T &b) {
+        k = bool(b) ? BitMask : Register(0);
+        return derived();
+    }
+
     Register k;
 };
 
