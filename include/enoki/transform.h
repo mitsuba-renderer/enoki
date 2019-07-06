@@ -59,14 +59,15 @@ ENOKI_INLINE Matrix rotate(const Vector3 &axis, const entry_t<Matrix> &angle) {
 template <typename Matrix>
 ENOKI_INLINE Matrix perspective(const entry_t<Matrix> &fov,
                                 const entry_t<Matrix> &near_,
-                                const entry_t<Matrix> &far_) {
+                                const entry_t<Matrix> &far_,
+                                const entry_t<Matrix> &aspect = 1.f) {
     static_assert(Matrix::Size == 4, "Matrix::perspective(): implementation assumes 4x4 matrix output");
 
     auto recip = rcp(near_ - far_);
     auto c = cot(.5f * fov);
 
     Matrix trafo = diag<Matrix>(
-        column_t<Matrix>(c, c, (near_ + far_) * recip, 0.f));
+        column_t<Matrix>(c / aspect, c, (near_ + far_) * recip, 0.f));
 
     trafo(2, 3) = 2.f * near_ * far_ * recip;
     trafo(3, 2) = -1.f;
@@ -127,7 +128,8 @@ ENOKI_INLINE Matrix ortho(const entry_t<Matrix> &left,
 
 template <typename Matrix, typename Point, typename Vector>
 Matrix look_at(const Point &origin, const Point &target, const Vector &up) {
-    static_assert(Matrix::Size == 4, "Matrix::look_at(): implementation assumes 4x4 matrix output");
+    static_assert(Matrix::Size == 4, "Matrix::look_at(): implementation "
+                                     "assumes 4x4 matrix output");
 
     auto dir = normalize(target - origin);
     auto left = normalize(cross(dir, up));
@@ -140,7 +142,7 @@ Matrix look_at(const Point &origin, const Point &target, const Vector &up) {
         concat(-dir, Scalar(0)),
         column_t<Matrix>(
             -dot(left, origin),
-            -dot(up, origin),
+            -dot(new_up, origin),
              dot(dir, origin),
              1.f
         )
