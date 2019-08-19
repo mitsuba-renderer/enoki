@@ -39,16 +39,16 @@ Without Enoki, this might be done as follows:
        };
    }
 
-    Vector3f test(Vector3f a, Vector3f b) {
+    Vector3f normalized_cross(Vector3f a, Vector3f b) {
         return normalize(cross(a, b));
     }
 
-Clang compiles the ``test()`` function into the following fairly decent scalar
+Clang compiles the ``normalized_cross()`` function into the following fairly decent scalar
 assembly (``clang -O3 -msse4.2 -mfma -ffp-contract=fast -fomit-frame-pointer``):
 
 .. code-block:: nasm
 
-    __Z4test8Vector3fS_:
+    __Z16normalized_cross8Vector3fS_:
             vmovshdup   xmm4, xmm0           ; xmm4 = xmm0[1, 1, 3, 3]
             vmovshdup   xmm5, xmm2           ; xmm5 = xmm2[1, 1, 3, 3]
             vinsertps   xmm6, xmm3, xmm1, 16 ; xmm6 = xmm3[0], xmm1[0], xmm3[2, 3]
@@ -87,14 +87,14 @@ Simply rewriting this code using Enoki leads to considerable improvements:
     /* Enoki version */
     using Vector3f = Array<float, 3>;
 
-    Vector3f test(Vector3f a, Vector3f b) {
+    Vector3f normalized_cross(Vector3f a, Vector3f b) {
         return normalize(cross(a, b));
     }
 
 .. code-block:: nasm
 
     ; Assembly for Enoki version
-    __Z4test8Vector3fS_:
+    __Z16normalized_cross8Vector3fS_:
         vpermilps   xmm2, xmm0, 201 ; xmm2 = xmm0[1, 2, 0, 3]
         vpermilps   xmm3, xmm1, 210 ; xmm3 = xmm1[2, 0, 1, 3]
         vpermilps   xmm0, xmm0, 210 ; xmm0 = xmm0[2, 0, 1, 3]
@@ -186,12 +186,12 @@ Note how this is a major performance improvement since relatively inefficient
 horizontal operations have now turned into a series of vertical operations that
 make better use of the processor's vector units.
 
-With the above type aliases, the ``test()`` function now looks as
+With the above type aliases, the ``normalized_cross()`` function now looks as
 follows:
 
 .. code-block:: cpp
 
-    Vector3fP test(Vector3fP a, Vector3fP b) {
+    Vector3fP normalized_cross(Vector3fP a, Vector3fP b) {
         return normalize(cross(a, b));
     }
 
@@ -201,7 +201,7 @@ write the results, this generates the following assembly:
 .. code-block:: nasm
 
     ; Assembly for SoA-style version
-    __Z4test8Vector3fS_:
+    __Z16normalized_cross8Vector3fS_:
         vmulps       xmm6, xmm2, xmm4
         vfmsub231ps  xmm6, xmm1, xmm5
         vmulps       xmm5, xmm0, xmm5
@@ -225,52 +225,15 @@ vectors at the same time.
 
 Enoki will also avoid costly high-latency operations like division and square
 root if the user indicates that minor approximations are tolerable. The
-following snippet demonstrates how to simultaneously process 16 vectors on a
-machine which supports the AVX512ER instruction set:
-
-.. code-block:: cpp
-
-    /* Packet of 16 single precision floats (approximate mode now enabled,
-       since we didn't explicitly specify 'false' for the 3rd argument) */
-    using FloatP = Array<float, 16>;
-
-    /* Packet of 16 3D vectors */
-    using Vector3fP = Vector<FloatP, 3>;
-
-    Vector3fP test(Vector3fP a, Vector3fP b) {
-        return normalize(cross(a, b));
-    }
-
-In contrast to the previous assembly snippet, all instructions now operate on
-wide ``zmm`` registers, and the high-latency square root and division were
-replaced by a slightly approximate reciprocal square root instruction.
-
-.. code-block:: nasm
-
-    ; Assembly for AVX512ER SoA-style version
-    __Z4test8Vector3fS_:
-        vmulps       zmm6, zmm2, zmm4
-        vfmsub231ps  zmm6, zmm1, zmm5
-        vmulps       zmm5, zmm0, zmm5
-        vfmsub213ps  zmm2, zmm3, zmm5
-        vmulps       zmm1, zmm1, zmm3
-        vfmsub231ps  zmm1, zmm0, zmm4
-        vmulps       zmm0, zmm2, zmm2
-        vfmadd231ps  zmm0, zmm6, zmm6
-        vfmadd231ps  zmm0, zmm1, zmm1
-        vrsqrt28ps   zmm0, zmm0        ; <-- Fast reciprocal square root instruction
-        vmulps       zmm3, zmm6, zmm0
-        vmulps       zmm2, zmm2, zmm0
-        vmulps       zmm0, zmm1, zmm0
-
-Similar optimizations are used on other platforms---for instance, this is the
-ARMv8 NEON version for packets of width 4. Enoki uses the ``frsqrte`` and
-``frsqrts`` instructions for the reciprocal square root.
+following snippet demonstrates code generation on an ARMv8 NEON machine when
+the ``Approx`` template argument is set to ``true`` in the above example. Note
+the use of the ``frsqrte`` and ``frsqrts`` instructions for the reciprocal
+square root.
 
 .. code-block:: nasm
 
     ; Assembly for ARM NEON (armv8a) version
-    __Z4test8Vector3fS_:
+    __Z16normalized_cross8Vector3fS_:
         fmul    v6.4s, v2.4s, v3.4s
         fmul    v7.4s, v0.4s, v4.4s
         fmls    v6.4s, v0.4s, v5.4s
@@ -316,7 +279,7 @@ Nested horizontal operations
 
 Horizontal operations (e.g. :cpp:func:`hsum`) perform a reduction across the
 outermost dimension, which means that they return arrays instead of scalars
-when given an nested array as input (the same is also true for horizontal mask
+when given a nested array as input (the same is also true for horizontal mask
 operations such as :cpp:func:`any`).
 
 Sometimes this is not desirable, and Enoki thus also provides nested versions

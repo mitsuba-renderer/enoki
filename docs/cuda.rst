@@ -1,5 +1,5 @@
-.. _cuda:
+.. _gpu:
 
-Dynamic arrays (GPU)
-====================
+GPU Arrays
+==========
 

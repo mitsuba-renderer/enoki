@@ -16,10 +16,11 @@ All code snippets assume that the following lines are present:
 
 .. note::
 
-    The next few sections will introduce the basics of Enoki in the
-    context of vectorization for CPUs. GPUs and automatic differentiation are
-    covered later in the sections on :ref:`CUDAArray <cuda>` and
-    :ref:`DiffArray <autodiff>`.
+    The next few sections will introduce the basics of Enoki in the context of
+    vectorization for CPUs. Later sections will discuss vectorization via
+    :ref:`GPU arrays <cuda>` and :ref:`Automatic differentiation <autodiff>`.
+    It is recommended that you read this section even if you are mainly
+    interested in the latter two topics.
 
 Static arrays
 -------------
@@ -117,11 +118,12 @@ math library should be used for transcendental function evaluations such as
 standard C math library.
 
 The vectorized math library is slightly more approximate, though this is
-generally negligible (the average relative error is < 1 ULP for most
-functions---see the :ref:`reference <transcendental-accuracy>` for details.
-The default rounding mode :any:`RoundingMode::Default` means that the library
-won't interfere with the hardware's currently selected rounding mode. Note that
-the last two parameters only make sense when dealing with floating point types.
+generally negligible (the average relative error is generally
+:math:`<\!\frac{1}{2}` ULP on their full domain---see the :ref:`reference
+<transcendental-accuracy>` for details. The default rounding mode
+:any:`RoundingMode::Default` means that the library won't interfere with the
+hardware's currently selected rounding mode. Note that the last two parameters
+only make sense when dealing with floating point types.
 
 Initializing, reading, and writing data
 ---------------------------------------
@@ -319,8 +321,9 @@ that they are independently applied to all array elements.
 Casting
 *******
 
-A cast is another type of vertical operation. Enoki supports conversion between
-any pair of types using fast vector instructions whenever possible:
+A cast is another type of vertical operation. Enoki performs efficient
+conversion between any pair of types using native conversion instructions
+whenever possible:
 
 .. code-block:: cpp
 
@@ -390,7 +393,7 @@ types:
 
 .. code-block:: cpp
 
-    auto mask = f1 > 1;
+    auto mask = f1 > 1.f;
 
     /* Bit-level AND operation: Zero out entries where the comparison was false */
     f1 &= mask;
@@ -420,7 +423,8 @@ with an array, which permits replacing the ``auto`` statement above.
 
 .. code-block:: cpp
 
-    mask_t<MyFloat> mask = f1 > 1;
+    using FloatMask = mask_t<MyFloat>;
+    FloatMask mask = f1 > 1.f;
 
 A comprehensive list of type traits is available in the :ref:`reference
 <type-traits>`. Similar to the horizontal operations for addition and
@@ -448,7 +452,7 @@ horizontal operations:
     and :cpp:func:`enoki::operator!=` return a boolean value (i.e. they
     internally perform a horizontal reduction). *Vertical* comparison operators
     named :cpp:func:`eq` and :cpp:func:`neq()` are also available. The
-    following pairs of operations are equivalent:
+    following pairs of operations are thus equivalent:
 
     .. code-block:: cpp
 

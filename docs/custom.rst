@@ -3,7 +3,7 @@
 Custom data structures
 ======================
 
-The previous sections introduced Enoki arrays as a powerful ingredient for
+The previous sections introduced Enoki arrays as a powerful tool for
 designing vectorized algorithms that are capable of processing multiple inputs
 at the same time. However, in many cases, vectorizing an algorithm will also
 require a corresponding change to the data structures that underlie it. This
@@ -86,7 +86,7 @@ stores 16 GPS positions in a convenient SoA representation.
 
 .. code-block:: cpp
 
-    using FloatP      = Array<float, 16>;
+    using FloatP      = Packet<float, 16>;
     using GPSCoord2fP = GPSCoord2<FloatP>;
 
 An important aspect of the type calculations mentioned above is that they
@@ -159,7 +159,7 @@ Note how the overall structure is preserved. There are three noteworthy changes:
    .. code-block:: cpp
 
        using GPSCoord2d   = GPSCoord2<double>;
-       using DoubleP      = Array<double, 16>;
+       using DoubleP      = Packet<double, 16>;
        using GPSCoord2dP  = GPSCoord2<DoubleP>;
 
    The ``distance`` function requires no changes. When working with double

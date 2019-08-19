@@ -2032,20 +2032,22 @@ Accessing types related to Enoki arrays
 
     .. code-block:: cpp
 
+        // Non-array input:
+        // value_t<float> yields 'float'
+
+        // Array input:
         using FloatP     = Array<float>;
         using Vector4f   = Array<float, 4>;
+        // value_t<Vector4f> yields 'float'
+
         using Vector4fr  = Array<float&, 4>;
+        // value_t<Vector4fr> yields 'float&'
+
         using Vector4fP  = Array<FloatP, 4>;
+        // value_t<Vector4P> yields 'FloatP'
+
         using Vector4fPr = Array<FloatP&, 4>;
-
-        /* Non-array input */
-        static_assert(std::is_same_v<value_t<float>, float>);
-
-        /* Array input */
-        static_assert(std::is_same_v<value_t<Vector4f>,   float>);
-        static_assert(std::is_same_v<value_t<Vector4fr>,  float&>);
-        static_assert(std::is_same_v<value_t<Vector4fP>,  FloatP>);
-        static_assert(std::is_same_v<value_t<Vector4fPr>, FloatP&>);
+        // value_t<Vector4Pr> yields 'FloatP&'
 
 
 .. cpp:type:: template <typename... Args> expr_t

@@ -12,11 +12,13 @@ Enoki — structured vectorization and differentiation on modern processor archi
    :caption: Core features
 
    intro
+   demo
    basics
    nested
    custom
+   gpu
+   autodiff
    dynamic
-   cuda
    benchmark
    advanced
    changelog
