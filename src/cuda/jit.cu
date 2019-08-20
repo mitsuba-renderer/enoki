@@ -1445,6 +1445,10 @@ ENOKI_EXPORT void cuda_fetch_element(void *dst, uint32_t src, size_t offset, siz
 }
 
 ENOKI_EXPORT void cuda_set_log_level(uint32_t level) {
+#if defined(NDEBUG)
+    if (level >= 4)
+        throw std::runtime_error("cuda_set_log_level(): log levels >= 4 are only supported when Enoki is compiled in debug mode!");
+#endif
     context().log_level = level;
 }
 
