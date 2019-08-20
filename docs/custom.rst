@@ -3,13 +3,13 @@
 Custom data structures
 ======================
 
-The previous sections introduced Enoki arrays as a powerful tool for
-designing vectorized algorithms that are capable of processing multiple inputs
-at the same time. However, in many cases, vectorizing an algorithm will also
-require a corresponding change to the data structures that underlie it. This
-section demonstrates how C++ templates provide a natural framework for
-achieving this goal while satisfying the desiderata of Enoki (readability,
-portability, no code duplication, etc.).
+The previous sections introduced Enoki arrays as a tool for designing
+vectorized algorithms that are capable of processing multiple inputs at the
+same time. However, in many cases, vectorizing an algorithm will also require a
+corresponding change to the data structures that underlie it. This section
+demonstrates how C++ templates provide a natural framework for achieving this
+goal while satisfying the desiderata of Enoki (readability, portability, no
+code duplication, etc.).
 
 We will focus on an simple example data structure that represents a position
 record acquired by a GPS tracker along with auxiliary information (time, and a

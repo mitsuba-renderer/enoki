@@ -38,20 +38,21 @@ replaced by generalized expressions involving masks.
 .. code-block:: cpp
 
    template <typename Value> Value srgb_gamma(Value x) {
-      return select(
+      return enoki::select(
          x <= 0.0031308f,
          x * 12.92f,
-         pow(x * 1.055f, 1.f / 2.4f) - 0.055f
+         enoki::pow(x * 1.055f, 1.f / 2.4f) - 0.055f
       );
    }
 
 Vectorization
 -------------
 
-This simple generalization enables a number of interesting applications. For
-instance, the function automatically extends to cases where ``Value`` is a
-color type with three components, in which case the Enoki operations
-recursively thread through the array.
+The simple generalization from normal C++ code to an Enoki function template
+enables a number of interesting applications. For instance, the function
+automatically extends to cases where ``Value`` is a color type with three
+components, in which case the arithmetic operations recursively thread through
+the array.
 
 .. code-block:: cpp
 
@@ -93,27 +94,31 @@ efficient CUDA kernels on the fly.
    Color3fC input = /* ... */;
    Color3fC output = srgb_gamma(input);
 
-In contrast to the previous examples, the function call ``srgb_gamma(input)``
-now merely records the sequence of computations that is needed to determine the
-value of ``output`` but does not yet execute it. 
+Enoki's ``CUDAArray<T>`` type applies an important optimization that leads to
+significantly improved performance: in contrast to the previous examples, the
+function call ``srgb_gamma(input)`` now merely records the sequence of
+computations that is needed to determine the value of ``output`` but does not
+yet execute it. 
 
-When evaluation can no longer be postponed (e.g. when accessing individual
-entries or printing the array contents), Enoki's JIT backend automatically
+Eventually, this evaluation can no longer be postponed (e.g. when we try to
+access or print the array contents). At this point, Enoki's JIT backend
 compiles and executes a kernel that contains all queued computations using
-NVIDIA's PTX intermediate representation. No CUDA-specific rewrite (e.g. to
-``nvcc`` compatible kernels) of the program is necessary!
+NVIDIA's PTX intermediate representation. All of this happens automatically: in
+particular, no CUDA-specific rewrite (e.g. to ``nvcc`` compatible kernels) of
+the program is necessary!
 
 Automatic differentiation
 -------------------------
 
-Finally, Enoki can also perform transparent forward or reverse-mode automatic
-differentiation of complete programs using a special ``enoki::DiffArray<T>``
-array type that composes with other Enoki arrays.
+Enoki can also apply transparent forward or reverse-mode automatic
+differentiation to a program using a special ``enoki::DiffArray<T>`` array that
+wraps a number type or another Enoki array ``T``.
 
-For instance, the following computes the gradient of loss function that
-measures L2 distance from a given gamma-corrected color value. Both primal and
-gradient-related computations involve GPU-resident arrays, and the resulting
-computation is queued up in the previously discussed just-in-time compiler.
+For instance, the following example computes the gradient of a loss function
+that measures L2 distance from a given gamma-corrected color value. Both primal
+and gradient-related computations involve GPU-resident arrays, and the
+resulting computation is queued up as in the previously example using Enoki's
+just-in-time compiler.
 
 .. code-block:: cpp
 
@@ -122,20 +127,20 @@ computation is queued up in the previously discussed just-in-time compiler.
    using Color3fD = enoki::Array<FloatD, 3>;
 
    Color3fD input = /* ... */;
-   set_requires_gradient(input);
+   enoki::set_requires_gradient(input);
 
    Color3fD output = srgb_gamma(input);
 
-   FloatD loss = norm(output - Color3fD(.1f, .2f, .3f));
-   backward(output);
+   FloatD loss = enoki::norm(output - Color3fD(.1f, .2f, .3f));
+   enoki::backward(output);
 
-   std::cout << gradient(input) << std::endl;
+   std::cout << enoki::gradient(input) << std::endl;
 
 The scalar case
 ---------------
 
-All Enoki functions also accept simple non-array arguments, hence
-the original scalar implementation remains available:
+All Enoki functions also accept non-array arguments, hence the original scalar
+implementation remains available:
 
 .. code-block:: cpp
 
@@ -145,16 +150,17 @@ the original scalar implementation remains available:
 Python bindings
 ---------------
 
-It is nowadays often desirable to create fine-grained Python bindings of C++
-codebases. Enoki is designed to easily interoperate with `pybind11
-<https://github.com/pybind/pybind11>`_ (itself also based on template
-metaprogramming). Exposing an Enoki function on the Python side is usually a
-1-liner, even for the "fancy" GPU+autodiff variants, e.g.:
-
-Creating
+Modern C++ systems often strive to provide fine-grained Python bindings to
+facilitate rapid prototyping and interoperability with other software. Enoki is
+designed to work with the widely used `pybind11
+<https://github.com/pybind/pybind11>`_ library (itself based on template
+metaprogramming) to facilitate this. Exposing an Enoki function on the Python
+side is usually a 1-liner, even for the "fancy" GPU+autodiff variants, as in the
+following example:
 
 .. code-block:: cpp
 
+   /// Create python bindings with 2 overloads (here, 'm' is a py::module)
    m.def("srgb_gamma", &srgb_gamma<float>);
    m.def("srgb_gamma", &srgb_gamma<Color3fD>);
 
@@ -174,7 +180,7 @@ computation enables several powerful transformations:
 3. Further type transformations enable tracking of derivatives through
    a calculation, either on the CPU or the GPU.
 
-4. The above transformations are all inherent from the type of the resulting
+4. The above transformations can all be deduced from the type of the resulting
    functions. This is an ideal fit for metaprogramming-based libraries like 
    `pybind11 <https://github.com/pybind/pybind11>`_ which inspect the
    type of a function to generate high-quality binding code.

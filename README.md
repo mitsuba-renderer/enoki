@@ -11,19 +11,18 @@
 **Enoki** is a C++ template library that enables automatic transformations of
 numerical code, for instance to create a "wide" vectorized variant of an
 algorithm that runs on the CPU or GPU, or to compute gradients via transparent
-forward/reverse-mode automatic differentation. The core parts of the library
-are implemented as a set of header files with no dependencies other than a
-sufficiently C++17-capable compiler (GCC >= 8.2, Clang >= 7.0, Visual Studio >=
-2017).
+forward/reverse-mode automatic differentation.
 
-Enoki code reduces to efficient SIMD instructions available on modern processor
-architectures and GPUs, and it generates scalar fallback code if no vector
-instructions are present. Currently, the following instruction sets are
-supported:
+The core parts of the library are implemented as a set of header files with no
+dependencies other than a sufficiently C++17-capable compiler (GCC >= 8.2,
+Clang >= 7.0, Visual Studio >= 2017). Enoki code reduces to efficient SIMD
+instructions available on modern CPUs and GPUs—in particular, Enoki supports:
 
 * **Intel**: AVX512, AVX2, AVX, and SSE4.2,
 * **ARM**: NEON/VFPV4 on armv7-a, Advanced SIMD on 64-bit armv8-a,
-* **NVIDIA**: CUDA via a *Parallel Thread Execution* (PTX) just-in-time compiler
+* **NVIDIA**: CUDA via a *Parallel Thread Execution* (PTX) just-in-time compiler.
+* **Fallback**: a scalar fallback mode ensures that programs still run even
+  if none of the above are available.
 
 Deploying a program on top of Enoki usually serves three goals:
 
@@ -43,7 +42,7 @@ Deploying a program on top of Enoki usually serves three goals:
    the entire program.
 
 Finally, Enoki can do all of the above simultaneously: if desired, it can
-compile the same source code to multiple very different implementations (e.g.
+compile the same source code to multiple different implementations (e.g.
 scalar, AVX512, and CUDA+autodiff).
 
 ### Motivation
@@ -81,7 +80,7 @@ with the current vectorization landscape:
    (vectorization on CPUs, automatic differentiation).
 
 4. Vectorized transcendental functions (*exp*, *cos*, *erf*, ..) are not widely
-   available. Intel, AMD, and CUDA provide proprietary implementations, but most
+   available. Intel, AMD, and CUDA provide proprietary implementations, but many
    compilers don't include them by default.
 
 5. It is desirable to retain both scalar and vector versions of an algorithm,
@@ -112,19 +111,20 @@ calls across module boundaries. It has the following design goals:
 2. **No code duplication**: It is generally desirable to provide both scalar
    and vectorized versions of an API, e.g. for debugging, and to preserve
    compatibility with legacy code. Enoki code extensively relies on class and
-   function templates to achieve this goal without any code duplication---the
+   function templates to achieve this goal without any code duplication—the
    same code template can be leveraged to create scalar, CPU SIMD, and GPU
    implementations, and each variant can provide gradients via automatic
    differentiation if desired.
 
 3. **Custom data structures**: Enoki cann also vectorize custom data
    structures. All the hard work (e.g. conversion to SoA format) is handled by
-   the C++14 type system.
+   the C++17 type system.
 
 4. **Function calls**: vectorized calls to functions in other compilation units
    (e.g. a dynamically loaded plugin) are possible. Enoki can even vectorize
    method or virtual method calls (e.g. ``instance->my_function(arg1, arg2,
-   ...);`` when ``instance`` turns out to be an array of many instances).
+   ...);`` when ``instance`` turns out to be an array containing many different
+   instances).
 
 5. **Mathematical library**: Enoki includes an extensive mathematical support
    library with complex numbers, matrices, quaternions, and related operations
@@ -137,38 +137,40 @@ calls across module boundaries. It has the following design goals:
    versions of error function variants, Bessel functions, and elliptical
    integrals.
 
-   Importantly, all of this functionality is realized using the abstractions of
-   Enoki, which means that it transparently composes with vectorization,
-   JIT compiler for generating CUDA kernels, automatic differentiation, etc.
-
    <p align="center">
        <img src="https://github.com/mitsuba-renderer/enoki/raw/master/docs/intro-03.png" alt="Transcendentals" width="720"/>
    </p>
 
-6. **Portability**: Enoki supports arbitrary array sizes that don't necessarily
-   match what is supported by the underlying hardware (e.g. 16 x single
-   precision on a machine whose SSE vector only has hardware support for 4 x
-   single precision operands). The library uses template metaprogramming
-   techniques to efficiently map array expressions onto the available hardware
-   resources. This greatly simplifies development because it's enough to write
-   a single implementation of a numerical algorithm that can then be deployed
-   on any target architecture. There are non-vectorized fallbacks for
-   everything, thus programs will run even on unsupported architectures (albeit
-   without the performance benefits of vectorization).
+   Importantly, all of this functionality is realized using the abstractions of
+   Enoki, which means that it transparently composes with vectorization,
+   the JIT compiler for generating CUDA kernels, automatic differentiation, etc.
+
+6. **Portability**: When creating vectorized CPU code, Enoki supports arbitrary
+   array sizes that don't necessarily match what is supported by the underlying
+   hardware (e.g. 16 x single precision on a machine, whose SSE vector only has
+   hardware support for 4 x single precision operands). The library uses
+   template metaprogramming techniques to efficiently map array expressions
+   onto the available hardware resources. This greatly simplifies development
+   because it's enough to write a single implementation of a numerical
+   algorithm that can then be deployed on any target architecture. There are
+   non-vectorized fallbacks for everything, thus programs will run even on
+   unsupported architectures (albeit without the performance benefits of
+   vectorization).
 
 7. **Modular architecture**: Enoki is split into two major components: the
    front-end provides various high-level array operations, while the back-end
    provides the basic ingredients that are needed to realize these operations
    using the SIMD instruction set(s) supported by the target architecture.
 
-   The back-end makes heavy use of SIMD intrinsics to ensure that compilers
-   generate efficient machine code. The intrinsics are contained in separate
-   back-end header files (e.g. ``array_avx.h`` for AVX intrinsics), which
-   provide rudimentary arithmetic and bit-level operations. Fancier operations
-   (e.g. *atan2*) use the back-ends as an abstract interface to the hardware,
-   which means that it's simple to support other instruction sets such as a
-   hypothetical future AVX1024 or even an entirely different architecture (e.g.
-   a DSP chip) by just adding a new back-end.
+   The CPU vector back-ends e.g. make heavy use of SIMD intrinsics to
+   ensure that compilers generate efficient machine code. The
+   intrinsics are contained in separate back-end header files (e.g.
+   ``array_avx.h`` for AVX intrinsics), which provide rudimentary
+   arithmetic and bit-level operations. Fancier operations (e.g.
+   *atan2*) use the back-ends as an abstract interface to the hardware,
+   which means that it's simple to support other instruction sets such
+   as a hypothetical future AVX1024 or even an entirely different
+   architecture (e.g. a DSP chip) by just adding a new back-end.
 
 8. **License**: Enoki is available under a non-viral open source license
    (3-clause BSD).

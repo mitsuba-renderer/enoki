@@ -18,8 +18,8 @@ All code snippets assume that the following lines are present:
 
     The next few sections will introduce the basics of Enoki in the context of
     vectorization for CPUs. Later sections will discuss vectorization via
-    :ref:`GPU arrays <cuda>` and :ref:`Automatic differentiation <autodiff>`.
-    It is recommended that you read this section even if you are mainly
+    :ref:`GPU arrays <gpu>` and :ref:`Automatic differentiation <autodiff>`. It
+    is recommended that you read the following sections even if you are mainly
     interested in the latter two topics.
 
 Static arrays
