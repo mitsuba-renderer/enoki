@@ -70,7 +70,7 @@ following example shows how to compute the inverse of a matrix array.
 
 .. code-block:: cpp
 
-    using FloatP = Array<float, 4>;      // 4-wide packet type
+    using FloatP = Packet<float, 4>;     // 4-wide packet type
     using FloatX = DynamicArray<FloatP>; // arbitrary-length array
 
     using MatrixP = Matrix<FloatP, 4>;   // a packet of 4x4 matrices

@@ -572,34 +572,6 @@ special short-hand notation exists:
     scatter_add(hist, amount, indices, mask);
 
 
-Memory allocation and alignment
--------------------------------
-
-The C++ ``new`` operator is unfortunately not guaranteed to return sufficiently
-aligned memory, which can lead to segmentation faults when allocating classes
-that contain Enoki arrays (which usually expect to be located at an aligned
-address in memory). Enoki provides a macro named
-:c:macro:`ENOKI_ALIGNED_OPERATOR_NEW` for such cases. It overrides ``operator
-new``  with an implementation that guarantees sufficient alignment.
-
-.. code-block:: cpp
-
-    class MyClass {
-    public:
-
-        // ...
-
-        ENOKI_ALIGNED_OPERATOR_NEW()
-
-    private:
-        enoki::Array<float, 16> m_data;
-    };
-
-Note that issue was finally resolved in `C++17
-<http://en.cppreference.com/w/cpp/memory/new/operator_new>`_. The macro should
-still be used if compatibility with older versions of the C++ standard is
-desired.
-
 .. _custom-arrays:
 
 Defining custom array types

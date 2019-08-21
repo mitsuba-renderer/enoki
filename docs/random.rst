@@ -1,3 +1,4 @@
+.. _random:
 .. cpp:namespace:: enoki
 
 Random number generation
@@ -34,7 +35,7 @@ produces arrays of variates.
 
 .. code-block:: cpp
 
-    using FloatP = Array<float, 16>;
+    using FloatP = Packet<float, 16>;
 
     /* Vector RNG -- generates 16 independent variates at once */
     using RNG_16x = PCG32<FloatP>;

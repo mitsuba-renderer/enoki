@@ -175,6 +175,11 @@ calls across module boundaries. It has the following design goals:
 8. **License**: Enoki is available under a non-viral open source license
    (3-clause BSD).
 
-The project is named after `Enokitake
-<https://en.wikipedia.org/wiki/Enokitake>`_, a type of mushroom with many long
-and parallel stalks reminiscent of data flow in vectorized arithmetic.
+
+About
+=====
+
+This project was created by `Wenzel Jakob <http://rgl.epfl.ch/people/wjakob>`_.
+It is named after `Enokitake <https://en.wikipedia.org/wiki/Enokitake>`_, a
+type of mushroom with many long and parallel stalks reminiscent of data flow in
+vectorized arithmetic.

@@ -52,7 +52,7 @@ The same also works for nested vectors:
 
 .. code-block:: cpp
 
-    using UInt32P = Array<uint32_t, 8>;
+    using UInt32P = Packet<uint32_t, 8>;
     using Vector2uP = Array<UInt32P, 2>;
 
     Vector2uP pos(123u, 456u);

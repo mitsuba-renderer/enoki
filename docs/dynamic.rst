@@ -1,7 +1,7 @@
 .. _dynamic:
 
-Dynamic arrays (CPU)
-====================
+Dynamic CPU arrays
+==================
 
 Arrays and nested arrays facilitate the development of vectorized code that
 processes multiple values at once. However, it can be awkward to work with

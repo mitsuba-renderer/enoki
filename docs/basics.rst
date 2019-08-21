@@ -256,6 +256,8 @@ insertion operator to facilitate the inspection of array contents:
     /* The line below prints: [1, 2, 3, 4] */
     std::cout << MyFloat(1.f, 2.f, 3.f, 4.f) << std::endl;
 
+.. _vertical:
+
 Vertical operations
 -------------------
 
@@ -332,6 +334,8 @@ whenever possible:
 
     Source source = ...;
     Target target(source);
+
+.. _horizontal:
 
 Horizontal operations
 ---------------------

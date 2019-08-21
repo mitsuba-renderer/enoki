@@ -434,4 +434,4 @@ The difference in the broadcasting behavior is demonstrated below:
     data /= norm(data);
 
 The remainder of this document will therefore use instantiatiations of the
-``Packet<..>`` template to define arithmetic types used for vectorization.
+``Packet<..>`` template to define arithmetic types used for vectorization on CPUs.
