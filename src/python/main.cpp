@@ -17,6 +17,8 @@ extern void bind_pcg32(py::module&);
 bool disable_print_flag = false;
 
 PYBIND11_MODULE(enoki, m) {
+    cuda_sync();
+
     bind_cuda_1d(m);
     bind_cuda_2d(m);
     bind_cuda_3d(m);

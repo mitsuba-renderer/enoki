@@ -1185,6 +1185,9 @@ ENOKI_EXPORT void cuda_jit_run(Context &ctx,
     if (ctx.log_level >= 3)
         std::cout << source << std::endl;
 
+    size_t duration_1 = std::chrono::duration_cast<
+            std::chrono::microseconds>(mid - start).count();
+
     if (hash_entry.second) {
         CUjit_option arg[5];
         void *argv[5];
@@ -1220,15 +1223,10 @@ ENOKI_EXPORT void cuda_jit_run(Context &ctx,
         }
 
         TimePoint end = std::chrono::high_resolution_clock::now();
-        size_t duration_1 = std::chrono::duration_cast<
-                std::chrono::microseconds>(mid - start).count(),
-               duration_2 = std::chrono::duration_cast<
+        size_t duration_2 = std::chrono::duration_cast<
                 std::chrono::microseconds>(end - mid).count();
 
-        if (ctx.log_level >= 3) {
-            std::cerr << "CUDA Link completed. Linker output:" << std::endl
-                      << info_log << std::endl;
-        } else if (ctx.log_level >= 2) {
+        if (ctx.log_level >= 2) {
             char *ptax_details = strstr(info_log, "ptxas info");
             char *details = strstr(info_log, "\ninfo    : used");
             if (details) {
@@ -1238,10 +1236,13 @@ ENOKI_EXPORT void cuda_jit_run(Context &ctx,
                     details_len[9] = '\0';
                 std::cerr << "cuda_jit_run(): "
                     << ((ptax_details == nullptr) ? "cache hit, " : "cache miss, ")
-                    << "codegen: " << time_string(duration_1)
-                    << ", jit: " << time_string(duration_2)
+                    << "jit: " << time_string(duration_1)
+                    << ", ptx compilation: " << time_string(duration_2)
                     << ", " << details << std::endl;
             }
+            if (ctx.log_level >= 3)
+                std::cerr << "Detailed linker output:" << std::endl
+                          << info_log << std::endl;
         }
 
         CUresult ret = cuModuleLoadData(&module, link_output);
@@ -1256,6 +1257,11 @@ ENOKI_EXPORT void cuda_jit_run(Context &ctx,
 
         // Destroy the linker invocation
         cuda_check(cuLinkDestroy(link_state));
+    } else {
+        if (ctx.log_level >= 2) {
+            std::cerr << "cuda_jit_run(): cache hit, jit: "
+                      << time_string(duration_1) << std::endl;
+        }
     }
 
     cudaStream_t cuda_stream = nullptr;
