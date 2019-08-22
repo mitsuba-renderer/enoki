@@ -3,7 +3,7 @@
  * put together from pieces of the much larger C/C++ codebase with
  * vectorization using Enoki.
  *
- * Wenzel Jakob, February 2018
+ * Wenzel Jakob, February 2019
  *
  * The PCG random number generator was developed by Melissa O'Neill
  * <oneill@pcg-random.org>

@@ -2,7 +2,7 @@
     enoki/array_call.h -- Enoki arrays of pointers, support for
     array (virtual) method calls
 
-    Copyright (c) 2018 Wenzel Jakob <wenzel.jakob@epfl.ch>
+    Copyright (c) 2019 Wenzel Jakob <wenzel.jakob@epfl.ch>
 
     All rights reserved. Use of this source code is governed by a BSD-style
     license that can be found in the LICENSE file.

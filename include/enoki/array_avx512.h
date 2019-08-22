@@ -5,7 +5,7 @@
     of numerical kernels using SIMD instruction sets available on current
     processor architectures.
 
-    Copyrighe (c) 2018 Wenzel Jakob <wenzel.jakob@epfl.ch>
+    Copyrighe (c) 2019 Wenzel Jakob <wenzel.jakob@epfl.ch>
 
     All rights reserved. Use of this source code is governed by a BSD-style
     license that can be found in the LICENSE file.
