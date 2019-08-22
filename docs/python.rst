@@ -147,7 +147,7 @@ query its automatically generated help page.
 As can be seen, the help describes all three overloads along with the name and shape of their input arguments.
 Let's try calling one of them:
 
-.. code-block:: pycon
+.. code-block:: python
 
     >>> from pybind11_test import sph_to_cartesian
     >>> sph_to_cartesian(theta=1, phi=2)
@@ -160,7 +160,7 @@ to generate inputs, which actually have an *incorrect* ``dtype`` of
 ``np.float64``. The binding layer detects this and automatically creates a
 temporary single precision input array before performing the function call.
 
-.. code-block:: pycon
+.. code-block:: python
 
     >>> import numpy as np
     >>> sph_to_cartesian(theta=np.linspace(0.0, 1.0, 10),

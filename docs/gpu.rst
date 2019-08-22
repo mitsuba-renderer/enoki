@@ -267,7 +267,7 @@ vectors on the set :math:`[-1, 1]^3` lie within the unit sphere:
     >>> inside = norm(v) < 1
 
 At this point, seeding of the random number generator and subsequent sampling
-steps touching its internal state have produced over a hundered different
+steps touching its internal state have produced over a hundred different
 operations generating various intermediate results along with the output
 variable of interest.
 
@@ -355,7 +355,7 @@ points that lie within the sphere, which approximates the expected value
 Manually triggering JIT compilation
 -----------------------------------
 
-It is sometimes desireable to manually force Enoki's JIT compiler to generate a
+It is sometimes desirable to manually force Enoki's JIT compiler to generate a
 kernel containing the computation queued thus far. For instance, rather than
 compiling a long-running iterative algorithm into a single huge kernel, a
 single kernel per iteration may be preferable. This can be accomplished by
@@ -395,7 +395,7 @@ returned before the GPU finished executing the kernel. Nonetheless, is
 perfectly safe to begin using the variable immediately as asynchronous
 communication with the GPU still observes a linear ordering guarantee.
 
-In very rare cases (e.g. kernel benchmarking), it may be desireable to wait
+In very rare cases (e.g. kernel benchmarking), it may be desirable to wait
 until all currently running kernels have terminated. For this, invoke
 :cpp:func:`cuda_sync` following :cpp:func:`cuda_eval`.
 
@@ -481,7 +481,7 @@ before returning a representation in the other framework. This can be wasteful
 when converting many variables at an interface between two frameworks. For this
 reason, both ``.numpy()`` and ``.torch()`` functions take an optional ``eval``
 argument that is set to ``True`` by default. Passing ``False`` causes the
-operation to return an unitialized NumPy or PyTorch array, while at the same
+operation to return an uninitialized NumPy or PyTorch array, while at the same
 time scheduling Enoki code that will eventually fill this memory with valid
 contents the next time that :cpp:func:`cuda_eval` is triggered. An example is
 shown below. This feature is to be used with caution.
@@ -518,11 +518,8 @@ involving GPU arrays as targets.
 .. code-block:: python
 
     >>> a = FloatC.zero(10)
-
     >>> b = UInt32C.arange(5)
-
     >>> scatter(target=a, source=FloatC(b), index=b*2)
-
     >>> a
     cuda_eval(): launching kernel (n=5, in=1, out=2, ops=9)
     [0, 0, 1, 0, 2, 0, 3, 0, 4, 0]
@@ -537,11 +534,11 @@ Similar to the `PyTorch memory allocator
 <https://pytorch.org/docs/stable/notes/cuda.html#cuda-memory-management>`_,
 Enoki uses a caching scheme to avoid very costly device synchronizations when
 releasing memory. This means that freeing a large GPU variable doesn't cause
-additional memory to be available for the operating system or frameworks
-like Tensorflow or PyTorch. Use the function :cpp:func:`cuda_malloc_trim` to
-fully purge all unused memory. The function is only relevant when working with
-other frameworks and does not need to be called to free up memory for use by
-Enoki itself.
+the associated memory region to become available for use by the operating
+system or other frameworks like Tensorflow or PyTorch. Use the function
+:cpp:func:`cuda_malloc_trim` to fully purge all unused memory. The function is
+only relevant when working with other frameworks and does not need to be called
+to free up memory for use by Enoki itself.
 
 C++ interface
 -------------
