@@ -112,11 +112,11 @@ and differentiating modern C++ applications with nontrivial control flow and
 data structures, dynamic memory allocation, virtual method calls, and vector
 calls across module boundaries. It has the following design goals:
 
-1. **Unobtrusive**: Only minor modifications are necessary to convert existing
+1. **Unobtrusive**. Only minor modifications are necessary to convert existing
    C++ code into its Enoki-vectorized equivalent, which remains readable and
    maintainable.
 
-2. **No code duplication**: It is generally desirable to provide both scalar
+2. **No code duplication**. It is generally desirable to provide both scalar
    and vectorized versions of an API, e.g. for debugging, and to preserve
    compatibility with legacy code. Enoki code extensively relies on class and
    function templates to achieve this goal without any code duplication—the
@@ -124,17 +124,17 @@ calls across module boundaries. It has the following design goals:
    implementations, and each variant can provide gradients via automatic
    differentiation if desired.
 
-3. **Custom data structures**: Enoki cann also vectorize custom data
+3. **Custom data structures**. Enoki can also vectorize custom data
    structures. All the hard work (e.g. conversion to SoA format) is handled by
    the C++17 type system.
 
-4. **Function calls**: vectorized calls to functions in other compilation units
+4. **Function calls**. Vectorized calls to functions in other compilation units
    (e.g. a dynamically loaded plugin) are possible. Enoki can even vectorize
    method or virtual method calls (e.g. ``instance->my_function(arg1, arg2,
    ...);`` when ``instance`` turns out to be an array containing many different
    instances).
 
-5. **Mathematical library**: Enoki includes an extensive mathematical support
+5. **Mathematical library**. Enoki includes an extensive mathematical support
    library with complex numbers, matrices, quaternions, and related operations
    (determinants, matrix, inversion, etc.). A set of transcendental and special
    functions supports real, complex, and quaternion-valued arguments in single
@@ -153,7 +153,7 @@ calls across module boundaries. It has the following design goals:
    Enoki, which means that it transparently composes with vectorization,
    the JIT compiler for generating CUDA kernels, automatic differentiation, etc.
 
-6. **Portability**: When creating vectorized CPU code, Enoki supports arbitrary
+6. **Portability**. When creating vectorized CPU code, Enoki supports arbitrary
    array sizes that don't necessarily match what is supported by the underlying
    hardware (e.g. 16 x single precision on a machine, whose SSE vector only has
    hardware support for 4 x single precision operands). The library uses
@@ -165,7 +165,7 @@ calls across module boundaries. It has the following design goals:
    unsupported architectures (albeit without the performance benefits of
    vectorization).
 
-7. **Modular architecture**: Enoki is split into two major components: the
+7. **Modular architecture**. Enoki is split into two major components: the
    front-end provides various high-level array operations, while the back-end
    provides the basic ingredients that are needed to realize these operations
    using the SIMD instruction set(s) supported by the target architecture.
@@ -180,7 +180,7 @@ calls across module boundaries. It has the following design goals:
    as a hypothetical future AVX1024 or even an entirely different
    architecture (e.g. a DSP chip) by just adding a new back-end.
 
-8. **License**: Enoki is available under a non-viral open source license
+8. **License**. Enoki is available under a non-viral open source license
    (3-clause BSD).
 
 ## About
@@ -189,3 +189,14 @@ This project was created by [Wenzel Jakob](http://rgl.epfl.ch/people/wjakob).
 It is named after [Enokitake](https://en.wikipedia.org/wiki/Enokitake), a type
 of mushroom with many long and parallel stalks reminiscent of data flow in
 vectorized arithmetic.
+
+When using Enoki in academic projects, please cite
+
+```bibtex
+@misc{Enoki,
+   author = {Wenzel Jakob},
+   year = {2019},
+   note = {https://github.com/mitsuba-renderer/enoki},
+   title = {Enoki: structured vectorization and differentiation on modern processor architectures}
+}
+```

@@ -1,4 +1,4 @@
-Enoki — structured vectorization and differentiation on modern processor architectures
+Enoki: structured vectorization and differentiation on modern processor architectures
 ======================================================================================
 
 .. only:: not latex

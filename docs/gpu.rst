@@ -291,8 +291,9 @@ registered (with the JIT compiler, in this case).
       =================================================================
 
       Memory usage (ready)     : 0 B
-      Memory usage (scheduled) : 0 B + 976.56 KiB = 976.56 KiB
-      Memory savings           : 347.14 MiB
+      Memory usage (scheduled) : 0 B + 20.027 MiB = 20.027 MiB
+      Memory savings           : 350.95 MiB
+
 
 The resulting output lists variables of many types (single precision floating
 point values, 32/64 bit unsigned integers, masks, etc..), of which the last one
@@ -580,3 +581,7 @@ the Monte Carlo integration Python example shown earlier.
 
         std::cout << count(inside) / (float) inside.size() << std::endl;
     }
+
+..
+
+    any_or<...>
