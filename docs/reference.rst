@@ -663,6 +663,11 @@ Elementary Arithmetic Operators
 
     Binary multiplication operator.
 
+.. cpp:function:: template <typename Array> Array& operator*=(Array& x, Array y)
+
+    Compound assignment operator for multiplication. Concerning ``Array`` types
+    with non-commutative multiplication: the operation expands to ``x = x * y;``.
+
 .. cpp:function:: template <typename Array> Array mulhi(Array x, Array y)
 
     Returns the high part of an integer multiplication. For 32-bit scalar
