@@ -1110,6 +1110,13 @@ Horizontal operations
     Recursive version of :cpp:func:`all`, which nests through all dimensions
     and always returns a boolean value.
 
+.. cpp:function:: template <typename Mask, bool Default> bool all_or(Mask value)
+
+    This function calls returns the `Default` template argument when `Mask` is
+    a GPU array. Otherwise, it falls back :cpp:func:`all`. See the section on
+    :ref:`horizontal operations on the GPU <horizontal_ops_on_gpu>` for
+    details.
+
 .. cpp:function:: template <typename Mask> auto any(Mask value)
 
     Efficiently computes the horizontal OR (i.e. logical disjunction) of the
@@ -1134,6 +1141,13 @@ Horizontal operations
     Recursive version of :cpp:func:`any`, which nests through all dimensions
     and always returns a boolean value.
 
+.. cpp:function:: template <typename Mask, bool Default> bool any_or(Mask value)
+
+    This function calls returns the `Default` template argument when `Mask` is
+    a GPU array. Otherwise, it falls back :cpp:func:`any`. See the section on
+    :ref:`horizontal operations on the GPU <horizontal_ops_on_gpu>` for
+    details.
+
 .. cpp:function:: template <typename Mask> auto none(Mask value)
 
     Efficiently computes the negated horizontal OR of the components of the
@@ -1157,6 +1171,13 @@ Horizontal operations
 
     Recursive version of :cpp:func:`none`, which nests through all dimensions
     and always returns a boolean value.
+
+.. cpp:function:: template <typename Mask, bool Default> bool none_or(Mask value)
+
+    This function calls returns the `Default` template argument when `Mask` is
+    a GPU array. Otherwise, it falls back :cpp:func:`none`. See the section on
+    :ref:`horizontal operations on the GPU <horizontal_ops_on_gpu>` for
+    details.
 
 .. cpp:function:: template <typename Mask> auto count(Mask value)
 

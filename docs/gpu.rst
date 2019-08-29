@@ -582,6 +582,41 @@ the Monte Carlo integration Python example shown earlier.
         std::cout << count(inside) / (float) inside.size() << std::endl;
     }
 
-..
+.. _horizontal_ops_on_gpu:
 
-    any_or<...>
+Suggestions regarding horizontal operations
+-------------------------------------------
+
+When vectorizing code, we may sometimes want to skip an expensive computation
+when it is not actually needed by any elements in the array being processed.
+This is usually done with the :cpp:func:`any` function and yields good
+performance in when targeting the *CPU* (e.g. with the AVX512 backend). An
+example:
+
+.. code-block:: cpp
+
+    auto condition = variable > 1.f;
+    if (any(condition))
+        result[condition] = /* expensive-to-evaluate expression */;
+
+However, recall the discussion earlier in this section, which explained how
+horizontal operations tend to be fairly expensive in conjunction with the GPU
+backend because they flush the JIT compiler. This effectively breaks up the
+program into smaller kernels, increasing memory traffic and missing potential
+optimization opportunities. Arrays processed by the GPU backend tend to be much
+larger, and from a probabilistic viewpoint it is often likely that the
+:cpp:func:`any` function call will in any case evaluate to ``true``. For these
+reasons, skipping test and always evaluating the expression often leads to
+better performance on the GPU.
+
+Enoki provides alternative horizontal reductions of masks named
+:cpp:func:`any_or`, :cpp:func:`all_or`, :cpp:func:`none_or` that do exactly
+this: they skip evaluation when compiling for GPU targets and simply return the
+supplied template argument. For other targets, they behave as usual. With this
+change, the example looks as follows:
+
+.. code-block:: cpp
+
+    auto condition = variable > 1.f;
+    if (any_or<true>(condition))
+        result[condition] = /* expensive-to-evaluate expression */;

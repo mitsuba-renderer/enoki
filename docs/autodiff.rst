@@ -58,7 +58,7 @@ is used to mark a variable as being part of a differentiable computation.
 
     >>> from enoki import *
 
-    >>> # Create a differentiable variable
+    >>> # Create a single differentiable variable
     >>> a = FloatD(2.0)
     >>> set_requires_gradient(a)
 
@@ -66,7 +66,7 @@ is used to mark a variable as being part of a differentiable computation.
     >>> b = a * a
     >>> c = sqrt(a)
 
-    >>> # Forward-propagate gradients to outputs
+    >>> # Forward-propagate gradients from single input to multiple outputs
     >>> forward(a)
     autodiff: forward(): processed 3/5 nodes.
 
@@ -90,7 +90,7 @@ traversal is shown next:
     >>> # Arithmetic with two inputs ('a', 'b') and a single output ('c')
     >>> c = a * sqrt(b)
 
-    >>> # Backward-propagate gradients to inputs
+    >>> # Backward-propagate gradients from single output to multiple inputs
     >>> backward(c)
     autodiff: backward(): processed 3/4 nodes.
 
@@ -180,8 +180,32 @@ primal and gradient computations have been scheduled (but not executed yet).
       Memory usage (scheduled) : 0 B + 268 B = 268 B
       Memory savings           : 235 B
 
-..
+Graph simplification
+--------------------
+
+Enoki's automatic differentiation layer was designed to be more efficient in
+terms of both computation time and memory usage compared to the "eager mode" of
+standard frameworks like PyTorch and Tensorflow.
+
+.. code-block:: python
+
+    >>> # ----- GPU memory usage: 0 MiB -----
+
+    >>> import torch
+
+    >>> # Create a tensor with 1 million floats (4 MiB of GPU memory)
+    >>> # The PyTorch CUDA backend adds a *large* one-time overhead to (kernel code, stack space, etc.)
+    >>> a = torch.zeros(1024 * 1024, device='cuda')
+
+    >>> # ----- GPU memory usage: 809 MiB -----
+
+    >>> # Perform a simple differentiable computation
+    >>> b = a.requires_grad()
+    >>> for i in range(1000):
+    ...     b = b * b
+
+    >>> # ----- GPU memory usage: 4803 MiB (!!) -----
 
     TODO: Graph simplification, larger rotation example with FloatD.scope,
-    autodiffing scatter/gathers? Efficiency difference to PyTorch. back-propagating
+    autodiffing scatter/gathers? back-propagating
     multiple weighted variables.
