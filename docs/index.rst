@@ -17,6 +17,7 @@ Enoki: structured vectorization and differentiation on modern processor architec
    nested
    gpu
    autodiff
+   calls
    custom
    dynamic
    benchmark

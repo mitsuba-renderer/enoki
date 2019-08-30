@@ -698,8 +698,6 @@ template <typename Value> const Value &Tape<Value>::gradient(Index index) {
 template <typename Value>
 void Tape<Value>::backward(Index index, bool free_graph) {
     using Scalar = scalar_t<Value>;
-    if (d->graph_simplification)
-        simplify_graph();
 
     SimplificationLock lock(*this);
     set_gradient(index, Scalar(1), true, true);
@@ -709,8 +707,6 @@ void Tape<Value>::backward(Index index, bool free_graph) {
 template <typename Value>
 void Tape<Value>::forward(Index index, bool free_graph) {
     using Scalar = scalar_t<Value>;
-    if (d->graph_simplification)
-        simplify_graph();
 
     SimplificationLock lock(*this);
     set_gradient(index, Scalar(1), false, true);

@@ -620,3 +620,64 @@ change, the example looks as follows:
     auto condition = variable > 1.f;
     if (any_or<true>(condition))
         result[condition] = /* expensive-to-evaluate expression */;
+
+
+Differences between Enoki and existing frameworks
+-------------------------------------------------
+Enoki was designed as a numerical foundation for differentiable physical
+simulations, specifically the `Mitsuba renderer
+<https://github.com/mitsuba-renderer/mitsuba2>`_, though it is significantly
+more general and should be a trusty tool for a variety of simulation and
+optimization problems.
+
+Its GPU and Autodiff backends are related to well-known frameworks like
+`TensorFlow <https://www.tensorflow.org/>`_ and `PyTorch
+<https://pytorch.org/>`_ that have become standard tools for training and
+evaluating neural networks. In the following, we outline the main differences
+between these frameworks and Enoki.
+
+Both PyTorch and Tensorflow provide two main operational modes: *eager mode*
+directly evaluates arithmetic operations on the GPU, which yields excellent
+performance in conjunction with arithmetically intensive operations like
+convolutions and large matrix-vector multiplications, both of which are
+building blocks of neural networks. When evaluating typical simulation code
+that mainly consists of much simpler arithmetic (e.g. additions,
+multiplications, etc.), the resulting memory traffic and scheduling overheads
+induce severe bottlenecks. An early prototype of Enoki provided a
+``TorchArray<T>`` type that carried out operations using PyTorch's eager mode,
+and the low performance of this combination eventually motivated us to develop
+the technique based on JIT compilation introduced in the previous section.
+
+The second operational mode requires an up-front specification of the complete
+computation graph to generate a single optimized GPU kernel (e.g. via XLA in
+TensorFlow and ``jit.trace`` in PyTorch). This is feasible for neural networks,
+whose graph specification is very regular and typically only consists of a few
+hundred operations. Simulation code, on the other hand, involves much larger
+graphs, whose structure is *unpredictable*: program execution often involves
+randomness, which could cause jumps to almost any part of the system. The full
+computation graph would simply be the entire codebase (potentially on the order
+of hundreds of thousands lines of code), which is of course far too big.
+
+Enoki's approach could be interpreted as a middle ground between the two
+extremes discussed above. Graphs are created on the fly during a simulation,
+and can be several orders of magnitude larger compared to typical neural
+networks. They consist mostly of unstructured and comparably simple arithmetic
+that is lazily fused into optimized CUDA kernels. Since our system works
+without an up-front specification of the full computation graph, it must
+support features like dynamic indirection via virtual function calls that can
+simultaneously branch to multiple different implementations. The details of
+this are described in the section on :ref:`function calls <calls>`.
+
+Note that that there are of of course many use cases where PyTorch, Tensorflow,
+etc. are vastly superior to Enoki, and it is often a good idea to combine the
+two in such cases (e.g. to feed the output of a differentiable simulation into
+a neural network).
+
+One last related framework is `ArrayFire
+<https://github.com/arrayfire/arrayfire>`_, which provides a JIT compiler that
+lazily fuses instructions similar to our ``CUDAArray<T>`` type. ArrayFire
+targets a higher-level language (C), but appears to be limited to fairly small
+kernels (100 operations by default), and does not support a mechanism for
+automatic differentiation. In contrast, Enoki emits an intermediate
+representation (PTX) and fuses instructions into comparatively larger kernels
+that often exceed 100K instructions.

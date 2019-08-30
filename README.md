@@ -190,6 +190,11 @@ It is named after [Enokitake](https://en.wikipedia.org/wiki/Enokitake), a type
 of mushroom with many long and parallel stalks reminiscent of data flow in
 vectorized arithmetic.
 
+Enoki is the numerical foundation of version 2 of the [Mitsuba
+renderer](https://github.com/mitsuba-renderer/mitsuba2), though it is
+significantly more general and should be a trusty tool for a variety of
+simulation and optimization problems.
+
 When using Enoki in academic projects, please cite
 
 ```bibtex
