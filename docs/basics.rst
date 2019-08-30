@@ -193,7 +193,7 @@ Note that :cpp:func:`load` and :cpp:func:`load_unaligned` require the target
 type as a template parameter, while the stores do not, since it can be inferred
 from the provided value.
 
-Scatter and gather operations are also supported using a similar pattern:
+Gather, scatter, and scatter-add operations are also supported using a similar pattern:
 
 .. code-block:: cpp
 
@@ -207,6 +207,12 @@ Scatter and gather operations are also supported using a similar pattern:
     /* Scatter f3 to mem -- this is equivalent to
        setting mem[idx[i]] = f3[i] (i = 0, 1, ..) */
     scatter(mem, f3, idx);
+
+    /* Atomic scatter-add of f3 to mem -- this is equivalent to
+       setting mem[idx[i]] += f3[i] (i = 0, 1, ..). The operation
+       is atomic in the sense that it gives the correct results
+       if 'idx' refers to the same index twice. */
+    scatter_add(mem, f3, idx);
 
 Finally, the following initialization methods also exist:
 

@@ -352,7 +352,7 @@ given below:
       angle = FloatD(detach(angle) - gradient(angle) * lr)
 
 
-Each iteration of the algorithm prints a message of the form. 
+Running the above progrma prints a message of the form
 
 .. code-block:: python
 
@@ -361,10 +361,10 @@ Each iteration of the algorithm prints a message of the form.
    cuda_jit_run(): cache hit, jit: 535 us
    err: [1.12665]
 
-After a few iterations, the error is reduced from an initial value of 1.34 to
-0.065. Note that kernels are only created at the beginning---later iterations
-indicate cache hits because the overall structure of the computation is
-repetitive.
+for each iteration. After a few iterations, the error is reduced from an
+initial value of 1.34 to 0.065. Note that kernels are only created at the
+beginning---later iterations indicate cache hits because the overall structure
+of the computation is repetitive.
 
 Observe also that the ``print()`` command that quantifies the loss value in
 each iteration has an interesting side effect: it flushes the queued
@@ -394,6 +394,32 @@ box.
     :width: 800px
     :align: center
 
+Differentiable scatter and gather operations
+--------------------------------------------
+
+Enoki arrays provide scatter, gather, and atomic scatter-add primitives, which
+constitute a special case during automatic differentiation. Consider the
+following differentiable calculation, which selects a subset of an input array:
+
+.. code-block:: python
+
+    >>> a = FloatD.linspace(0, 1, 10)
+    >>> set_requires_gradient(a)
+    >>> c = gather(a, UInt32D([1, 4, 8, 4]))
+    >>> backward(hsum(c))
+    autodiff: backward(): processed 3/3 nodes.
+    >>> print(gradient(a))
+    [0, 1, 0, 0, 2, 0, 0, 0, 1, 0]
+
+Here, reverse-mode propagation of a derivative of ``c`` with respect to the input
+parameter ``a`` requires a suitable :cpp:func:`scatter_add` operation during
+the reverse-model traversal. Analogously, scatters turn into gathers. The
+differentiable array backend recognizes these operations and inserts a special
+type of edge into the graph to enable the necessary transformations. 
+
+One current limitation of Enoki is that such special edges cannot be merged
+into ordinary edges during graph simplification. Handling this case could
+further reduce memory usage and is an interesting topic for future work.
 
 ..
-    TODO: Hooking this up with PyTorch. Autodiffing scatter/gathers? back-propagating multiple weighted variables.
+    TODO: Hooking this up with PyTorch. back-propagating multiple weighted variables.

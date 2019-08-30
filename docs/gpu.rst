@@ -199,13 +199,54 @@ all of the computation queued thus far.
           ret;
       }
 
-This overall approach is motivated by efficiency considerations: most Enoki
+Internally, Enoki hands the PTX code over to CUDA's runtime compiler (`NVRTC
+<https://docs.nvidia.com/cuda/nvrtc/index.html>`_), which performs a second
+pass that translates from PTX to the native GPU instruction set *SASS*.
+
+.. container:: toggle
+
+    .. container:: header
+
+        **Show/Hide the resulting SASS code**
+
+    .. code-block:: bash
+
+        enoki_8a163272:
+            MOV R1, c[0x0][0x28];
+            S2R R0, SR_TID.X;
+            S2R R3, SR_CTAID.X;
+            IMAD R0, R3, c[0x0][0x0], R0;
+            ISETP.GE.U32.AND P0, PT, R0, c[0x0][0x168], PT;
+        @P0 EXIT;
+            BSSY B0, `(.L_2);
+            ULDC.64 UR4, c[0x0][0x160];
+        .L_3:
+             LDG.E.64.SYS R2, [UR4];
+             MOV R5, 0x3f76ca83;
+             MOV R7, c[0x0][0x0];
+             IMAD R0, R7, c[0x0][0xc], R0;
+             ISETP.GE.U32.AND P0, PT, R0, c[0x0][0x168], PT;
+             STG.E.SYS [R2], R5;
+        @!P0 BRA `(.L_3);
+             BSYNC B0;
+        .L_2:
+             EXIT ;
+        .L_4:
+             BRA `(.L_4);
+
+This second phase is a full-fledged optimizing compiler with constant
+propagation and common subexpression elimination. You can observe this in the
+previous example because the second snippet is *much smaller*---in fact, almost
+all of the computation was optimized away and replaced by a simple constant
+(:math:`\tanh(2)\approx 0.964028`).
+
+Enoki's approach is motivated by efficiency considerations: most array
 operations are individually very simple and do not involve a sufficient amount
 of computation to outweigh overheads related to memory accesses and GPU kernel
 launches. Enoki therefore accumulates larger amounts of work (potentially
-hundreds of thousands of individual operations) before creating and launching a
-GPU kernel. Once evaluated, array contents can be accessed without triggering
-further computation:
+hundreds of thousands of individual operations) before creating and launching
+an optimized GPU kernel. Once evaluated, array contents can be accessed without
+triggering further computation:
 
 .. code-block:: python
 
@@ -220,15 +261,15 @@ from the individual operations---this is essentially just string concatenation
 and tends to be very fast (541 µs in the above example, most of which is caused
 by printing assembly code onto the console due to the high log level).
 
-The second step (``ptx compilation``) uses NVIDIA's `NVRTC
-<https://docs.nvidia.com/cuda/nvrtc/index.html>`_ framework to convert the PTX
-intermediate representation into concrete machine code that can be executed on
-the installed graphics card. This is orders of magnitude slower (43 ms in
-the above example) but only needs to happen once: whenever the same computation
-occurs again (e.g. in subsequent iterations of an optimization algorithm),
-the previously generated kernel is reused:
+The second step (``ptx compilation``) that converts the PTX intermediate
+representation into concrete machine code that can be executed on the installed
+graphics card is orders of magnitude slower (43 ms in the above example) but
+only needs to happen once: whenever the same computation occurs again (e.g. in
+subsequent iterations of an optimization algorithm), the previously generated
+kernel is reused:
 
 .. code-block:: python
+    :emphasize-lines: 7
 
     >>> b = FloatC(1)
     >>> b = b + b
@@ -242,9 +283,9 @@ the previously generated kernel is reused:
 A more complex example
 ----------------------
 
-We now turn to a more complex example that involves computing the
-three-dimensional volume of a sphere, using Monte Carlo integration. To do so,
-we create a random number generator RNG that will generate 1 million samples:
+We now turn to a more complex example: computing the three-dimensional volume
+of a sphere using Monte Carlo integration. To do so, we create a random number
+generator RNG that will generate 1 million samples:
 
 .. code-block:: python
 
@@ -413,9 +454,9 @@ Horizontal operations (e.g. :cpp:func:`hsum`, :cpp:func:`all`,
 :cpp:func:`count`, etc.) are best avoided whenever possible, because they
 require that all prior computation has finished. In other words: each time
 Enoki encounters a horizontal operation involving an unevaluated array, it
-triggers a call to :cpp:func:`cuda_eval`. That said, horizontal operations are
+triggers a call to :cpp:func:`cuda_eval`. That said, horizontal reductions are
 executed in parallel using NVIDIA's `CUB <https://nvlabs.github.io/cub/>`_
-library, which is fairly efficient.
+library, which is a highly performant implementation of these primitives.
 
 
 Interoperability with other Python frameworks
