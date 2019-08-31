@@ -931,7 +931,7 @@ public:
     bool operator!=(const cuda_host_allocator &) { return false; }
 };
 
-#define ENOKI_MANAGED_OPERATOR_NEW()                                           \
+#define ENOKI_PINNED_OPERATOR_NEW()                                            \
     void *operator new(size_t size) { return cuda_host_malloc(size); }         \
     void operator delete(void *ptr) { cuda_host_free(ptr); }                   \
     void *operator new(size_t size, std::align_val_t) {                        \

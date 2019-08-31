@@ -13,7 +13,9 @@ code duplication, etc.).
 
 We will focus on an simple example data structure that represents a position
 record acquired by a GPS tracker along with auxiliary information (time, and a
-flag stating whether the data is considered reliable).
+flag stating whether the data is considered reliable). The examples will refer
+to CPU SIMD-style vectorization, but everything in this section also applies to
+other kinds of Enoki arrays (GPU arrays, differentiable arrays).
 
 .. code-block:: cpp
 
@@ -55,8 +57,8 @@ is deemed unreliable, it returns a *NaN* value to inform the caller about this.
     }
 
 Suppose that we would like to add a second vectorized version of this function,
-which works with packets of GPS coordinates. Instead of defining yet another
-data structure for coordinates packets in addition to the existing
+which works with arrays of GPS coordinates. Instead of defining yet another
+data structure for coordinates arrays in addition to the existing
 ``GPSCoord2f``, our approach will be to rely on a single template data
 structure that subsumes both cases. It is parameterized by the type of a GPS
 position component (e.g. latitude) named ``Value``.
@@ -75,11 +77,10 @@ position component (e.g. latitude) named ``Value``.
 
 The ``using`` declarations at the beginning require an explanation: they
 involve the type traits :cpp:type:`enoki::uint64_array_t` and
-:cpp:type:`enoki::mask_t`, which "compute" the type of an Enoki array
-that has the same configuration as their input parameter, but with
-``uint64_t``- and ``bool``-valued entries, respectively. Both are
-specializations of the more general :cpp:type:`enoki::replace_scalar_t` trait that works
-for any type.
+:cpp:type:`enoki::mask_t`, which "compute" the type of an Enoki array that has
+the same configuration as their input parameter, but with ``uint64_t``- and
+``bool``-valued entries, respectively. Both are specializations of the more
+general :cpp:type:`enoki::replace_scalar_t` trait that works for any type.
 
 With these declarations, we can now create a packet type ``GPSCoord2fP`` that
 stores 16 GPS positions in a convenient SoA representation.

@@ -458,9 +458,8 @@ triggers a call to :cpp:func:`cuda_eval`. That said, horizontal reductions are
 executed in parallel using NVIDIA's `CUB <https://nvlabs.github.io/cub/>`_
 library, which is a highly performant implementation of these primitives.
 
-
-Interoperability with other Python frameworks
----------------------------------------------
+Interfacing with NumPy
+----------------------
 
 Enoki GPU arrays support bidirectional conversion from/to NumPy arrays, which
 will of course involve some communication between the CPU and GPU:
@@ -488,6 +487,9 @@ will of course involve some communication between the CPU and GPU:
     [0.5, 1, 1.5],
     [0.75, 1.5, 2.25],
     [1, 2, 3]]
+
+Interfacing with PyTorch
+------------------------
 
 `PyTorch <https://pytorch.org/>`_ GPU tensors are supported as well. In this
 case, copying occurs on the GPU (but is still necessary, as the two frameworks

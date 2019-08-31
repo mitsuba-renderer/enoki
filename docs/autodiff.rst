@@ -107,6 +107,9 @@ step on a parameter ``a`` would be realized as follows:
 
     >>> a = FloatD(detach(a) + step_size * gradient(a))
 
+Note that practical applications of Enoki likely involve large arrays with many
+millions of entries rather than scalars used in the two examples above.
+
 Visualizing computation graphs
 ------------------------------
 
@@ -405,21 +408,190 @@ following differentiable calculation, which selects a subset of an input array:
 
     >>> a = FloatD.linspace(0, 1, 10)
     >>> set_requires_gradient(a)
+
     >>> c = gather(a, UInt32D([1, 4, 8, 4]))
     >>> backward(hsum(c))
     autodiff: backward(): processed 3/3 nodes.
+
     >>> print(gradient(a))
     [0, 1, 0, 0, 2, 0, 0, 0, 1, 0]
 
-Here, reverse-mode propagation of a derivative of ``c`` with respect to the input
-parameter ``a`` requires a suitable :cpp:func:`scatter_add` operation during
-the reverse-model traversal. Analogously, scatters turn into gathers. The
-differentiable array backend recognizes these operations and inserts a special
-type of edge into the graph to enable the necessary transformations. 
+Here, reverse-mode propagation of a derivative of ``c`` with respect to the
+input parameter ``a`` requires a suitable :cpp:func:`scatter_add` operation
+during the reverse-model traversal. Analogously, scatters turn into gathers
+under reverse-mode AD. The differentiable array backend recognizes these
+operations and inserts a special type of edge into the graph to enable the
+necessary transformations.
 
 One current limitation of Enoki is that such special edges cannot be merged
 into ordinary edges during graph simplification. Handling this case could
 further reduce memory usage and is an interesting topic for future work.
 
-..
-    TODO: Hooking this up with PyTorch. back-propagating multiple weighted variables.
+Interfacing with PyTorch
+------------------------
+
+It is possible to insert a differentiable computation realized using Enoki into
+a larger PyTorch program and subsequently back-propagate gradients through the
+combination of these systems. The following annotated example shows how to
+expose a differentiable Enoki function (``enoki.atan2``) to PyTorch. The page
+on `Extending PyTorch <https://pytorch.org/docs/stable/notes/extending.html>`_
+is a helpful reference regarding the ``torch.autograd.Function`` construction
+used in the example.
+
+.. code-block:: python
+
+        import torch
+        import enoki
+
+        class EnokiAtan2(torch.autograd.Function):
+            @staticmethod
+            def forward(ctx, arg1, arg2):
+                # Convert input parameters to Enoki arrays
+                ctx.in1 = enoki.FloatD(arg1)
+                ctx.in2 = enoki.FloatD(arg2)
+
+                # Inform Enoki if PyTorch wants gradients for one/both of them
+                enoki.set_requires_gradient(ctx.in1, arg1.requires_grad)
+                enoki.set_requires_gradient(ctx.in2, arg2.requires_grad)
+
+                # Perform a differentiable computation in ENoki
+                ctx.out = enoki.atan2(ctx.in1, ctx.in2)
+
+                # Convert the result back into a PyTorch array
+                out_torch = ctx.out.torch()
+
+                # Optional: release any cached memory from Enoki back to PyTorch
+                enoki.cuda_malloc_trim()
+
+                return out_torch
+
+            @staticmethod
+            def backward(ctx, grad_out):
+                # Attach gradients received from PyTorch to the output
+                # variable of the forward pass
+                enoki.set_gradient(ctx.out, enoki.FloatD(grad_out))
+
+                # Perform a reverse-mode traversal. Note that the static
+                # version of the backward() function is being used, see
+                # the following subsection for details on this
+                enoki.FloatD.backward()
+
+                # Fetch gradients from the input variables and pass them on
+                result = (enoki.gradient(ctx.in1).torch()
+                          if enoki.requires_gradient(ctx.in1) else None,
+                          enoki.gradient(ctx.in2).torch()
+                          if enoki.requires_gradient(ctx.in2) else None)
+
+                # Garbage-collect Enoki arrays that are now no longer needed
+                del ctx.out, ctx.in1, ctx.in2
+
+                # Optional: release any cached memory from Enoki back to PyTorch
+                enoki.cuda_malloc_trim()
+
+                return result
+
+        # Create 'enoki_atan2(y, x)' function
+        enoki_atan2 = EnokiAtan2.apply
+
+        # Let's try it!
+        y = torch.tensor(1.0, device='cuda')
+        x = torch.tensor(2.0, device='cuda')
+        y.requires_grad_()
+        x.requires_grad_()
+
+        o = enoki_atan2(y, x)
+        print(o)
+
+        o.backward()
+        print(y.grad)
+        print(x.grad)
+
+Running this program yields the following output
+
+.. code-block:: python
+
+    cuda_eval(): launching kernel (n=1, in=1, out=8, ops=61)
+    tensor([0.4636], device='cuda:0', grad_fn=<EnokiAtan2Backward>)
+    autodiff: backward(): processed 3/3 nodes.
+    cuda_eval(): launching kernel (n=1, in=6, out=3, ops=20)
+    cuda_eval(): launching kernel (n=1, in=2, out=1, ops=9)
+    tensor(0.4000, device='cuda:0')
+    tensor(-0.2000, device='cuda:0')
+
+Custom forward and reverse-mode traversals
+------------------------------------------
+
+The default :cpp:func:`forward` and :cpp:func:`backward` traversal functions
+require an input or output variable for which gradients should be propagated.
+Following the traversal, the autodiff graph data structure is immediately torn
+down. These assumptions are usually fine when the function being differentiated
+has 1 input and *n* outputs, or when it has *m* inputs and 1 output.
+
+However, for a function with *n* inputs and *m* outputs, we may want to perform
+multiple reverse or forward-mode traversals while retaining the computation
+graph. This is simple to do via an extra argument
+
+.. code-block:: python
+
+    backward(my_variable, free_graph=False)
+    # or
+    forward(my_variable, free_graph=False)
+
+
+We may want to initialize the input/output variables with specific gradients
+before each traversal.
+
+.. code-block:: python
+
+    set_gradient(out1, 2.0)
+    set_gradient(out2, 3.0)
+    FloatD.backward(free_graph=False)
+    # or
+    set_gradient(in1, 2.0)
+    set_gradient(in2, 3.0)
+    FloatD.forward(free_graph=False)
+
+This functionality is particularly useful when implementing a partial
+reverse-mode traversal in the context of a larger differentiable computation
+realized using another framework (e.g. PyTorch). See the previous subsection
+for an example.
+
+C++ interface
+-------------
+
+As in the previous section, the C++ and Python interfaces behave in exactly the
+same way. To use the ``DiffArray<T>`` type, include the header
+
+.. code-block:: cpp
+
+    #include <enoki/autodiffh>
+
+Furthermore, applications must be linked against the ``enoki-autodiff`` library
+(and against ``cuda`` and ``enoki-cuda`` if differentiable GPU arrays are
+used). The following snippet contains a C++ translation of the error function
+example shown earlier.
+
+.. code-block:: cpp
+
+    #include <enoki/cuda.h>
+    #include <enoki/autodiff.h>
+    #include <enoki/special.h> // for erf()
+
+    using namespace enoki;
+
+    using FloatC    = CUDAArray<float>;
+    using FloatD    = DiffArray<FloatC>;
+
+    int main(int argc, char **argv) {
+        FloatD a = 1.f;
+        set_requires_gradient(a);
+
+        FloatD b = erf(a);
+        set_label(a, "a");
+        set_label(b, "b");
+
+        std::cout << graphviz(b) << std::endl;
+
+        backward(b);
+        std::cout << gradient(a) << std::endl;
+    }

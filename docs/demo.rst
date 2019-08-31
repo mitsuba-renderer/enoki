@@ -63,7 +63,7 @@ the array.
 
 Arrays can be nested arbitrarily: the following snippet declares a 16-wide
 ``FloatP`` "packet" type (hence the "P" suffix) and uses it to construct a
-a new type storing 16 colors that will all be processed in parallel. 
+a new type storing 16 colors that will all be processed in parallel.
 
 .. code-block:: cpp
 
@@ -98,7 +98,7 @@ Enoki's ``CUDAArray<T>`` type applies an important optimization that leads to
 significantly improved performance: in contrast to the previous examples, the
 function call ``srgb_gamma(input)`` now merely records the sequence of
 computations that is needed to determine the value of ``output`` but does not
-yet execute it. 
+yet execute it.
 
 Eventually, this evaluation can no longer be postponed (e.g. when we try to
 access or print the array contents). At this point, Enoki's JIT backend
@@ -176,12 +176,12 @@ computation enables several powerful transformations:
 
 2. Symbolic execution of the computation using a a just-in-time compiler
    yields efficient kernels that run on NVIDIA GPUs.
-   
+
 3. Further type transformations enable tracking of derivatives through
    a calculation, either on the CPU or the GPU.
 
 4. The above transformations can all be deduced from the type of the resulting
-   functions. This is an ideal fit for metaprogramming-based libraries like 
+   functions. This is an ideal fit for metaprogramming-based libraries like
    `pybind11 <https://github.com/pybind/pybind11>`_ which inspect the
    type of a function to generate high-quality binding code.
 

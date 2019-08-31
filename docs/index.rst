@@ -20,7 +20,6 @@ Enoki: structured vectorization and differentiation on modern processor architec
    calls
    custom
    dynamic
-   benchmark
    advanced
    changelog
    reference
