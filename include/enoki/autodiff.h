@@ -449,6 +449,23 @@ public:
         return DiffArray::create(index_new, std::move(result));
     }
 
+    DiffArray atan2_(const DiffArray &x) const {
+        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+            fail_unsupported("atan2_");
+        } else {
+            Index index_new = 0;
+
+            if constexpr (Enabled) {
+                Value il2 = rcp(sqr(m_value) + sqr(x.m_value));
+                index_new = tape()->append("atan2", slices(il2),
+                                           m_index, x.m_index,
+                                           il2 * x.m_value, -il2 * m_value);
+            }
+
+            return DiffArray::create(index_new, atan2(m_value, x.m_value));
+        }
+    }
+
 
     DiffArray floor_() const {
         if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>)
