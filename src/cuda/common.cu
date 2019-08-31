@@ -258,7 +258,7 @@ ENOKI_EXPORT const char *cuda_error_string(CUresult id) {
 }
 
 ENOKI_EXPORT void cuda_check_impl(CUresult errval, const char *file, const int line) {
-    if (errval != CUDA_SUCCESS) {
+    if (errval != CUDA_SUCCESS && errval != CUDA_ERROR_DEINITIALIZED) {
         const char *err_msg = cuda_error_string(errval);
         fprintf(stderr,
                 "cuda_check(): driver API error = %04d \"%s\" in "
@@ -268,7 +268,7 @@ ENOKI_EXPORT void cuda_check_impl(CUresult errval, const char *file, const int l
 }
 
 ENOKI_EXPORT void cuda_check_impl(cudaError_t errval, const char *file, const int line) {
-    if (errval != cudaSuccess) {
+    if (errval != cudaSuccess && errval != cudaErrorCudartUnloading) {
         const char *err_msg = cudaGetErrorName(errval);
         fprintf(stderr,
                 "cuda_check(): runtime API error = %04d \"%s\" in "
