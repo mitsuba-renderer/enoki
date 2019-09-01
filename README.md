@@ -3,7 +3,7 @@
 # Enoki — structured vectorization and differentiation on modern processor architectures
 
 | Documentation   | Linux             | Windows             |
-|-----------------|-------------------|---------------------|
+|      :---:      |       :---:       |        :---:        |
 | [![docs][1]][2] | [![rgl-ci][3]][4] | [![appveyor][5]][6] |
 
 
@@ -182,6 +182,25 @@ calls across module boundaries. It has the following design goals:
 
 8. **License**. Enoki is available under a non-viral open source license
    (3-clause BSD).
+
+## Cloning
+
+Enoki depends on two other repositories
+([pybind11](https://github.com/pybind/pybind11) and
+[cub](https://nvlabs.github.io/cub)) that are required when using certain
+optional features, specifically differentiable GPU arrays with Python bindings.
+
+To fetch the entire project including these dependencies, clone the project
+using the ``--recursive`` flag as follows:
+
+```bash
+$ git clone --rescursive https://github.com/mitsuba-renderer/enoki
+```
+
+## Documentation
+
+An extensive set of tutorials and reference documentation are available at
+[readthedocs.org](http://enoki.readthedocs.org/en/master).
 
 ## About
 

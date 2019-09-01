@@ -19,6 +19,8 @@ bool disable_print_flag = false;
 PYBIND11_MODULE(enoki, m) {
     cuda_sync();
 
+    m.attr("__version__") = ENOKI_VERSION;
+
     bind_cuda_1d(m);
     bind_cuda_2d(m);
     bind_cuda_3d(m);

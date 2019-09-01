@@ -564,7 +564,7 @@ same way. To use the ``DiffArray<T>`` type, include the header
 
 .. code-block:: cpp
 
-    #include <enoki/autodiffh>
+    #include <enoki/autodiff.h>
 
 Furthermore, applications must be linked against the ``enoki-autodiff`` library
 (and against ``cuda`` and ``enoki-cuda`` if differentiable GPU arrays are
