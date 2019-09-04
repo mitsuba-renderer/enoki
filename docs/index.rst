@@ -23,6 +23,7 @@ Enoki: structured vectorization and differentiation on modern processor architec
    advanced
    changelog
    reference
+   → GitHub <https://github.com/mitsuba-renderer/enoki>
 
 .. toctree::
    :maxdepth: 1

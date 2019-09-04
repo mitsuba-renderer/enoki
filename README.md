@@ -194,7 +194,7 @@ To fetch the entire project including these dependencies, clone the project
 using the ``--recursive`` flag as follows:
 
 ```bash
-$ git clone --rescursive https://github.com/mitsuba-renderer/enoki
+$ git clone --recursive https://github.com/mitsuba-renderer/enoki
 ```
 
 ## Documentation
