@@ -480,12 +480,6 @@ py::class_<Array> bind(py::module &m, const char *name) {
             m.def("forward",
                   [](Array &a, bool free_graph) { return forward(a, free_graph); },
                   "array"_a, "free_graph"_a = true);
-            cl.def_static("backward",
-                          [](bool free_graph) { backward<Array>(); },
-                          "free_graph"_a = true);
-            cl.def_static("forward",
-                          [](bool free_graph) { forward<Array>(); },
-                          "free_graph"_a = true);
         }
     }
 
