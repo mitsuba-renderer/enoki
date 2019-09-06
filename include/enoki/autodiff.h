@@ -95,8 +95,7 @@ private:
     void backward(Index index, bool free_graph);
     void forward(Index index, bool free_graph);
     void set_gradient(Index index, const Value &value,
-                      bool backward = true,
-                      bool clear_grad = !is_dynamic_v<Value>);
+                      bool backward = true);
     void set_label(Index index, const char *name);
     const Value &gradient(Index index);
     std::string graphviz(const std::vector<Index> &indices);
@@ -1143,12 +1142,11 @@ public:
             return tape()->gradient(index);
     }
 
-    void set_gradient_(const Value &value, bool backward = true,
-                       bool clear_grad = !is_dynamic_v<Value>) {
+    void set_gradient_(const Value &value, bool backward = true) {
         if constexpr (!Enabled)
             fail_unsupported("set_gradient_");
         else
-            return tape()->set_gradient(m_index, value, backward, clear_grad);
+            return tape()->set_gradient(m_index, value, backward);
     }
 
     //! @}

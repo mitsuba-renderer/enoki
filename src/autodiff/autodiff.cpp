@@ -700,7 +700,7 @@ void Tape<Value>::backward(Index index, bool free_graph) {
     using Scalar = scalar_t<Value>;
 
     SimplificationLock lock(*this);
-    set_gradient(index, Scalar(1), true, true);
+    set_gradient(index, Scalar(1), true);
     backward(free_graph);
 }
 
@@ -709,18 +709,18 @@ void Tape<Value>::forward(Index index, bool free_graph) {
     using Scalar = scalar_t<Value>;
 
     SimplificationLock lock(*this);
-    set_gradient(index, Scalar(1), false, true);
+    set_gradient(index, Scalar(1), false);
     forward(free_graph);
 }
 
 template <typename Value>
-void Tape<Value>::set_gradient(Index index, const Value &value, bool backward, bool clear_grad) {
+void Tape<Value>::set_gradient(Index index, const Value &value, bool backward) {
     if (index == 0)
         throw std::runtime_error(
             "set_gradient(): no gradients are associated with this variable (a "
             "prior call to requires_gradient() is required.) ");
 
-    d->dfs(index, backward, clear_grad);
+    d->dfs(index, backward, true);
     Node &node = d->node(index);
     node.grad = value;
     if constexpr (is_dynamic_v<Value>) {
@@ -786,6 +786,9 @@ void Tape<Value>::backward(bool free_graph) {
                 target.grad = Value();
             }
             dec_ref_ext(target_idx);
+        } else {
+            if (target.ref_count_int > 0)
+                target.grad = Value();
         }
     }
 
@@ -855,6 +858,8 @@ void Tape<Value>::forward(bool free_graph) {
                 }
             }
         }
+        if (source.ref_count_int > 0)
+            source.grad = Value();
         if (free_graph) {
             auto edges_rev = source.edges_rev;
             for (Index target_idx : edges_rev) {
