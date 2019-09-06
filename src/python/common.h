@@ -454,6 +454,8 @@ py::class_<Array> bind(py::module &m, const char *name) {
     }
 
     if constexpr (IsFloat && is_diff_array_v<Array>) {
+        using Detached = decltype(eval(detach(std::declval<Array&>())));
+
         m.def("requires_gradient",
               [](const Array &a) { return requires_gradient(a); },
               "array"_a);
@@ -462,10 +464,11 @@ py::class_<Array> bind(py::module &m, const char *name) {
               [](Array &a, bool value) { set_requires_gradient(a, value); },
               "array"_a, "value"_a = true);
 
-        m.def("gradient", [](Array &a) { return eval(gradient(a)); });
+        m.def("gradient", [](Array &a) -> Detached { return gradient(a); });
         m.def("gradient_index", [](Array &a) { return gradient_index(a); });
+
         m.def("set_gradient",
-              [](Array &a, const Array &g, bool backward) { set_gradient(a, detach(g), backward); },
+              [](Array &a, const Detached &g, bool backward) { set_gradient(a, g, backward); },
               "array"_a, "gradient"_a, "backward"_a = true);
 
         m.def("graphviz", [](const Array &a) { return graphviz(a); });
