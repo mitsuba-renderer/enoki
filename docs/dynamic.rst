@@ -211,7 +211,7 @@ time values:
 
     /* Reset the time value of all records */
     for (size_t i = 0; i < packets(coord); ++i) {
-        GPSRecord2<FloatP&> = packet(coord, n);
+        GPSRecord2<FloatP&> ref = packet(coord, i);
         ref.time = 0;
     }
 
@@ -232,10 +232,10 @@ References can also be cast into their associated packet types and vice versa:
 .. code-block:: cpp
 
     /* Read a GPSRecord2<FloatP&> and convert to GPSRecord2<FloatP> */
-    GPSCoord2fP cp = packet(coord, n);
+    GPSCoord2fP cp = packet(coord, i);
 
     /* Assign a GPSRecord2<FloatP> to a GPSRecord2<FloatP&> */
-    packet(coord, n + 1) = cp;
+    packet(coord, i + 1) = cp;
 
 .. note::
 
@@ -267,7 +267,7 @@ an increasing sequence:
 
     /* Set the i-th time value to 'i' */
     for (size_t i = 0; i < slices(coord); ++i) {
-        auto ref = slice(coord, n);
+        auto ref = slice(coord, i);
         ref.time = i;
     }
 
