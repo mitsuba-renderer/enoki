@@ -446,7 +446,7 @@ namespace detail {
 
         return mulsign(r, sign);
     }
-};
+}
 
 ENOKI_UNARY_OPERATION(sin, std::sin(x)) {
     Value r;

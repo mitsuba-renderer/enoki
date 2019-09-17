@@ -2426,17 +2426,17 @@ template <typename Value_, bool IsMask_, typename Derived_> struct alignas(16)
 
 #if defined(ENOKI_X86_AVX512VL)
 template <bool Approx_, typename Derived_>
-ENOKI_DECLARE_KMASK(float, 4, Approx_, RoundingMode::Default, Derived_, int);
+ENOKI_DECLARE_KMASK(float, 4, Approx_, RoundingMode::Default, Derived_, int)
 template <bool Approx_, typename Derived_>
-ENOKI_DECLARE_KMASK(float, 3, Approx_, RoundingMode::Default, Derived_, int);
+ENOKI_DECLARE_KMASK(float, 3, Approx_, RoundingMode::Default, Derived_, int)
 template <bool Approx_, typename Derived_>
-ENOKI_DECLARE_KMASK(double, 2, Approx_, RoundingMode::Default, Derived_, int);
+ENOKI_DECLARE_KMASK(double, 2, Approx_, RoundingMode::Default, Derived_, int)
 template <typename Value_, typename Derived_>
-ENOKI_DECLARE_KMASK(Value_, 4, false, RoundingMode::Default, Derived_, enable_if_int32_t<Value_>);
+ENOKI_DECLARE_KMASK(Value_, 4, false, RoundingMode::Default, Derived_, enable_if_int32_t<Value_>)
 template <typename Value_, typename Derived_>
-ENOKI_DECLARE_KMASK(Value_, 3, false, RoundingMode::Default, Derived_, enable_if_int32_t<Value_>);
+ENOKI_DECLARE_KMASK(Value_, 3, false, RoundingMode::Default, Derived_, enable_if_int32_t<Value_>)
 template <typename Value_, typename Derived_>
-ENOKI_DECLARE_KMASK(Value_, 2, false, RoundingMode::Default, Derived_, enable_if_int64_t<Value_>);
+ENOKI_DECLARE_KMASK(Value_, 2, false, RoundingMode::Default, Derived_, enable_if_int64_t<Value_>)
 #endif
 
 NAMESPACE_END(enoki)

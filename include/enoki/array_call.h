@@ -28,7 +28,7 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
     using Base = StaticArrayImpl<UnderlyingType, Size_, Approx_,
                                  RoundingMode::Default, IsMask_, Derived_>;
 
-    ENOKI_ARRAY_DEFAULTS(StaticArrayImpl);
+    ENOKI_ARRAY_DEFAULTS(StaticArrayImpl)
     using Base::derived;
 
     using Value = std::conditional_t<IsMask_, typename Base::Value, Value_>;

@@ -1196,11 +1196,11 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(32)
 
 #if defined(ENOKI_X86_AVX512VL)
 template <bool Approx_, typename Derived_>
-ENOKI_DECLARE_KMASK(float, 8, Approx_, RoundingMode::Default, Derived_, int);
+ENOKI_DECLARE_KMASK(float, 8, Approx_, RoundingMode::Default, Derived_, int)
 template <bool Approx_, typename Derived_>
-ENOKI_DECLARE_KMASK(double, 4, Approx_, RoundingMode::Default, Derived_, int);
+ENOKI_DECLARE_KMASK(double, 4, Approx_, RoundingMode::Default, Derived_, int)
 template <bool Approx_, typename Derived_>
-ENOKI_DECLARE_KMASK(double, 3, Approx_, RoundingMode::Default, Derived_, int);
+ENOKI_DECLARE_KMASK(double, 3, Approx_, RoundingMode::Default, Derived_, int)
 #endif
 
 NAMESPACE_END(enoki)

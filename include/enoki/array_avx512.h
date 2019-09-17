@@ -1951,12 +1951,12 @@ template <typename Value_, bool IsMask_, typename Derived_> struct alignas(64)
 } ENOKI_MAY_ALIAS;
 
 template <bool Approx_, typename Derived_>
-ENOKI_DECLARE_KMASK(float, 16, Approx_, RoundingMode::Default, Derived_, int);
+ENOKI_DECLARE_KMASK(float, 16, Approx_, RoundingMode::Default, Derived_, int)
 template <bool Approx_, typename Derived_>
-ENOKI_DECLARE_KMASK(double, 8, Approx_, RoundingMode::Default, Derived_, int);
+ENOKI_DECLARE_KMASK(double, 8, Approx_, RoundingMode::Default, Derived_, int)
 template <typename Value_, typename Derived_>
-ENOKI_DECLARE_KMASK(Value_, 16, false, RoundingMode::Default, Derived_, enable_if_int32_t<Value_>);
+ENOKI_DECLARE_KMASK(Value_, 16, false, RoundingMode::Default, Derived_, enable_if_int32_t<Value_>)
 template <typename Value_, typename Derived_>
-ENOKI_DECLARE_KMASK(Value_, 8, false, RoundingMode::Default, Derived_, enable_if_int64_t<Value_>);
+ENOKI_DECLARE_KMASK(Value_, 8, false, RoundingMode::Default, Derived_, enable_if_int64_t<Value_>)
 
 NAMESPACE_END(enoki)

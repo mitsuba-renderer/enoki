@@ -285,7 +285,7 @@ struct KMask : KMaskBase<Value_, Size_, Approx_, Mode_,
     using Base = KMaskBase<Value_, Size_, Approx_, Mode_,
                            KMask<Value_, Size_, Approx_, Mode_>>;
 
-    ENOKI_ARRAY_IMPORT(Base, KMask);
+    ENOKI_ARRAY_IMPORT(Base, KMask)
 };
 
 #define ENOKI_DECLARE_KMASK(Type, Size, Approx, Mode, Derived, SFINAE)         \

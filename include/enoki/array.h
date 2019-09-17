@@ -88,7 +88,7 @@ struct Array : StaticArrayImpl<Value_, Size_, Approx_, Mode_, false,
               is_std_float_v<scalar_t<T>> && is_std_float_v<scalar_t<Value_>>
                   ? Mode_ : RoundingMode::Default>;
 
-    ENOKI_ARRAY_IMPORT(Base, Array);
+    ENOKI_ARRAY_IMPORT(Base, Array)
 };
 
 template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
@@ -125,7 +125,7 @@ struct Mask : StaticArrayImpl<Value_, Size_, Approx_, Mode_, true,
                     std::conjunction_v<detail::is_not_reinterpret_flag<Ts>...>> = 0>
     Mask(Ts&&... ts) : Base(std::forward<Ts>(ts)...) { }
 
-    ENOKI_ARRAY_IMPORT_BASIC(Base, Mask);
+    ENOKI_ARRAY_IMPORT_BASIC(Base, Mask)
     using Base::operator=;
 };
 
@@ -149,7 +149,7 @@ struct Packet : StaticArrayImpl<Value_, Size_, Approx_, Mode_, false,
               is_std_float_v<scalar_t<T>> && is_std_float_v<scalar_t<Value_>>
                   ? Mode_ : RoundingMode::Default>;
 
-    ENOKI_ARRAY_IMPORT(Base, Packet);
+    ENOKI_ARRAY_IMPORT(Base, Packet)
 };
 
 template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
@@ -188,7 +188,7 @@ struct PacketMask : StaticArrayImpl<Value_, Size_, Approx_, Mode_, true,
                     std::conjunction_v<detail::is_not_reinterpret_flag<Ts>...>> = 0>
     PacketMask(Ts&&... ts) : Base(std::forward<Ts>(ts)...) { }
 
-    ENOKI_ARRAY_IMPORT_BASIC(Base, PacketMask);
+    ENOKI_ARRAY_IMPORT_BASIC(Base, PacketMask)
     using Base::operator=;
 };
 
