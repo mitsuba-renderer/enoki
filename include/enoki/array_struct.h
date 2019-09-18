@@ -496,7 +496,7 @@ namespace detail {
             }
         }
     }
-};
+}
 
 /// Extract the shape of a nested array as an std::array
 template <typename T, typename Result = std::array<size_t, array_depth_v<T>>>

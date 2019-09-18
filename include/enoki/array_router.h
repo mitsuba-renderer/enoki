@@ -170,8 +170,8 @@ ENOKI_ROUTE_UNARY(operator-, neg)
 ENOKI_ROUTE_UNARY(operator~, not)
 ENOKI_ROUTE_UNARY(operator!, not)
 
-ENOKI_ROUTE_BINARY_COND(operator+, add, !std::is_pointer_v<scalar_t<T1>> && !std::is_pointer_v<scalar_t<T2>>);
-ENOKI_ROUTE_BINARY_COND(operator-, sub, !std::is_pointer_v<scalar_t<T1>> && !std::is_pointer_v<scalar_t<T2>>);
+ENOKI_ROUTE_BINARY_COND(operator+, add, !std::is_pointer_v<scalar_t<T1>> && !std::is_pointer_v<scalar_t<T2>>)
+ENOKI_ROUTE_BINARY_COND(operator-, sub, !std::is_pointer_v<scalar_t<T1>> && !std::is_pointer_v<scalar_t<T2>>)
 ENOKI_ROUTE_BINARY(operator*, mul)
 
 ENOKI_ROUTE_BINARY_SHIFT(operator<<, sl)
@@ -502,7 +502,7 @@ namespace detail {
     using has_ror = decltype(std::declval<T>().template ror_<0>());
     template <typename T>
     constexpr bool has_ror_v = is_detected_v<has_ror, T>;
-};
+}
 
 /// Bit-level rotate left (with immediate offset value)
 template <size_t Imm, typename T>

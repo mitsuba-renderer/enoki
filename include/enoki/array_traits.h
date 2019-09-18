@@ -127,7 +127,7 @@ namespace detail {
 
     template <typename T> using is_masked_array = std::enable_if_t<T::IsMaskedArray>;
     template <typename T> constexpr bool is_masked_array_v = is_detected_v<is_masked_array, T>;
-};
+}
 
 //! @}
 // -----------------------------------------------------------------------
@@ -273,7 +273,7 @@ namespace detail {
 
     template <typename T, size_t Value>
     using prepend_index_t = typename prepend_index<T, Value>::type;
-};
+}
 
 /// Determine the shape of an array
 template <typename T, typename = int> struct array_shape {
@@ -376,7 +376,7 @@ template <typename... Args> using deepest_array_t = typename deepest_array<Args.
 
 namespace detail {
     template <typename... Ts> struct expr;
-};
+}
 
 /// Type trait to compute the type of an arithmetic expression involving Ts...
 template <typename... Ts> using expr_t = typename detail::expr<Ts...>::type;
@@ -470,7 +470,7 @@ namespace detail {
         using UInt = uint64_t;
         using Float = double;
     };
-};
+}
 
 /// Replace the base scalar type of a (potentially nested) array
 template <typename T, typename Value, bool CopyFlags = true, typename = int>

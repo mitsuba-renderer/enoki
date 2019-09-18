@@ -89,7 +89,7 @@ namespace detail {
     using has_bitmask = decltype(std::declval<T>().bitmask_());
     template <typename T>
     constexpr bool has_bitmask_v = is_detected_v<has_bitmask, T>;
-};
+}
 
 /// Macro to initialize uninitialized floating point arrays with 1 bits (NaN/-1) in debug mode
 #if defined(NDEBUG)

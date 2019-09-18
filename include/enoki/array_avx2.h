@@ -1247,11 +1247,11 @@ template <typename Value_, bool IsMask_, typename Derived_> struct alignas(32)
 
 #if defined(ENOKI_X86_AVX512VL)
 template <typename Value_, typename Derived_>
-ENOKI_DECLARE_KMASK(Value_, 8, false, RoundingMode::Default, Derived_, enable_if_int32_t<Value_>);
+ENOKI_DECLARE_KMASK(Value_, 8, false, RoundingMode::Default, Derived_, enable_if_int32_t<Value_>)
 template <typename Value_, typename Derived_>
-ENOKI_DECLARE_KMASK(Value_, 4, false, RoundingMode::Default, Derived_, enable_if_int64_t<Value_>);
+ENOKI_DECLARE_KMASK(Value_, 4, false, RoundingMode::Default, Derived_, enable_if_int64_t<Value_>)
 template <typename Value_, typename Derived_>
-ENOKI_DECLARE_KMASK(Value_, 3, false, RoundingMode::Default, Derived_, enable_if_int64_t<Value_>);
+ENOKI_DECLARE_KMASK(Value_, 3, false, RoundingMode::Default, Derived_, enable_if_int64_t<Value_>)
 #endif
 
 NAMESPACE_END(enoki)

@@ -19,7 +19,7 @@ namespace detail {
     static constexpr size_t clog2i(size_t value) {
         return (value > 1) ? 1 + clog2i(value >> 1) : 0;
     }
-};
+}
 
 template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_>
 struct StaticArrayBase : ArrayBase<Value_, Derived_> {
