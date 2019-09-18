@@ -771,6 +771,8 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
     }
 
     static Derived map(void *ptr, size_t size) {
+        assert((uintptr_t) ptr % alignof(Packet) == 0);
+
         Derived r;
         r.m_packets = PacketHolder((Packet *) ptr);
         r.m_size = (Size) size;

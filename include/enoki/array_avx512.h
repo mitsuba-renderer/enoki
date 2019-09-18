@@ -395,11 +395,13 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
     // -----------------------------------------------------------------------
 
     ENOKI_INLINE void store_(void *ptr) const {
+        assert((uintptr_t) ptr % 64 == 0);
         _mm512_store_ps((Value *) ENOKI_ASSUME_ALIGNED(ptr, 64), m);
     }
 
     template <typename Mask>
     ENOKI_INLINE void store_(void *ptr, const Mask &mask) const {
+        assert((uintptr_t) ptr % 64 == 0);
         _mm512_mask_store_ps((Value *) ENOKI_ASSUME_ALIGNED(ptr, 64), mask.k, m);
     }
 
@@ -413,11 +415,13 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
+        assert((uintptr_t) ptr % 64 == 0);
         return _mm512_load_ps((const Value *) ENOKI_ASSUME_ALIGNED(ptr, 64));
     }
 
     template <typename Mask>
     static ENOKI_INLINE Derived load_(const void *ptr, const Mask &mask) {
+        assert((uintptr_t) ptr % 64 == 0);
         return _mm512_maskz_load_ps(mask.k, (const Value *) ENOKI_ASSUME_ALIGNED(ptr, 64));
     }
 
@@ -906,11 +910,13 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
     // -----------------------------------------------------------------------
 
     ENOKI_INLINE void store_(void *ptr) const {
+        assert((uintptr_t) ptr % 64 == 0);
         _mm512_store_pd((Value *) ENOKI_ASSUME_ALIGNED(ptr, 64), m);
     }
 
     template <typename Mask>
     ENOKI_INLINE void store_(void *ptr, const Mask &mask) const {
+        assert((uintptr_t) ptr % 64 == 0);
         _mm512_mask_store_pd((Value *) ENOKI_ASSUME_ALIGNED(ptr, 64), mask.k, m);
     }
 
@@ -924,11 +930,13 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
+        assert((uintptr_t) ptr % 64 == 0);
         return _mm512_load_pd((const Value *) ENOKI_ASSUME_ALIGNED(ptr, 64));
     }
 
     template <typename Mask>
     static ENOKI_INLINE Derived load_(const void *ptr, const Mask &mask) {
+        assert((uintptr_t) ptr % 64 == 0);
         return _mm512_maskz_load_pd(mask.k, (const Value *) ENOKI_ASSUME_ALIGNED(ptr, 64));
     }
 
@@ -1320,11 +1328,13 @@ template <typename Value_, bool IsMask_, typename Derived_> struct alignas(64)
     //
 
     ENOKI_INLINE void store_(void *ptr) const {
+        assert((uintptr_t) ptr % 64 == 0);
         _mm512_store_si512((__m512i *) ENOKI_ASSUME_ALIGNED(ptr, 64), m);
     }
 
     template <typename Mask>
     ENOKI_INLINE void store_(void *ptr, const Mask &mask) const {
+        assert((uintptr_t) ptr % 64 == 0);
         _mm512_mask_store_epi32((__m512i *) ENOKI_ASSUME_ALIGNED(ptr, 64), mask.k, m);
     }
 
@@ -1338,11 +1348,13 @@ template <typename Value_, bool IsMask_, typename Derived_> struct alignas(64)
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
+        assert((uintptr_t) ptr % 64 == 0);
         return _mm512_load_si512((const __m512i *) ENOKI_ASSUME_ALIGNED(ptr, 64));
     }
 
     template <typename Mask>
     static ENOKI_INLINE Derived load_(const void *ptr, const Mask &mask) {
+        assert((uintptr_t) ptr % 64 == 0);
         return _mm512_maskz_load_epi32(mask.k, (const __m512i *) ENOKI_ASSUME_ALIGNED(ptr, 64));
     }
 
@@ -1782,11 +1794,13 @@ template <typename Value_, bool IsMask_, typename Derived_> struct alignas(64)
     // -----------------------------------------------------------------------
 
     ENOKI_INLINE void store_(void *ptr) const {
+        assert((uint64_t) ptr % 64 == 0);
         _mm512_store_si512((__m512i *) ENOKI_ASSUME_ALIGNED(ptr, 64), m);
     }
 
     template <typename Mask>
     ENOKI_INLINE void store_(void *ptr, const Mask &mask) const {
+        assert((uint64_t) ptr % 64 == 0);
         _mm512_mask_store_epi64((__m512i *) ENOKI_ASSUME_ALIGNED(ptr, 64), mask.k, m);
     }
 
@@ -1800,11 +1814,13 @@ template <typename Value_, bool IsMask_, typename Derived_> struct alignas(64)
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
+        assert((uint64_t) ptr % 64 == 0);
         return _mm512_load_si512((const __m512i *) ENOKI_ASSUME_ALIGNED(ptr, 64));
     }
 
     template <typename Mask>
     static ENOKI_INLINE Derived load_(const void *ptr, const Mask &mask) {
+        assert((uint64_t) ptr % 64 == 0);
         return _mm512_maskz_load_epi64(mask.k, (const __m512i *) ENOKI_ASSUME_ALIGNED(ptr, 64));
     }
 

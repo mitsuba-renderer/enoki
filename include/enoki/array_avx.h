@@ -478,6 +478,7 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(32)
     // -----------------------------------------------------------------------
 
     ENOKI_INLINE void store_(void *ptr) const {
+        assert((uintptr_t) ptr % 32 == 0);
         _mm256_store_ps((Value *) ENOKI_ASSUME_ALIGNED(ptr, 32), m);
     }
 
@@ -504,6 +505,7 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(32)
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
+        assert((uintptr_t) ptr % 32 == 0);
         return _mm256_load_ps((const Value *) ENOKI_ASSUME_ALIGNED(ptr, 32));
     }
 
@@ -962,6 +964,7 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(32)
     // -----------------------------------------------------------------------
 
     ENOKI_INLINE void store_(void *ptr) const {
+        assert((uintptr_t) ptr % 32 == 0);
         _mm256_store_pd((Value *) ENOKI_ASSUME_ALIGNED(ptr, 32), m);
     }
 
@@ -988,6 +991,7 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(32)
     }
 
     static ENOKI_INLINE Derived load_(const void *ptr) {
+        assert((uintptr_t) ptr % 32 == 0);
         return _mm256_load_pd((const Value *) ENOKI_ASSUME_ALIGNED(ptr, 32));
     }
 
