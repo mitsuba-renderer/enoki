@@ -12,6 +12,9 @@
 */
 
 #include "test.h"
+#if defined(_MSC_VER)
+#  include <windows.h>
+#endif
 
 ENOKI_TEST_ALL(test01_load) {
     alignas(alignof(T)) Value mem[Size];
@@ -56,7 +59,7 @@ ENOKI_TEST_ALL(test05_gather) {
 
 #if defined(_MSC_VER)
     /// MSVC doesn't seem to correctly track data dependencies involving gathers
-    std::cout << mem[0] << std::endl;
+    MemoryBarrier();
 #endif
 
     store(dst, gather<T>(mem, id32));
@@ -64,10 +67,9 @@ ENOKI_TEST_ALL(test05_gather) {
         assert(dst[i] == Value(Size - 1 - i));
     memset(dst, 0, sizeof(Value) * Size);
 
-
 #if defined(_MSC_VER)
     /// MSVC doesn't seem to correctly track data dependencies involving gathers
-    std::cout << mem[0] << std::endl;
+    MemoryBarrier();
 #endif
 
     store(dst, gather<T>(mem, id64));
@@ -127,7 +129,7 @@ ENOKI_TEST_ALL(test07_gather_mask) {
 
 #if defined(_MSC_VER)
     /// MSVC doesn't seem to correctly track data dependencies involving gathers
-    std::cout << mem[0] << std::endl;
+    MemoryBarrier();
 #endif
 
     memset(dst, 0, sizeof(Value) * Size);
@@ -138,7 +140,7 @@ ENOKI_TEST_ALL(test07_gather_mask) {
 
 #if defined(_MSC_VER)
     /// MSVC doesn't seem to correctly track data dependencies involving gathers
-    std::cout << mem[0] << std::endl;
+    MemoryBarrier();
 #endif
 
     store(dst, gather<T>(mem, id64, even_mask));
