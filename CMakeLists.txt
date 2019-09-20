@@ -12,7 +12,10 @@ option(ENOKI_PYTHON   "Build pybind11 interface to CUDA & automatic differentiat
 
 if (ENOKI_CUDA)
   set(ENOKI_CUDA_COMPUTE_CAPABILITY "61" CACHE STRING "Compute capability as specified by https://developer.nvidia.com/cuda-gpus")
-  set(CMAKE_CUDA_FLAGS "-gencode arch=compute_${ENOKI_CUDA_COMPUTE_CAPABILITY},code=compute_${ENOKI_CUDA_COMPUTE_CAPABILITY} -cudart shared -Xcompiler -march=native -Xcompiler -fvisibility=hidden")
+  set(CMAKE_CUDA_FLAGS "-gencode arch=compute_${ENOKI_CUDA_COMPUTE_CAPABILITY},code=compute_${ENOKI_CUDA_COMPUTE_CAPABILITY} -cudart shared")
+  if (NOT WIN32)
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -march=native -Xcompiler -fvisibility=hidden")
+  endif()
   project(enoki CXX CUDA)
   add_definitions(-DENOKI_BUILD_CUDA=1)
 else()
@@ -291,6 +294,7 @@ if (ENOKI_CUDA)
       src/cuda/jit.cu
   )
   target_compile_definitions(enoki-cuda PRIVATE -DENOKI_CUDA_COMPUTE_CAPABILITY=${ENOKI_CUDA_COMPUTE_CAPABILITY})
+  target_link_libraries(enoki-cuda PRIVATE cuda)
 endif()
 
 enoki_set_native_flags()
@@ -307,6 +311,9 @@ if (ENOKI_AUTODIFF)
       ${PROJECT_SOURCE_DIR}/include/enoki/autodiff.h
       ${PROJECT_SOURCE_DIR}/src/autodiff/autodiff.cpp
   )
+  if (ENOKI_CUDA)
+      target_link_libraries(enoki-autodiff PRIVATE enoki-cuda)
+  endif()
 endif()
 
 if (ENOKI_PYTHON)

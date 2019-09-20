@@ -110,8 +110,8 @@ py::class_<Array> bind(py::module &m, const char *name) {
     using Scalar = scalar_t<Array>;
     using Value  = value_t<Array>;
 
-    constexpr bool IsMask  = std::is_same_v<Scalar, bool>;
-    constexpr bool IsFloat = std::is_floating_point_v<Scalar>;
+    static constexpr bool IsMask  = std::is_same_v<Scalar, bool>;
+    static constexpr bool IsFloat = std::is_floating_point_v<Scalar>;
 
     py::class_<Array> cl(m, name);
 

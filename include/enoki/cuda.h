@@ -853,8 +853,8 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     Index index_() const { return m_index; }
     size_t size() const { return cuda_var_size(m_index); }
     bool empty() const { return size() == 0; }
-    const void *data() const { return cuda_var_ptr(m_index); }
-    void *data() { return cuda_var_ptr(m_index); }
+    const Value *data() const { return (const Value *) cuda_var_ptr(m_index); }
+    Value *data() { return (Value *) cuda_var_ptr(m_index); }
     void resize(size_t size) {
         m_index = cuda_var_set_size(m_index, size, true);
     }

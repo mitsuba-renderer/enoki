@@ -27,8 +27,8 @@ enum EnokiType { Invalid = 0, Int8, UInt8, Int16, UInt16,
                  Float32, Float64, Bool, Pointer };
 
 #define cuda_check(err) cuda_check_impl(err, __FILE__, __LINE__)
-extern void cuda_check_impl(CUresult errval, const char *file, const int line);
-extern void cuda_check_impl(cudaError_t errval, const char *file, const int line);
+ENOKI_EXPORT extern void cuda_check_impl(CUresult errval, const char *file, const int line);
+ENOKI_EXPORT extern void cuda_check_impl(cudaError_t errval, const char *file, const int line);
 
 inline uint32_t next_power_of_two(uint32_t n) {
     n--;
@@ -41,16 +41,16 @@ inline uint32_t next_power_of_two(uint32_t n) {
     return n;
 }
 
-extern void* cuda_malloc(size_t size);
-extern void* cuda_managed_malloc(size_t size);
-extern void* cuda_host_malloc(size_t size);
-extern void cuda_free(void *p, cudaStream_t stream);
-extern void cuda_free(void *p);
-extern void cuda_host_free(void *p, cudaStream_t stream);
-extern void cuda_host_free(void *p);
-extern void cuda_malloc_trim();
-extern void cuda_sync();
-void cuda_eval(bool log_assembly = false);
+ENOKI_EXPORT extern void* cuda_malloc(size_t size);
+ENOKI_EXPORT extern void* cuda_managed_malloc(size_t size);
+ENOKI_EXPORT extern void* cuda_host_malloc(size_t size);
+ENOKI_EXPORT extern void cuda_free(void *p, cudaStream_t stream);
+ENOKI_EXPORT extern void cuda_free(void *p);
+ENOKI_EXPORT extern void cuda_host_free(void *p, cudaStream_t stream);
+ENOKI_EXPORT extern void cuda_host_free(void *p);
+ENOKI_EXPORT extern void cuda_malloc_trim();
+ENOKI_EXPORT extern void cuda_sync();
+ENOKI_EXPORT void cuda_eval(bool log_assembly = false);
 
 extern std::string mem_string(size_t size);
 extern std::string time_string(size_t size);

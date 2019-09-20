@@ -47,12 +47,12 @@ NAMESPACE_BEGIN(enoki)
 using TimePoint = std::chrono::time_point<std::chrono::high_resolution_clock>;
 
 // Forward declarations
-void cuda_inc_ref_ext(uint32_t);
-void cuda_inc_ref_int(uint32_t);
-void cuda_dec_ref_ext(uint32_t);
-void cuda_dec_ref_int(uint32_t);
-size_t cuda_register_size(EnokiType type);
-uint32_t cuda_trace_append(EnokiType type, const char *cmd, uint32_t arg1);
+ENOKI_EXPORT void cuda_inc_ref_ext(uint32_t);
+ENOKI_EXPORT void cuda_inc_ref_int(uint32_t);
+ENOKI_EXPORT void cuda_dec_ref_ext(uint32_t);
+ENOKI_EXPORT void cuda_dec_ref_int(uint32_t);
+ENOKI_EXPORT size_t cuda_register_size(EnokiType type);
+ENOKI_EXPORT uint32_t cuda_trace_append(EnokiType type, const char *cmd, uint32_t arg1);
 
 // -----------------------------------------------------------------------
 //! @{ \name 'Variable' type that is used to record instruction traces
@@ -110,7 +110,7 @@ struct Variable {
     }
 };
 
-void cuda_shutdown();
+ENOKI_EXPORT void cuda_shutdown();
 
 #if ENOKI_CUDA_USE_STREAMS == 1
 struct Stream {
@@ -263,7 +263,7 @@ struct Context {
 
 static Context *__context = nullptr;
 bool installed_shutdown_handler = false;
-void cuda_init();
+ENOKI_EXPORT void cuda_init();
 
 inline static Context &context() {
     if (ENOKI_UNLIKELY(__context == nullptr))
@@ -1192,15 +1192,15 @@ ENOKI_EXPORT void cuda_jit_run(Context &ctx,
         CUjit_option arg[5];
         void *argv[5];
         char error_log[8192], info_log[8192];
-        unsigned int logSize = 8192;
+        uintptr_t log_size = 8192;
         arg[0] = CU_JIT_INFO_LOG_BUFFER;
         argv[0] = (void *) info_log;
         arg[1] = CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES;
-        argv[1] = (void *) (long) logSize;
+        argv[1] = (void *) log_size;
         arg[2] = CU_JIT_ERROR_LOG_BUFFER;
         argv[2] = (void *) error_log;
         arg[3] = CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES;
-        argv[3] = (void *) (long) logSize;
+        argv[3] = (void *) log_size;
         arg[4] = CU_JIT_LOG_VERBOSE;
         argv[4] = (void *) 1;
 

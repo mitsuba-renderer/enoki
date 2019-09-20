@@ -20,9 +20,9 @@
 
 NAMESPACE_BEGIN(enoki)
 
-template <typename Value> struct Tape {
+template <typename Type> struct Tape {
 private:
-    friend struct DiffArray<Value>;
+    template <typename T> friend struct DiffArray;
 
     struct Detail;
     struct Node;
@@ -31,8 +31,8 @@ private:
     struct SimplificationLock;
 
     using Index = uint32_t;
-    using Mask = mask_t<Value>;
-    using Int64 = int64_array_t<Value>;
+    using Mask = mask_t<Type>;
+    using Int64 = int64_array_t<Type>;
 
     Tape();
     ~Tape();
@@ -41,13 +41,13 @@ private:
     //! @{ \name Append unary/binary/ternary operations to the tape
     // -----------------------------------------------------------------------
 
-    Index append(const char *label, size_t size, Index i1, const Value &w1);
+    Index append(const char *label, size_t size, Index i1, const Type &w1);
 
     Index append(const char *label, size_t size, Index i1, Index i2,
-                 const Value &w1, const Value &w2);
+                 const Type &w1, const Type &w2);
 
     Index append(const char *label, size_t size, Index i1, Index i2, Index i3,
-                 const Value &w1, const Value &w2, const Value &w3);
+                 const Type &w1, const Type &w2, const Type &w3);
 
     Index append_gather(const Int64 &offset, const Mask &mask);
 
@@ -63,9 +63,9 @@ private:
 
     Index append_node(size_t size, const char *label);
     Index append_leaf(size_t size);
-    void append_edge(Index src, Index dst, const Value &weight);
-    void append_edge_prod(Index src, Index dst, const Value &weight1,
-                          const Value &weight2);
+    void append_edge(Index src, Index dst, const Type &weight);
+    void append_edge_prod(Index src, Index dst, const Type &weight1,
+                          const Type &weight2);
 
     //! @}
     // -----------------------------------------------------------------------
@@ -94,10 +94,10 @@ private:
     void forward(bool free_graph);
     void backward(Index index, bool free_graph);
     void forward(Index index, bool free_graph);
-    void set_gradient(Index index, const Value &value,
+    void set_gradient(Index index, const Type &value,
                       bool backward = true);
     void set_label(Index index, const char *name);
-    const Value &gradient(Index index);
+    const Type &gradient(Index index);
     std::string graphviz(const std::vector<Index> &indices);
     /// Current log level (0 == none, 1 == minimal, 2 == moderate, 3 == high, 4 == everything)
     void set_log_level(uint32_t);
@@ -118,31 +118,31 @@ private:
     Detail *d = nullptr;
 };
 
-template <typename Value>
-struct DiffArray : ArrayBase<value_t<Value>, DiffArray<Value>> {
+template <typename Type>
+struct DiffArray : ArrayBase<value_t<Type>, DiffArray<Type>> {
 public:
-    using Index = uint32_t;
-    using Base = ArrayBase<value_t<Value>, DiffArray<Value>>;
+    using Base = enoki::ArrayBase<value_t<Type>, DiffArray<Type>>;
     using typename Base::Scalar;
-    using Tape = enoki::Tape<Value>;
+    using Tape = enoki::Tape<Type>;
+    using Index = uint32_t;
 
-    using UnderlyingType = Value;
+    using UnderlyingType = Type;
     using ArrayType = DiffArray;
-    using MaskType = DiffArray<mask_t<Value>>;
+    using MaskType = DiffArray<mask_t<Type>>;
 
-    static constexpr size_t Size = is_scalar_v<Value> ? 1 : array_size_v<Value>;
-    static constexpr size_t Depth = is_scalar_v<Value> ? 1 : array_depth_v<Value>;
-    static constexpr bool Approx = array_approx_v<Value>;
-    static constexpr bool IsMask = is_mask_v<Value>;
-    static constexpr bool IsCUDA = is_cuda_array_v<Value>;
+    static constexpr size_t Size = is_scalar_v<Type> ? 1 : array_size_v<Type>;
+    static constexpr size_t Depth = is_scalar_v<Type> ? 1 : array_depth_v<Type>;
+    static constexpr bool Approx = array_approx_v<Type>;
+    static constexpr bool IsMask = is_mask_v<Type>;
+    static constexpr bool IsCUDA = is_cuda_array_v<Type>;
     static constexpr bool IsDiff = true;
     static constexpr bool Enabled =
-        std::is_floating_point_v<scalar_t<Value>> && !is_mask_v<Value>;
+        std::is_floating_point_v<scalar_t<Type>> && !is_mask_v<Type>;
 
     template <typename T>
-    using ReplaceValue = DiffArray<replace_scalar_t<Value, T, false>>;
+    using ReplaceValue = DiffArray<replace_scalar_t<Type, T, false>>;
 
-    static_assert(array_depth_v<Value> <= 1,
+    static_assert(array_depth_v<Type> <= 1,
                   "DiffArray requires a scalar or (non-nested) static or "
                   "dynamic Enoki array as template parameter.");
 
@@ -173,17 +173,17 @@ public:
     DiffArray(const DiffArray<T> &v, detail::reinterpret_flag) :
         m_value(v.value_(), detail::reinterpret_flag()) { /* no derivatives */ }
 
-    template <typename Value2, enable_if_t<!std::is_same_v<Value, Value2>> = 0>
-    DiffArray(const DiffArray<Value2> &a) : m_value(a.value_()) { }
+    template <typename Type2, enable_if_t<!std::is_same_v<Type, Type2>> = 0>
+    DiffArray(const DiffArray<Type2> &a) : m_value(a.value_()) { }
 
-    template <typename Value2, enable_if_t<!std::is_same_v<Value, Value2>> = 0>
-    DiffArray(DiffArray<Value2> &&a) : m_value(std::move(a.value_())) { }
+    template <typename Type2, enable_if_t<!std::is_same_v<Type, Type2>> = 0>
+    DiffArray(DiffArray<Type2> &&a) : m_value(std::move(a.value_())) { }
 
-    DiffArray(Value &&value) : m_value(std::move(value)) { }
+    DiffArray(Type &&value) : m_value(std::move(value)) { }
 
     template <typename... Args,
              enable_if_t<sizeof...(Args) != 0 && std::conjunction_v<
-                  std::bool_constant<!is_diff_array_v<Args>>...>> = 0>
+                  std::negation<is_diff_array<Args>>...>> = 0>
     DiffArray(Args&&... args) : m_value(std::forward<Args>(args)...) { }
 
     DiffArray &operator=(const DiffArray &a) {
@@ -213,11 +213,11 @@ public:
     // -----------------------------------------------------------------------
 
     DiffArray add_(const DiffArray &a) const {
-        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || std::is_pointer_v<Scalar>) {
             fail_unsupported("add_");
         } else {
             Index index_new = 0;
-            Value result = m_value + a.m_value;
+            Type result = m_value + a.m_value;
             if constexpr (Enabled)
                 index_new = tape()->append("add", slices(result), m_index,
                                            a.m_index, 1.f, 1.f);
@@ -226,11 +226,11 @@ public:
     }
 
     DiffArray sub_(const DiffArray &a) const {
-        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || std::is_pointer_v<Scalar>) {
             fail_unsupported("sub_");
         } else {
             Index index_new = 0;
-            Value result = m_value - a.m_value;
+            Type result = m_value - a.m_value;
             if constexpr (Enabled)
                 index_new = tape()->append("sub", slices(result), m_index,
                                            a.m_index, 1.f, -1.f);
@@ -239,11 +239,11 @@ public:
     }
 
     DiffArray mul_(const DiffArray &a) const {
-        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || std::is_pointer_v<Scalar>) {
             fail_unsupported("mul_");
         } else {
             Index index_new = 0;
-            Value result = m_value * a.m_value;
+            Type result = m_value * a.m_value;
             if constexpr (Enabled)
                 index_new = tape()->append("mul", slices(result), m_index,
                                            a.m_index, a.m_value, m_value);
@@ -252,13 +252,13 @@ public:
     }
 
     DiffArray div_(const DiffArray &a) const {
-        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || std::is_pointer_v<Scalar>) {
             fail_unsupported("div_");
         } else {
             Index index_new = 0;
-            Value result = m_value / a.m_value;
+            Type result = m_value / a.m_value;
             if constexpr (Enabled) {
-                Value rcp_a = rcp(a.m_value);
+                Type rcp_a = rcp(a.m_value);
                 index_new = tape()->append("div", slices(result),
                                            m_index, a.m_index, rcp_a,
                                            -m_value * sqr(rcp_a));
@@ -268,11 +268,11 @@ public:
     }
 
     DiffArray fmadd_(const DiffArray &a, const DiffArray &b) const {
-        if constexpr (is_mask_v<Value>) {
+        if constexpr (is_mask_v<Type>) {
             fail_unsupported("fmadd_");
         } else {
             Index index_new = 0;
-            Value result = fmadd(m_value, a.m_value, b.m_value);
+            Type result = fmadd(m_value, a.m_value, b.m_value);
             if constexpr (Enabled)
                 index_new = tape()->append("fmadd", slices(result),
                                            m_index, a.m_index, b.m_index,
@@ -282,10 +282,10 @@ public:
     }
 
     DiffArray fmsub_(const DiffArray &a, const DiffArray &b) const {
-        if constexpr (is_mask_v<Value>) {
+        if constexpr (is_mask_v<Type>) {
             fail_unsupported("fmsub_");
         } else {
-            Value result = fmsub(m_value, a.m_value, b.m_value);
+            Type result = fmsub(m_value, a.m_value, b.m_value);
             Index index_new = 0;
             if constexpr (Enabled)
                 index_new = tape()->append("fmsub", slices(result),
@@ -296,10 +296,10 @@ public:
     }
 
     DiffArray fnmadd_(const DiffArray &a, const DiffArray &b) const {
-        if constexpr (is_mask_v<Value>) {
+        if constexpr (is_mask_v<Type>) {
             fail_unsupported("fnmadd_");
         } else {
-            Value result = fnmadd(m_value, a.m_value, b.m_value);
+            Type result = fnmadd(m_value, a.m_value, b.m_value);
             Index index_new = 0;
             if constexpr (Enabled)
                 index_new = tape()->append("fnmadd", slices(result),
@@ -310,11 +310,11 @@ public:
     }
 
     DiffArray fnmsub_(const DiffArray &a, const DiffArray &b) const {
-        if constexpr (is_mask_v<Value>) {
+        if constexpr (is_mask_v<Type>) {
             fail_unsupported("fnmsub_");
         } else {
             Index index_new = 0;
-            Value result = fnmsub(m_value, a.m_value, b.m_value);
+            Type result = fnmsub(m_value, a.m_value, b.m_value);
             if constexpr (Enabled)
                 index_new = tape()->append("fnmsub", slices(result),
                                            m_index, a.m_index, b.m_index,
@@ -324,7 +324,7 @@ public:
     }
 
     DiffArray neg_() const {
-        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || std::is_pointer_v<Scalar>) {
             fail_unsupported("neg_");
         } else {
             Index index_new = 0;
@@ -335,7 +335,7 @@ public:
     }
 
     DiffArray abs_() const {
-        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || std::is_pointer_v<Scalar>) {
             fail_unsupported("abs_");
         } else {
             Index index_new = 0;
@@ -347,11 +347,11 @@ public:
     }
 
     DiffArray sqrt_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("sqrt_");
         } else {
             Index index_new = 0;
-            Value result = sqrt(m_value);
+            Type result = sqrt(m_value);
             if constexpr (Enabled)
                 index_new = tape()->append("sqrt", slices(result), m_index,
                                            .5f / result);
@@ -360,11 +360,11 @@ public:
     }
 
     DiffArray cbrt_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("cbrt_");
         } else {
             Index index_new = 0;
-            Value result = cbrt(m_value);
+            Type result = cbrt(m_value);
             if constexpr (Enabled)
                 index_new = tape()->append("cbrt", slices(result), m_index,
                                            1.f / (3 * sqr(result)));
@@ -373,11 +373,11 @@ public:
     }
 
     DiffArray rcp_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("rcp_");
         } else {
             Index index_new = 0;
-            Value result = rcp(m_value);
+            Type result = rcp(m_value);
             if constexpr (Enabled)
                 index_new = tape()->append("rcp", slices(result), m_index,
                                            -sqr(result));
@@ -386,13 +386,13 @@ public:
     }
 
     DiffArray rsqrt_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("rsqrt_");
         } else {
             Index index_new = 0;
-            Value result = rsqrt(m_value);
+            Type result = rsqrt(m_value);
             if constexpr (Enabled) {
-                Value rsqrt_2 = sqr(result), rsqrt_3 = result * rsqrt_2;
+                Type rsqrt_2 = sqr(result), rsqrt_3 = result * rsqrt_2;
                 index_new = tape()->append("rsqrt", slices(result), m_index,
                                            -.5f * rsqrt_3);
             }
@@ -401,76 +401,76 @@ public:
     }
 
     DiffArray min_(const DiffArray &a) const {
-        if constexpr (is_mask_v<Value>) {
+        if constexpr (is_mask_v<Type>) {
             fail_unsupported("min_");
         } else {
             Index index_new = 0;
-            Value result = min(m_value, a.m_value);
+            Type result = min(m_value, a.m_value);
             if constexpr (Enabled) {
-                mask_t<Value> m = m_value < a.m_value;
+                mask_t<Type> m = m_value < a.m_value;
                 index_new = tape()->append("min", slices(result),
                                            m_index, a.m_index,
-                                           select(m, Value(1), Value(0)),
-                                           select(m, Value(0), Value(1)));
+                                           select(m, Type(1), Type(0)),
+                                           select(m, Type(0), Type(1)));
             }
             return DiffArray::create(index_new, std::move(result));
         }
     }
 
     DiffArray max_(const DiffArray &a) const {
-        if constexpr (is_mask_v<Value>) {
+        if constexpr (is_mask_v<Type>) {
             fail_unsupported("max_");
         } else {
             Index index_new = 0;
-            Value result = max(m_value, a.m_value);
+            Type result = max(m_value, a.m_value);
             if constexpr (Enabled) {
-                mask_t<Value> m = m_value > a.m_value;
+                mask_t<Type> m = m_value > a.m_value;
                 index_new = tape()->append("max", slices(result),
                                            m_index, a.m_index,
-                                           select(m, Value(1), Value(0)),
-                                           select(m, Value(0), Value(1)));
+                                           select(m, Type(1), Type(0)),
+                                           select(m, Type(0), Type(1)));
             }
             return DiffArray::create(index_new, std::move(result));
         }
     }
 
-    static DiffArray select_(const DiffArray<mask_t<Value>> &m,
+    static DiffArray select_(const DiffArray<mask_t<Type>> &m,
                              const DiffArray &t,
                              const DiffArray &f) {
         Index index_new = 0;
-        Value result = select(m.value_(), t.m_value, f.m_value);
+        Type result = select(m.value_(), t.m_value, f.m_value);
         if constexpr (Enabled) {
             index_new =
                 tape()->append("select", slices(result), t.m_index, f.m_index,
-                               select(m.value_(), Value(1), Value(0)),
-                               select(m.value_(), Value(0), Value(1)));
+                               select(m.value_(), Type(1), Type(0)),
+                               select(m.value_(), Type(0), Type(1)));
         }
         return DiffArray::create(index_new, std::move(result));
     }
 
     DiffArray floor_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>)
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>)
             fail_unsupported("floor_");
         else
             return DiffArray::create(0, floor(m_value));
     }
 
     DiffArray ceil_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>)
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>)
             fail_unsupported("ceil_");
         else
             return DiffArray::create(0, ceil(m_value));
     }
 
     DiffArray trunc_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>)
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>)
             fail_unsupported("trunc_");
         else
             return DiffArray::create(0, trunc(m_value));
     }
 
     DiffArray round_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>)
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>)
             fail_unsupported("round_");
         else
             return DiffArray::create(0, round(m_value));
@@ -485,7 +485,7 @@ public:
     }
 
     DiffArray sin_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("sin_");
         } else {
             Index index_new = 0;
@@ -497,7 +497,7 @@ public:
     }
 
     DiffArray cos_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("cos_");
         } else {
             Index index_new = 0;
@@ -509,7 +509,7 @@ public:
     }
 
     std::pair<DiffArray, DiffArray> sincos_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("sincos_");
         } else {
             Index index_new_s = 0, index_new_c = 0;
@@ -526,7 +526,7 @@ public:
     }
 
     DiffArray tan_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("tan_");
         } else {
             Index index_new = 0;
@@ -538,11 +538,11 @@ public:
     }
 
     DiffArray csc_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("csc_");
         } else {
             Index index_new = 0;
-            Value csc_value = csc(m_value);
+            Type csc_value = csc(m_value);
             if constexpr (Enabled)
                 index_new = tape()->append("csc", slices(m_value), m_index,
                                            -csc_value * cot(m_value));
@@ -551,11 +551,11 @@ public:
     }
 
     DiffArray sec_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("sec_");
         } else {
             Index index_new = 0;
-            Value sec_value = sec(m_value);
+            Type sec_value = sec(m_value);
             if constexpr (Enabled)
                 index_new = tape()->append("sec", slices(m_value), m_index,
                                            sec_value * tan(m_value));
@@ -564,7 +564,7 @@ public:
     }
 
     DiffArray cot_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("cot_");
         } else {
             Index index_new = 0;
@@ -576,7 +576,7 @@ public:
     }
 
     DiffArray asin_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("asin_");
         } else {
             Index index_new = 0;
@@ -588,7 +588,7 @@ public:
     }
 
     DiffArray acos_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("acos_");
         } else {
             Index index_new = 0;
@@ -600,7 +600,7 @@ public:
     }
 
     DiffArray atan_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("atan_");
         } else {
             Index index_new = 0;
@@ -612,13 +612,13 @@ public:
     }
 
     DiffArray atan2_(const DiffArray &x) const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("atan2_");
         } else {
             Index index_new = 0;
 
             if constexpr (Enabled) {
-                Value il2 = rcp(sqr(m_value) + sqr(x.m_value));
+                Type il2 = rcp(sqr(m_value) + sqr(x.m_value));
                 index_new = tape()->append("atan2", slices(il2),
                                            m_index, x.m_index,
                                            il2 * x.m_value, -il2 * m_value);
@@ -629,7 +629,7 @@ public:
     }
 
     DiffArray sinh_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("sinh_");
         } else {
             Index index_new = 0;
@@ -641,7 +641,7 @@ public:
     }
 
     DiffArray cosh_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("cosh_");
         } else {
             Index index_new = 0;
@@ -653,11 +653,11 @@ public:
     }
 
     DiffArray csch_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("csch_");
         } else {
             Index index_new = 0;
-            Value result = csch(m_value);
+            Type result = csch(m_value);
             if constexpr (Enabled)
                 index_new = tape()->append("csch", slices(m_value), m_index,
                                            -result * coth(m_value));
@@ -666,11 +666,11 @@ public:
     }
 
     DiffArray sech_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("sech_");
         } else {
             Index index_new = 0;
-            Value result = sech(m_value);
+            Type result = sech(m_value);
             if constexpr (Enabled)
                 index_new = tape()->append("sech", slices(m_value), m_index,
                                            -result * tanh(m_value));
@@ -679,11 +679,11 @@ public:
     }
 
     DiffArray tanh_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("tanh_");
         } else {
             Index index_new = 0;
-            Value result = tanh(m_value);
+            Type result = tanh(m_value);
             if constexpr (Enabled)
                 index_new = tape()->append("index", slices(m_value), m_index,
                                            sqr(sech(m_value)));
@@ -692,7 +692,7 @@ public:
     }
 
     DiffArray asinh_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("asinh_");
         } else {
             Index index_new = 0;
@@ -704,7 +704,7 @@ public:
     }
 
     DiffArray acosh_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("acosh_");
         } else {
             Index index_new = 0;
@@ -716,7 +716,7 @@ public:
     }
 
     DiffArray atanh_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("atanh_");
         } else {
             Index index_new = 0;
@@ -728,11 +728,11 @@ public:
     }
 
     DiffArray exp_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("exp_");
         } else {
             Index index_new = 0;
-            Value result = exp(m_value);
+            Type result = exp(m_value);
             if constexpr (Enabled)
                 index_new = tape()->append("exp", slices(m_value),
                                            m_index, result);
@@ -741,7 +741,7 @@ public:
     }
 
     DiffArray log_() const {
-        if constexpr (is_mask_v<Value> || !std::is_floating_point_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || !std::is_floating_point_v<Scalar>) {
             fail_unsupported("log_");
         } else {
             Index index_new = 0;
@@ -753,7 +753,7 @@ public:
     }
 
     DiffArray or_(const DiffArray &m) const {
-        if constexpr (!is_mask_v<Value> && !std::is_integral_v<Scalar>)
+        if constexpr (!is_mask_v<Type> && !std::is_integral_v<Scalar>)
             fail_unsupported("or_");
         else
             return DiffArray::create(0, m_value | m.value_());
@@ -767,7 +767,7 @@ public:
     }
 
     DiffArray and_(const DiffArray &m) const {
-        if constexpr (!is_mask_v<Value> && !std::is_integral_v<Scalar>)
+        if constexpr (!is_mask_v<Type> && !std::is_integral_v<Scalar>)
             fail_unsupported("and_");
         else
             return DiffArray::create(0, m_value & m.value_());
@@ -778,12 +778,12 @@ public:
         Index index_new = 0;
         if constexpr (Enabled && is_mask_v<Mask>)
             index_new = tape()->append("and", slices(m_value), m_index,
-                                       select(m.value_(), Value(1), Value(0)));
+                                       select(m.value_(), Type(1), Type(0)));
         return DiffArray::create(index_new, m_value & m.value_());
     }
 
     DiffArray xor_(const DiffArray &m) const {
-        if constexpr (!is_mask_v<Value> && !std::is_integral_v<Scalar>)
+        if constexpr (!is_mask_v<Type> && !std::is_integral_v<Scalar>)
             fail_unsupported("xor_");
         else
             return DiffArray::create(0, m_value ^ m.value_());
@@ -797,7 +797,7 @@ public:
     }
 
     DiffArray andnot_(const DiffArray &m) const {
-        if constexpr (!is_mask_v<Value> && !std::is_integral_v<Scalar>)
+        if constexpr (!is_mask_v<Type> && !std::is_integral_v<Scalar>)
             fail_unsupported("andnot_");
         else
             return DiffArray::create(0, andnot(m_value, m.value_()));
@@ -832,7 +832,7 @@ public:
     }
 
     DiffArray not_() const {
-        if constexpr ((!is_mask_v<Value> && !std::is_integral_v<Scalar>) ||
+        if constexpr ((!is_mask_v<Type> && !std::is_integral_v<Scalar>) ||
                       std::is_pointer_v<Scalar>)
             fail_unsupported("not_");
         else
@@ -840,15 +840,15 @@ public:
     }
 
     template <typename Mask>
-    ENOKI_INLINE value_t<Value> extract_(const Mask &mask) const {
-        if constexpr (is_mask_v<Value> || Enabled)
+    ENOKI_INLINE value_t<Type> extract_(const Mask &mask) const {
+        if constexpr (is_mask_v<Type> || Enabled)
             fail_unsupported("extract_");
         else
             return extract(m_value, mask.value_());
     }
 
     DiffArray lzcnt_() const {
-        if constexpr ((!is_mask_v<Value> && !std::is_integral_v<Scalar>) ||
+        if constexpr ((!is_mask_v<Type> && !std::is_integral_v<Scalar>) ||
                       std::is_pointer_v<Scalar>)
             fail_unsupported("lzcnt_");
         else
@@ -856,7 +856,7 @@ public:
     }
 
     DiffArray tzcnt_() const {
-        if constexpr ((!is_mask_v<Value> && !std::is_integral_v<Scalar>) ||
+        if constexpr ((!is_mask_v<Type> && !std::is_integral_v<Scalar>) ||
                       std::is_pointer_v<Scalar>)
             fail_unsupported("tzcnt_");
         else
@@ -864,7 +864,7 @@ public:
     }
 
     DiffArray popcnt_() const {
-        if constexpr ((!is_mask_v<Value> && !std::is_integral_v<Scalar>) ||
+        if constexpr ((!is_mask_v<Type> && !std::is_integral_v<Scalar>) ||
                       std::is_pointer_v<Scalar>)
             fail_unsupported("popcnt_");
         else
@@ -884,28 +884,28 @@ public:
     DiffArray ror_() const { return DiffArray::create(0, ror<Imm>(m_value)); }
 
     DiffArray sl_(const DiffArray &a) const {
-        if constexpr (is_mask_v<Value> || !std::is_integral_v<Scalar>)
+        if constexpr (is_mask_v<Type> || !std::is_integral_v<Scalar>)
             fail_unsupported("sl_");
         else
             return DiffArray::create(0, m_value << a.m_value);
     }
 
     DiffArray sr_(const DiffArray &a) const {
-        if constexpr (is_mask_v<Value> || !std::is_integral_v<Scalar>)
+        if constexpr (is_mask_v<Type> || !std::is_integral_v<Scalar>)
             fail_unsupported("sr_");
         else
             return DiffArray::create(0, m_value >> a.m_value);
     }
 
     DiffArray rol_(const DiffArray &a) const {
-        if constexpr (is_mask_v<Value> || !std::is_integral_v<Scalar>)
+        if constexpr (is_mask_v<Type> || !std::is_integral_v<Scalar>)
             fail_unsupported("rol_");
         else
             return DiffArray::create(0, rol(m_value, a.m_value));
     }
 
     DiffArray ror_(const DiffArray &a) const {
-        if constexpr (is_mask_v<Value> || !std::is_integral_v<Scalar>)
+        if constexpr (is_mask_v<Type> || !std::is_integral_v<Scalar>)
             fail_unsupported("ror_");
         else
             return DiffArray::create(0, ror(m_value, a.m_value));
@@ -932,7 +932,7 @@ public:
                       "Differentiable gather: unsupported stride!");
 
 
-        Value result = gather<Value, Stride>(ptr, offset.value_(), mask.value_());
+        Type result = gather<Type, Stride>(ptr, offset.value_(), mask.value_());
 
         Index index_new = 0;
         if constexpr (Enabled)
@@ -971,28 +971,28 @@ public:
     // -----------------------------------------------------------------------
 
     auto all_() const {
-        if constexpr (!is_mask_v<Value>)
+        if constexpr (!is_mask_v<Type>)
             fail_unsupported("all_");
         else
             return all(m_value);
     }
 
     auto any_() const {
-        if constexpr (!is_mask_v<Value>)
+        if constexpr (!is_mask_v<Type>)
             fail_unsupported("any_");
         else
             return any(m_value);
     }
 
     auto count_() const {
-        if constexpr (!is_mask_v<Value>)
+        if constexpr (!is_mask_v<Type>)
             fail_unsupported("count_");
         else
             return count(m_value);
     }
 
     DiffArray hsum_() const {
-        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || std::is_pointer_v<Scalar>) {
             fail_unsupported("hsum_");
         } else {
             Index index_new = 0;
@@ -1004,11 +1004,11 @@ public:
     }
 
     DiffArray hprod_() const {
-        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || std::is_pointer_v<Scalar>) {
             fail_unsupported("hprod_");
         } else {
             Index index_new = 0;
-            Value result = hprod(m_value);
+            Type result = hprod(m_value);
             if constexpr (Enabled)
                 index_new = tape()->append(
                     "hprod", 1, m_index,
@@ -1018,7 +1018,7 @@ public:
     }
 
     DiffArray hmax_() const {
-        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || std::is_pointer_v<Scalar>) {
             fail_unsupported("hmax_");
         } else {
             if (Enabled && m_index != 0)
@@ -1028,7 +1028,7 @@ public:
     }
 
     DiffArray hmin_() const {
-        if constexpr (is_mask_v<Value> || std::is_pointer_v<Scalar>) {
+        if constexpr (is_mask_v<Type> || std::is_pointer_v<Scalar>) {
             fail_unsupported("hmin_");
         } else {
             if (Enabled && m_index != 0)
@@ -1066,8 +1066,8 @@ public:
         m_index = index;
     }
     Index index_() const { return m_index; }
-    Value &value_() { return m_value; }
-    const Value &value_() const { return m_value; }
+    Type &value_() { return m_value; }
+    const Type &value_() const { return m_value; }
 
     //! @}
     // -----------------------------------------------------------------------
@@ -1077,14 +1077,14 @@ public:
     // -----------------------------------------------------------------------
 
     ENOKI_INLINE size_t size() const {
-        if constexpr (is_scalar_v<Value>)
+        if constexpr (is_scalar_v<Type>)
             return 1;
         else
             return slices(m_value);
     }
 
     ENOKI_INLINE bool empty() const {
-        if constexpr (is_scalar_v<Value>)
+        if constexpr (is_scalar_v<Type>)
             return false;
         else
             return slices(m_value) == 0;
@@ -1092,19 +1092,19 @@ public:
 
     ENOKI_NOINLINE void resize(size_t size) {
         ENOKI_MARK_USED(size);
-        if constexpr (!is_scalar_v<Value>)
+        if constexpr (!is_scalar_v<Type>)
             m_value.resize(size);
     }
 
-    ENOKI_INLINE decltype(auto) data() {
-        if constexpr (is_scalar_v<Value>)
+    ENOKI_INLINE Scalar *data() {
+        if constexpr (is_scalar_v<Type>)
             return &m_value;
         else
             return m_value.data();
     }
 
-    ENOKI_INLINE decltype(auto) data() const {
-        if constexpr (is_scalar_v<Value>)
+    ENOKI_INLINE const Scalar *data() const {
+        if constexpr (is_scalar_v<Type>)
             return &m_value;
         else
             return m_value.data();
@@ -1113,7 +1113,7 @@ public:
     template <typename... Args>
     ENOKI_INLINE decltype(auto) coeff(Args... args) {
         static_assert(sizeof...(Args) == Depth, "coeff(): Invalid number of arguments!");
-        if constexpr (is_scalar_v<Value>)
+        if constexpr (is_scalar_v<Type>)
             return m_value;
         else
             return m_value.coeff((size_t) args...);
@@ -1122,27 +1122,27 @@ public:
     template <typename... Args>
     ENOKI_INLINE decltype(auto) coeff(Args... args) const {
         static_assert(sizeof...(Args) == Depth, "coeff(): Invalid number of arguments!");
-        if constexpr (is_scalar_v<Value>)
+        if constexpr (is_scalar_v<Type>)
             return m_value;
         else
             return m_value.coeff((size_t) args...);
     }
 
-    const Value &gradient_() const {
+    const Type &gradient_() const {
         if constexpr (!Enabled)
             fail_unsupported("gradient_");
         else
             return tape()->gradient(m_index);
     }
 
-    static const Value &gradient_static_(Index index) {
+    static const Type &gradient_static_(Index index) {
         if constexpr (!Enabled)
             fail_unsupported("gradient_static_");
         else
             return tape()->gradient(index);
     }
 
-    void set_gradient_(const Value &value, bool backward = true) {
+    void set_gradient_(const Type &value, bool backward = true) {
         if constexpr (!Enabled)
             fail_unsupported("set_gradient_");
         else
@@ -1157,15 +1157,15 @@ public:
     // -----------------------------------------------------------------------
 
     template <typename... Args>
-    static DiffArray empty_(Args... args) { return enoki::empty<Value>(args...); }
+    static DiffArray empty_(Args... args) { return enoki::empty<Type>(args...); }
     template <typename... Args>
-    static DiffArray zero_(Args... args) { return zero<Value>(args...); }
+    static DiffArray zero_(Args... args) { return zero<Type>(args...); }
     template <typename... Args>
-    static DiffArray arange_(Args... args) { return arange<Value>(args...); }
+    static DiffArray arange_(Args... args) { return arange<Type>(args...); }
     template <typename... Args>
-    static DiffArray linspace_(Args... args) { return linspace<Value>(args...); }
+    static DiffArray linspace_(Args... args) { return linspace<Type>(args...); }
     template <typename... Args>
-    static DiffArray full_(Args... args) { return full<Value>(args...); }
+    static DiffArray full_(Args... args) { return full<Type>(args...); }
 
     //! @}
     // -----------------------------------------------------------------------
@@ -1296,7 +1296,9 @@ public:
 private:
     ENOKI_INLINE static Tape* tape() { return Tape::get(); }
 
-    ENOKI_INLINE static DiffArray create(Index index, Value &&value) {
+    using Arg = std::conditional_t<std::is_scalar_v<Type>, Type, Type&&>;
+
+    ENOKI_INLINE static DiffArray create(Index index, Arg value) {
         DiffArray result(std::move(value));
         result.m_index = index;
         return result;
@@ -1308,7 +1310,7 @@ private:
         exit(EXIT_FAILURE);
     }
 
-    Value m_value;
+    Type m_value;
     Index m_index = 0;
 };
 
