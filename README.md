@@ -55,7 +55,7 @@ scalar, AVX512, and CUDA+autodiff).
 
 ### Motivation
 
-The development of this library was prompted by the by the author's frustration
+The development of this library was prompted by the author's frustration
 with the current vectorization landscape:
 
 1. Auto-vectorization in state-of-the-art compilers is inherently local. A
