@@ -132,7 +132,7 @@ just-in-time compiler.
    Color3fD output = srgb_gamma(input);
 
    FloatD loss = enoki::norm(output - Color3fD(.1f, .2f, .3f));
-   enoki::backward(output);
+   enoki::backward(loss);
 
    std::cout << enoki::gradient(input) << std::endl;
 
