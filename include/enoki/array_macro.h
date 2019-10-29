@@ -206,11 +206,12 @@
 
 // ENOKI_MAP_USING(base, a1, a2, ...) expands to using a1 = typename base::a1; using a2 = typename base::a2; ...
 #define ENOKI_MAP_USING(...) \
-    ENOKI_MAP_USING_2(__VA_ARGS__, (), 0)
+    ENOKI_EVAL_0(ENOKI_MAP_USING_2(__VA_ARGS__, (), 0))
 
 // ENOKI_MAP_IMPORT(base, a1, a2, ...) expands to using base::a1; using base::a2; ...
 #define ENOKI_MAP_IMPORT(...) \
-    ENOKI_MAP_IMPORT_2(__VA_ARGS__, (), 0)
+    ENOKI_EVAL_0(ENOKI_MAP_IMPORT_2(__VA_ARGS__, (), 0))
+
 
 #define ENOKI_STRUCT(Struct, ...)                                              \
     Struct() = default;                                                        \
