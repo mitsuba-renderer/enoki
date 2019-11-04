@@ -343,6 +343,9 @@ struct struct_support;
 template <typename Value>
 struct CUDAArray;
 
+template <typename T> class cuda_host_allocator;
+template <typename T> class cuda_managed_allocator;
+
 /// Half-precision floating point value
 struct half;
 
