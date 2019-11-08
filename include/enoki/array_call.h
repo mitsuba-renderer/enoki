@@ -221,6 +221,19 @@ NAMESPACE_END(detail)
         using Base::self;                                                      \
         auto operator-> () { return this; }
 
+#define ENOKI_CALL_SUPPORT_TEMPLATE_BEGIN(Class_)                              \
+    namespace enoki {                                                          \
+    template <typename Storage, typename... Ts>                                \
+    struct call_support<Class_<Ts...>, Storage>                                \
+        : detail::call_support_base<Storage> {                                 \
+        using Base = detail::call_support_base<Storage>;                       \
+        using Base::Base;                                                      \
+        using typename Base::Mask;                                             \
+        using Class = Class_<Ts...>;                                           \
+        using typename Base::InstancePtr;                                      \
+        using Base::self;                                                      \
+        auto operator-> () { return this; }
+
 #define ENOKI_CALL_SUPPORT_METHOD(func)                                        \
 private:                                                                       \
     template <typename... Args>                                                \
@@ -267,8 +280,11 @@ public:                                                                        \
 #define ENOKI_CALL_SUPPORT_GETTER(name, field)                                 \
     ENOKI_CALL_SUPPORT_GETTER_TYPE(name, field, Field)
 
-#define ENOKI_CALL_SUPPORT_END(PacketType)                                     \
+#define ENOKI_CALL_SUPPORT_END(Name)                                           \
         };                                                                     \
     }
+
+#define ENOKI_CALL_SUPPORT_TEMPLATE_END(Name)                                  \
+    ENOKI_CALL_SUPPORT_END(Name)
 
 NAMESPACE_END(enoki)
