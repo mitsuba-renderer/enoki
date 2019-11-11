@@ -211,6 +211,7 @@ set(ENOKI_HEADERS
     ${PROJECT_SOURCE_DIR}/include/enoki/array_avx512.h
     ${PROJECT_SOURCE_DIR}/include/enoki/array_base.h
     ${PROJECT_SOURCE_DIR}/include/enoki/array_call.h
+    ${PROJECT_SOURCE_DIR}/include/enoki/array_enum.h
     ${PROJECT_SOURCE_DIR}/include/enoki/array_fallbacks.h
     ${PROJECT_SOURCE_DIR}/include/enoki/array_generic.h
     ${PROJECT_SOURCE_DIR}/include/enoki/array_idiv.h

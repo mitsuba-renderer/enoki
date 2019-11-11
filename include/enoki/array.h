@@ -63,6 +63,7 @@
 
 #include <enoki/array_idiv.h>
 #include <enoki/array_call.h>
+#include <enoki/array_enum.h>
 #include <enoki/array_utils.h>
 #include <enoki/array_macro.h>
 
