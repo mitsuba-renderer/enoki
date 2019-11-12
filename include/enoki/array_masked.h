@@ -68,6 +68,15 @@ template <typename T> struct MaskedArray : ArrayBase<value_t<T>, MaskedArray<T>>
     Mask m;
 };
 
+template <typename T> struct unmask {
+    using type = T;
+};
+
+template <typename T> struct unmask<enoki::detail::MaskedArray<T>> {
+    using type = T;
+};
+
+
 NAMESPACE_END(detail)
 
 template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
@@ -86,6 +95,8 @@ ENOKI_INLINE auto masked(T &value, const Mask &mask) {
     else
         return struct_support_t<T>::masked(value, mask);
 }
+
+template <typename T> using unmask_t = typename detail::unmask<T>::type;
 
 //! @}
 // -----------------------------------------------------------------------
