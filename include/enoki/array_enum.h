@@ -34,6 +34,9 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
     template <typename T, enable_if_t<!std::is_enum_v<T>> = 0>
     StaticArrayImpl(const T &b) : Base(b) { }
 
+    template <typename T, enable_if_t<!is_array_v<T>> = 0>
+    StaticArrayImpl(const T &v1, const T &v2) : Base(v1, v2) { }
+
     template <typename T>
     StaticArrayImpl(const T &b, detail::reinterpret_flag)
         : Base(b, detail::reinterpret_flag()) { }
