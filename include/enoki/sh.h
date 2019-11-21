@@ -56,7 +56,7 @@ void sh_eval_1(const Array &d, value_t<expr_t<Array>> *out) {
     using Scalar = scalar_t<Value>;
 
     Value x = d.x(), y = d.y(), z = d.z();
-    Value c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
+    Value c0, s0, tmp_a;
 
     store(out + 0, Value(Scalar(0.28209479177387814)));
     store(out + 2, z * Scalar(0.488602511902919923));
