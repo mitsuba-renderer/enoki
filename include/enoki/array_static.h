@@ -821,6 +821,20 @@ public:
         }
     }
 
+    /// Horizontal mean over innermost dimension
+    ENOKI_INLINE auto hmean_inner_() const {
+        if constexpr (is_array_v<Value>) {
+            using Value = decltype(hmean_inner(derived().coeff(0)));
+            using Result = typename Derived::template ReplaceValue<Value>;
+            Result result;
+            for (size_t i = 0; i < Derived::Size; ++i)
+                result.coeff(i) = hmean_inner(derived().coeff(i));
+            return result;
+        } else {
+            return hmean(derived());
+        }
+    }
+
     /// all() fallback implementation
     ENOKI_INLINE auto all_() const {
         ENOKI_CHKSCALAR("all");

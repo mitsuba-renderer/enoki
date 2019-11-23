@@ -415,6 +415,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
         m.def("hprod", [](const Array &a) { return enoki::hprod(a); });
         m.def("hmin", [](const Array &a) { return enoki::hmin(a); });
         m.def("hmax", [](const Array &a) { return enoki::hmax(a); });
+        m.def("hmean", [](const Array &a) { return enoki::hmean(a); });
 
         m.def("fmadd", [](const Array &a, const Array &b, const Array &c) {
             return enoki::fmadd(a, b, c);

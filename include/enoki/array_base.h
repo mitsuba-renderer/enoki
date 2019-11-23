@@ -161,6 +161,11 @@ template <typename Value_, typename Derived_> struct ArrayBase {
     /// Dot product fallback implementation
     ENOKI_INLINE auto dot_(const Derived &a) const { return hsum(derived() * a); }
 
+    /// Horizontal mean fallback implementation
+    ENOKI_INLINE auto hmean_() const {
+        return hsum(derived()) * (1.f / derived().size());
+    }
+
     template <size_t Stride, typename Index, typename Mask>
     ENOKI_INLINE void scatter_add_(void *mem, const Index &index,
                                    const Mask &mask) const {

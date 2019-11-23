@@ -235,6 +235,7 @@ ENOKI_ROUTE_UNARY_SCALAR(hmin,  hmin,  a)
 ENOKI_ROUTE_UNARY_SCALAR(hmax,  hmax,  a)
 ENOKI_ROUTE_UNARY_SCALAR(hsum,  hsum,  a)
 ENOKI_ROUTE_UNARY_SCALAR(hprod, hprod, a)
+ENOKI_ROUTE_UNARY_SCALAR(hmean, hmean,  a)
 
 ENOKI_ROUTE_UNARY_SCALAR(all_inner,   all_inner,   (bool) a)
 ENOKI_ROUTE_UNARY_SCALAR(any_inner,   any_inner,   (bool) a)
@@ -242,6 +243,7 @@ ENOKI_ROUTE_UNARY_SCALAR(count_inner, count_inner, (size_t) ((bool) a ? 1 : 0))
 ENOKI_ROUTE_UNARY_SCALAR(hmin_inner,  hmin_inner,  a)
 ENOKI_ROUTE_UNARY_SCALAR(hmax_inner,  hmax_inner,  a)
 ENOKI_ROUTE_UNARY_SCALAR(hsum_inner,  hsum_inner,  a)
+ENOKI_ROUTE_UNARY_SCALAR(hmean_inner, hmean_inner,  a)
 ENOKI_ROUTE_UNARY_SCALAR(hprod_inner, hprod_inner, a)
 
 ENOKI_ROUTE_UNARY_SCALAR(sqrt,  sqrt,  std::sqrt(a))
@@ -679,11 +681,6 @@ ENOKI_INLINE auto cross(const T1 &v1, const T2 &v2) {
     return fmsub(shuffle<1, 2, 0>(v1),  shuffle<2, 0, 1>(v2),
                  shuffle<2, 0, 1>(v1) * shuffle<1, 2, 0>(v2));
 #endif
-}
-
-template <typename Array, enable_if_array_t<Array> = 0>
-ENOKI_INLINE auto mean(const Array &a) {
-    return hsum(a) * (1.f / a.size());
 }
 
 template <typename T> decltype(auto) detach(T &value) {
@@ -1247,6 +1244,13 @@ template <typename T> auto hmin_nested(const T &a) {
 template <typename T> auto hmax_nested(const T &a) {
     if constexpr (is_array_v<T>)
         return hmax_nested(hmax(a));
+    else
+        return a;
+}
+
+template <typename T> auto hmean_nested(const T &a) {
+    if constexpr (is_array_v<T>)
+        return hmean_nested(hmean(a));
     else
         return a;
 }

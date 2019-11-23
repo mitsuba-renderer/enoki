@@ -372,6 +372,9 @@ utilize the hardware vector units (ways of avoiding them are discussed later).
     /* Horizontal maximum, equivalent to std::max({ f1[0], f1[1], f1[2], f1[3] }) */
     float s3 = hmax(f1);
 
+    /* Horizontal mean , equivalent to (f1[0] + f1[1] + f1[2] + f1[3]) / 4.f */
+    float s4 = hmean(f1);
+
 The following linear algebra primitives are also realized in terms of horizontal operations:
 
 .. code-block:: cpp
