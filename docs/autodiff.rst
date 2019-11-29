@@ -469,7 +469,7 @@ used in the example.
             def backward(ctx, grad_out):
                 # Attach gradients received from PyTorch to the output
                 # variable of the forward pass
-                enoki.set_gradient(ctx.out, enoki.FloatD(grad_out))
+                enoki.set_gradient(ctx.out, enoki.FloatC(grad_out))
 
                 # Perform a reverse-mode traversal. Note that the static
                 # version of the backward() function is being used, see

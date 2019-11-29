@@ -1,7 +1,7 @@
 import enoki as ek
 import numpy as np
+import pytest
 import torch
-
 
 class EnokiAtan2(torch.autograd.Function):
     """PyTorch function example from the documentation."""
@@ -18,7 +18,7 @@ class EnokiAtan2(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_out):
-        ek.set_gradient(ctx.out, ek.FloatD(grad_out))
+        ek.set_gradient(ctx.out, ek.FloatC(grad_out))
         ek.FloatD.backward()
         result = (ek.gradient(ctx.in1).torch()
                   if ek.requires_gradient(ctx.in1) else None,
@@ -32,7 +32,12 @@ class EnokiAtan2(torch.autograd.Function):
 def test01_set_gradient():
     a = ek.FloatD(42, 10)
     ek.set_requires_gradient(a)
-    grad = ek.FloatD(-1, 10)
+
+    with pytest.raises(TypeError):
+        grad = ek.FloatD(-1, 10)
+        ek.set_gradient(a, grad)
+
+    grad = ek.FloatC(-1, 10)
     ek.set_gradient(a, grad)
     assert np.allclose(grad.numpy(), ek.gradient(a).numpy())
 
