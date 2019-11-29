@@ -470,7 +470,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
         m.def("gradient_index", [](Array &a) { return gradient_index(a); });
 
         m.def("set_gradient",
-              [](Array &a, const Array &g, bool backward) { set_gradient(a, detach(g), backward); },
+              [](Array &a, const Detached &g, bool backward) { set_gradient(a, g, backward); },
               "array"_a, "gradient"_a, "backward"_a = true);
 
         m.def("graphviz", [](const Array &a) { return graphviz(a); });
