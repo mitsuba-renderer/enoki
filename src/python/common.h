@@ -465,7 +465,6 @@ py::class_<Array> bind(py::module &m, const char *name) {
         m.def("set_requires_gradient",
               [](Array &a, bool value) { set_requires_gradient(a, value); },
               "array"_a, "value"_a = true);
-        m.def("detach", [](const Matrix4fD &a) { return eval(detach(a)); });
 
         m.def("gradient", [](Array &a) -> Detached { return gradient(a); });
         m.def("gradient_index", [](Array &a) { return gradient_index(a); });
