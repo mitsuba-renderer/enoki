@@ -29,7 +29,20 @@ class EnokiAtan2(torch.autograd.Function):
         return result
 
 
-def test01_array_to_torch():
+def test01_set_gradient():
+    a = ek.FloatD(42, 10)
+    ek.set_requires_gradient(a)
+    grad = ek.FloatD(-1, 10)
+    ek.set_gradient(a, grad)
+    assert np.allclose(grad.numpy(), ek.gradient(a).numpy())
+
+    # Note: if `backward` is not called here, test03 segfaults later.
+    # TODO: we should not need this, there's most likely some missing cleanup when `a` is destructed
+    ek.FloatD.backward()
+    del a, grad
+
+
+def test02_array_to_torch():
     a = ek.FloatD(42, 10)
     a_torch = a.torch()
     assert isinstance(a_torch, torch.Tensor)
@@ -39,7 +52,7 @@ def test01_array_to_torch():
     assert np.allclose(a_np, 50)
 
 
-def test02_pytorch_function():
+def test03_pytorch_function():
     enoki_atan2 = EnokiAtan2.apply
 
     y = torch.tensor(1.0, device='cuda')
