@@ -210,7 +210,7 @@ case for `Sensor` instances.
 
     class Sensor {
         ENOKI_CALL_SUPPORT_FRIEND()
-        ENOKI_PINNED_OPERATOR_NEW()
+        ENOKI_PINNED_OPERATOR_NEW(UInt32P)
     public:
         // ...
     };
