@@ -346,6 +346,9 @@ struct CUDAArray;
 template <typename T> class cuda_host_allocator;
 template <typename T> class cuda_managed_allocator;
 
+extern ENOKI_IMPORT void* cuda_host_malloc(size_t);
+extern ENOKI_IMPORT void cuda_host_free(void *);
+
 /// Half-precision floating point value
 struct half;
 

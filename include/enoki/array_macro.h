@@ -357,3 +357,63 @@
         }                                                                      \
     };                                                                         \
     NAMESPACE_END(enoki)
+
+#define ENOKI_PINNED_OPERATOR_NEW(Type)                                        \
+    void *operator new(size_t size) {                                          \
+        if constexpr (enoki::is_cuda_array_v<Type>)                            \
+            return enoki::cuda_host_malloc(size);                              \
+        else                                                                   \
+            return ::operator new(size);                                       \
+    }                                                                          \
+    void *operator new(size_t size, std::align_val_t align) {                  \
+        ENOKI_MARK_USED(align);                                                \
+        if constexpr (enoki::is_cuda_array_v<Type>)                            \
+            return enoki::cuda_host_malloc(size);                              \
+        else                                                                   \
+            return ::operator new(size, align);                                \
+    }                                                                          \
+    void *operator new[](size_t size) {                                        \
+        if constexpr (enoki::is_cuda_array_v<Type>)                            \
+            return enoki::cuda_host_malloc(size);                              \
+        else                                                                   \
+            return ::operator new[](size);                                     \
+    }                                                                          \
+                                                                               \
+    void *operator new[](size_t size, std::align_val_t align) {                \
+        ENOKI_MARK_USED(align);                                                \
+        if constexpr (enoki::is_cuda_array_v<Type>)                            \
+            return enoki::cuda_host_malloc(size);                              \
+        else                                                                   \
+            return ::operator new[](size, align);                              \
+    }                                                                          \
+                                                                               \
+    void operator delete(void *ptr) {                                          \
+        if constexpr (enoki::is_cuda_array_v<Type>)                            \
+            enoki::cuda_host_free(ptr);                                        \
+        else                                                                   \
+            return ::operator delete(ptr);                                     \
+    }                                                                          \
+                                                                               \
+    void operator delete(void *ptr, std::align_val_t align) {                  \
+        ENOKI_MARK_USED(align);                                                \
+        if constexpr (enoki::is_cuda_array_v<Type>)                            \
+            enoki::cuda_host_free(ptr);                                        \
+        else                                                                   \
+            return ::operator delete(ptr, align);                              \
+    }                                                                          \
+                                                                               \
+    void operator delete[](void *ptr) {                                        \
+        if constexpr (enoki::is_cuda_array_v<Type>)                            \
+            enoki::cuda_host_free(ptr);                                        \
+        else                                                                   \
+            return ::operator delete[](ptr);                                   \
+    }                                                                          \
+                                                                               \
+    void operator delete[](void *ptr, std::align_val_t align) {                \
+        ENOKI_MARK_USED(align);                                                \
+        if constexpr (enoki::is_cuda_array_v<Type>)                            \
+            enoki::cuda_host_free(ptr);                                        \
+        else                                                                   \
+            return ::operator delete[](ptr, align);                            \
+    }
+
