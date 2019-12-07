@@ -1288,6 +1288,26 @@ public:
             return tape()->whos();
     }
 
+    static DiffArray map(void *ptr, size_t size, bool dealloc = false) {
+        if constexpr (!is_dynamic_array_v<Type>)
+            fail_unsupported("map");
+        else
+            return DiffArray::create(0, Type::map(ptr, size, dealloc));
+    }
+
+    static DiffArray copy(const void *ptr, size_t size) {
+        if constexpr (!is_dynamic_array_v<Type>)
+            fail_unsupported("copy");
+        else
+            return DiffArray::create(0, Type::copy(ptr, size));
+    }
+
+    DiffArray &managed() {
+        if constexpr (is_cuda_array_v<Type>)
+            m_value = m_value.managed();
+        return *this;
+    }
+
     auto operator->() const {
         using BaseType = std::decay_t<std::remove_pointer_t<Scalar>>;
         return call_support<BaseType, DiffArray>(*this);

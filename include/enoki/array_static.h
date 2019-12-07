@@ -1161,6 +1161,14 @@ public:
     ENOKI_INLINE decltype(auto) data() { return &derived().coeff(0); }
     ENOKI_INLINE decltype(auto) data() const { return &derived().coeff(0); }
 
+    ENOKI_INLINE Derived& managed() {
+        if constexpr (is_cuda_array_v<Value_>) {
+            for (size_t i = 0; i < Derived::Size; ++i)
+                derived().coeff(i).managed();
+        }
+        return derived();
+    }
+
     //! @}
     // -----------------------------------------------------------------------
 };

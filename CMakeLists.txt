@@ -1,4 +1,5 @@
 cmake_minimum_required (VERSION 2.8.12)
+project(enoki CXX)
 
 if (POLICY CMP0042)
   cmake_policy(SET CMP0042 NEW) # MACOSX_RPATH is enabled by default
@@ -16,10 +17,8 @@ if (ENOKI_CUDA)
   if (NOT WIN32)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -march=native -Xcompiler -fvisibility=hidden")
   endif()
-  project(enoki CXX CUDA)
+  enable_language(CUDA)
   add_definitions(-DENOKI_BUILD_CUDA=1)
-else()
-  project(enoki CXX)
 endif()
 
 set(ENOKI_MASTER_PROJECT OFF)

@@ -770,14 +770,28 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
         }
     }
 
-    static Derived map(void *ptr, size_t size) {
+    static Derived map(void *ptr, size_t size, bool dealloc = false) {
         assert((uintptr_t) ptr % alignof(Packet) == 0);
 
         Derived r;
         r.m_packets = PacketHolder((Packet *) ptr);
         r.m_size = (Size) size;
         r.m_packets_allocated =
-            (Size) ((size + PacketSize - 1) / PacketSize) | 0x80000000u;
+            (Size) ((size + PacketSize - 1) / PacketSize);
+
+        if (!dealloc)
+            r.m_packets_allocated |= 0x80000000u;
+
+        return r;
+    }
+
+    static Derived copy(const void *ptr, size_t size) {
+        Derived r;
+        r.m_size = (Size) size;
+        r.m_packets_allocated =
+            (Size) ((size + PacketSize - 1) / PacketSize);
+        r.m_packets = PacketHolder(new Packet[r.m_packets_allocated]);
+        memcpy(r.m_packets.get(), ptr, size * sizeof(Value));
         return r;
     }
 

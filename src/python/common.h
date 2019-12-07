@@ -120,6 +120,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
       .def(py::init<const Value &>())
       .def(py::self == py::self)
       .def(py::self != py::self)
+      .def("managed", &Array::managed)
       .def("__repr__", [](const Array &a) -> std::string {
           if (disable_print_flag)
               return "";

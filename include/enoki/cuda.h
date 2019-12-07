@@ -177,6 +177,9 @@ extern ENOKI_IMPORT void cuda_sync();
 /// Print detailed information about currently allocated arrays
 extern ENOKI_IMPORT char *cuda_whos();
 
+/// Convert a variable into managed memory (if applicable)
+extern ENOKI_IMPORT void cuda_make_managed(uint32_t);
+
 /// Register a callback that will be invoked before cuda_eval()
 extern void cuda_register_callback(void (*callback)(void *), void *payload);
 
@@ -733,8 +736,13 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         return CUDAArray::from_index_(cuda_var_register(Type, size, ptr, dealloc));
     }
 
-    static CUDAArray copy(void *ptr, size_t size) {
+    static CUDAArray copy(const void *ptr, size_t size) {
         return CUDAArray::from_index_(cuda_var_copy_to_device(Type, size, ptr));
+    }
+
+    CUDAArray &managed() {
+        cuda_make_managed(m_index);
+        return *this;
     }
 
     template <typename T = Value, enable_if_t<std::is_pointer_v<T>> = 0>

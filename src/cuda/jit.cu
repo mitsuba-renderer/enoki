@@ -455,6 +455,31 @@ ENOKI_EXPORT void cuda_var_free(uint32_t idx) {
     ctx.variables.erase(idx); // invokes Variable destructor + cudaFree().
 }
 
+ENOKI_EXPORT void cuda_make_managed(uint32_t idx) {
+    Context &ctx = context();
+    Variable &v = ctx[idx];
+#if !defined(NDEBUG)
+    if (ctx.log_level >= 4)
+        std::cerr << "cuda_make_managed(" << idx << ") = " << v.data << std::endl;
+#endif
+    size_t total_size = v.size * cuda_register_size(v.type);
+
+    if (!v.data || total_size == 0)
+        return;
+
+    cudaPointerAttributes attr;
+    cuda_check(cudaPointerGetAttributes(&attr, v.data));
+    if (attr.type == cudaMemoryTypeManaged)
+        return;
+
+    void *ptr = cuda_managed_malloc(total_size);
+    cuda_check(cudaMemcpyAsync(ptr, v.data, total_size,
+                               cudaMemcpyDeviceToDevice, nullptr));
+
+    cuda_free(v.data);
+    v.data = ptr;
+}
+
 ENOKI_EXPORT void cuda_set_scatter_gather_operand(uint32_t idx, bool gather) {
     Context &ctx = context();
     if (idx != 0) {
