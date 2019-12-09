@@ -552,6 +552,10 @@ template <typename T> struct enoki_type<T, enable_if_t<is_int64_v<T>>> {
         std::is_signed_v<T> ? EnokiType::Int64 : EnokiType::UInt64;
 };
 
+template <typename T> struct enoki_type<T, enable_if_t<std::is_enum_v<T>>> {
+    static constexpr EnokiType value = enoki_type<std::underlying_type_t<T>>::value;
+};
+
 template <> struct enoki_type<half> {
     static constexpr EnokiType value = EnokiType::Float16;
 };
