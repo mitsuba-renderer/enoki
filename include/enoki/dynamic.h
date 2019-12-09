@@ -740,13 +740,11 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
                               n_packets * sizeof(Packet));
         }
 
-        bool clean = false;
         if (m_size == 1) {
             /* Resizing a scalar array -- broadcast. */
             Packet p(scalar);
             for (size_t i = 0; i < n_packets; ++i)
                 m_packets[i] = p;
-            clean = true;
         } else if (m_size == 0) {
             /* Potentially initialize array contents with NaNs */
             #if !defined(NDEBUG)
@@ -756,8 +754,7 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
         }
 
         m_size = (Size) size;
-        if (clean)
-            clean_trailing_();
+        clean_trailing_();
     }
 
     // Clear the unused portion of a potential trailing partial packet

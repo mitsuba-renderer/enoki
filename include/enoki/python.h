@@ -200,14 +200,14 @@ private:
                 buf += value.size();
             } else {
                 if constexpr (!enoki::is_dynamic_array_v<T>) {
-                    enoki::Array<bool, T::Size> value2;
+                    enoki::Array<bool, T::Size> value2 = false;
                     for (size_t i = 0, size = value2.size(); i < size; ++i)
                         value2.coeff(i) = *buf++;
                     value = enoki::reinterpret_array<T>(value2);
                 } else {
                     const Scalar *end = buf + value.size();
                     for (size_t i = 0; i < enoki::packets(value); ++i) {
-                        enoki::Array<bool, T::Packet::Size> value2;
+                        enoki::Array<bool, T::Packet::Size> value2 = false;
                         for (size_t j = 0; j < T::Packet::Size && buf != end; ++j)
                             value2.coeff(j) = *buf++;
                         enoki::packet(value, i) = enoki::reinterpret_array<typename T::Packet>(value2);
