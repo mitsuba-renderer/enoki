@@ -41,8 +41,8 @@ ENOKI_TEST(test01_alloc)  {
     assert(!all(enoki::isnan(packet(y, 0))));
     assert( any(enoki::isnan(packet(y, 0))));
     assert( all(enoki::isnan(packet(y, 1))));
-    assert( all(enoki::isnan(packet(y, 2))));
     assert( any(enoki::isnan(packet(y, 2))));
+    assert(!all(enoki::isnan(packet(y, 2))));
 
     y.coeff(2) = 2.f;
     assert(to_string(y) == "[-nan, 1, 2, -nan, -nan, -nan, -nan, -nan, -nan, -nan]" ||
