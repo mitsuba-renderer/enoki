@@ -56,6 +56,15 @@ struct type_caster<Value, std::enable_if_t<enoki::is_array_v<Value> &&
             return true;
         }
 
+        if constexpr (std::is_pointer_v<Scalar> || std::is_enum_v<Scalar>) {
+            /// Convert special array types (pointer, enum) to integer arrays
+            using UInt = enoki::uint_array_t<Value, false>;
+            type_caster<UInt> caster;
+            bool result = caster.load(src, convert);
+            value = caster.operator UInt &();
+            return result;
+        }
+
         if (!isinstance<array_t<Scalar>>(src)) {
             if (!convert)
                 return false;
@@ -108,7 +117,14 @@ struct type_caster<Value, std::enable_if_t<enoki::is_array_v<Value> &&
         return cast(*src, policy, parent);
     }
 
-    static handle cast(const Value &src, return_value_policy /* policy */, handle /* parent */) {
+    static handle cast(const Value &src, return_value_policy policy, handle parent) {
+        /// Convert special array types (pointer, enum) to integer arrays
+        if constexpr (std::is_pointer_v<Scalar> || std::is_enum_v<Scalar>) {
+            using UInt = enoki::uint_array_t<Value, false>;
+            return type_caster<UInt>::cast(src, policy, parent);
+        }
+        (void) policy; (void) parent;
+
         if (enoki::ragged(src))
             throw type_error("Ragged arrays are not supported!");
 

@@ -480,7 +480,7 @@ T floor2int_scalar(Arg x) {
 }
 
 template <typename T> auto or_(const T &a1, const T &a2) {
-    using Int = int_array_t<T>;
+    using Int = int_array_t<T, false>;
 
     if constexpr (is_array_v<T> || std::is_integral_v<T>)
         return a1 | a2;
@@ -489,7 +489,7 @@ template <typename T> auto or_(const T &a1, const T &a2) {
 }
 
 template <typename T> auto and_(const T &a1, const T &a2) {
-    using Int = int_array_t<T>;
+    using Int = int_array_t<T, false>;
 
     if constexpr (is_array_v<T> || std::is_integral_v<T>)
         return a1 & a2;
@@ -498,7 +498,7 @@ template <typename T> auto and_(const T &a1, const T &a2) {
 }
 
 template <typename T> auto andnot_(const T &a1, const T &a2) {
-    using Int = int_array_t<T>;
+    using Int = int_array_t<T, false>;
 
     if constexpr (is_array_v<T>)
         return andnot(a1, a2);
@@ -511,7 +511,7 @@ template <typename T> auto andnot_(const T &a1, const T &a2) {
 }
 
 template <typename T> auto xor_(const T &a1, const T &a2) {
-    using Int = int_array_t<T>;
+    using Int = int_array_t<T, false>;
 
     if constexpr (is_array_v<T> || std::is_integral_v<T>)
         return a1 ^ a2;
