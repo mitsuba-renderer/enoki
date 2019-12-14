@@ -53,13 +53,7 @@ std::string time_string(size_t value_) {
     return buf;
 }
 
-ENOKI_EXPORT void* cuda_malloc_zero(size_t size) {
-    void *result = cuda_malloc(size);
-    cuda_check(cudaMemsetAsync(result, 0, size));
-    return result;
-}
-
-template <typename T> __global__ void fill(size_t n, T value, T *out) {
+template <typename T> __global__ void fill(T *out, T value, size_t n) {
     for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n;
          i += blockDim.x * gridDim.x)
         out[i] = value;
@@ -69,28 +63,20 @@ template <typename T> __global__ void set_value(T *ptr, size_t idx, T value) {
     ptr[idx] = value;
 }
 
-ENOKI_EXPORT void* cuda_malloc_fill(size_t size, uint8_t value) {
-    uint8_t *result = (uint8_t *) cuda_malloc(size);
-    cuda_check(cudaMemsetAsync(result, value, size));
-    return result;
+ENOKI_EXPORT void cuda_fill(uint8_t *ptr, uint8_t value, size_t size) {
+    cuda_check(cudaMemsetAsync(ptr, value, size));
 }
 
-ENOKI_EXPORT void* cuda_malloc_fill(size_t size, uint16_t value) {
-    uint16_t *result = (uint16_t *) cuda_malloc(size * sizeof(uint16_t));
-    fill<<<256, 256>>>(size, value, result);
-    return result;
+ENOKI_EXPORT void cuda_fill(uint16_t *ptr, uint16_t value, size_t size) {
+    fill<<<256, 256>>>(ptr, value, size);
 }
 
-ENOKI_EXPORT void* cuda_malloc_fill(size_t size, uint32_t value) {
-    uint32_t *result = (uint32_t *) cuda_malloc(size * sizeof(uint32_t));
-    fill<<<256, 256>>>(size, value, result);
-    return result;
+ENOKI_EXPORT void cuda_fill(uint32_t *ptr, uint32_t value, size_t size) {
+    fill<<<256, 256>>>(ptr, value, size);
 }
 
-ENOKI_EXPORT void* cuda_malloc_fill(size_t size, uint64_t value) {
-    uint64_t *result = (uint64_t *) cuda_malloc(size * sizeof(uint64_t));
-    fill<<<256, 256>>>(size, value, result);
-    return result;
+ENOKI_EXPORT void cuda_fill(uint64_t *ptr, uint64_t value, size_t size) {
+    fill<<<256, 256>>>(ptr, value, size);
 }
 
 ENOKI_EXPORT void cuda_memcpy_to_device(void *dst, const void *src, size_t size) {

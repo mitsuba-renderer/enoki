@@ -153,14 +153,11 @@ extern ENOKI_IMPORT void* cuda_managed_malloc(size_t size);
 /// Allocate host-pinned memory (wrapper around cudaMallocHost)
 extern ENOKI_IMPORT void* cuda_host_malloc(size_t);
 
-/// Allocate zero-initialized device-local memory (wrapper around cudaMalloc & cudaMemsetAsync)
-extern ENOKI_IMPORT void* cuda_malloc_zero(size_t);
-
-/// Allocate unified memory (wrapper around cudaMalloc & analogues of cudaMemsetAsync)
-extern ENOKI_IMPORT void* cuda_malloc_fill(size_t, uint8_t values);
-extern ENOKI_IMPORT void* cuda_malloc_fill(size_t, uint16_t values);
-extern ENOKI_IMPORT void* cuda_malloc_fill(size_t, uint32_t values);
-extern ENOKI_IMPORT void* cuda_malloc_fill(size_t, uint64_t values);
+/// Allocate unified memory (wrapper around analogues of cudaMemsetAsync)
+extern ENOKI_IMPORT void cuda_fill(uint8_t *ptr, uint8_t value, size_t size);
+extern ENOKI_IMPORT void cuda_fill(uint16_t *ptr, uint16_t value, size_t size);
+extern ENOKI_IMPORT void cuda_fill(uint32_t *ptr, uint32_t value, size_t size);
+extern ENOKI_IMPORT void cuda_fill(uint64_t *ptr, uint64_t value, size_t size);
 
 /// Release device-local or unified memory
 extern ENOKI_IMPORT void cuda_free(void *);
@@ -648,19 +645,26 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     }
 
     static CUDAArray zero_(size_t size) {
-        if (size == 1)
+        if (size == 1) {
             return CUDAArray(Value(0));
-        else
-            return CUDAArray::from_index_(cuda_var_register(
-                Type, size, cuda_malloc_zero(size * sizeof(Value)), true));
+        } else {
+            void *ptr = cuda_malloc(size * sizeof(Value));
+            cuda_fill((uint8_t *) ptr, 0, size);
+            uint32_t index = cuda_var_register(Type, size, ptr, true);
+            return CUDAArray::from_index_(index);
+        }
     }
 
     static CUDAArray full_(const Value &value, size_t size) {
-        if (size == 1)
+        if (size == 1) {
             return CUDAArray(value);
-        else
-            return CUDAArray::from_index_(cuda_var_register(
-                Type, size, cuda_malloc_fill(size, memcpy_cast<uint_array_t<Value>>(value)), true));
+        } else {
+            using UInt = uint_array_t<Value>;
+            void *ptr = cuda_malloc(size * sizeof(Value));
+            cuda_fill((UInt *) ptr, memcpy_cast<UInt>(value), size);
+            uint32_t index = cuda_var_register(Type, size, ptr, true);
+            return CUDAArray::from_index_(index);
+        }
     }
 
     CUDAArray hsum_() const {
