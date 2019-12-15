@@ -323,6 +323,20 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
             return result;                                                   \
         }
 
+    #define ENOKI_FWD_BINARY_OPERATION_SIZE(name, Return, op)                \
+        auto name##_(size_t a2) const {                                      \
+            Return result;                                                   \
+            result.resize_like(*this);                                       \
+            auto p1 = packet_ptr();                                          \
+            auto pr = result.packet_ptr();                                   \
+            for (size_t i = 0, n = result.packets(); i < n;                  \
+                 ++i, ++pr, p1++) {                                          \
+                auto a1 = *p1;                                               \
+                *pr = op;                                                    \
+            }                                                                \
+            return result;                                                   \
+        }
+
     #define ENOKI_FWD_TERNARY_OPERATION(name, Return, op)                    \
         template <typename T1, typename T2>                                  \
         auto name##_(const T1 &d1, const T2 &d2) const {                     \
@@ -368,6 +382,10 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
     ENOKI_FWD_BINARY_OPERATION(sr,  Derived, a1 >> a2)
     ENOKI_FWD_BINARY_OPERATION(rol, Derived, rol(a1, a2))
     ENOKI_FWD_BINARY_OPERATION(ror, Derived, ror(a1, a2))
+    ENOKI_FWD_BINARY_OPERATION(mulhi, Derived, mulhi(a1, a2))
+
+    ENOKI_FWD_BINARY_OPERATION_SIZE(sl, Derived, a1 << a2)
+    ENOKI_FWD_BINARY_OPERATION_SIZE(sr, Derived, a1 >> a2)
 
     ENOKI_FWD_UNARY_OPERATION_IMM(sl,  Derived, sl<Imm>(a))
     ENOKI_FWD_UNARY_OPERATION_IMM(sr,  Derived, sr<Imm>(a))
@@ -791,6 +809,8 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
         memcpy(r.m_packets.get(), ptr, size * sizeof(Value));
         return r;
     }
+
+    Derived &managed() { return derived(); }
 
     template <typename... Args> void resize_like(const Args&... args) {
         resize(check_size(args...));

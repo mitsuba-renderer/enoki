@@ -499,6 +499,9 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     template <size_t Imm> CUDAArray sl_() const { return sl_(Value(Imm)); }
     template <size_t Imm> CUDAArray sr_() const { return sr_(Value(Imm)); }
 
+    CUDAArray sl_(size_t value) const { return sl_(Value(value)); }
+    CUDAArray sr_(size_t value) const { return sr_(Value(value)); }
+
     CUDAArray not_() const {
         return CUDAArray::from_index_(cuda_trace_append(Type,
             "not.$b1 $r1, $r2", index_()));

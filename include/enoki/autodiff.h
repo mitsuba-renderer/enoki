@@ -897,6 +897,9 @@ public:
             return DiffArray::create(0, m_value >> a.m_value);
     }
 
+    DiffArray sl_(size_t size) const { return sl_(Scalar(size)); }
+    DiffArray sr_(size_t size) const { return sr_(Scalar(size)); }
+
     DiffArray rol_(const DiffArray &a) const {
         if constexpr (is_mask_v<Type> || !std::is_integral_v<Scalar>)
             fail_unsupported("rol_");
