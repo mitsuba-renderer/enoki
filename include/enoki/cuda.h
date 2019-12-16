@@ -496,11 +496,11 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
                 "shr.$b1 $r1, $r2, $r3", index_(), CUDAArray<int32_t>(v).index_()));
     }
 
-    template <size_t Imm> CUDAArray sl_() const { return sl_(Value(Imm)); }
-    template <size_t Imm> CUDAArray sr_() const { return sr_(Value(Imm)); }
+    CUDAArray sl_(size_t value) const { return sl_(CUDAArray((Value) value)); }
+    CUDAArray sr_(size_t value) const { return sr_(CUDAArray((Value) value)); }
 
-    CUDAArray sl_(size_t value) const { return sl_(Value(value)); }
-    CUDAArray sr_(size_t value) const { return sr_(Value(value)); }
+    template <size_t Imm> CUDAArray sl_() const { return sl_(Imm); }
+    template <size_t Imm> CUDAArray sr_() const { return sr_(Imm); }
 
     CUDAArray not_() const {
         return CUDAArray::from_index_(cuda_trace_append(Type,

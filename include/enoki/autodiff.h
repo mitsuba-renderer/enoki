@@ -871,17 +871,19 @@ public:
             return DiffArray::create(0, popcnt(m_value));
     }
 
-    template <size_t Imm>
-    DiffArray sl_() const { return DiffArray::create(0, sl<Imm>(m_value)); }
+    template <size_t Imm> DiffArray sl_() const {
+        if constexpr (is_mask_v<Type> || !std::is_integral_v<Scalar>)
+            fail_unsupported("sl_");
+        else
+            return DiffArray::create(0, sl<Imm>(m_value));
+    }
 
-    template <size_t Imm>
-    DiffArray sr_() const { return DiffArray::create(0, sr<Imm>(m_value)); }
-
-    template <size_t Imm>
-    DiffArray rol_() const { return DiffArray::create(0, rol<Imm>(m_value)); }
-
-    template <size_t Imm>
-    DiffArray ror_() const { return DiffArray::create(0, ror<Imm>(m_value)); }
+    template <size_t Imm> DiffArray sr_() const {
+        if constexpr (is_mask_v<Type> || !std::is_integral_v<Scalar>)
+            fail_unsupported("sr_");
+        else
+            return DiffArray::create(0, sr<Imm>(m_value));
+    }
 
     DiffArray sl_(const DiffArray &a) const {
         if constexpr (is_mask_v<Type> || !std::is_integral_v<Scalar>)
@@ -897,8 +899,33 @@ public:
             return DiffArray::create(0, m_value >> a.m_value);
     }
 
-    DiffArray sl_(size_t size) const { return sl_(Scalar(size)); }
-    DiffArray sr_(size_t size) const { return sr_(Scalar(size)); }
+    DiffArray sl_(size_t size) const {
+        if constexpr (is_mask_v<Type> || !std::is_integral_v<Scalar>)
+            fail_unsupported("sl_");
+        else
+            return DiffArray::create(0, m_value << size);
+    }
+
+    DiffArray sr_(size_t size) const {
+        if constexpr (is_mask_v<Type> || !std::is_integral_v<Scalar>)
+            fail_unsupported("sr_");
+        else
+            return DiffArray::create(0, m_value >> size);
+    }
+
+    template <size_t Imm> DiffArray rol_() const {
+        if constexpr (is_mask_v<Type> || !std::is_integral_v<Scalar>)
+            fail_unsupported("rol_");
+        else
+            return DiffArray::create(0, rol<Imm>(m_value));
+    }
+
+    template <size_t Imm> DiffArray ror_() const {
+        if constexpr (is_mask_v<Type> || !std::is_integral_v<Scalar>)
+            fail_unsupported("ror_");
+        else
+            return DiffArray::create(0, ror<Imm>(m_value));
+    }
 
     DiffArray rol_(const DiffArray &a) const {
         if constexpr (is_mask_v<Type> || !std::is_integral_v<Scalar>)
