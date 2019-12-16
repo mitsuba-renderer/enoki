@@ -652,7 +652,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
             return CUDAArray(Value(0));
         } else {
             void *ptr = cuda_malloc(size * sizeof(Value));
-            cuda_fill((uint8_t *) ptr, 0, size);
+            cuda_fill((uint8_t *) ptr, 0, size * sizeof(Value));
             uint32_t index = cuda_var_register(Type, size, ptr, true);
             return CUDAArray::from_index_(index);
         }
