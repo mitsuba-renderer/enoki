@@ -456,6 +456,9 @@ ENOKI_EXPORT void cuda_var_free(uint32_t idx) {
 }
 
 ENOKI_EXPORT void cuda_make_managed(uint32_t idx) {
+    if (idx == 0)
+        return;
+
     Context &ctx = context();
     Variable &v = ctx[idx];
 #if !defined(NDEBUG)
@@ -473,9 +476,8 @@ ENOKI_EXPORT void cuda_make_managed(uint32_t idx) {
         return;
 
     void *ptr = cuda_managed_malloc(total_size);
-    cuda_check(cudaMemcpyAsync(ptr, v.data, total_size,
-                               cudaMemcpyDeviceToDevice, nullptr));
-
+    cuda_check(cudaMemcpy(ptr, v.data, total_size,
+                          cudaMemcpyDeviceToDevice));
     cuda_free(v.data);
     v.data = ptr;
 }
