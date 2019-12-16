@@ -960,6 +960,7 @@ ENOKI_INLINE auto extract(const Array &value, const Mask &mask) {
 extern ENOKI_IMPORT void cuda_trace_printf(const char *, uint32_t, uint32_t*);
 extern ENOKI_IMPORT void cuda_var_mark_dirty(uint32_t);
 extern ENOKI_IMPORT void cuda_eval(bool log_assembly = false);
+extern ENOKI_IMPORT void cuda_sync();
 extern ENOKI_IMPORT void cuda_set_scatter_gather_operand(uint32_t index, bool gather = false);
 extern ENOKI_IMPORT void cuda_set_log_level(uint32_t);
 extern ENOKI_IMPORT uint32_t cuda_log_level();
