@@ -1824,8 +1824,8 @@ ENOKI_EXPORT void cuda_host_free(void *ptr, cudaStream_t stream) {
             }
 
             ctx.free_map.insert(std::make_pair(it->second, data));
-            ctx.used_map.erase(it);
             ctx.used_host -= it->second.size;
+            ctx.used_map.erase(it);
         },
         ptr, 0
     );

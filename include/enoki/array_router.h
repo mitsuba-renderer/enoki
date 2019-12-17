@@ -620,11 +620,11 @@ ENOKI_INLINE auto isfinite(const T &a) {
 }
 
 /// Extract the low elements from an array of even size
-template <typename Array, enable_if_t<(Array::Size > 1)> = 0>
+template <typename Array, enable_if_t<(Array::Size > 1 && Array::Size != -1)> = 0>
 auto low(const Array &a) { return a.derived().low_(); }
 
 /// Extract the high elements from an array of even size
-template <typename Array, enable_if_t<(Array::Size > 1)> = 0>
+template <typename Array, enable_if_t<(Array::Size > 1 && Array::Size != -1)> = 0>
 auto high(const Array &a) { return a.derived().high_(); }
 
 template <typename T, typename Arg>

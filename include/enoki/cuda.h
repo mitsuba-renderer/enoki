@@ -946,12 +946,18 @@ public:
     bool operator!=(const cuda_host_allocator &) { return false; }
 };
 
-#if defined(ENOKI_AUTODIFF) && !defined(ENOKI_BUILD)
-    extern ENOKI_IMPORT template struct Tape<CUDAArray<float>>;
-    extern ENOKI_IMPORT template struct DiffArray<CUDAArray<float>>;
+#if defined(_MSC_VER)
+#  define ENOKI_CUDA_EXTERN
+#else
+#  define ENOKI_CUDA_EXTERN extern
+#endif
 
-    extern ENOKI_IMPORT template struct Tape<CUDAArray<double>>;
-    extern ENOKI_IMPORT template struct DiffArray<CUDAArray<double>>;
+#if defined(ENOKI_AUTODIFF) && !defined(ENOKI_BUILD)
+    ENOKI_CUDA_EXTERN template struct ENOKI_IMPORT Tape<CUDAArray<float>>;
+    ENOKI_CUDA_EXTERN template struct ENOKI_IMPORT DiffArray<CUDAArray<float>>;
+
+    ENOKI_CUDA_EXTERN template struct ENOKI_IMPORT Tape<CUDAArray<double>>;
+    ENOKI_CUDA_EXTERN template struct ENOKI_IMPORT DiffArray<CUDAArray<double>>;
 #endif
 
 NAMESPACE_END(enoki)

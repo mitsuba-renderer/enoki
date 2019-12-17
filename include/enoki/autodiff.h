@@ -114,8 +114,8 @@ private:
 
 private:
 
-    static Tape s_tape;
-    Detail *d = nullptr;
+    static Tape *s_tape;
+    Detail *d;
 };
 
 template <typename Type>
@@ -1483,27 +1483,39 @@ template <typename T> std::string graphviz(const T &value) {
     return detail::diff_type_t<T>::graphviz_(indices);
 }
 
-#if !defined(ENOKI_BUILD)
-    extern ENOKI_IMPORT template struct Tape<float>;
-    extern ENOKI_IMPORT template struct DiffArray<float>;
+#if defined(ENOKI_AUTODIFF_BUILD)
+#  define ENOKI_AUTODIFF_EXTERN extern
+#  define ENOKI_AUTODIFF_EXPORT ENOKI_EXPORT
+#else
+#  define ENOKI_AUTODIFF_EXPORT ENOKI_IMPORT
+#  if defined(_MSC_VER)
+#    define ENOKI_AUTODIFF_EXTERN
+#else
+#    define ENOKI_AUTODIFF_EXTERN extern
+#  endif
+#endif
 
-    extern ENOKI_IMPORT template struct Tape<double>;
-    extern ENOKI_IMPORT template struct DiffArray<double>;
+#if !defined(ENOKI_BUILD)
+    ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT Tape<float>;
+    ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT DiffArray<float>;
+
+    ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT Tape<double>;
+    ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT DiffArray<double>;
 
 #  if defined(ENOKI_DYNAMIC)
-        extern ENOKI_IMPORT template struct Tape<DynamicArray<Packet<float>>>;
-        extern ENOKI_IMPORT template struct DiffArray<DynamicArray<Packet<float>>>;
+        ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT Tape<DynamicArray<Packet<float>>>;
+        ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT DiffArray<DynamicArray<Packet<float>>>;
 
-        extern ENOKI_IMPORT template struct Tape<DynamicArray<Packet<double>>>;
-        extern ENOKI_IMPORT template struct DiffArray<DynamicArray<Packet<double>>>;
+        ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT Tape<DynamicArray<Packet<double>>>;
+        ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT DiffArray<DynamicArray<Packet<double>>>;
 #  endif
 
 #  if defined(ENOKI_CUDA)
-        extern ENOKI_IMPORT template struct Tape<CUDAArray<float>>;
-        extern ENOKI_IMPORT template struct DiffArray<CUDAArray<float>>;
+        ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT Tape<CUDAArray<float>>;
+        ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT DiffArray<CUDAArray<float>>;
 
-        extern ENOKI_IMPORT template struct Tape<CUDAArray<double>>;
-        extern ENOKI_IMPORT template struct DiffArray<CUDAArray<double>>;
+        ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT Tape<CUDAArray<double>>;
+        ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT DiffArray<CUDAArray<double>>;
 #  endif
 #endif
 

@@ -311,6 +311,7 @@ if (ENOKI_AUTODIFF)
       ${PROJECT_SOURCE_DIR}/include/enoki/autodiff.h
       ${PROJECT_SOURCE_DIR}/src/autodiff/autodiff.cpp
   )
+  target_compile_definitions(enoki-autodiff PRIVATE -DENOKI_AUTODIFF_BUILD=1)
   if (ENOKI_CUDA)
       target_link_libraries(enoki-autodiff PRIVATE enoki-cuda)
   endif()

@@ -201,8 +201,12 @@ template <typename Value> struct Tape<Value>::SimplificationLock {
     bool state = false;
 };
 
-template <typename Value> Tape<Value> Tape<Value>::s_tape;
-template <typename Value> Tape<Value> *Tape<Value>::get() { return &s_tape; }
+template <typename Value> Tape<Value> *Tape<Value>::s_tape = nullptr;
+template <typename Value> Tape<Value> *Tape<Value>::get() {
+    if (ENOKI_UNLIKELY(!s_tape))
+        s_tape = new Tape();
+    return s_tape;
+}
 
 template <typename Value> Tape<Value>::Tape() {
     d = new Detail();
@@ -212,9 +216,6 @@ template <typename Value> Tape<Value>::Tape() {
 }
 
 template <typename Value> Tape<Value>::~Tape() {
-    if constexpr (is_cuda_array_v<Value>)
-        cuda_register_callback((void (*)(void *)) & Tape::cuda_callback, this);
-
 #if !defined(NDEBUG)
     if (d->log_level >= 1) {
         if (d->node_counter != 1)
