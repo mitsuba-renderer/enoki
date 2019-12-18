@@ -1432,8 +1432,6 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
                 continue;
 
             Variable &v = it->second;
-            if (v.side_effect)
-                cuda_dec_ref_ext(idx);
 
             if (v.data != nullptr && !v.cmd.empty()) {
                 for (int j = 0; j < 3; ++j) {
@@ -1443,6 +1441,9 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
                 cuda_dec_ref_ext(v.extra_dep);
                 v.extra_dep = 0;
             }
+
+            if (v.side_effect)
+                cuda_dec_ref_ext(idx);
         }
     }
 }
