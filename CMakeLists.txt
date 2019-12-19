@@ -40,41 +40,41 @@ set(ENOKI_CXXFLAGS_BACKUP ${CMAKE_CXX_FLAGS})
 set(ENOKI_NATIVE_FLAGS "")
 
 if (MSVC)
-  set(ENOKI_ARCHFLAGS_FILE archflags_win32.cpp)
+  set(ENOKI_ARCH_FLAGS_FILE archflags_win32.cpp)
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
     message(WARNING "Enoki does not support vectorization on 32-bit Windows due to various")
     message(WARNING "platform limitations (unaligned stack, calling conventions don't allow")
     message(WARNING "passing vector registers, etc.). Switching to scalar mode.")
   endif()
 else()
-  set(ENOKI_ARCHFLAGS_FILE archflags_unix.cpp)
+  set(ENOKI_ARCH_FLAGS_FILE archflags_unix.cpp)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
 endif()
 
 # Clang refuses -march=native on ARM machines
 if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "armv7")
-  set(ENOKI_ARCHFLAGS -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -mfp16-format=ieee)
-  set(ENOKI_NATIVE_FLAGS ${ENOKI_ARCHFLAGS})
+  set(ENOKI_ARCH_FLAGS -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -mfp16-format=ieee)
+  set(ENOKI_NATIVE_FLAGS ${ENOKI_ARCH_FLAGS})
 elseif (${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
-  set(ENOKI_ARCHFLAGS -march=armv8-a+simd -mtune=cortex-a53)
-  set(ENOKI_NATIVE_FLAGS ${ENOKI_ARCHFLAGS})
+  set(ENOKI_ARCH_FLAGS -march=armv8-a+simd -mtune=cortex-a53)
+  set(ENOKI_NATIVE_FLAGS ${ENOKI_ARCH_FLAGS})
 elseif (CMAKE_CXX_COMPILER MATCHES "/em\\+\\+(-[a-zA-Z0-9.])?$")
   # Emscripten
 else()
   if (UNIX)
-    set(ENOKI_ARCHFLAGS_LINK_LIBRARIES ${CMAKE_EXE_LINKER_FLAGS})
+    set(ENOKI_ARCH_FLAGS_LINK_LIBRARIES ${CMAKE_EXE_LINKER_FLAGS})
   endif()
   try_run(
-    ENOKI_ARCHFLAGS_RETVAL ENOKI_ARCHFLAGS_COMPILE_RESULT
+    ENOKI_ARCH_FLAGS_RETVAL ENOKI_ARCH_FLAGS_COMPILE_RESULT
     ${CMAKE_BINARY_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/resources/${ENOKI_ARCHFLAGS_FILE}
-    COMPILE_OUTPUT_VARIABLE ENOKI_ARCHFLAGS_MSG
-    RUN_OUTPUT_VARIABLE ENOKI_ARCHFLAGS
-    LINK_LIBRARIES ${ENOKI_ARCHFLAGS_LINK_LIBRARIES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/resources/${ENOKI_ARCH_FLAGS_FILE}
+    COMPILE_OUTPUT_VARIABLE ENOKI_ARCH_FLAGS_MSG
+    RUN_OUTPUT_VARIABLE ENOKI_ARCH_FLAGS
+    LINK_LIBRARIES ${ENOKI_ARCH_FLAGS_LINK_LIBRARIES}
   )
 
-  if (NOT ${ENOKI_ARCHFLAGS_COMPILE_RESULT})
-    message(FATAL_ERROR "Failed to compile 'archflags' binary: ${ENOKI_ARCHFLAGS_MSG}")
+  if (NOT ${ENOKI_ARCH_FLAGS_COMPILE_RESULT})
+    message(FATAL_ERROR "Failed to compile 'archflags' binary: ${ENOKI_ARCH_FLAGS_MSG}")
   endif()
 endif()
 
@@ -91,10 +91,11 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
 elseif (MSVC)
   # MSVC doesn't have a flag equivalent to -march=native
   # The 'archflags' executable provides this functionality
-  set(ENOKI_NATIVE_FLAGS ${ENOKI_ARCHFLAGS})
+  set(ENOKI_NATIVE_FLAGS ${ENOKI_ARCH_FLAGS})
 endif()
 
 if (NOT ENOKI_MASTER_PROJECT)
+  set(ENOKI_ARCH_FLAGS   ${ENOKI_ARCH_FLAGS} PARENT_SCOPE)
   set(ENOKI_NATIVE_FLAGS ${ENOKI_NATIVE_FLAGS} PARENT_SCOPE)
 endif()
 
@@ -106,38 +107,38 @@ set(ENOKI_TEST_KNL OFF)
 set(ENOKI_TEST_SKX OFF)
 set(ENOKI_TEST_ARM OFF)
 
-string(TOUPPER "${ENOKI_ARCHFLAGS}" ENOKI_ARCHFLAGS)
+string(TOUPPER "${ENOKI_ARCH_FLAGS}" ENOKI_ARCH_FLAGS)
 
-if (MSVC OR ENOKI_ARCHFLAGS MATCHES "SSE")
+if (MSVC OR ENOKI_ARCH_FLAGS MATCHES "SSE")
   set(ENOKI_TEST_SSE42 ON)
 endif()
 
-if (ENOKI_ARCHFLAGS MATCHES "AVX")
+if (ENOKI_ARCH_FLAGS MATCHES "AVX")
   set(ENOKI_TEST_SSE42 ON)
   set(ENOKI_TEST_AVX ON)
 endif()
 
-if (ENOKI_ARCHFLAGS MATCHES "AVX2")
+if (ENOKI_ARCH_FLAGS MATCHES "AVX2")
   set(ENOKI_TEST_SSE42 ON)
   set(ENOKI_TEST_AVX ON)
   set(ENOKI_TEST_AVX2 ON)
 endif()
 
-if (ENOKI_ARCHFLAGS MATCHES "KNL")
+if (ENOKI_ARCH_FLAGS MATCHES "KNL")
   set(ENOKI_TEST_SSE42 ON)
   set(ENOKI_TEST_AVX ON)
   set(ENOKI_TEST_AVX2 ON)
   set(ENOKI_TEST_KNL ON)
 endif()
 
-if (ENOKI_ARCHFLAGS MATCHES "SKX")
+if (ENOKI_ARCH_FLAGS MATCHES "SKX")
   set(ENOKI_TEST_SSE42 ON)
   set(ENOKI_TEST_AVX ON)
   set(ENOKI_TEST_AVX2 ON)
   set(ENOKI_TEST_SKX ON)
 endif()
 
-if (ENOKI_ARCHFLAGS MATCHES "ARMV")
+if (ENOKI_ARCH_FLAGS MATCHES "ARMV")
   set(ENOKI_HOST "ARM")
   set(ENOKI_TEST_ARM ON)
 endif()
