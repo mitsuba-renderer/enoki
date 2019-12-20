@@ -1,6 +1,6 @@
 #include "common.h"
 
-void bind_autodiff_4d(py::module& m) {
+void bind_cuda_autodiff_4d(py::module& m) {
     bind<Vector4bD>(m, "Vector4bD")
         .def(py::init<const Vector4bC &>());
 

@@ -1,6 +1,6 @@
 #include "common.h"
 
-void bind_autodiff_matrix_4d(py::module& m) {
+void bind_cuda_autodiff_matrix_4d(py::module& m) {
     bind_matrix<Matrix4fD>(m, "Matrix4fD");
 
     m.def("detach", [](const Matrix4fD &a) -> Matrix4fC { return detach(a); });

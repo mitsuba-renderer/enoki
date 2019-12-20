@@ -1,9 +1,16 @@
 #include "common.h"
 
-extern void bind_cpu_1d(py::module&);
-extern void bind_cpu_2d(py::module&);
-extern void bind_cpu_3d(py::module&);
-extern void bind_cpu_4d(py::module&);
+extern void bind_scalar_1d(py::module&);
+extern void bind_scalar_2d(py::module&);
+extern void bind_scalar_3d(py::module&);
+extern void bind_scalar_4d(py::module&);
+extern void bind_scalar_matrix_4d(py::module&);
+
+extern void bind_dynamic_1d(py::module&);
+extern void bind_dynamic_2d(py::module&);
+extern void bind_dynamic_3d(py::module&);
+extern void bind_dynamic_4d(py::module&);
+extern void bind_dynamic_matrix_4d(py::module&);
 
 extern void bind_cuda_1d(py::module&);
 extern void bind_cuda_2d(py::module&);
@@ -11,44 +18,48 @@ extern void bind_cuda_3d(py::module&);
 extern void bind_cuda_4d(py::module&);
 extern void bind_cuda_matrix_4d(py::module&);
 
-extern void bind_autodiff_1d(py::module&);
-extern void bind_autodiff_2d(py::module&);
-extern void bind_autodiff_3d(py::module&);
-extern void bind_autodiff_4d(py::module&);
-extern void bind_autodiff_matrix_4d(py::module&);
+extern void bind_cuda_autodiff_1d(py::module&);
+extern void bind_cuda_autodiff_2d(py::module&);
+extern void bind_cuda_autodiff_3d(py::module&);
+extern void bind_cuda_autodiff_4d(py::module&);
+extern void bind_cuda_autodiff_matrix_4d(py::module&);
 
-extern void bind_pcg32(py::module&);
+extern void bind_cuda_pcg32(py::module&);
 
-bool disable_print_flag = false;
+bool disable_print_flag = false; // used in common.h
 
 PYBIND11_MODULE(enoki, m) {
-    cuda_sync();
-
     m.attr("__version__") = ENOKI_VERSION;
 
-    bind_cpu_1d(m);
-    bind_cpu_2d(m);
-    bind_cpu_3d(m);
-    bind_cpu_4d(m);
+    bind_scalar_1d(m);
+    bind_scalar_2d(m);
+    bind_scalar_3d(m);
+    bind_scalar_4d(m);
+    bind_scalar_matrix_4d(m);
+
+    bind_dynamic_1d(m);
+    bind_dynamic_2d(m);
+    bind_dynamic_3d(m);
+    bind_dynamic_4d(m);
+    bind_dynamic_matrix_4d(m);
+
+#if defined(ENOKI_CUDA)
+    cuda_sync();
 
     bind_cuda_1d(m);
     bind_cuda_2d(m);
     bind_cuda_3d(m);
     bind_cuda_4d(m);
     bind_cuda_matrix_4d(m);
+    bind_cuda_pcg32(m);
 
-    bind_autodiff_1d(m);
-    bind_autodiff_2d(m);
-    bind_autodiff_3d(m);
-    bind_autodiff_4d(m);
-    bind_autodiff_matrix_4d(m);
-
-    bind_pcg32(m);
-
-    m.def("set_requires_gradient",
-          [](py::object o, bool value) {
-              throw py::type_error("set_requires_gradient(): requires a differentiable type as input!");
-          }, "array"_a, "value"_a = true);
+#if defined(ENOKI_AUTODIFF)
+    bind_cuda_autodiff_1d(m);
+    bind_cuda_autodiff_2d(m);
+    bind_cuda_autodiff_3d(m);
+    bind_cuda_autodiff_4d(m);
+    bind_cuda_autodiff_matrix_4d(m);
+#endif
 
     m.def("cuda_eval", &cuda_eval, "log_assembly"_a = false,
           py::call_guard<py::gil_scoped_release>());
@@ -73,4 +84,10 @@ PYBIND11_MODULE(enoki, m) {
     m.def("cuda_log_level", &cuda_log_level);
 
     py::class_<CUDAManagedBuffer>(m, "CUDAManagedBuffer");
+#endif
+
+    m.def("set_requires_gradient",
+          [](py::object o, bool value) {
+              throw py::type_error("set_requires_gradient(): requires a differentiable type as input!");
+          }, "array"_a, "value"_a = true);
 }

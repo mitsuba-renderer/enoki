@@ -14,53 +14,97 @@ using namespace enoki;
 namespace py = pybind11;
 using namespace py::literals;
 
-using Float     = float;
+using Float  = float;
+using Int32  = int32_t;
+using UInt32 = uint32_t;
+using Int64  = int64_t;
+using UInt64 = uint64_t;
 
-using FloatX    = DynamicArray<Packet<Float>>;
-using UInt32X   = DynamicArray<Packet<uint32_t>>;
-using UInt64X   = DynamicArray<Packet<uint64_t>>;
-using BoolX     = DynamicArray<Packet<bool>>;
+constexpr size_t PacketSize = array_default_size<Float>;
+
+using FloatX    = DynamicArray<Packet<Float, PacketSize>>;
+using Int32X    = DynamicArray<Packet<Int32, PacketSize>>;
+using Int64X    = DynamicArray<Packet<Int64, PacketSize>>;
+using UInt32X   = DynamicArray<Packet<UInt32, PacketSize>>;
+using UInt64X   = DynamicArray<Packet<UInt64, PacketSize>>;
+using MaskX     = mask_t<FloatX>;
 
 using FloatC    = CUDAArray<Float>;
-using UInt32C   = CUDAArray<uint32_t>;
-using UInt64C   = CUDAArray<uint64_t>;
-using BoolC     = CUDAArray<bool>;
+using Int32C    = CUDAArray<Int32>;
+using Int64C    = CUDAArray<Int64>;
+using UInt32C   = CUDAArray<UInt32>;
+using UInt64C   = CUDAArray<UInt64>;
+using MaskC     = mask_t<FloatC>;
 
 using FloatD    = DiffArray<FloatC>;
+using Int32D    = DiffArray<Int32C>;
+using Int64D    = DiffArray<Int64C>;
 using UInt32D   = DiffArray<UInt32C>;
 using UInt64D   = DiffArray<UInt64C>;
-using BoolD     = DiffArray<BoolC>;
+using MaskD     = mask_t<FloatD>;
 
+using Vector2f  = Array<Float , 2>;
 using Vector2fX = Array<FloatX, 2>;
 using Vector2fC = Array<FloatC, 2>;
 using Vector2fD = Array<FloatD, 2>;
+
+using Vector2i  = Array<Int32 , 2>;
+using Vector2iX = Array<Int32X, 2>;
+using Vector2iC = Array<Int32C, 2>;
+using Vector2iD = Array<Int32D, 2>;
+
+using Vector2u  = Array<UInt32 , 2>;
 using Vector2uX = Array<UInt32X, 2>;
 using Vector2uC = Array<UInt32C, 2>;
 using Vector2uD = Array<UInt32D, 2>;
-using Vector2bX = Array<BoolX, 2>;
+
+using Vector2b  = mask_t<Vector2f >;
+using Vector2bX = mask_t<Vector2fX>;
 using Vector2bC = mask_t<Vector2fC>;
 using Vector2bD = mask_t<Vector2fD>;
 
+using Vector3f  = Array<Float , 3>;
 using Vector3fX = Array<FloatX, 3>;
 using Vector3fC = Array<FloatC, 3>;
 using Vector3fD = Array<FloatD, 3>;
+
+using Vector3i  = Array<Int32 , 3>;
+using Vector3iX = Array<Int32X, 3>;
+using Vector3iC = Array<Int32C, 3>;
+using Vector3iD = Array<Int32D, 3>;
+
+using Vector3u  = Array<UInt32 , 3>;
 using Vector3uX = Array<UInt32X, 3>;
 using Vector3uC = Array<UInt32C, 3>;
 using Vector3uD = Array<UInt32D, 3>;
-using Vector3bX = Array<BoolX, 3>;
+
+using Vector3b  = mask_t<Vector3f >;
+using Vector3bX = mask_t<Vector3fX>;
 using Vector3bC = mask_t<Vector3fC>;
 using Vector3bD = mask_t<Vector3fD>;
 
+using Vector4f  = Array<Float , 4>;
 using Vector4fX = Array<FloatX, 4>;
 using Vector4fC = Array<FloatC, 4>;
 using Vector4fD = Array<FloatD, 4>;
+
+using Vector4i  = Array<Int32 , 4>;
+using Vector4iX = Array<Int32X, 4>;
+using Vector4iC = Array<Int32C, 4>;
+using Vector4iD = Array<Int32D, 4>;
+
+using Vector4u  = Array<UInt32 , 4>;
 using Vector4uX = Array<UInt32X, 4>;
 using Vector4uC = Array<UInt32C, 4>;
 using Vector4uD = Array<UInt32D, 4>;
-using Vector4bX = Array<BoolX, 4>;
+
+using Vector4b  = mask_t<Vector4f >;
+using Vector4bX = mask_t<Vector4fX>;
 using Vector4bC = mask_t<Vector4fC>;
 using Vector4bD = mask_t<Vector4fD>;
 
+using Matrix4f  = Matrix<Float , 4>;
+using Matrix4fX = Matrix<FloatX, 4>;
 using Matrix4fC = Matrix<FloatC, 4>;
 using Matrix4fD = Matrix<FloatD, 4>;
 
@@ -76,11 +120,6 @@ struct CUDAManagedBuffer {
     void *ptr = nullptr;
 };
 
-
-namespace enoki {
-extern ENOKI_IMPORT uint32_t cuda_var_copy_to_device(EnokiType type,
-                                                     size_t size, const void *value);
-};
 
 template <typename Array> py::object enoki_to_torch(const Array &array, bool eval);
 template <typename Array> py::object enoki_to_numpy(const Array &array, bool eval);
@@ -123,13 +162,17 @@ template <typename InputType, typename OutputType> void implicitly_convertible()
 
 template <typename Array>
 py::class_<Array> bind(py::module &m, const char *name) {
-    using Scalar = scalar_t<Array>;
-    using Value  = value_t<Array>;
+    using Scalar = std::conditional_t<
+        !is_mask_v<Array>, scalar_t<Array>, bool>;
+    using Value  = std::conditional_t<
+        is_mask_v<Array> && array_depth_v<Array> == 1,
+        bool, value_t<Array>>;
 
-    static constexpr bool IsMask  = is_mask_v<Array>;
-    static constexpr bool IsFloat = is_float_v<Scalar>;
-    static constexpr bool IsCUDA  = is_cuda_array_v<Array>;
-    static constexpr bool IsDiff  = is_diff_array_v<Array>;
+    static constexpr bool IsMask    = is_mask_v<Array>;
+    static constexpr bool IsFloat   = is_float_v<Scalar>;
+    static constexpr bool IsCUDA    = is_cuda_array_v<Array>;
+    static constexpr bool IsDiff    = is_diff_array_v<Array>;
+    static constexpr bool IsDynamic = is_dynamic_array_v<Array>;
 
     py::class_<Array> cl(m, name);
 
@@ -167,7 +210,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
         );
     }
 
-    if constexpr(IsCUDA) {
+    if constexpr (IsCUDA) {
         cl.def(py::init([](const py::object &obj) -> Array {
             const char *tp_name = ((PyTypeObject *) obj.get_type().ptr())->tp_name;
             if (strstr(tp_name, "Tensor") != nullptr) {
@@ -181,16 +224,11 @@ py::class_<Array> bind(py::module &m, const char *name) {
             }
 
             if constexpr (!IsMask && array_depth_v<Array> == 1) {
-                if (strstr(tp_name, "enoki.") == nullptr && py::isinstance<py::sequence>(obj)) {
+                if (strstr(tp_name, "enoki.") == nullptr &&
+                    py::isinstance<py::sequence>(obj)) {
                     try {
-                        auto a = py::cast<std::vector<Value>>(obj);
-                        if constexpr (!IsDiff) {
-                            uint32_t index = cuda_var_copy_to_device(Array::Type, a.size(), a.data());
-                            return Array::from_index_(index);
-                        } else {
-                            uint32_t index = cuda_var_copy_to_device(Array::UnderlyingType::Type, a.size(), a.data());
-                            return Array::UnderlyingType::from_index_(index);
-                        }
+                        std::vector<Value> result = py::cast<std::vector<Value>>(obj);
+                        return Array::copy(result.data(), result.size());
                     } catch (...) { }
                 }
             }
@@ -223,6 +261,22 @@ py::class_<Array> bind(py::module &m, const char *name) {
             result["typestr"] = typestr;
             return result;
         });
+    } else {
+        cl.def(py::init([](const py::object &obj) -> Array {
+            const char *tp_name = ((PyTypeObject *) obj.get_type().ptr())->tp_name;
+
+            if constexpr (IsDynamic && !IsMask && array_depth_v<Array> == 1) {
+                if (strstr(tp_name, "enoki.") == nullptr &&
+                    py::isinstance<py::sequence>(obj)) {
+                    try {
+                        std::vector<Value> result = py::cast<std::vector<Value>>(obj);
+                        return Array::copy(result.data(), result.size());
+                    } catch (...) { }
+                }
+            }
+
+            throw py::reference_cast_error();
+        }));
     }
 
     if constexpr (!IsMask) {
@@ -273,12 +327,14 @@ py::class_<Array> bind(py::module &m, const char *name) {
               [](size_t size) { return arange<Array>(size); }, "size"_a);
     }
 
-    cl.def_static("full",
-                  [](const Scalar &value, size_t size) {
-                      Array result(value);
-                      set_slices(result, size);
-                      return result;
-                  }, "value"_a, "size"_a);
+    if constexpr (IsDynamic) {
+        cl.def_static("full",
+                      [](Scalar value, size_t size) {
+                          Array result(value);
+                          set_slices(result, size);
+                          return result;
+                      }, "value"_a, "size"_a);
+    }
 
     cl.def("__getitem__", [](const Array &a, size_t index) -> Value {
         if (index >= a.size())
@@ -290,19 +346,21 @@ py::class_<Array> bind(py::module &m, const char *name) {
     cl.def("resize", [](Array &a, size_t size) { enoki::set_slices(a, size); });
     m.def("slices", [](const Array &a) { return slices(a); });
 
-    if constexpr (array_depth_v<Array> > 1) {
+    if constexpr (!IsDynamic || array_depth_v<Array> > 1) {
         cl.def("__setitem__", [](Array &a, size_t index, const Value &b) {
             if (index >= Array::Size)
                 throw py::index_error();
             a.coeff(index) = b;
         });
 
-        if constexpr (array_size_v<Array> == 2)
-            cl.def(py::init<Value, Value>());
-        else if constexpr (array_size_v<Array> == 3)
-            cl.def(py::init<Value, Value, Value>());
-        else if constexpr (array_size_v<Array> == 4)
-            cl.def(py::init<Value, Value, Value, Value>());
+        if constexpr (!IsMask || array_depth_v<Array> > 1) {
+            if constexpr (array_size_v<Array> == 2)
+                cl.def(py::init<Value, Value>());
+            else if constexpr (array_size_v<Array> == 3)
+                cl.def(py::init<Value, Value, Value>());
+            else if constexpr (array_size_v<Array> == 4)
+                cl.def(py::init<Value, Value, Value, Value>());
+        }
 
         cl.def(py::init([](const std::array<Value, Array::Size> &a) {
             Array result;
@@ -347,26 +405,27 @@ py::class_<Array> bind(py::module &m, const char *name) {
         });
     }
 
-    using Index = uint32_array_t<
-        std::conditional_t<array_depth_v<Array> == 1, Array, value_t<Array>>>;
-    m.def("gather",
-          [](const Array &source, const Index &index, mask_t<Index> &mask) {
-              return gather<Array>(source, index, mask);
-          },
-          "source"_a, "index"_a, "mask"_a = true);
+    using Index = array_t<uint32_array_t<
+        std::conditional_t<array_depth_v<Array> == 1, array_t<Array>, value_t<array_t<Array>>>>>;
 
-    m.def("scatter",
-          [](Array &target, const Array &source,
-             const Index &index,
-             mask_t<Index> &mask) { scatter(target, source, index, mask); },
-          "target"_a, "source"_a, "index"_a, "mask"_a = true);
+    // Scatter/gather currently not supported for dynamic CPU arrays containing masks
+    if constexpr (IsDynamic && (!IsMask || IsCUDA)) {
+        m.def("gather",
+              [](const Array &source, const Index &index, const mask_t<Index> &mask) {
+                  return gather<Array>(source, index, mask);
+              },
+              "source"_a, "index"_a, "mask"_a = true);
 
-    // TODO should be able to scatter_add with BoolX
-    if constexpr (!(IsMask && !IsCUDA)) {
+        m.def("scatter",
+              [](Array &target, const Array &source,
+                 const Index &index,
+                 const mask_t<Index> &mask) { scatter(target, source, index, mask); },
+              "target"_a, "source"_a, "index"_a, "mask"_a = true);
+
         m.def("scatter_add",
             [](Array &target, const Array &source,
-                const Index &index,
-                mask_t<Index> &mask) { scatter_add(target, source, index, mask); },
+               const Index &index,
+               const mask_t<Index> &mask) { scatter_add(target, source, index, mask); },
             "target"_a, "source"_a, "index"_a, "mask"_a = true);
     }
 

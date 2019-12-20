@@ -1,6 +1,6 @@
 #include "common.h"
 
-void bind_autodiff_3d(py::module& m) {
+void bind_cuda_autodiff_3d(py::module& m) {
     bind<Vector3bD>(m, "Vector3bD")
         .def(py::init<const Vector3bC &>());
 

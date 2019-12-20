@@ -18,7 +18,7 @@ if (ENOKI_CUDA)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -march=native -Xcompiler -fvisibility=hidden")
   endif()
   enable_language(CUDA)
-  add_definitions(-DENOKI_BUILD_CUDA=1)
+  add_definitions(-DENOKI_CUDA=1)
 endif()
 
 set(ENOKI_MASTER_PROJECT OFF)
@@ -308,6 +308,7 @@ elseif (MSVC)
 endif()
 
 if (ENOKI_AUTODIFF)
+  add_definitions(-DENOKI_CUDA=1)
   add_library(enoki-autodiff SHARED
       ${PROJECT_SOURCE_DIR}/include/enoki/autodiff.h
       ${PROJECT_SOURCE_DIR}/src/autodiff/autodiff.cpp
@@ -328,27 +329,49 @@ if (ENOKI_PYTHON)
 
   set(CMAKE_CXX_STANDARD 17)
   add_subdirectory(${ENOKI_PYBIND11_DIR} pybind11)
+
+  if (ENOKI_CUDA)
+    list(APPEND ENOKI_PYTHON_FILES
+      src/python/cuda_1d.cpp
+      src/python/cuda_2d.cpp
+      src/python/cuda_3d.cpp
+      src/python/cuda_4d.cpp
+      src/python/cuda_matrix_4d.cpp
+      src/python/cuda_pcg32.cpp
+    )
+
+    if (ENOKI_AUTODIFF)
+      list(APPEND ENOKI_PYTHON_FILES
+        src/python/cuda_autodiff_1d.cpp
+        src/python/cuda_autodiff_2d.cpp
+        src/python/cuda_autodiff_3d.cpp
+        src/python/cuda_autodiff_4d.cpp
+        src/python/cuda_autodiff_matrix_4d.cpp
+      )
+    endif()
+  endif()
+
   pybind11_add_module(
       enoki-python
       THIN_LTO
-      ${PROJECT_SOURCE_DIR}/src/python/common.h
-      ${PROJECT_SOURCE_DIR}/src/python/main.cpp
-      ${PROJECT_SOURCE_DIR}/src/python/cpu_1d.cpp
-      ${PROJECT_SOURCE_DIR}/src/python/cpu_2d.cpp
-      ${PROJECT_SOURCE_DIR}/src/python/cpu_3d.cpp
-      ${PROJECT_SOURCE_DIR}/src/python/cpu_4d.cpp
-      ${PROJECT_SOURCE_DIR}/src/python/cuda_1d.cpp
-      ${PROJECT_SOURCE_DIR}/src/python/cuda_2d.cpp
-      ${PROJECT_SOURCE_DIR}/src/python/cuda_3d.cpp
-      ${PROJECT_SOURCE_DIR}/src/python/cuda_4d.cpp
-      ${PROJECT_SOURCE_DIR}/src/python/cuda_matrix_4d.cpp
-      ${PROJECT_SOURCE_DIR}/src/python/autodiff_1d.cpp
-      ${PROJECT_SOURCE_DIR}/src/python/autodiff_2d.cpp
-      ${PROJECT_SOURCE_DIR}/src/python/autodiff_3d.cpp
-      ${PROJECT_SOURCE_DIR}/src/python/autodiff_4d.cpp
-      ${PROJECT_SOURCE_DIR}/src/python/autodiff_matrix_4d.cpp
-      ${PROJECT_SOURCE_DIR}/src/python/pcg32.cpp
+      src/python/common.h
+      src/python/main.cpp
+
+      src/python/dynamic_1d.cpp
+      src/python/dynamic_2d.cpp
+      src/python/dynamic_3d.cpp
+      src/python/dynamic_4d.cpp
+      src/python/dynamic_matrix_4d.cpp
+
+      src/python/scalar_1d.cpp
+      src/python/scalar_2d.cpp
+      src/python/scalar_3d.cpp
+      src/python/scalar_4d.cpp
+      src/python/scalar_matrix_4d.cpp
+
+      ${ENOKI_PYTHON_FILES}
   )
+
   set_target_properties(enoki-python PROPERTIES OUTPUT_NAME "enoki")
   target_link_libraries(enoki-python PRIVATE enoki-cuda enoki-autodiff cuda)
 endif()

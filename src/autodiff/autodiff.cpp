@@ -1123,12 +1123,12 @@ template struct ENOKI_EXPORT DiffArray<DynamicArray<Packet<float>>>;
 template struct ENOKI_EXPORT Tape<DynamicArray<Packet<double>>>;
 template struct ENOKI_EXPORT DiffArray<DynamicArray<Packet<double>>>;
 
-#if ENOKI_BUILD_CUDA
-template struct ENOKI_EXPORT Tape<CUDAArray<float>>;
-template struct ENOKI_EXPORT DiffArray<CUDAArray<float>>;
+#if defined(ENOKI_CUDA)
+    template struct ENOKI_EXPORT Tape<CUDAArray<float>>;
+    template struct ENOKI_EXPORT DiffArray<CUDAArray<float>>;
 
-template struct ENOKI_EXPORT Tape<CUDAArray<double>>;
-template struct ENOKI_EXPORT DiffArray<CUDAArray<double>>;
+    template struct ENOKI_EXPORT Tape<CUDAArray<double>>;
+    template struct ENOKI_EXPORT DiffArray<CUDAArray<double>>;
 #endif
 
 NAMESPACE_END(enoki)

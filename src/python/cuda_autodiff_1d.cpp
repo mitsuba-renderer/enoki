@@ -1,6 +1,6 @@
 #include "common.h"
 
-void bind_autodiff_1d(py::module& m) {
+void bind_cuda_autodiff_1d(py::module& m) {
     struct Scope {
         Scope(const std::string &name) : name(name) { }
 
@@ -10,8 +10,8 @@ void bind_autodiff_1d(py::module& m) {
         std::string name;
     };
 
-    bind<mask_t<FloatD>>(m, "BoolD")
-        .def(py::init<const BoolC &>());
+    bind<mask_t<FloatD>>(m, "MaskD")
+        .def(py::init<const MaskC &>());
 
     auto fd = bind<FloatD>(m, "FloatD")
         .def(py::init<const FloatC &>())

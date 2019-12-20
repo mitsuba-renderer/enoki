@@ -85,17 +85,6 @@ template <typename T, size_t Size = array_size_v<T>> struct PCG32 {
         return ror(xorshifted, rot_offset);
     }
 
-    /// Sparse version of \ref next_uint32 (only advances a subset of an array of RNGs)
-    template <typename Indices, enable_if_dynamic_t<Indices> = 0>
-    ENOKI_INLINE UInt32 next_uint32(const Indices &indices, const UInt64Mask &mask) {
-        UInt64 oldstate = gather<UInt64>(state, indices, mask),
-               inc_i    = gather<UInt64>(inc, indices, mask);
-        scatter(state, oldstate * uint64_t(PCG32_MULT) + inc_i, indices, mask);
-        UInt32 xorshifted = UInt32(sr<27>(sr<18>(oldstate) ^ oldstate));
-        UInt32 rot_offset = UInt32(sr<59>(oldstate));
-        return ror(xorshifted, rot_offset);
-    }
-
     /// Generate a uniformly distributed unsigned 64-bit random number
     ENOKI_INLINE UInt64 next_uint64() {
         return UInt64(next_uint32()) | sl<32>(UInt64(next_uint32()));
@@ -106,12 +95,6 @@ template <typename T, size_t Size = array_size_v<T>> struct PCG32 {
         return UInt64(next_uint32(mask)) | sl<32>(UInt64(next_uint32(mask)));
     }
 
-    /// Sparse version of \ref next_uint64 (only advances a subset of an array of RNGs)
-    template <typename Indices, enable_if_dynamic_t<Indices> = 0>
-    ENOKI_INLINE UInt64 next_uint64(const Indices &indices, const UInt64Mask &mask) {
-        return UInt64(next_uint32(indices, mask)) | sl<32>(UInt64(next_uint32(indices, mask)));
-    }
-
     /// Generate a single precision floating point value on the interval [0, 1)
     ENOKI_INLINE Float32 next_float32() {
         return reinterpret_array<Float32>(sr<9>(next_uint32()) | 0x3f800000u) - 1.f;
@@ -120,12 +103,6 @@ template <typename T, size_t Size = array_size_v<T>> struct PCG32 {
     /// Masked version of \ref next_float32
     ENOKI_INLINE Float32 next_float32(const UInt64Mask &mask) {
         return reinterpret_array<Float32>(sr<9>(next_uint32(mask)) | 0x3f800000u) - 1.f;
-    }
-
-    /// Sparse version of \ref next_float32 (only advances a subset of an array of RNGs)
-    template <typename Indices, enable_if_dynamic_t<Indices> = 0>
-    ENOKI_INLINE Float32 next_float32(const Indices &indices, const UInt64Mask &mask) {
-        return reinterpret_array<Float32>(sr<9>(next_uint32(indices, mask)) | 0x3f800000u) - 1.f;
     }
 
     /**
@@ -148,41 +125,36 @@ template <typename T, size_t Size = array_size_v<T>> struct PCG32 {
                                           0x3ff0000000000000ull) - 1.0;
     }
 
-    /// Sparse version of \ref next_float64 (only advances a subset of an array of RNGs)
-    template <typename Indices, enable_if_dynamic_t<Indices> = 0>
-    ENOKI_INLINE Float64 next_float64(const Indices &indices, const UInt64Mask &mask) {
-        return reinterpret_array<Float64>(sl<20>(UInt64(next_uint32(indices, mask))) |
-                                          0x3ff0000000000000ull) - 1.0;
-    }
-
     /// Generate a uniformly distributed integer r, where 0 <= r < bound
     UInt32 next_uint32_bounded(uint32_t bound, UInt64Mask mask = true) {
         if constexpr (is_scalar_v<T>) {
             ENOKI_MARK_USED(mask);
 
-            // To avoid bias, we need to make the range of the RNG a multiple of
-            // bound, which we do by dropping output less than a threshold.
-            // A naive scheme to calculate the threshold would be to do
-            //
-            //     UInt32 threshold = 0x1'0000'0000ull % bound;
-            //
-            // but 64-bit div/mod is slower than 32-bit div/mod (especially on
-            // 32-bit platforms).  In essence, we do
-            //
-            //     UInt32 threshold = (0x1'0000'0000ull-bound) % bound;
-            //
-            // because this version will calculate the same modulus, but the LHS
-            // value is less than 2^32.
+            /* To avoid bias, we need to make the range of the RNG a multiple of
+               bound, which we do by dropping output less than a threshold.
+               A naive scheme to calculate the threshold would be to do
+
+                   UInt32 threshold = 0x1'0000'0000ull % bound;
+
+               but 64-bit div/mod is slower than 32-bit div/mod (especially on
+               32-bit platforms).  In essence, we do
+
+                   UInt32 threshold = (0x1'0000'0000ull-bound) % bound;
+
+               because this version will calculate the same modulus, but the LHS
+               value is less than 2^32.
+            */
 
             const UInt32 threshold = (~bound + 1u) % bound;
 
-            // Uniformity guarantees that this loop will terminate.  In practice, it
-            // should usually terminate quickly; on average (assuming all bounds are
-            // equally likely), 82.25% of the time, we can expect it to require just
-            // one iteration.  In the worst case, someone passes a bound of 2^31 + 1
-            // (i.e., 2147483649), which invalidates almost 50% of the range.  In
-            // practice, bounds are typically small and only a tiny amount of the range
-            // is eliminated.
+            /* Uniformity guarantees that this loop will terminate.  In practice, it
+               should usually terminate quickly; on average (assuming all bounds are
+               equally likely), 82.25% of the time, we can expect it to require just
+               one iteration.  In the worst case, someone passes a bound of 2^31 + 1
+               (i.e., 2147483649), which invalidates almost 50% of the range.  In
+               practice, bounds are typically small and only a tiny amount of the range
+               is eliminated.
+            */
 
             while (true) {
                 UInt32 result = next_uint32();
