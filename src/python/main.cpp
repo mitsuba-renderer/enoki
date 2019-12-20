@@ -11,20 +11,20 @@ extern void bind_dynamic_2d(py::module&);
 extern void bind_dynamic_3d(py::module&);
 extern void bind_dynamic_4d(py::module&);
 extern void bind_dynamic_matrix_4d(py::module&);
+extern void bind_dynamic_pcg32(py::module&);
 
 extern void bind_cuda_1d(py::module&);
 extern void bind_cuda_2d(py::module&);
 extern void bind_cuda_3d(py::module&);
 extern void bind_cuda_4d(py::module&);
 extern void bind_cuda_matrix_4d(py::module&);
+extern void bind_cuda_pcg32(py::module&);
 
 extern void bind_cuda_autodiff_1d(py::module&);
 extern void bind_cuda_autodiff_2d(py::module&);
 extern void bind_cuda_autodiff_3d(py::module&);
 extern void bind_cuda_autodiff_4d(py::module&);
 extern void bind_cuda_autodiff_matrix_4d(py::module&);
-
-extern void bind_cuda_pcg32(py::module&);
 
 bool disable_print_flag = false; // used in common.h
 
@@ -42,6 +42,7 @@ PYBIND11_MODULE(enoki, m) {
     bind_dynamic_3d(m);
     bind_dynamic_4d(m);
     bind_dynamic_matrix_4d(m);
+    bind_dynamic_pcg32(m);
 
 #if defined(ENOKI_CUDA)
     cuda_sync();
@@ -82,9 +83,9 @@ PYBIND11_MODULE(enoki, m) {
           "statistics, 3: +ptx source, 4: +jit trace, 5: +ref counting)");
 
     m.def("cuda_log_level", &cuda_log_level);
-
-    py::class_<CUDAManagedBuffer>(m, "CUDAManagedBuffer");
 #endif
+
+    py::class_<Buffer>(m, "Buffer");
 
     m.def("set_requires_gradient",
           [](py::object o, bool value) {

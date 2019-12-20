@@ -58,10 +58,10 @@ using Vector2uX = Array<UInt32X, 2>;
 using Vector2uC = Array<UInt32C, 2>;
 using Vector2uD = Array<UInt32D, 2>;
 
-using Vector2b  = mask_t<Vector2f >;
-using Vector2bX = mask_t<Vector2fX>;
-using Vector2bC = mask_t<Vector2fC>;
-using Vector2bD = mask_t<Vector2fD>;
+using Vector2m  = mask_t<Vector2f >;
+using Vector2mX = mask_t<Vector2fX>;
+using Vector2mC = mask_t<Vector2fC>;
+using Vector2mD = mask_t<Vector2fD>;
 
 using Vector3f  = Array<Float , 3>;
 using Vector3fX = Array<FloatX, 3>;
@@ -78,10 +78,10 @@ using Vector3uX = Array<UInt32X, 3>;
 using Vector3uC = Array<UInt32C, 3>;
 using Vector3uD = Array<UInt32D, 3>;
 
-using Vector3b  = mask_t<Vector3f >;
-using Vector3bX = mask_t<Vector3fX>;
-using Vector3bC = mask_t<Vector3fC>;
-using Vector3bD = mask_t<Vector3fD>;
+using Vector3m  = mask_t<Vector3f >;
+using Vector3mX = mask_t<Vector3fX>;
+using Vector3mC = mask_t<Vector3fC>;
+using Vector3mD = mask_t<Vector3fD>;
 
 using Vector4f  = Array<Float , 4>;
 using Vector4fX = Array<FloatX, 4>;
@@ -98,26 +98,40 @@ using Vector4uX = Array<UInt32X, 4>;
 using Vector4uC = Array<UInt32C, 4>;
 using Vector4uD = Array<UInt32D, 4>;
 
-using Vector4b  = mask_t<Vector4f >;
-using Vector4bX = mask_t<Vector4fX>;
-using Vector4bC = mask_t<Vector4fC>;
-using Vector4bD = mask_t<Vector4fD>;
+using Vector4m  = mask_t<Vector4f >;
+using Vector4mX = mask_t<Vector4fX>;
+using Vector4mC = mask_t<Vector4fC>;
+using Vector4mD = mask_t<Vector4fD>;
 
 using Matrix4f  = Matrix<Float , 4>;
 using Matrix4fX = Matrix<FloatX, 4>;
 using Matrix4fC = Matrix<FloatC, 4>;
 using Matrix4fD = Matrix<FloatD, 4>;
 
-struct CUDAManagedBuffer {
-    CUDAManagedBuffer(size_t size) {
-        ptr = cuda_managed_malloc(size);
+struct Buffer {
+    Buffer(size_t size, bool cuda_managed)
+        : cuda_managed(cuda_managed) {
+#if defined(ENOKI_CUDA)
+        if (cuda_managed) {
+            ptr = cuda_managed_malloc(size);
+            return;
+        }
+#endif
+        ptr = std::aligned_alloc(64, size);
     }
 
-    ~CUDAManagedBuffer() {
-        cuda_free(ptr);
+    ~Buffer() {
+#if defined(ENOKI_CUDA)
+        if (cuda_managed) {
+            cuda_free(ptr);
+            return;
+        }
+#endif
+        std::free(ptr);
     }
 
     void *ptr = nullptr;
+    bool cuda_managed = false;
 };
 
 
@@ -172,7 +186,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
     static constexpr bool IsFloat   = is_float_v<Scalar>;
     static constexpr bool IsCUDA    = is_cuda_array_v<Array>;
     static constexpr bool IsDiff    = is_diff_array_v<Array>;
-    static constexpr bool IsDynamic = is_dynamic_array_v<Array>;
+    static constexpr bool IsDynamic = is_dynamic_v<Array>;
 
     py::class_<Array> cl(m, name);
 
@@ -238,45 +252,53 @@ py::class_<Array> bind(py::module &m, const char *name) {
         .def("torch", [](const Array &a, bool eval) {
             return enoki_to_torch(detach(a), eval); },
             "eval"_a = true
-        )
-        .def("numpy", [](const Array &a, bool eval) {
-            return enoki_to_numpy(detach(a), eval); },
-            "eval"_a = true
-        )
-        .def_property_readonly("__array_interface__", [](const py::object &o) {
-            py::object np_array = o.attr("numpy")();
-            py::dict result;
-            result["data"] = np_array;
-            result["shape"] = np_array.attr("shape");
-            result["version"] = 3;
-            char typestr[4] = { '<', 0, '0' + sizeof(Scalar), 0 };
-            if (std::is_floating_point_v<Scalar>)
-                typestr[1] = 'f';
-            else if (std::is_same_v<Scalar, bool>)
-                typestr[1] = 'b';
-            else if (std::is_unsigned_v<Scalar>)
-                typestr[1] = 'u';
-            else
-                typestr[1] = 'i';
-            result["typestr"] = typestr;
-            return result;
-        });
+        );
     } else {
         cl.def(py::init([](const py::object &obj) -> Array {
             const char *tp_name = ((PyTypeObject *) obj.get_type().ptr())->tp_name;
+            if constexpr (IsDynamic && !IsMask) {
+                if (strstr(tp_name, "numpy.ndarray") != nullptr) {
+                    using T = expr_t<decltype(detach(std::declval<Array&>()))>;
+                    return numpy_to_enoki<T>(obj);
+                }
 
-            if constexpr (IsDynamic && !IsMask && array_depth_v<Array> == 1) {
-                if (strstr(tp_name, "enoki.") == nullptr &&
-                    py::isinstance<py::sequence>(obj)) {
-                    try {
-                        std::vector<Value> result = py::cast<std::vector<Value>>(obj);
-                        return Array::copy(result.data(), result.size());
-                    } catch (...) { }
+                if constexpr (array_depth_v<Array> == 1) {
+                    if (strstr(tp_name, "enoki.") == nullptr &&
+                        py::isinstance<py::sequence>(obj)) {
+                        try {
+                            std::vector<Value> result = py::cast<std::vector<Value>>(obj);
+                            return Array::copy(result.data(), result.size());
+                        } catch (...) { }
+                    }
                 }
             }
 
             throw py::reference_cast_error();
         }));
+    }
+
+    if constexpr (IsCUDA || !IsMask) {
+        cl.def("numpy", [](const Array &a, bool eval) {
+                return enoki_to_numpy(detach(a), eval); },
+                "eval"_a = true)
+          .def_property_readonly("__array_interface__", [](const py::object &o) {
+               py::object np_array = o.attr("numpy")();
+               py::dict result;
+               result["data"] = np_array;
+               result["shape"] = np_array.attr("shape");
+               result["version"] = 3;
+               char typestr[4] = { '<', 0, '0' + sizeof(Scalar), 0 };
+               if (std::is_floating_point_v<Scalar>)
+                   typestr[1] = 'f';
+               else if (std::is_same_v<Scalar, bool>)
+                   typestr[1] = 'b';
+               else if (std::is_unsigned_v<Scalar>)
+                   typestr[1] = 'u';
+               else
+                   typestr[1] = 'i';
+               result["typestr"] = typestr;
+               return result;
+           });
     }
 
     if constexpr (!IsMask) {
@@ -364,7 +386,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
 
         cl.def(py::init([](const std::array<Value, Array::Size> &a) {
             Array result;
-            for (size_t i = 0; i<Array::Size; ++i)
+            for (size_t i = 0; i < Array::Size; ++i)
                 result.coeff(i) = a[i];
             return result;
         }));
@@ -398,8 +420,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
         cl.def_property_readonly("data", [](const Array &a) { return (uintptr_t) a.data(); });
     }
 
-    // TODO should be able to compress FloatX
-    if constexpr (IsCUDA && !IsDiff) {
+    if constexpr (IsDynamic && !IsDiff) {
         m.def("compress", [](const Array &array, const mask_t<Array> &mask) {
             return compress(array, mask);
         });
@@ -504,6 +525,14 @@ py::class_<Array> bind(py::module &m, const char *name) {
         m.def("hmax", [](const Array &a) { return enoki::hmax(a); });
         m.def("hmean", [](const Array &a) { return enoki::hmean(a); });
 
+        if constexpr (array_depth_v<Array> > 1) {
+            m.def("hsum_nested", [](const Array &a) { return enoki::hsum_nested(a); });
+            m.def("hprod_nested", [](const Array &a) { return enoki::hprod_nested(a); });
+            m.def("hmin_nested", [](const Array &a) { return enoki::hmin_nested(a); });
+            m.def("hmax_nested", [](const Array &a) { return enoki::hmax_nested(a); });
+            m.def("hmean_nested", [](const Array &a) { return enoki::hmean_nested(a); });
+        }
+
         m.def("fmadd", [](const Array &a, const Array &b, const Array &c) {
             return enoki::fmadd(a, b, c);
         });
@@ -589,6 +618,9 @@ py::class_<Array> bind(py::module &m, const char *name) {
 
     if constexpr (!std::is_same_v<Value, Scalar>)
         implicitly_convertible<Scalar, Array>();
+
+    if constexpr (!IsDynamic || array_depth_v<Array> > 1)
+        implicitly_convertible<py::list, Array>();
 
     return cl;
 }
@@ -683,48 +715,47 @@ template <typename Scalar> py::object torch_dtype() {
     return torch.attr(name);
 }
 
-template <size_t Index, size_t Dim, typename Source, typename Target>
-static void copy_array_gather(size_t offset,
-                              const std::array<size_t, Dim> &shape,
-                              const std::array<size_t, Dim> &strides,
-                              const Source &source, Target &target) {
+template <bool Scatter, size_t Index, size_t Dim, typename Source, typename Target>
+static void copy_array(size_t offset,
+                       const std::array<size_t, Dim> &shape,
+                       const std::array<size_t, Dim> &strides,
+                       const Source &source, Target &target) {
     using namespace enoki;
+
+    size_t cur_shape = shape[Index],
+           cur_stride = strides[Index];
+
     if constexpr (Index == Dim - 1) {
-        using UInt32 = uint32_array_t<Source>;
-        UInt32 index = fmadd(arange<UInt32>((uint32_t) shape[Index]),
-                             (uint32_t) strides[Index], (uint32_t) offset);
-        target = gather<Target>(source, index);
+        if constexpr (is_cuda_array_v<Source>) {
+            using UInt32 = uint32_array_t<Source>;
+            UInt32 index = fmadd(arange<UInt32>((uint32_t) cur_shape),
+                                 (uint32_t) cur_stride, (uint32_t) offset);
+            if constexpr (Scatter)
+                scatter(target, source, index);
+            else
+                target = gather<Target>(source, index);
+        } else {
+            for (size_t i = 0; i < cur_shape; ++i) {
+                if constexpr (Scatter)
+                    target[offset + cur_stride*i] = source[i];
+                else
+                    target[i] = source[offset + cur_stride*i];
+            }
+        }
     } else {
-        const size_t step = strides[Index];
-        for (size_t i = 0; i < shape[Index]; ++i) {
-            copy_array_gather<Index + 1, Dim>(offset, shape, strides, source,
-                                              target.coeff(i));
-            offset += step;
+        for (size_t i = 0; i < cur_shape; ++i) {
+            if constexpr (Scatter)
+                copy_array<Scatter, Index + 1, Dim>(offset, shape, strides,
+                                                    source.coeff(i), target);
+            else
+                copy_array<Scatter, Index + 1, Dim>(offset, shape, strides,
+                                                    source, target.coeff(i));
+            offset += cur_stride;
         }
     }
 }
 
-template <size_t Index, size_t Dim, typename Source, typename Target>
-static void copy_array_scatter(size_t offset,
-                               const std::array<size_t, Dim> &shape,
-                               const std::array<size_t, Dim> &strides,
-                               const Source &source, Target &target) {
-    using namespace enoki;
-    if constexpr (Index == Dim - 1) {
-        using UInt32 = uint32_array_t<Source>;
-        UInt32 index = fmadd(arange<UInt32>((uint32_t) shape[Index]),
-                             (uint32_t) strides[Index], (uint32_t) offset);
-        scatter(target, source, index);
-    } else {
-        const size_t step = strides[Index];
-        for (size_t i = 0; i < shape[Index]; ++i) {
-            copy_array_scatter<Index + 1, Dim>(offset, shape, strides,
-                                               source.coeff(i), target);
-            offset += step;
-        }
-    }
-}
-
+#if defined(ENOKI_CUDA)
 template <typename Array>
 ENOKI_NOINLINE py::object enoki_to_torch(const Array &src, bool eval) {
     constexpr size_t Depth = array_depth_v<Array>;
@@ -752,7 +783,8 @@ ENOKI_NOINLINE py::object enoki_to_torch(const Array &src, bool eval) {
     if (size > 0) {
         CUDAArray<Scalar> target = CUDAArray<Scalar>::map(
             (Scalar *) py::cast<uintptr_t>(result.attr("data_ptr")()), size);
-        copy_array_scatter<0>(0, shape, strides, src, target);
+        copy_array</* Scatter = */ true, 0>(0, shape, strides, src, target);
+
         if (eval) {
             cuda_eval();
             cuda_sync();
@@ -790,10 +822,11 @@ ENOKI_NOINLINE Array torch_to_enoki(py::object src) {
         CUDAArray<Scalar> source = CUDAArray<Scalar>::map(
             (Scalar *) py::cast<uintptr_t>(src.attr("data_ptr")()), size);
 
-        copy_array_gather<0>(0, shape, strides, source, result);
+        copy_array</* Scatter = */ false, 0>(0, shape, strides, source, result);
     }
     return result;
 }
+#endif
 
 template <typename Array>
 ENOKI_NOINLINE py::object enoki_to_numpy(const Array &src, bool eval) {
@@ -811,7 +844,7 @@ ENOKI_NOINLINE py::object enoki_to_numpy(const Array &src, bool eval) {
         stride *= shape_rev[i];
     }
 
-    CUDAManagedBuffer *buf = new CUDAManagedBuffer(stride);
+    Buffer *buf = new Buffer(stride, is_cuda_array_v<Array>);
     py::object buf_py = py::cast(buf, py::return_value_policy::take_ownership);
 
     py::array result(py::dtype::of<Scalar>(), shape_rev, strides, buf->ptr, buf_py);
@@ -820,12 +853,20 @@ ENOKI_NOINLINE py::object enoki_to_numpy(const Array &src, bool eval) {
     std::reverse(strides.begin(), strides.end());
 
     if (size > 0) {
-        CUDAArray<Scalar> target = CUDAArray<Scalar>::map(buf->ptr, stride);
-        copy_array_scatter<0>(0, shape, strides, src, target);
-        if (eval) {
+        using T = std::conditional_t<
+            is_cuda_array_v<Array>,
+            CUDAArray<Scalar>,
+            DynamicArray<Packet<Scalar, PacketSize>>
+        >;
+        T target = T::map(buf->ptr, stride);
+        copy_array</* Scatter = */ true, 0>(0, shape, strides, src, target);
+
+#if defined(ENOKI_CUDA)
+        if (is_cuda_array_v<Array> && eval) {
             cuda_eval();
             cuda_sync();
         }
+#endif
     }
 
     return result;
@@ -834,6 +875,7 @@ ENOKI_NOINLINE py::object enoki_to_numpy(const Array &src, bool eval) {
 template <typename Array>
 ENOKI_NOINLINE Array numpy_to_enoki(py::array src) {
     constexpr size_t Depth = array_depth_v<Array>;
+    using SizeArray = std::array<size_t, Depth>;
     using Scalar = scalar_t<Array>;
 
     py::tuple shape_obj = src.attr("shape");
@@ -846,8 +888,9 @@ ENOKI_NOINLINE Array numpy_to_enoki(py::array src) {
     if (!dtype_obj.is(target_dtype))
         src = py::array_t<Scalar, py::array::forcecast>::ensure(src);
 
-    auto shape = py::cast<std::array<size_t, Depth>>(shape_obj);
-    auto strides = py::cast<std::array<size_t, Depth>>(src.attr("strides"));
+    SizeArray shape   = py::cast<SizeArray>(shape_obj),
+              strides = py::cast<SizeArray>(src.attr("strides"));
+
     std::reverse(shape.begin(), shape.end());
     std::reverse(strides.begin(), strides.end());
 
@@ -860,11 +903,18 @@ ENOKI_NOINLINE Array numpy_to_enoki(py::array src) {
 
     Array result;
 
-    if (size > 0) {
-        CUDAArray<Scalar> source = CUDAArray<Scalar>::from_index_(
-            cuda_var_copy_to_device(enoki_type_v<Scalar>, size, src.data()));
+    if constexpr (!is_cuda_array_v<Array>)
+        set_shape(result, shape);
 
-        copy_array_gather<0>(0, shape, strides, source, result);
+    if (size > 0) {
+        using T = std::conditional_t<
+            is_cuda_array_v<Array>,
+            CUDAArray<Scalar>,
+            DynamicArray<Packet<Scalar, PacketSize>>
+        >;
+        const T source = T::copy(src.data(), size);
+
+        copy_array</* Scatter = */ false, 0>(0, shape, strides, source, result);
     }
 
     return result;

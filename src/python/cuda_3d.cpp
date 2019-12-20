@@ -1,7 +1,7 @@
 #include "common.h"
 
 void bind_cuda_3d(py::module& m) {
-    auto vector3b_class = bind<Vector3bC>(m, "Vector3bC");
+    auto vector3m_class = bind<Vector3mC>(m, "Vector3mC");
     auto vector3f_class = bind<Vector3fC>(m, "Vector3fC");
     auto vector3i_class = bind<Vector3iC>(m, "Vector3iC");
     auto vector3u_class = bind<Vector3uC>(m, "Vector3uC");

@@ -1,20 +1,20 @@
 #include "common.h"
 
 void bind_cuda_autodiff_1d(py::module& m) {
-    struct Scope {
-        Scope(const std::string &name) : name(name) { }
+    auto mask_class = bind<mask_t<FloatD>>(m, "MaskD");
+    auto float_class = bind<FloatD>(m, "FloatD");
+    auto int32_class = bind<Int32D>(m, "Int32D");
+    auto int64_class = bind<Int64D>(m, "Int64D");
+    auto uint32_class = bind<UInt32D>(m, "UInt32D");
+    auto uint64_class = bind<UInt64D>(m, "UInt64D");
 
-        void enter() { FloatD::push_prefix_(name.c_str()); }
-        void exit(py::handle, py::handle, py::handle) { FloatD::pop_prefix_(); }
-
-        std::string name;
-    };
-
-    bind<mask_t<FloatD>>(m, "MaskD")
+    mask_class
         .def(py::init<const MaskC &>());
 
-    auto fd = bind<FloatD>(m, "FloatD")
+    float_class
         .def(py::init<const FloatC &>())
+        .def(py::init<const Int64D &>())
+        .def(py::init<const Int32D &>())
         .def(py::init<const UInt64D &>())
         .def(py::init<const UInt32D &>())
         .def("set_graph_simplification", [](bool value) { FloatD::set_graph_simplification_(value); })
@@ -31,18 +31,45 @@ void bind_cuda_autodiff_1d(py::module& m) {
                     [](bool free_graph) { forward<FloatD>(free_graph); },
                     "free_graph"_a = true);
 
-    py::class_<Scope>(fd, "Scope")
-        .def(py::init<const std::string &>())
-        .def("__enter__", &Scope::enter)
-        .def("__exit__", &Scope::exit);
+    int32_class
+        .def(py::init<const Int32C &>())
+        .def(py::init<const Int64D &>())
+        .def(py::init<const UInt32D &>())
+        .def(py::init<const UInt64D &>())
+        .def(py::init<const FloatD &>());
 
-    bind<UInt32D>(m, "UInt32D")
+    int64_class
+        .def(py::init<const Int32D &>())
+        .def(py::init<const Int64C &>())
+        .def(py::init<const UInt32D &>())
+        .def(py::init<const UInt64D &>())
+        .def(py::init<const FloatD &>());
+
+    uint32_class
+        .def(py::init<const Int32D &>())
+        .def(py::init<const Int64D &>())
         .def(py::init<const UInt32C &>())
         .def(py::init<const UInt64D &>())
         .def(py::init<const FloatD &>());
 
-    bind<UInt64D>(m, "UInt64D")
-        .def(py::init<const UInt64C &>())
+    uint64_class
+        .def(py::init<const Int32D &>())
+        .def(py::init<const Int64D &>())
         .def(py::init<const UInt32D &>())
+        .def(py::init<const UInt64C &>())
         .def(py::init<const FloatD &>());
+
+    struct Scope {
+        Scope(const std::string &name) : name(name) { }
+
+        void enter() { FloatD::push_prefix_(name.c_str()); }
+        void exit(py::handle, py::handle, py::handle) { FloatD::pop_prefix_(); }
+
+        std::string name;
+    };
+
+    py::class_<Scope>(float_class, "Scope")
+        .def(py::init<const std::string &>())
+        .def("__enter__", &Scope::enter)
+        .def("__exit__", &Scope::exit);
 }

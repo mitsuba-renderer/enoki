@@ -1,7 +1,7 @@
 #include "common.h"
 
 void bind_scalar_4d(py::module& m) {
-    auto vector4b_class = bind<Vector4b>(m, "Vector4b");
+    auto vector4m_class = bind<Vector4m>(m, "Vector4m");
     auto vector4f_class = bind<Vector4f>(m, "Vector4f");
     auto vector4i_class = bind<Vector4i>(m, "Vector4i");
     auto vector4u_class = bind<Vector4u>(m, "Vector4u");

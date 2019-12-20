@@ -1,7 +1,7 @@
 #include "common.h"
 
 void bind_dynamic_4d(py::module& m) {
-    auto vector4b_class = bind<Vector4bX>(m, "Vector4bX");
+    auto vector4m_class = bind<Vector4mX>(m, "Vector4mX");
     auto vector4f_class = bind<Vector4fX>(m, "Vector4fX");
     auto vector4i_class = bind<Vector4iX>(m, "Vector4iX");
     auto vector4u_class = bind<Vector4uX>(m, "Vector4uX");

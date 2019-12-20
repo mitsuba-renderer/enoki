@@ -1,7 +1,7 @@
 #include "common.h"
 
 void bind_dynamic_2d(py::module& m) {
-    auto vector2b_class = bind<Vector2bX>(m, "Vector2bX");
+    auto vector2m_class = bind<Vector2mX>(m, "Vector2mX");
     auto vector2f_class = bind<Vector2fX>(m, "Vector2fX");
     auto vector2i_class = bind<Vector2iX>(m, "Vector2iX");
     auto vector2u_class = bind<Vector2uX>(m, "Vector2uX");

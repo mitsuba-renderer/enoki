@@ -1,7 +1,7 @@
 #include "common.h"
 
 void bind_cuda_2d(py::module& m) {
-    auto vector2b_class = bind<Vector2bC>(m, "Vector2bC");
+    auto vector2m_class = bind<Vector2mC>(m, "Vector2mC");
     auto vector2f_class = bind<Vector2fC>(m, "Vector2fC");
     auto vector2i_class = bind<Vector2iC>(m, "Vector2iC");
     auto vector2u_class = bind<Vector2uC>(m, "Vector2uC");

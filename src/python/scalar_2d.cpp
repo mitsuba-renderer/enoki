@@ -1,7 +1,7 @@
 #include "common.h"
 
 void bind_scalar_2d(py::module& m) {
-    auto vector2b_class = bind<Vector2b>(m, "Vector2b");
+    auto vector2m_class = bind<Vector2m>(m, "Vector2m");
     auto vector2f_class = bind<Vector2f>(m, "Vector2f");
     auto vector2i_class = bind<Vector2i>(m, "Vector2i");
     auto vector2u_class = bind<Vector2u>(m, "Vector2u");

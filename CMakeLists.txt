@@ -362,6 +362,7 @@ if (ENOKI_PYTHON)
       src/python/dynamic_3d.cpp
       src/python/dynamic_4d.cpp
       src/python/dynamic_matrix_4d.cpp
+      src/python/dynamic_pcg32.cpp
 
       src/python/scalar_1d.cpp
       src/python/scalar_2d.cpp
@@ -374,6 +375,10 @@ if (ENOKI_PYTHON)
 
   set_target_properties(enoki-python PROPERTIES OUTPUT_NAME "enoki")
   target_link_libraries(enoki-python PRIVATE enoki-cuda enoki-autodiff cuda)
+
+  if (CMAKE_CXX_COMPILER_ID MATCHES "GCC|Clang")
+    target_compile_options(enoki-python PRIVATE -Os)
+  endif()
 endif()
 
 # Build the documentation

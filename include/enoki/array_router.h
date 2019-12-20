@@ -1222,35 +1222,45 @@ ENOKI_INLINE void prefetch(const Source &source, const Args &... args) {
 // -----------------------------------------------------------------------
 
 template <typename T> auto hsum_nested(const T &a) {
-    if constexpr (is_array_v<T>)
+    if constexpr (array_depth_v<T> == 1)
+        return hsum(a);
+    else if constexpr (is_array_v<T>)
         return hsum_nested(hsum(a));
     else
         return a;
 }
 
 template <typename T> auto hprod_nested(const T &a) {
-    if constexpr (is_array_v<T>)
+    if constexpr (array_depth_v<T> == 1)
+        return hprod(a);
+    else if constexpr (is_array_v<T>)
         return hprod_nested(hprod(a));
     else
         return a;
 }
 
 template <typename T> auto hmin_nested(const T &a) {
-    if constexpr (is_array_v<T>)
+    if constexpr (array_depth_v<T> == 1)
+        return hmin(a);
+    else if constexpr (is_array_v<T>)
         return hmin_nested(hmin(a));
     else
         return a;
 }
 
 template <typename T> auto hmax_nested(const T &a) {
-    if constexpr (is_array_v<T>)
+    if constexpr (array_depth_v<T> == 1)
+        return hmax(a);
+    else if constexpr (is_array_v<T>)
         return hmax_nested(hmax(a));
     else
         return a;
 }
 
 template <typename T> auto hmean_nested(const T &a) {
-    if constexpr (is_array_v<T>)
+    if constexpr (array_depth_v<T> == 1)
+        return hmean(a);
+    else if constexpr (is_array_v<T>)
         return hmean_nested(hmean(a));
     else
         return a;

@@ -559,15 +559,18 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
         }
     }
 
-    template <typename Mask>
-    ENOKI_INLINE size_t compress_(float *&ptr, const Mask &mask) const {
+    template <typename Mask> Derived compress_(const Mask &mask) const {
         assert(mask.size() == size());
         size_t count = 0;
+        Derived result;
+        set_slices(result, size());
+        Value *ptr = result.data();
+
         for (size_t i = 0; i < packets(); ++i)
             count += compress(ptr, packet(i), mask.packet(i));
-        return count;
+        set_slices(result, count);
+        return result;
     }
-
 
     template <typename T> T ceil2int_() const {
         T result;
