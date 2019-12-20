@@ -56,8 +56,9 @@ struct Complex : StaticArrayImpl<Value_, 2, Approx_, RoundingMode::Default, fals
 };
 
 template <typename T, enable_if_complex_t<T> = 0>
-ENOKI_INLINE T identity() {
-    return T(1.f, 0.f);
+ENOKI_INLINE T identity(size_t size = 1) {
+    using Value = value_t<T>;
+    return T(full<Value>(1.f, size), zero<Value>(size));
 }
 
 template <typename T, bool Approx> ENOKI_INLINE expr_t<T> real(const Complex<T, Approx> &z) { return z.x(); }

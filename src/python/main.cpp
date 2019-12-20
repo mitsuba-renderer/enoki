@@ -4,12 +4,15 @@ extern void bind_scalar_1d(py::module&);
 extern void bind_scalar_2d(py::module&);
 extern void bind_scalar_3d(py::module&);
 extern void bind_scalar_4d(py::module&);
+extern void bind_scalar_complex(py::module&);
 extern void bind_scalar_matrix(py::module&);
+extern void bind_scalar_pcg32(py::module&);
 
 extern void bind_dynamic_1d(py::module&);
 extern void bind_dynamic_2d(py::module&);
 extern void bind_dynamic_3d(py::module&);
 extern void bind_dynamic_4d(py::module&);
+extern void bind_dynamic_complex(py::module&);
 extern void bind_dynamic_matrix(py::module&);
 extern void bind_dynamic_pcg32(py::module&);
 
@@ -17,6 +20,7 @@ extern void bind_cuda_1d(py::module&);
 extern void bind_cuda_2d(py::module&);
 extern void bind_cuda_3d(py::module&);
 extern void bind_cuda_4d(py::module&);
+extern void bind_cuda_complex(py::module&);
 extern void bind_cuda_matrix(py::module&);
 extern void bind_cuda_pcg32(py::module&);
 
@@ -24,6 +28,7 @@ extern void bind_cuda_autodiff_1d(py::module&);
 extern void bind_cuda_autodiff_2d(py::module&);
 extern void bind_cuda_autodiff_3d(py::module&);
 extern void bind_cuda_autodiff_4d(py::module&);
+extern void bind_cuda_autodiff_complex(py::module&);
 extern void bind_cuda_autodiff_matrix(py::module&);
 
 bool disable_print_flag = false; // used in common.h
@@ -35,12 +40,15 @@ PYBIND11_MODULE(enoki, m) {
     bind_scalar_2d(m);
     bind_scalar_3d(m);
     bind_scalar_4d(m);
+    bind_scalar_complex(m);
     bind_scalar_matrix(m);
+    bind_scalar_pcg32(m);
 
     bind_dynamic_1d(m);
     bind_dynamic_2d(m);
     bind_dynamic_3d(m);
     bind_dynamic_4d(m);
+    bind_dynamic_complex(m);
     bind_dynamic_matrix(m);
     bind_dynamic_pcg32(m);
 
@@ -51,6 +59,7 @@ PYBIND11_MODULE(enoki, m) {
     bind_cuda_2d(m);
     bind_cuda_3d(m);
     bind_cuda_4d(m);
+    bind_cuda_complex(m);
     bind_cuda_matrix(m);
     bind_cuda_pcg32(m);
 
@@ -59,6 +68,7 @@ PYBIND11_MODULE(enoki, m) {
     bind_cuda_autodiff_2d(m);
     bind_cuda_autodiff_3d(m);
     bind_cuda_autodiff_4d(m);
+    bind_cuda_autodiff_complex(m);
     bind_cuda_autodiff_matrix(m);
 #endif
 

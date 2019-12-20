@@ -1,6 +1,7 @@
 #include <enoki/cuda.h>
 #include <enoki/dynamic.h>
 #include <enoki/autodiff.h>
+#include <enoki/complex.h>
 #include <enoki/matrix.h>
 #include <enoki/transform.h>
 #include <enoki/special.h>
@@ -103,6 +104,16 @@ using Vector4mX = mask_t<Vector4fX>;
 using Vector4mC = mask_t<Vector4fC>;
 using Vector4mD = mask_t<Vector4fD>;
 
+using Complex2f  = Complex<Float >;
+using Complex2fX = Complex<FloatX>;
+using Complex2fC = Complex<FloatC>;
+using Complex2fD = Complex<FloatD>;
+
+using Complex24f  = Complex<Vector4f >;
+using Complex24fX = Complex<Vector4fX>;
+using Complex24fC = Complex<Vector4fC>;
+using Complex24fD = Complex<Vector4fD>;
+
 using Matrix2f  = Matrix<Float , 2>;
 using Matrix2fX = Matrix<FloatX, 2>;
 using Matrix2fC = Matrix<FloatC, 2>;
@@ -117,6 +128,11 @@ using Matrix4f  = Matrix<Float , 4>;
 using Matrix4fX = Matrix<FloatX, 4>;
 using Matrix4fC = Matrix<FloatC, 4>;
 using Matrix4fD = Matrix<FloatD, 4>;
+
+using Matrix44f  = Matrix<Vector4f , 4>;
+using Matrix44fX = Matrix<Vector4fX, 4>;
+using Matrix44fC = Matrix<Vector4fC, 4>;
+using Matrix44fD = Matrix<Vector4fD, 4>;
 
 struct Buffer {
     Buffer(size_t size, bool cuda_managed)
@@ -143,7 +159,6 @@ struct Buffer {
     void *ptr = nullptr;
     bool cuda_managed = false;
 };
-
 
 template <typename Array> py::object enoki_to_torch(const Array &array, bool eval);
 template <typename Array> py::object enoki_to_numpy(const Array &array, bool eval);
@@ -458,29 +473,33 @@ py::class_<Array> bind(py::module &m, const char *name) {
     }
 
     if constexpr (IsFloat) {
-        m.def("abs",   [](const Array &a) { return enoki::abs(a); });
-        m.def("sqr",   [](const Array &a) { return enoki::sqr(a); });
-        m.def("sqrt",  [](const Array &a) { return enoki::sqrt(a); });
-        m.def("cbrt",  [](const Array &a) { return enoki::cbrt(a); });
-        m.def("rcp",   [](const Array &a) { return enoki::rcp(a); });
-        m.def("rsqrt", [](const Array &a) { return enoki::rsqrt(a); });
+        m.def("abs",        [](const Array &a) { return enoki::abs(a); });
+        m.def("sqr",        [](const Array &a) { return enoki::sqr(a); });
+        m.def("sqrt",       [](const Array &a) { return enoki::sqrt(a); });
+        m.def("safe_sqrt",  [](const Array &a) { return enoki::safe_sqrt(a); });
+        m.def("cbrt",       [](const Array &a) { return enoki::cbrt(a); });
+        m.def("rcp",        [](const Array &a) { return enoki::rcp(a); });
+        m.def("rsqrt",      [](const Array &a) { return enoki::rsqrt(a); });
+        m.def("safe_rsqrt", [](const Array &a) { return enoki::safe_rsqrt(a); });
 
-        m.def("ceil",  [](const Array &a) { return enoki::ceil(a); });
-        m.def("floor", [](const Array &a) { return enoki::floor(a); });
-        m.def("round", [](const Array &a) { return enoki::round(a); });
-        m.def("trunc", [](const Array &a) { return enoki::trunc(a); });
+        m.def("ceil",       [](const Array &a) { return enoki::ceil(a); });
+        m.def("floor",      [](const Array &a) { return enoki::floor(a); });
+        m.def("round",      [](const Array &a) { return enoki::round(a); });
+        m.def("trunc",      [](const Array &a) { return enoki::trunc(a); });
 
-        m.def("sin",    [](const Array &a) { return enoki::sin(a); });
-        m.def("cos",    [](const Array &a) { return enoki::cos(a); });
-        m.def("sincos", [](const Array &a) { return enoki::sincos(a); });
-        m.def("tan",    [](const Array &a) { return enoki::tan(a); });
-        m.def("sec",    [](const Array &a) { return enoki::sec(a); });
-        m.def("csc",    [](const Array &a) { return enoki::csc(a); });
-        m.def("cot",    [](const Array &a) { return enoki::cot(a); });
-        m.def("asin",   [](const Array &a) { return enoki::asin(a); });
-        m.def("acos",   [](const Array &a) { return enoki::acos(a); });
-        m.def("atan",   [](const Array &a) { return enoki::atan(a); });
-        m.def("atan2",  [](const Array &a, const Array &b) {
+        m.def("sin",        [](const Array &a) { return enoki::sin(a); });
+        m.def("cos",        [](const Array &a) { return enoki::cos(a); });
+        m.def("sincos",     [](const Array &a) { return enoki::sincos(a); });
+        m.def("tan",        [](const Array &a) { return enoki::tan(a); });
+        m.def("sec",        [](const Array &a) { return enoki::sec(a); });
+        m.def("csc",        [](const Array &a) { return enoki::csc(a); });
+        m.def("cot",        [](const Array &a) { return enoki::cot(a); });
+        m.def("asin",       [](const Array &a) { return enoki::asin(a); });
+        m.def("safe_asin",  [](const Array &a) { return enoki::safe_asin(a); });
+        m.def("acos",       [](const Array &a) { return enoki::acos(a); });
+        m.def("safe_acos",  [](const Array &a) { return enoki::safe_acos(a); });
+        m.def("atan",       [](const Array &a) { return enoki::atan(a); });
+        m.def("atan2",      [](const Array &a, const Array &b) {
             return enoki::atan2(a, b);
         });
 
@@ -733,6 +752,93 @@ py::class_<Matrix> bind_matrix(py::module &m, const char *name) {
     return cls;
 }
 
+template <typename Complex>
+py::class_<Complex> bind_complex(py::module &m, const char *name) {
+    using Value = value_t<Complex>;
+
+    auto cls = py::class_<Complex>(m, name)
+        .def(py::init<>())
+        .def(py::init<const Value &>())
+        .def(py::init<const Value &, const Value &>(), "real"_a, "imag"_a)
+        .def(py::self == py::self)
+        .def(py::self != py::self)
+        .def(py::self - py::self)
+        .def(py::self + py::self)
+        .def(py::self * py::self)
+        .def(py::self / py::self)
+        .def(-py::self)
+        .def("__repr__", [](const Complex &a) -> std::string {
+            if (disable_print_flag)
+                return "";
+            std::ostringstream oss;
+            oss << a;
+            return oss.str();
+        })
+        .def("__getitem__", [](const Complex &a, size_t index) {
+            if (index >= 2)
+                throw py::index_error();
+            return a.coeff(index);
+        })
+        .def("__setitem__", [](Complex &a, size_t index, const Value &value) {
+            if (index >= 2)
+                throw py::index_error();
+            a.coeff(index) = value;
+        })
+        .def_static("identity", [](size_t size) { return identity<Complex>(size); }, "size"_a = 1)
+        .def_static("zero", [](size_t size) { return zero<Complex>(size); }, "size"_a = 1);
+
+    m.def("real", [](const Complex &z) { return real(z); });
+    m.def("imag", [](const Complex &z) { return imag(z); });
+    m.def("norm", [](const Complex &z) { return norm(z); });
+    m.def("squared_norm", [](const Complex &z) { return squared_norm(z); });
+    m.def("rcp", [](const Complex &z) { return rcp(z); });
+    m.def("conj", [](const Complex &z) { return conj(z); });
+    m.def("exp", [](const Complex &z) { return exp(z); });
+    m.def("log", [](const Complex &z) { return log(z); });
+    m.def("pow", [](const Complex &z1, const Complex &z2) { return pow(z1, z2); });
+    m.def("sqrt", [](const Complex &z) { return sqrt(z); });
+    m.def("sin", [](const Complex &z) { return sin(z); });
+    m.def("cos", [](const Complex &z) { return cos(z); });
+    m.def("sincos", [](const Complex &z) { return sincos(z); });
+    m.def("tan", [](const Complex &z) { return tan(z); });
+    m.def("asin", [](const Complex &z) { return asin(z); });
+    m.def("acos", [](const Complex &z) { return acos(z); });
+    m.def("atan", [](const Complex &z) { return atan(z); });
+    m.def("sinh", [](const Complex &z) { return sinh(z); });
+    m.def("cosh", [](const Complex &z) { return cosh(z); });
+    m.def("sincosh", [](const Complex &z) { return sincosh(z); });
+    m.def("tanh", [](const Complex &z) { return tanh(z); });
+    m.def("asinh", [](const Complex &z) { return asinh(z); });
+    m.def("acosh", [](const Complex &z) { return acosh(z); });
+    m.def("atanh", [](const Complex &z) { return atanh(z); });
+
+    if constexpr (is_diff_array_v<Complex>) {
+        using Detached = expr_t<decltype(detach(std::declval<Complex&>()))>;
+
+        m.def("detach", [](const Complex &a) -> Detached { return detach(a); });
+        m.def("requires_gradient",
+              [](const Complex &a) { return requires_gradient(a); },
+              "array"_a);
+
+        m.def("set_requires_gradient",
+              [](Complex &a, bool value) { set_requires_gradient(a, value); },
+              "array"_a, "value"_a = true);
+
+        m.def("gradient", [](Complex &a) { return eval(gradient(a)); });
+        m.def("set_gradient",
+              [](Complex &a, const Detached &g, bool b) { set_gradient(a, g, b); },
+              "array"_a, "gradient"_a, "backward"_a = true);
+
+        m.def("graphviz", [](const Complex &a) { return graphviz(a); });
+
+        m.def("set_label", [](const Complex &a, const char *label) {
+            set_label(a, label);
+        });
+    }
+
+    return cls;
+}
+
 template <typename Scalar> py::object torch_dtype() {
     py::object torch = py::module::import("torch");
     const char *name = nullptr;
@@ -830,10 +936,12 @@ ENOKI_NOINLINE py::object enoki_to_torch(const Array &src, bool eval) {
             (Scalar *) py::cast<uintptr_t>(result.attr("data_ptr")()), size);
         copy_array</* Scatter = */ true, 0>(0, shape, strides, src, target);
 
+#if defined(ENOKI_CUDA)
         if (eval) {
             cuda_eval();
             cuda_sync();
         }
+#endif
     }
     return result;
 }

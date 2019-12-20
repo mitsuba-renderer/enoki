@@ -308,7 +308,7 @@ elseif (MSVC)
 endif()
 
 if (ENOKI_AUTODIFF)
-  add_definitions(-DENOKI_CUDA=1)
+  add_definitions(-DENOKI_AUTODIFF=1)
   add_library(enoki-autodiff SHARED
       ${PROJECT_SOURCE_DIR}/include/enoki/autodiff.h
       ${PROJECT_SOURCE_DIR}/src/autodiff/autodiff.cpp
@@ -320,10 +320,6 @@ if (ENOKI_AUTODIFF)
 endif()
 
 if (ENOKI_PYTHON)
-  if ((NOT ENOKI_CUDA) OR (NOT ENOKI_AUTODIFF))
-    message(FATAL_ERROR "The Enoki python module requires -DENOKI_CUDA=1 and -DENOKI_AUTODIFF=1")
-  endif()
-
   set(ENOKI_PYBIND11_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ext/pybind11"
     CACHE STRING "Path containing the 'pybind11' library used to compile Enoki.")
 
@@ -336,6 +332,7 @@ if (ENOKI_PYTHON)
       src/python/cuda_2d.cpp
       src/python/cuda_3d.cpp
       src/python/cuda_4d.cpp
+      src/python/cuda_complex.cpp
       src/python/cuda_matrix.cpp
       src/python/cuda_pcg32.cpp
     )
@@ -346,6 +343,7 @@ if (ENOKI_PYTHON)
         src/python/cuda_autodiff_2d.cpp
         src/python/cuda_autodiff_3d.cpp
         src/python/cuda_autodiff_4d.cpp
+        src/python/cuda_autodiff_complex.cpp
         src/python/cuda_autodiff_matrix.cpp
       )
     endif()
@@ -357,24 +355,34 @@ if (ENOKI_PYTHON)
       src/python/common.h
       src/python/main.cpp
 
-      src/python/dynamic_1d.cpp
-      src/python/dynamic_2d.cpp
-      src/python/dynamic_3d.cpp
-      src/python/dynamic_4d.cpp
-      src/python/dynamic_matrix.cpp
-      src/python/dynamic_pcg32.cpp
-
       src/python/scalar_1d.cpp
       src/python/scalar_2d.cpp
       src/python/scalar_3d.cpp
       src/python/scalar_4d.cpp
+      src/python/scalar_complex.cpp
       src/python/scalar_matrix.cpp
+      src/python/scalar_pcg32.cpp
+
+      src/python/dynamic_1d.cpp
+      src/python/dynamic_2d.cpp
+      src/python/dynamic_3d.cpp
+      src/python/dynamic_4d.cpp
+      src/python/dynamic_complex.cpp
+      src/python/dynamic_matrix.cpp
+      src/python/dynamic_pcg32.cpp
 
       ${ENOKI_PYTHON_FILES}
   )
 
   set_target_properties(enoki-python PROPERTIES OUTPUT_NAME "enoki")
-  target_link_libraries(enoki-python PRIVATE enoki-cuda enoki-autodiff cuda)
+
+  if (ENOKI_AUTODIFF)
+    target_link_libraries(enoki-python PRIVATE enoki-autodiff)
+  endif()
+
+  if (ENOKI_CUDA)
+    target_link_libraries(enoki-python PRIVATE enoki-cuda cuda)
+  endif()
 
   if (CMAKE_CXX_COMPILER_ID MATCHES "GCC|Clang")
     target_compile_options(enoki-python PRIVATE -Os)

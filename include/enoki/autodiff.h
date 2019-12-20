@@ -16,7 +16,7 @@
 #include <enoki/array.h>
 #include <vector>
 
-#define ENOKI_AUTODIFF 1
+#define ENOKI_AUTODIFF_H 1
 
 NAMESPACE_BEGIN(enoki)
 
@@ -1502,7 +1502,7 @@ template <typename T> std::string graphviz(const T &value) {
     ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT Tape<double>;
     ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT DiffArray<double>;
 
-#  if defined(ENOKI_DYNAMIC)
+#  if defined(ENOKI_DYNAMIC_H)
         ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT Tape<DynamicArray<Packet<float>>>;
         ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT DiffArray<DynamicArray<Packet<float>>>;
 
@@ -1510,7 +1510,7 @@ template <typename T> std::string graphviz(const T &value) {
         ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT DiffArray<DynamicArray<Packet<double>>>;
 #  endif
 
-#  if defined(ENOKI_CUDA)
+#  if defined(ENOKI_CUDA_H)
         ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT Tape<CUDAArray<float>>;
         ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT DiffArray<CUDAArray<float>>;
 

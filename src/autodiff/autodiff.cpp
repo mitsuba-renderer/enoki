@@ -12,7 +12,9 @@
 */
 
 #include <enoki/dynamic.h>
+#if defined(ENOKI_CUDA)
 #include <enoki/cuda.h>
+#endif
 #include <enoki/autodiff.h>
 
 #include <unordered_map>
@@ -211,8 +213,10 @@ template <typename Value> Tape<Value> *Tape<Value>::get() {
 template <typename Value> Tape<Value>::Tape() {
     d = new Detail();
 
+#if defined(ENOKI_CUDA)
     if constexpr (is_cuda_array_v<Value>)
         cuda_register_callback((void (*)(void *)) & Tape::cuda_callback, this);
+#endif
 }
 
 template <typename Value> Tape<Value>::~Tape() {
@@ -1090,10 +1094,12 @@ template <typename Value> Value safe_mul(const Value &value1, const Value &value
         mask_t<Value> is_zero = eq(value1, zero) || eq(value2, zero);
         return select(is_zero, zero, tentative);
     } else {
+#if defined(ENOKI_CUDA)
         using Mask = mask_t<Value>;
         Mask m1 = Mask::from_index_(cuda_trace_append(EnokiType::Bool, "setp.eq.f32 $r1, $r2, 0.0", value1.index_())),
              m2 = Mask::from_index_(cuda_trace_append(EnokiType::Bool, "setp.eq.or.f32 $r1, $r2, 0.0, $r3", value2.index_(), m1.index_()));
         return Value::from_index_(cuda_trace_append(Value::Type, "selp.$t1 $r1, 0.0, $r2, $r3", tentative.index_(), m2.index_()));
+#endif
     }
 }
 
@@ -1104,10 +1110,12 @@ template <typename Value> Value safe_fmadd(const Value &value1, const Value &val
         mask_t<Value> is_zero = eq(value1, zero) || eq(value2, zero);
         return select(is_zero, value3, tentative);
     } else {
+#if defined(ENOKI_CUDA)
         using Mask = mask_t<Value>;
         Mask m1 = Mask::from_index_(cuda_trace_append(EnokiType::Bool, "setp.eq.f32 $r1, $r2, 0.0", value1.index_())),
              m2 = Mask::from_index_(cuda_trace_append(EnokiType::Bool, "setp.eq.or.f32 $r1, $r2, 0.0, $r3", value2.index_(), m1.index_()));
         return Value::from_index_(cuda_trace_append(Value::Type, "selp.$t1 $r1, $r2, $r3, $r4", value3.index_(), tentative.index_(), m2.index_()));
+#endif
     }
 }
 

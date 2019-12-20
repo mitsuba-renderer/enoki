@@ -13,7 +13,7 @@
 
 #pragma once
 
-#define ENOKI_CUDA 1
+#define ENOKI_CUDA_H 1
 
 #include <enoki/array.h>
 
@@ -952,7 +952,7 @@ public:
 #  define ENOKI_CUDA_EXTERN extern
 #endif
 
-#if defined(ENOKI_AUTODIFF) && !defined(ENOKI_BUILD)
+#if defined(ENOKI_AUTODIFF_H) && !defined(ENOKI_BUILD)
     ENOKI_CUDA_EXTERN template struct ENOKI_IMPORT Tape<CUDAArray<float>>;
     ENOKI_CUDA_EXTERN template struct ENOKI_IMPORT DiffArray<CUDAArray<float>>;
 

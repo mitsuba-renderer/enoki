@@ -20,7 +20,7 @@
 #  pragma GCC diagnostic ignored "-Wclass-memaccess"
 #endif
 
-#define ENOKI_DYNAMIC 1
+#define ENOKI_DYNAMIC_H 1
 
 NAMESPACE_BEGIN(enoki)
 
@@ -1048,7 +1048,7 @@ auto vectorize_safe(Func &&f, Args &&... args)
     return vectorize<true>(f, args...);
 }
 
-#if defined(ENOKI_AUTODIFF) && !defined(ENOKI_BUILD)
+#if defined(ENOKI_AUTODIFF_H) && !defined(ENOKI_BUILD)
     extern ENOKI_IMPORT template struct Tape<DynamicArray<Packet<float>>>;
     extern ENOKI_IMPORT template struct DiffArray<DynamicArray<Packet<float>>>;
 
