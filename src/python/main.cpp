@@ -1,5 +1,10 @@
 #include "common.h"
 
+extern void bind_cpu_1d(py::module&);
+extern void bind_cpu_2d(py::module&);
+extern void bind_cpu_3d(py::module&);
+extern void bind_cpu_4d(py::module&);
+
 extern void bind_cuda_1d(py::module&);
 extern void bind_cuda_2d(py::module&);
 extern void bind_cuda_3d(py::module&);
@@ -20,6 +25,11 @@ PYBIND11_MODULE(enoki, m) {
     cuda_sync();
 
     m.attr("__version__") = ENOKI_VERSION;
+
+    bind_cpu_1d(m);
+    bind_cpu_2d(m);
+    bind_cpu_3d(m);
+    bind_cpu_4d(m);
 
     bind_cuda_1d(m);
     bind_cuda_2d(m);

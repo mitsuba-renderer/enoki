@@ -333,6 +333,10 @@ if (ENOKI_PYTHON)
       THIN_LTO
       ${PROJECT_SOURCE_DIR}/src/python/common.h
       ${PROJECT_SOURCE_DIR}/src/python/main.cpp
+      ${PROJECT_SOURCE_DIR}/src/python/cpu_1d.cpp
+      ${PROJECT_SOURCE_DIR}/src/python/cpu_2d.cpp
+      ${PROJECT_SOURCE_DIR}/src/python/cpu_3d.cpp
+      ${PROJECT_SOURCE_DIR}/src/python/cpu_4d.cpp
       ${PROJECT_SOURCE_DIR}/src/python/cuda_1d.cpp
       ${PROJECT_SOURCE_DIR}/src/python/cuda_2d.cpp
       ${PROJECT_SOURCE_DIR}/src/python/cuda_3d.cpp

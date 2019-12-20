@@ -1,4 +1,5 @@
 #include <enoki/cuda.h>
+#include <enoki/dynamic.h>
 #include <enoki/autodiff.h>
 #include <enoki/matrix.h>
 #include <enoki/transform.h>
@@ -14,6 +15,12 @@ namespace py = pybind11;
 using namespace py::literals;
 
 using Float     = float;
+
+using FloatX    = DynamicArray<Packet<Float>>;
+using UInt32X   = DynamicArray<Packet<uint32_t>>;
+using UInt64X   = DynamicArray<Packet<uint64_t>>;
+using BoolX     = DynamicArray<Packet<bool>>;
+
 using FloatC    = CUDAArray<Float>;
 using UInt32C   = CUDAArray<uint32_t>;
 using UInt64C   = CUDAArray<uint64_t>;
@@ -24,24 +31,33 @@ using UInt32D   = DiffArray<UInt32C>;
 using UInt64D   = DiffArray<UInt64C>;
 using BoolD     = DiffArray<BoolC>;
 
+using Vector2fX = Array<FloatX, 2>;
 using Vector2fC = Array<FloatC, 2>;
 using Vector2fD = Array<FloatD, 2>;
+using Vector2uX = Array<UInt32X, 2>;
 using Vector2uC = Array<UInt32C, 2>;
 using Vector2uD = Array<UInt32D, 2>;
+using Vector2bX = Array<BoolX, 2>;
 using Vector2bC = mask_t<Vector2fC>;
 using Vector2bD = mask_t<Vector2fD>;
 
+using Vector3fX = Array<FloatX, 3>;
 using Vector3fC = Array<FloatC, 3>;
 using Vector3fD = Array<FloatD, 3>;
+using Vector3uX = Array<UInt32X, 3>;
 using Vector3uC = Array<UInt32C, 3>;
 using Vector3uD = Array<UInt32D, 3>;
+using Vector3bX = Array<BoolX, 3>;
 using Vector3bC = mask_t<Vector3fC>;
 using Vector3bD = mask_t<Vector3fD>;
 
+using Vector4fX = Array<FloatX, 4>;
 using Vector4fC = Array<FloatC, 4>;
 using Vector4fD = Array<FloatD, 4>;
+using Vector4uX = Array<UInt32X, 4>;
 using Vector4uC = Array<UInt32C, 4>;
 using Vector4uD = Array<UInt32D, 4>;
+using Vector4bX = Array<BoolX, 4>;
 using Vector4bC = mask_t<Vector4fC>;
 using Vector4bD = mask_t<Vector4fD>;
 
@@ -110,8 +126,10 @@ py::class_<Array> bind(py::module &m, const char *name) {
     using Scalar = scalar_t<Array>;
     using Value  = value_t<Array>;
 
-    static constexpr bool IsMask  = std::is_same_v<Scalar, bool>;
-    static constexpr bool IsFloat = std::is_floating_point_v<Scalar>;
+    static constexpr bool IsMask  = is_mask_v<Array>;
+    static constexpr bool IsFloat = is_float_v<Scalar>;
+    static constexpr bool IsCUDA  = is_cuda_array_v<Array>;
+    static constexpr bool IsDiff  = is_diff_array_v<Array>;
 
     py::class_<Array> cl(m, name);
 
@@ -139,7 +157,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
                 if (literal) {
                     return Array(scalar);
                 } else {
-                    if constexpr (is_diff_array_v<Array>)
+                    if constexpr (IsDiff)
                         return Array::UnderlyingType::copy(&scalar, 1);
                     else
                         return Array::copy(&scalar, 1);
@@ -149,61 +167,63 @@ py::class_<Array> bind(py::module &m, const char *name) {
         );
     }
 
-    cl.def(py::init([](const py::object &obj) -> Array {
-          const char *tp_name = ((PyTypeObject *) obj.get_type().ptr())->tp_name;
-          if (strstr(tp_name, "Tensor") != nullptr) {
-              using T = expr_t<decltype(detach(std::declval<Array&>()))>;
-              return torch_to_enoki<T>(obj);
-          }
+    if constexpr(IsCUDA) {
+        cl.def(py::init([](const py::object &obj) -> Array {
+            const char *tp_name = ((PyTypeObject *) obj.get_type().ptr())->tp_name;
+            if (strstr(tp_name, "Tensor") != nullptr) {
+                using T = expr_t<decltype(detach(std::declval<Array&>()))>;
+                return torch_to_enoki<T>(obj);
+            }
 
-          if (strstr(tp_name, "numpy.ndarray") != nullptr) {
-              using T = expr_t<decltype(detach(std::declval<Array&>()))>;
-              return numpy_to_enoki<T>(obj);
-          }
+            if (strstr(tp_name, "numpy.ndarray") != nullptr) {
+                using T = expr_t<decltype(detach(std::declval<Array&>()))>;
+                return numpy_to_enoki<T>(obj);
+            }
 
-          if constexpr (!IsMask && array_depth_v<Array> == 1) {
-              if (strstr(tp_name, "enoki.") == nullptr && py::isinstance<py::sequence>(obj)) {
-                  try {
-                      auto a = py::cast<std::vector<Value>>(obj);
-                      if constexpr (!is_diff_array_v<Array>) {
-                          uint32_t index = cuda_var_copy_to_device(Array::Type, a.size(), a.data());
-                          return Array::from_index_(index);
-                      } else {
-                          uint32_t index = cuda_var_copy_to_device(Array::UnderlyingType::Type, a.size(), a.data());
-                          return Array::UnderlyingType::from_index_(index);
-                      }
-                  } catch (...) { }
-              }
-          }
+            if constexpr (!IsMask && array_depth_v<Array> == 1) {
+                if (strstr(tp_name, "enoki.") == nullptr && py::isinstance<py::sequence>(obj)) {
+                    try {
+                        auto a = py::cast<std::vector<Value>>(obj);
+                        if constexpr (!IsDiff) {
+                            uint32_t index = cuda_var_copy_to_device(Array::Type, a.size(), a.data());
+                            return Array::from_index_(index);
+                        } else {
+                            uint32_t index = cuda_var_copy_to_device(Array::UnderlyingType::Type, a.size(), a.data());
+                            return Array::UnderlyingType::from_index_(index);
+                        }
+                    } catch (...) { }
+                }
+            }
 
-          throw py::reference_cast_error();
-      }))
-      .def("torch", [](const Array &a, bool eval) {
-          return enoki_to_torch(detach(a), eval); },
-          "eval"_a = true
-      )
-      .def("numpy", [](const Array &a, bool eval) {
-          return enoki_to_numpy(detach(a), eval); },
-          "eval"_a = true
-      )
-      .def_property_readonly("__array_interface__", [](const py::object &o) {
-          py::object np_array = o.attr("numpy")();
-          py::dict result;
-          result["data"] = np_array;
-          result["shape"] = np_array.attr("shape");
-          result["version"] = 3;
-          char typestr[4] = { '<', 0, '0' + sizeof(Scalar), 0 };
-          if (std::is_floating_point_v<Scalar>)
-              typestr[1] = 'f';
-          else if (std::is_same_v<Scalar, bool>)
-              typestr[1] = 'b';
-          else if (std::is_unsigned_v<Scalar>)
-              typestr[1] = 'u';
-          else
-              typestr[1] = 'i';
-          result["typestr"] = typestr;
-          return result;
-      });
+            throw py::reference_cast_error();
+        }))
+        .def("torch", [](const Array &a, bool eval) {
+            return enoki_to_torch(detach(a), eval); },
+            "eval"_a = true
+        )
+        .def("numpy", [](const Array &a, bool eval) {
+            return enoki_to_numpy(detach(a), eval); },
+            "eval"_a = true
+        )
+        .def_property_readonly("__array_interface__", [](const py::object &o) {
+            py::object np_array = o.attr("numpy")();
+            py::dict result;
+            result["data"] = np_array;
+            result["shape"] = np_array.attr("shape");
+            result["version"] = 3;
+            char typestr[4] = { '<', 0, '0' + sizeof(Scalar), 0 };
+            if (std::is_floating_point_v<Scalar>)
+                typestr[1] = 'f';
+            else if (std::is_same_v<Scalar, bool>)
+                typestr[1] = 'b';
+            else if (std::is_unsigned_v<Scalar>)
+                typestr[1] = 'u';
+            else
+                typestr[1] = 'i';
+            result["typestr"] = typestr;
+            return result;
+        });
+    }
 
     if constexpr (!IsMask) {
         cl.def(py::self + py::self)
@@ -315,11 +335,13 @@ py::class_<Array> bind(py::module &m, const char *name) {
                 m.def("cross", [](const Array &a, const Array &b) { return enoki::cross(a, b); });
         }
     } else {
-        cl.def_property_readonly("index", [](const Array &a) { return a.index_(); });
+        if constexpr (IsCUDA || IsDiff)
+            cl.def_property_readonly("index", [](const Array &a) { return a.index_(); });
         cl.def_property_readonly("data", [](const Array &a) { return (uintptr_t) a.data(); });
     }
 
-    if constexpr (!is_diff_array_v<Array>) {
+    // TODO should be able to compress FloatX
+    if constexpr (IsCUDA && !IsDiff) {
         m.def("compress", [](const Array &array, const mask_t<Array> &mask) {
             return compress(array, mask);
         });
@@ -339,55 +361,58 @@ py::class_<Array> bind(py::module &m, const char *name) {
              mask_t<Index> &mask) { scatter(target, source, index, mask); },
           "target"_a, "source"_a, "index"_a, "mask"_a = true);
 
-    m.def("scatter_add",
-          [](Array &target, const Array &source,
-             const Index &index,
-             mask_t<Index> &mask) { scatter_add(target, source, index, mask); },
-          "target"_a, "source"_a, "index"_a, "mask"_a = true);
+    // TODO should be able to scatter_add with BoolX
+    if constexpr (!(IsMask && !IsCUDA)) {
+        m.def("scatter_add",
+            [](Array &target, const Array &source,
+                const Index &index,
+                mask_t<Index> &mask) { scatter_add(target, source, index, mask); },
+            "target"_a, "source"_a, "index"_a, "mask"_a = true);
+    }
 
     if constexpr (IsFloat) {
-        m.def("abs", [](const Array &a) { return enoki::abs(a); });
-        m.def("sqr", [](const Array &a) { return enoki::sqr(a); });
-        m.def("sqrt", [](const Array &a) { return enoki::sqrt(a); });
-        m.def("cbrt", [](const Array &a) { return enoki::cbrt(a); });
-        m.def("rcp", [](const Array &a) { return enoki::rcp(a); });
+        m.def("abs",   [](const Array &a) { return enoki::abs(a); });
+        m.def("sqr",   [](const Array &a) { return enoki::sqr(a); });
+        m.def("sqrt",  [](const Array &a) { return enoki::sqrt(a); });
+        m.def("cbrt",  [](const Array &a) { return enoki::cbrt(a); });
+        m.def("rcp",   [](const Array &a) { return enoki::rcp(a); });
         m.def("rsqrt", [](const Array &a) { return enoki::rsqrt(a); });
 
-        m.def("ceil", [](const Array &a) { return enoki::ceil(a); });
+        m.def("ceil",  [](const Array &a) { return enoki::ceil(a); });
         m.def("floor", [](const Array &a) { return enoki::floor(a); });
         m.def("round", [](const Array &a) { return enoki::round(a); });
         m.def("trunc", [](const Array &a) { return enoki::trunc(a); });
 
-        m.def("sin", [](const Array &a) { return enoki::sin(a); });
-        m.def("cos", [](const Array &a) { return enoki::cos(a); });
+        m.def("sin",    [](const Array &a) { return enoki::sin(a); });
+        m.def("cos",    [](const Array &a) { return enoki::cos(a); });
         m.def("sincos", [](const Array &a) { return enoki::sincos(a); });
-        m.def("tan", [](const Array &a) { return enoki::tan(a); });
-        m.def("sec", [](const Array &a) { return enoki::sec(a); });
-        m.def("csc", [](const Array &a) { return enoki::csc(a); });
-        m.def("cot", [](const Array &a) { return enoki::cot(a); });
-        m.def("asin", [](const Array &a) { return enoki::asin(a); });
-        m.def("acos", [](const Array &a) { return enoki::acos(a); });
-        m.def("atan", [](const Array &a) { return enoki::atan(a); });
-        m.def("atan2", [](const Array &a, const Array &b) {
+        m.def("tan",    [](const Array &a) { return enoki::tan(a); });
+        m.def("sec",    [](const Array &a) { return enoki::sec(a); });
+        m.def("csc",    [](const Array &a) { return enoki::csc(a); });
+        m.def("cot",    [](const Array &a) { return enoki::cot(a); });
+        m.def("asin",   [](const Array &a) { return enoki::asin(a); });
+        m.def("acos",   [](const Array &a) { return enoki::acos(a); });
+        m.def("atan",   [](const Array &a) { return enoki::atan(a); });
+        m.def("atan2",  [](const Array &a, const Array &b) {
             return enoki::atan2(a, b);
         });
 
-        m.def("sinh", [](const Array &a) { return enoki::sinh(a); });
-        m.def("cosh", [](const Array &a) { return enoki::cosh(a); });
+        m.def("sinh",    [](const Array &a) { return enoki::sinh(a); });
+        m.def("cosh",    [](const Array &a) { return enoki::cosh(a); });
         m.def("sincosh", [](const Array &a) { return enoki::sincosh(a); });
-        m.def("tanh", [](const Array &a) { return enoki::tanh(a); });
-        m.def("sech", [](const Array &a) { return enoki::sech(a); });
-        m.def("csch", [](const Array &a) { return enoki::csch(a); });
-        m.def("coth", [](const Array &a) { return enoki::coth(a); });
-        m.def("asinh", [](const Array &a) { return enoki::asinh(a); });
-        m.def("acosh", [](const Array &a) { return enoki::acosh(a); });
-        m.def("atanh", [](const Array &a) { return enoki::atanh(a); });
+        m.def("tanh",    [](const Array &a) { return enoki::tanh(a); });
+        m.def("sech",    [](const Array &a) { return enoki::sech(a); });
+        m.def("csch",    [](const Array &a) { return enoki::csch(a); });
+        m.def("coth",    [](const Array &a) { return enoki::coth(a); });
+        m.def("asinh",   [](const Array &a) { return enoki::asinh(a); });
+        m.def("acosh",   [](const Array &a) { return enoki::acosh(a); });
+        m.def("atanh",   [](const Array &a) { return enoki::atanh(a); });
 
-        m.def("log", [](const Array &a) { return enoki::log(a); });
-        m.def("exp", [](const Array &a) { return enoki::exp(a); });
+        m.def("log",    [](const Array &a) { return enoki::log(a); });
+        m.def("exp",    [](const Array &a) { return enoki::exp(a); });
         m.def("erfinv", [](const Array &a) { return enoki::erfinv(a); });
-        m.def("erf", [](const Array &a) { return enoki::erf(a); });
-        m.def("pow", [](const Array &a, const Array &b) {
+        m.def("erf",    [](const Array &a) { return enoki::erf(a); });
+        m.def("pow",    [](const Array &a, const Array &b) {
             return enoki::pow(a, b);
         });
 
@@ -402,9 +427,11 @@ py::class_<Array> bind(py::module &m, const char *name) {
         m.def("isnan", [](const Array &a) { return enoki::isnan(a); });
         m.def("isinf", [](const Array &a) { return enoki::isinf(a); });
     } else if constexpr (!IsMask) {
-        m.def("popcnt", [](const Array &a) { return enoki::popcnt(a); });
-        m.def("lzcnt", [](const Array &a) { return enoki::lzcnt(a); });
-        m.def("tzcnt", [](const Array &a) { return enoki::tzcnt(a); });
+        if constexpr (IsCUDA) {
+            m.def("popcnt", [](const Array &a) { return enoki::popcnt(a); });
+            m.def("lzcnt", [](const Array &a) { return enoki::lzcnt(a); });
+            m.def("tzcnt", [](const Array &a) { return enoki::tzcnt(a); });
+        }
         m.def("mulhi", [](const Array &a, const Array &b) { return enoki::mulhi(a, b); });
     }
 
@@ -450,7 +477,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
         return enoki::select(a, b, c);
     });
 
-    if constexpr (is_diff_array_v<Array>) {
+    if constexpr (IsDiff) {
         m.def("detach", [](const Array &a) { return eval(detach(a)); });
         m.def("reattach", [](Array &a, Array &b) { reattach(a, b); });
     }
@@ -485,14 +512,16 @@ py::class_<Array> bind(py::module &m, const char *name) {
         }
     }
 
-    if constexpr (is_diff_array_v<Array>) {
+    if constexpr (IsDiff) {
         using BaseType = expr_t<decltype(detach(std::declval<Array&>()))>;
         implicitly_convertible<BaseType, Array>();
     }
 
-    m.def("set_label", [](const Array &a, const char *label) {
-        set_label(a, label);
-    });
+    if constexpr (is_cuda_array_v<Array>) {
+        m.def("set_label", [](const Array &a, const char *label) {
+            set_label(a, label);
+        });
+    }
 
     implicitly_convertible<Value, Array>();
 
