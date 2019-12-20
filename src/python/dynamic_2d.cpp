@@ -7,14 +7,17 @@ void bind_dynamic_2d(py::module& m) {
     auto vector2u_class = bind<Vector2uX>(m, "Vector2uX");
 
     vector2f_class
+        .def(py::init<const Vector2f &>())
         .def(py::init<const Vector2uX &>())
         .def(py::init<const Vector2iX &>());
 
     vector2i_class
+        .def(py::init<const Vector2i &>())
         .def(py::init<const Vector2fX &>())
         .def(py::init<const Vector2uX &>());
 
     vector2u_class
+        .def(py::init<const Vector2u &>())
         .def(py::init<const Vector2fX &>())
         .def(py::init<const Vector2iX &>());
 }

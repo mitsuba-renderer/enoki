@@ -336,7 +336,7 @@ if (ENOKI_PYTHON)
       src/python/cuda_2d.cpp
       src/python/cuda_3d.cpp
       src/python/cuda_4d.cpp
-      src/python/cuda_matrix_4d.cpp
+      src/python/cuda_matrix.cpp
       src/python/cuda_pcg32.cpp
     )
 
@@ -346,7 +346,7 @@ if (ENOKI_PYTHON)
         src/python/cuda_autodiff_2d.cpp
         src/python/cuda_autodiff_3d.cpp
         src/python/cuda_autodiff_4d.cpp
-        src/python/cuda_autodiff_matrix_4d.cpp
+        src/python/cuda_autodiff_matrix.cpp
       )
     endif()
   endif()
@@ -361,14 +361,14 @@ if (ENOKI_PYTHON)
       src/python/dynamic_2d.cpp
       src/python/dynamic_3d.cpp
       src/python/dynamic_4d.cpp
-      src/python/dynamic_matrix_4d.cpp
+      src/python/dynamic_matrix.cpp
       src/python/dynamic_pcg32.cpp
 
       src/python/scalar_1d.cpp
       src/python/scalar_2d.cpp
       src/python/scalar_3d.cpp
       src/python/scalar_4d.cpp
-      src/python/scalar_matrix_4d.cpp
+      src/python/scalar_matrix.cpp
 
       ${ENOKI_PYTHON_FILES}
   )

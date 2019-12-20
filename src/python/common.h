@@ -103,6 +103,16 @@ using Vector4mX = mask_t<Vector4fX>;
 using Vector4mC = mask_t<Vector4fC>;
 using Vector4mD = mask_t<Vector4fD>;
 
+using Matrix2f  = Matrix<Float , 2>;
+using Matrix2fX = Matrix<FloatX, 2>;
+using Matrix2fC = Matrix<FloatC, 2>;
+using Matrix2fD = Matrix<FloatD, 2>;
+
+using Matrix3f  = Matrix<Float , 3>;
+using Matrix3fX = Matrix<FloatX, 3>;
+using Matrix3fC = Matrix<FloatC, 3>;
+using Matrix3fD = Matrix<FloatD, 3>;
+
 using Matrix4f  = Matrix<Float , 4>;
 using Matrix4fX = Matrix<FloatX, 4>;
 using Matrix4fC = Matrix<FloatC, 4>;
@@ -171,7 +181,8 @@ template <typename InputType, typename OutputType> void implicitly_convertible()
     if (auto tinfo = py::detail::get_type_info(typeid(OutputType)))
         tinfo->implicit_conversions.push_back(implicit_caster);
     else
-        py::pybind11_fail("implicitly_convertible: Unable to find type " + pybind11::type_id<OutputType>());
+        py::pybind11_fail("implicitly_convertible: Unable to find type " +
+                          pybind11::type_id<OutputType>());
 }
 
 template <typename Array>
@@ -211,14 +222,10 @@ py::class_<Array> bind(py::module &m, const char *name) {
     if constexpr (array_depth_v<Array> == 1 && is_cuda_array_v<Array>) {
         cl.def(
             py::init([](Scalar scalar, bool literal) -> Array {
-                if (literal) {
+                if (literal)
                     return Array(scalar);
-                } else {
-                    if constexpr (IsDiff)
-                        return Array::UnderlyingType::copy(&scalar, 1);
-                    else
-                        return Array::copy(&scalar, 1);
-                }
+                else
+                    return Array::copy(&scalar, 1);
             }),
             "scalar"_a, "literal"_a = true
         );
@@ -629,16 +636,10 @@ template <typename Matrix>
 py::class_<Matrix> bind_matrix(py::module &m, const char *name) {
     using Vector = typename Matrix::Column;
     using Value  = typename Matrix::Entry;
-    using Vector3 = Array<Value, 3>;
 
     auto cls = py::class_<Matrix>(m, name)
         .def(py::init<>())
         .def(py::init<const Value &>())
-        .def(py::init<const Vector &, const Vector &, const Vector &, const Vector &>())
-        .def(py::init<const Value &, const Value &, const Value &, const Value &,
-                      const Value &, const Value &, const Value &, const Value &,
-                      const Value &, const Value &, const Value &, const Value &,
-                      const Value &, const Value &, const Value &, const Value &>())
         .def(py::self == py::self)
         .def(py::self != py::self)
         .def(py::self - py::self)
@@ -665,26 +666,70 @@ py::class_<Matrix> bind_matrix(py::module &m, const char *name) {
             a.coeff(index.second, index.first) = value;
         })
         .def_static("identity", [](size_t size) { return identity<Matrix>(size); }, "size"_a = 1)
-        .def_static("zero", [](size_t size) { return zero<Matrix>(size); }, "size"_a = 1)
-        .def_static("translate", [](const Vector3 &v) { return translate<Matrix>(v); })
-        .def_static("scale", [](const Vector3 &v) { return scale<Matrix>(v); })
-        .def_static("rotate", [](const Vector3 &axis, const Value &angle) {
-                return rotate<Matrix>(axis, angle);
-            },
-            "axis"_a, "angle"_a
-        )
-        .def_static("look_at", [](const Vector3 &origin,
-                                  const Vector3 &target,
-                                  const Vector3 &up) {
-                return look_at<Matrix>(origin, target, up);
-            },
-            "origin"_a, "target"_a, "up"_a
-        );
+        .def_static("zero", [](size_t size) { return zero<Matrix>(size); }, "size"_a = 1);
+
+    if constexpr (Matrix::Size == 2) {
+        cls.def(py::init<const Vector &, const Vector &>())
+           .def(py::init<const Value &, const Value &,
+                         const Value &, const Value &>());
+    } else if constexpr (Matrix::Size == 3) {
+        cls.def(py::init<const Vector &, const Vector &, const Vector &>())
+           .def(py::init<const Value &, const Value &, const Value &,
+                         const Value &, const Value &, const Value &,
+                         const Value &, const Value &, const Value &>());
+    } else if constexpr (Matrix::Size == 4) {
+        using Vector3 = Array<Value, 3>;
+
+        cls.def(py::init<const Vector &, const Vector &, const Vector &, const Vector &>())
+           .def(py::init<const Value &, const Value &, const Value &, const Value &,
+                         const Value &, const Value &, const Value &, const Value &,
+                         const Value &, const Value &, const Value &, const Value &,
+                         const Value &, const Value &, const Value &, const Value &>())
+           .def_static("translate", [](const Vector3 &v) { return translate<Matrix>(v); })
+           .def_static("scale", [](const Vector3 &v) { return scale<Matrix>(v); })
+           .def_static("rotate", [](const Vector3 &axis, const Value &angle) {
+                   return rotate<Matrix>(axis, angle);
+               },
+               "axis"_a, "angle"_a
+           )
+           .def_static("look_at", [](const Vector3 &origin,
+                                     const Vector3 &target,
+                                     const Vector3 &up) {
+                   return look_at<Matrix>(origin, target, up);
+               },
+               "origin"_a, "target"_a, "up"_a
+           );
+    }
 
     m.def("transpose", [](const Matrix &m) { return transpose(m); });
     m.def("det", [](const Matrix &m) { return det(m); });
     m.def("inverse", [](const Matrix &m) { return inverse(m); });
     m.def("inverse_transpose", [](const Matrix &m) { return inverse_transpose(m); });
+
+    if constexpr (is_diff_array_v<Matrix>) {
+        using Detached = expr_t<decltype(detach(std::declval<Matrix&>()))>;
+
+        m.def("detach", [](const Matrix &a) -> Detached { return detach(a); });
+        m.def("requires_gradient",
+              [](const Matrix &a) { return requires_gradient(a); },
+              "array"_a);
+
+        m.def("set_requires_gradient",
+              [](Matrix &a, bool value) { set_requires_gradient(a, value); },
+              "array"_a, "value"_a = true);
+
+        m.def("gradient", [](Matrix &a) { return eval(gradient(a)); });
+        m.def("set_gradient",
+              [](Matrix &a, const Detached &g, bool b) { set_gradient(a, g, b); },
+              "array"_a, "gradient"_a, "backward"_a = true);
+
+        m.def("graphviz", [](const Matrix &a) { return graphviz(a); });
+
+        m.def("set_label", [](const Matrix &a, const char *label) {
+            set_label(a, label);
+        });
+    }
+
     return cls;
 }
 

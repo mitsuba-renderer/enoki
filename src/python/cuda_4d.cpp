@@ -7,14 +7,17 @@ void bind_cuda_4d(py::module& m) {
     auto vector4u_class = bind<Vector4uC>(m, "Vector4uC");
 
     vector4f_class
+        .def(py::init<const Vector4f &>())
         .def(py::init<const Vector4uC &>())
         .def(py::init<const Vector4iC &>());
 
     vector4i_class
+        .def(py::init<const Vector4i &>())
         .def(py::init<const Vector4fC &>())
         .def(py::init<const Vector4uC &>());
 
     vector4u_class
+        .def(py::init<const Vector4u &>())
         .def(py::init<const Vector4fC &>())
         .def(py::init<const Vector4iC &>());
 }

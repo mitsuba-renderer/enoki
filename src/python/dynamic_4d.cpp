@@ -7,14 +7,17 @@ void bind_dynamic_4d(py::module& m) {
     auto vector4u_class = bind<Vector4uX>(m, "Vector4uX");
 
     vector4f_class
+        .def(py::init<const Vector4f &>())
         .def(py::init<const Vector4uX &>())
         .def(py::init<const Vector4iX &>());
 
     vector4i_class
+        .def(py::init<const Vector4i &>())
         .def(py::init<const Vector4fX &>())
         .def(py::init<const Vector4uX &>());
 
     vector4u_class
+        .def(py::init<const Vector4u &>())
         .def(py::init<const Vector4fX &>())
         .def(py::init<const Vector4iX &>());
 }

@@ -7,14 +7,17 @@ void bind_dynamic_3d(py::module& m) {
     auto vector3u_class = bind<Vector3uX>(m, "Vector3uX");
 
     vector3f_class
+        .def(py::init<const Vector3f &>())
         .def(py::init<const Vector3uX &>())
         .def(py::init<const Vector3iX &>());
 
     vector3i_class
+        .def(py::init<const Vector3i &>())
         .def(py::init<const Vector3fX &>())
         .def(py::init<const Vector3uX &>());
 
     vector3u_class
+        .def(py::init<const Vector3u &>())
         .def(py::init<const Vector3fX &>())
         .def(py::init<const Vector3iX &>());
 }
