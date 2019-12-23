@@ -963,6 +963,37 @@ ENOKI_BINARY_OPERATION(pow, std::pow(x, y)) {
     return exp(log(x) * y);
 }
 
+template <typename T, typename E = expr_t<T>>
+ENOKI_INLINE E pow(const T &x_, const int &y) {
+	int n = std::abs(y);
+	E result(1.f), x(x_);
+
+    while (n > 0) {
+		if (n & 1)
+			result *= x;
+		x *= x;
+		n /= 2;
+    }
+
+    return (y >= 0) ? result : rcp(result);
+}
+
+template <typename T, typename E = expr_t<T, float>>
+ENOKI_INLINE E pow(const T &x, const float &y) {
+	if (enoki::round(y) == y)
+		return enoki::pow(E(x), (int) y);
+	else
+		return enoki::pow(E(x), E(y));
+}
+
+template <typename T, typename E = expr_t<T, double>>
+ENOKI_INLINE E pow(const T &x, const double &y) {
+	if (enoki::round(y) == y)
+		return enoki::pow(E(x), (int) y);
+	else
+		return enoki::pow(E(x), E(y));
+}
+
 // -----------------------------------------------------------------------
 //! @{ \name Hyperbolic and inverse hyperbolic functions
 // -----------------------------------------------------------------------

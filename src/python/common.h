@@ -524,7 +524,23 @@ py::class_<Array> bind(py::module &m, const char *name) {
             return enoki::pow(a, b);
         });
 
+        m.def("pow",    [](const Array &a, int b) {
+            return enoki::pow(a, b);
+        });
+
+        m.def("pow",    [](const Array &a, Scalar b) {
+            return enoki::pow(a, b);
+        });
+
         cl.def("__pow__", [](const Array &a, const Array &b) {
+            return enoki::pow(a, b);
+        });
+
+        cl.def("__pow__", [](const Array &a, int b) {
+            return enoki::pow(a, b);
+        });
+
+        cl.def("__pow__", [](const Array &a, Scalar b) {
             return enoki::pow(a, b);
         });
 
