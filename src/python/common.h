@@ -425,21 +425,23 @@ py::class_<Array> bind(py::module &m, const char *name) {
         if constexpr (array_size_v<Array> >= 4)
             cl.def_property("w", [](const Array &a) { return a.w(); },
                                  [](Array &a, const Value &v) { a.w() = v; });
-
-        if constexpr (!IsMask) {
-            m.def("dot", [](const Array &a, const Array &b) { return enoki::dot(a, b); });
-            m.def("abs_dot", [](const Array &a, const Array &b) { return enoki::abs_dot(a, b); });
-            m.def("normalize", [](const Array &a) { return enoki::normalize(a); });
-            m.def("squared_norm", [](const Array &a) { return enoki::squared_norm(a); });
-            m.def("norm", [](const Array &a) { return enoki::norm(a); });
-
-            if constexpr (array_size_v<Array> == 3)
-                m.def("cross", [](const Array &a, const Array &b) { return enoki::cross(a, b); });
-        }
     } else {
+        cl.def_property_readonly("data", [](const Array &a) { return (uintptr_t) a.data(); });
+
         if constexpr (IsCUDA || IsDiff)
             cl.def_property_readonly("index", [](const Array &a) { return a.index_(); });
-        cl.def_property_readonly("data", [](const Array &a) { return (uintptr_t) a.data(); });
+    }
+
+    if constexpr (!IsMask) {
+        cl.def("__matmul__", [](const Array &a, const Array &b) { return enoki::dot(a, b); });
+        m.def("dot", [](const Array &a, const Array &b) { return enoki::dot(a, b); });
+        m.def("abs_dot", [](const Array &a, const Array &b) { return enoki::abs_dot(a, b); });
+        m.def("normalize", [](const Array &a) { return enoki::normalize(a); });
+        m.def("squared_norm", [](const Array &a) { return enoki::squared_norm(a); });
+        m.def("norm", [](const Array &a) { return enoki::norm(a); });
+
+        if constexpr (array_size_v<Array> == 3)
+            m.def("cross", [](const Array &a, const Array &b) { return enoki::cross(a, b); });
     }
 
     if constexpr (IsDynamic && !IsDiff) {
@@ -519,6 +521,10 @@ py::class_<Array> bind(py::module &m, const char *name) {
         m.def("erfinv", [](const Array &a) { return enoki::erfinv(a); });
         m.def("erf",    [](const Array &a) { return enoki::erf(a); });
         m.def("pow",    [](const Array &a, const Array &b) {
+            return enoki::pow(a, b);
+        });
+
+        cl.def("__pow__", [](const Array &a, const Array &b) {
             return enoki::pow(a, b);
         });
 
@@ -655,6 +661,7 @@ template <typename Matrix>
 py::class_<Matrix> bind_matrix(py::module &m, const char *name) {
     using Vector = typename Matrix::Column;
     using Value  = typename Matrix::Entry;
+    using Array  = Array<Vector, Matrix::Size>;
 
     auto cls = py::class_<Matrix>(m, name)
         .def(py::init<>())
@@ -663,10 +670,17 @@ py::class_<Matrix> bind_matrix(py::module &m, const char *name) {
         .def(py::self != py::self)
         .def(py::self - py::self)
         .def(py::self + py::self)
-        .def(py::self * py::self)
-        .def(py::self * Vector())
         .def(py::self * Value())
         .def(-py::self)
+        .def("__mul__", [](const Matrix &a, const Matrix &b) {
+            return Matrix(Array(a) * Array(b));
+        })
+        .def("__matmul__", [](const Matrix &a, const Matrix &b) {
+            return a * b;
+        })
+        .def("__matmul__", [](const Matrix &a, const Vector &b) {
+            return a * b;
+        })
         .def("__repr__", [](const Matrix &a) -> std::string {
             if (disable_print_flag)
                 return "";
@@ -697,7 +711,7 @@ py::class_<Matrix> bind_matrix(py::module &m, const char *name) {
                          const Value &, const Value &, const Value &,
                          const Value &, const Value &, const Value &>());
     } else if constexpr (Matrix::Size == 4) {
-        using Vector3 = Array<Value, 3>;
+        using Vector3 = enoki::Array<Value, 3>;
 
         cls.def(py::init<const Vector &, const Vector &, const Vector &, const Vector &>())
            .def(py::init<const Value &, const Value &, const Value &, const Value &,
