@@ -1048,6 +1048,57 @@ auto vectorize_safe(Func &&f, Args &&... args)
     return vectorize<true>(f, args...);
 }
 
+namespace detail {
+    template <typename T>
+    using reference_dynamic_t = std::conditional_t<
+        is_dynamic_v<T>,
+        std::add_lvalue_reference_t<T>,
+        T
+    >;
+
+    /// Strip the class from a method type
+    template <typename T> struct remove_class { };
+    template <typename C, typename R, typename... A> struct remove_class<R (C::*)(A...)> { typedef R type(A...); };
+    template <typename C, typename R, typename... A> struct remove_class<R (C::*)(A...) const> { typedef R type(A...); };
+}
+
+template <typename Func, typename Return, typename... Args>
+auto vectorize_wrapper_detail(Func &&f_, Return (*)(Args...)) {
+    return [f = std::forward<Func>(f_)](detail::reference_dynamic_t<enoki::make_dynamic_t<Args>>... args) {
+        return vectorize_safe(f, args...);
+    };
+}
+
+/// Vectorize a vanilla function pointer
+template <typename Return, typename... Args>
+auto vectorize_wrapper(Return (*f)(Args...)) {
+    return vectorize_wrapper_detail(f, f);
+}
+
+/// Vectorize a lambda function method (possibly with internal state)
+template <typename Func,
+          typename FuncType = typename detail::remove_class<
+              decltype(&std::remove_reference<Func>::type::operator())>::type>
+auto vectorize_wrapper(Func &&f) {
+    return vectorize_wrapper_detail(std::forward<Func>(f), (FuncType *) nullptr);
+}
+
+/// Vectorize a class method (non-const)
+template <typename Return, typename Class, typename... Arg>
+auto vectorize_wrapper(Return (Class::*f)(Arg...)) {
+    return vectorize_wrapper_detail(
+        [f](Class *c, Arg... args) -> Return { return (c->*f)(args...); },
+        (Return(*)(Class *, Arg...)) nullptr);
+}
+
+/// Vectorize a class method (const)
+template <typename Return, typename Class, typename... Arg>
+auto vectorize_wrapper(Return (Class::*f)(Arg...) const) {
+    return vectorize_wrapper_detail(
+        [f](const Class *c, Arg... args) -> Return { return (c->*f)(args...); },
+        (Return(*)(const Class *, Arg...)) nullptr);
+}
+
 #if defined(ENOKI_AUTODIFF_H) && !defined(ENOKI_BUILD)
     extern ENOKI_IMPORT template struct Tape<DynamicArray<Packet<float>>>;
     extern ENOKI_IMPORT template struct DiffArray<DynamicArray<Packet<float>>>;
