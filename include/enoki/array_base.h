@@ -227,6 +227,10 @@ namespace detail {
 
 template <typename Value, typename Derived>
 ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os, const ArrayBase<Value, Derived> &a) {
+    if (ragged(a))
+        throw std::runtime_error(
+            "Ragged Enoki array cannot be converted into a string "
+            "representation! (try printing the individual components)");
     return detail::print(os, a, true, shape(a));
 }
 

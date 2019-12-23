@@ -926,6 +926,9 @@ ENOKI_NOINLINE py::object enoki_to_torch(const Array &src, bool eval) {
     constexpr size_t Depth = array_depth_v<Array>;
     using Scalar = scalar_t<Array>;
 
+    if (enoki::ragged(src))
+        throw std::runtime_error("Enoki array is ragged -- cannot convert to PyTorch format!");
+
     std::array<size_t, Depth> shape = enoki::shape(src),
                               shape_rev = shape,
                               strides;
@@ -999,6 +1002,9 @@ template <typename Array>
 ENOKI_NOINLINE py::object enoki_to_numpy(const Array &src, bool eval) {
     constexpr size_t Depth = array_depth_v<Array>;
     using Scalar = scalar_t<Array>;
+
+    if (enoki::ragged(src))
+        throw std::runtime_error("Enoki array is ragged -- cannot convert to NumPy format!");
 
     std::array<size_t, Depth> shape = enoki::shape(src),
                               shape_rev = shape, strides;
