@@ -341,6 +341,12 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
         : StaticArrayImpl(std::forward<T>(value),
                           std::make_index_sequence<Derived::Size>()) { }
 
+    template <typename T, typename ST = StorageType,
+              enable_if_t<!std::is_default_constructible_v<ST>> = 0>
+    ENOKI_INLINE StaticArrayImpl(T &&value, detail::reinterpret_flag)
+        : StaticArrayImpl(std::forward<T>(value),
+                          std::make_index_sequence<Derived::Size>()) { }
+
     /// Construct from a scalar or another array (potential optimizations)
     template <typename T, typename ST = StorageType,
               enable_if_t<std::is_default_constructible_v<ST>> = 0>
