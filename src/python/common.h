@@ -44,6 +44,16 @@ using UInt32D   = DiffArray<UInt32C>;
 using UInt64D   = DiffArray<UInt64C>;
 using MaskD     = mask_t<FloatD>;
 
+using Vector1f  = Array<Float , 1>;
+using Vector1fX = Array<FloatX, 1>;
+using Vector1fC = Array<FloatC, 1>;
+using Vector1fD = Array<FloatD, 1>;
+
+using Vector1m  = mask_t<Vector1f >;
+using Vector1mX = mask_t<Vector1fX>;
+using Vector1mC = mask_t<Vector1fC>;
+using Vector1mD = mask_t<Vector1fD>;
+
 using Vector2f  = Array<Float , 2>;
 using Vector2fX = Array<FloatX, 2>;
 using Vector2fC = Array<FloatC, 2>;

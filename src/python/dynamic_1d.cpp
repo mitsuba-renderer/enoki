@@ -37,4 +37,7 @@ void bind_dynamic_1d(py::module& m) {
         .def(py::init<const Int32X &>())
         .def(py::init<const Int64X &>())
         .def(py::init<const UInt32X &>());
+
+    bind<Vector1mX>(m, "Vector1mX");
+    bind<Vector1fX>(m, "Vector1fX");
 }

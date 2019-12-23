@@ -71,4 +71,7 @@ void bind_scalar_1d(py::module& m) {
     m.def("isfinite", [](Float a) { return enoki::isfinite(a); });
     m.def("isnan", [](Float a) { return enoki::isnan(a); });
     m.def("isinf", [](Float a) { return enoki::isinf(a); });
+
+    bind<Vector1m>(m, "Vector1m");
+    bind<Vector1f>(m, "Vector1f");
 }
