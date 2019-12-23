@@ -212,7 +212,11 @@ py::class_<Array> bind(py::module &m, const char *name) {
     using Value  = std::conditional_t<
         is_mask_v<Array> && array_depth_v<Array> == 1,
         bool, value_t<Array>>;
-    using Mask = mask_t<float32_array_t<Array>>;
+    using Mask = std::conditional_t<
+        !is_mask_v<Array>,
+        mask_t<float32_array_t<Array>>,
+        Array
+    >;
 
     static constexpr bool IsMask    = is_mask_v<Array>;
     static constexpr bool IsFloat   = is_float_v<Scalar>;
@@ -629,7 +633,9 @@ py::class_<Array> bind(py::module &m, const char *name) {
         m.def("any", [](const Array &a) { return enoki::any(a); });
         m.def("none", [](const Array &a) { return enoki::none(a); });
         m.def("all", [](const Array &a) { return enoki::all(a); });
-        m.def("count", [](const Array &a) { return enoki::count(a); });
+
+        using Count = value_t<uint64_array_t<array_t<Array>>>;
+        m.def("count", [](const Array &a) -> Count { return enoki::count(a); });
 
         if constexpr (array_depth_v<Array> > 1) {
             m.def("any_nested", [](const Array &a) { return enoki::any_nested(a); });
@@ -641,9 +647,15 @@ py::class_<Array> bind(py::module &m, const char *name) {
     m.def("eq", [](const Array &a, const Array &b) -> Mask { return eq(a, b); });
     m.def("neq", [](const Array &a, const Array &b) -> Mask { return neq(a, b); });
 
-    m.def("select", [](const Mask &a, const Array &b, const Array &c) {
-        return enoki::select(a, b, c);
-    });
+    if constexpr (!IsMask) {
+        m.def("select", [](const Mask &a, const Array &b, const Array &c) {
+            return enoki::select(a, b, c);
+        });
+    } else {
+        m.def("select", [](const Array &a, const Array &b, const Array &c) -> Array {
+            return enoki::select(a, b, c);
+        });
+    }
 
     if constexpr (IsDiff) {
         m.def("detach", [](const Array &a) { return eval(detach(a)); });
@@ -710,6 +722,7 @@ py::class_<Matrix> bind_matrix(py::module &m, const char *name) {
     using Vector = typename Matrix::Column;
     using Value  = typename Matrix::Entry;
     using Array  = Array<Vector, Matrix::Size>;
+    static constexpr bool IsDynamic = is_dynamic_v<Value>;
 
     auto cls = py::class_<Matrix>(m, name)
         .def(py::init<>())
@@ -722,12 +735,6 @@ py::class_<Matrix> bind_matrix(py::module &m, const char *name) {
         .def(-py::self)
         .def("__mul__", [](const Matrix &a, const Matrix &b) {
             return Matrix(Array(a) * Array(b));
-        })
-        .def("__matmul__", [](const Matrix &a, const Matrix &b) {
-            return a * b;
-        })
-        .def("__matmul__", [](const Matrix &a, const Vector &b) {
-            return a * b;
         })
         .def("__repr__", [](const Matrix &a) -> std::string {
             if (disable_print_flag)
@@ -749,37 +756,51 @@ py::class_<Matrix> bind_matrix(py::module &m, const char *name) {
         .def_static("identity", [](size_t size) { return identity<Matrix>(size); }, "size"_a = 1)
         .def_static("zero", [](size_t size) { return zero<Matrix>(size); }, "size"_a = 1);
 
+    if constexpr (array_depth_v<Value> == (IsDynamic ? 1 : 0)) {
+        cls.def("__matmul__", [](const Matrix &a, const Matrix &b) {
+                return a * b;
+            })
+            .def("__matmul__", [](const Matrix &a, const Vector &b) {
+                return a * b;
+            });
+    }
+
     if constexpr (Matrix::Size == 2) {
-        cls.def(py::init<const Vector &, const Vector &>())
-           .def(py::init<const Value &, const Value &,
+        cls.def(py::init<const Value &, const Value &,
                          const Value &, const Value &>());
+        if constexpr (array_depth_v<Value> == (IsDynamic ? 1 : 0))
+            cls.def(py::init<const Vector &, const Vector &>());
     } else if constexpr (Matrix::Size == 3) {
-        cls.def(py::init<const Vector &, const Vector &, const Vector &>())
-           .def(py::init<const Value &, const Value &, const Value &,
+        cls.def(py::init<const Value &, const Value &, const Value &,
                          const Value &, const Value &, const Value &,
                          const Value &, const Value &, const Value &>());
+        if constexpr (array_depth_v<Value> == (IsDynamic ? 1 : 0))
+            cls.def(py::init<const Vector &, const Vector &, const Vector &>());
     } else if constexpr (Matrix::Size == 4) {
         using Vector3 = enoki::Array<Value, 3>;
 
-        cls.def(py::init<const Vector &, const Vector &, const Vector &, const Vector &>())
-           .def(py::init<const Value &, const Value &, const Value &, const Value &,
+        cls.def(py::init<const Value &, const Value &, const Value &, const Value &,
                          const Value &, const Value &, const Value &, const Value &,
                          const Value &, const Value &, const Value &, const Value &,
-                         const Value &, const Value &, const Value &, const Value &>())
-           .def_static("translate", [](const Vector3 &v) { return translate<Matrix>(v); })
-           .def_static("scale", [](const Vector3 &v) { return scale<Matrix>(v); })
-           .def_static("rotate", [](const Vector3 &axis, const Value &angle) {
-                   return rotate<Matrix>(axis, angle);
-               },
-               "axis"_a, "angle"_a
-           )
-           .def_static("look_at", [](const Vector3 &origin,
-                                     const Vector3 &target,
-                                     const Vector3 &up) {
-                   return look_at<Matrix>(origin, target, up);
-               },
-               "origin"_a, "target"_a, "up"_a
-           );
+                         const Value &, const Value &, const Value &, const Value &>());
+
+        if constexpr (array_depth_v<Value> == (IsDynamic ? 1 : 0)) {
+            cls.def(py::init<const Vector &, const Vector &, const Vector &, const Vector &>())
+               .def_static("translate", [](const Vector3 &v) { return translate<Matrix>(v); })
+               .def_static("scale", [](const Vector3 &v) { return scale<Matrix>(v); })
+               .def_static("rotate", [](const Vector3 &axis, const Value &angle) {
+                       return rotate<Matrix>(axis, angle);
+                   },
+                   "axis"_a, "angle"_a
+               )
+               .def_static("look_at", [](const Vector3 &origin,
+                                         const Vector3 &target,
+                                         const Vector3 &up) {
+                       return look_at<Matrix>(origin, target, up);
+                   },
+                   "origin"_a, "target"_a, "up"_a
+               );
+        }
     }
 
     m.def("transpose", [](const Matrix &m) { return transpose(m); });
