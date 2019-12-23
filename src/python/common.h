@@ -212,6 +212,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
     using Value  = std::conditional_t<
         is_mask_v<Array> && array_depth_v<Array> == 1,
         bool, value_t<Array>>;
+    using Mask = mask_t<float32_array_t<Array>>;
 
     static constexpr bool IsMask    = is_mask_v<Array>;
     static constexpr bool IsFloat   = is_float_v<Scalar>;
@@ -337,14 +338,38 @@ py::class_<Array> bind(py::module &m, const char *name) {
           .def(Value() / py::self)
           .def(py::self * py::self)
           .def(Value() * py::self)
-          .def(py::self < py::self)
-          .def(Value() < py::self)
-          .def(py::self > py::self)
-          .def(Value() > py::self)
-          .def(py::self >= py::self)
-          .def(Value() >= py::self)
-          .def(py::self <= py::self)
-          .def(Value() <= py::self)
+          .def("__lt__",
+               [](const Array &a, const Array &b) -> Mask {
+                   return a < b;
+               }, py::is_operator())
+          .def("__lt__",
+               [](const Value &a, const Array &b) -> Mask {
+                   return a < b;
+               }, py::is_operator())
+          .def("__gt__",
+               [](const Array &a, const Array &b) -> Mask {
+                   return a > b;
+               }, py::is_operator())
+          .def("__gt__",
+               [](const Value &a, const Array &b) -> Mask {
+                   return a > b;
+               }, py::is_operator())
+          .def("__le__",
+               [](const Array &a, const Array &b) -> Mask {
+                   return a <= b;
+               }, py::is_operator())
+          .def("__le__",
+               [](const Value &a, const Array &b) -> Mask {
+                   return a <= b;
+               }, py::is_operator())
+          .def("__ge__",
+               [](const Array &a, const Array &b) -> Mask {
+                   return a >= b;
+               }, py::is_operator())
+          .def("__ge__",
+               [](const Value &a, const Array &b) -> Mask {
+                   return a >= b;
+               }, py::is_operator())
           .def(-py::self);
 
         if constexpr (std::is_integral_v<Scalar>) {
@@ -449,19 +474,15 @@ py::class_<Array> bind(py::module &m, const char *name) {
             m.def("cross", [](const Array &a, const Array &b) { return enoki::cross(a, b); });
     }
 
-    if constexpr (IsDynamic && !IsDiff) {
-        m.def("compress", [](const Array &array, const mask_t<Array> &mask) {
-            return compress(array, mask);
-        });
-    }
-
     using Index = array_t<uint32_array_t<
         std::conditional_t<array_depth_v<Array> == 1, array_t<Array>, value_t<array_t<Array>>>>>;
+
+    using IndexMask = mask_t<float32_array_t<Index>>;
 
     // Scatter/gather currently not supported for dynamic CPU arrays containing masks
     if constexpr (IsDynamic && (!IsMask || IsCUDA)) {
         m.def("gather",
-              [](const Array &source, const Index &index, const mask_t<Index> &mask) {
+              [](const Array &source, const Index &index, const IndexMask &mask) {
                   return gather<Array>(source, index, mask);
               },
               "source"_a, "index"_a, "mask"_a = true);
@@ -469,14 +490,20 @@ py::class_<Array> bind(py::module &m, const char *name) {
         m.def("scatter",
               [](Array &target, const Array &source,
                  const Index &index,
-                 const mask_t<Index> &mask) { scatter(target, source, index, mask); },
+                 const IndexMask &mask) { scatter(target, source, index, mask); },
               "target"_a, "source"_a, "index"_a, "mask"_a = true);
 
         m.def("scatter_add",
             [](Array &target, const Array &source,
                const Index &index,
-               const mask_t<Index> &mask) { scatter_add(target, source, index, mask); },
+               const IndexMask &mask) { scatter_add(target, source, index, mask); },
             "target"_a, "source"_a, "index"_a, "mask"_a = true);
+
+        if constexpr (!IsDiff) {
+            m.def("compress", [](const Array &array, const IndexMask &mask) {
+                return compress(array, mask);
+            });
+        }
     }
 
     if constexpr (IsFloat) {
@@ -611,10 +638,10 @@ py::class_<Array> bind(py::module &m, const char *name) {
         }
     }
 
-    m.def("eq", [](const Array &a, const Array &b) { return eq(a, b); });
-    m.def("neq", [](const Array &a, const Array &b) { return neq(a, b); });
+    m.def("eq", [](const Array &a, const Array &b) -> Mask { return eq(a, b); });
+    m.def("neq", [](const Array &a, const Array &b) -> Mask { return neq(a, b); });
 
-    m.def("select", [](const mask_t<Array> &a, const Array &b, const Array &c) {
+    m.def("select", [](const Mask &a, const Array &b, const Array &c) {
         return enoki::select(a, b, c);
     });
 

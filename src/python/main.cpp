@@ -36,6 +36,13 @@ bool disable_print_flag = false; // used in common.h
 PYBIND11_MODULE(enoki, m) {
     m.attr("__version__") = ENOKI_VERSION;
 
+    m.attr("Mask")   = py::handle((PyObject *) &PyBool_Type);
+    m.attr("Float")  = py::handle((PyObject *) &PyFloat_Type);
+    m.attr("Int32")  = py::handle((PyObject *) &PyLong_Type);
+    m.attr("UInt32") = py::handle((PyObject *) &PyLong_Type);
+    m.attr("Int64")  = py::handle((PyObject *) &PyLong_Type);
+    m.attr("UInt64") = py::handle((PyObject *) &PyLong_Type);
+
     bind_scalar_1d(m);
     bind_scalar_2d(m);
     bind_scalar_3d(m);
