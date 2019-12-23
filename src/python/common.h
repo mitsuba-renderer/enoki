@@ -143,7 +143,12 @@ struct Buffer {
             return;
         }
 #endif
+#if defined(__APPLE__)
+        if (posix_memalign(&ptr, 64, size))
+            throw std::runtime_error("Buffer: allocation failure!");
+#else
         ptr = std::aligned_alloc(64, size);
+#endif
     }
 
     ~Buffer() {
