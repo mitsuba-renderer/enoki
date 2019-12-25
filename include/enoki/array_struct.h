@@ -229,8 +229,19 @@ struct struct_support<T, enable_if_static_array_t<T>> {
         array_depth_v<T> == 1, DynamicArray<std::decay_t<T>>,
         typename T::template ReplaceValue<make_dynamic_t<value_t<T>>>>;
 
-    static ENOKI_INLINE size_t slices(const T &value) { return enoki::slices(value.x()); }
-    static ENOKI_INLINE size_t packets(const T& value) { return enoki::packets(value.x()); }
+    static ENOKI_INLINE size_t slices(const T &value) {
+        if constexpr (Size == 0)
+            return 0;
+        else
+            return enoki::slices(value.x());
+    }
+
+    static ENOKI_INLINE size_t packets(const T& value) {
+        if constexpr (Size == 0)
+            return 0;
+        else
+            return enoki::packets(value.x());
+    }
 
     static ENOKI_INLINE void set_slices(T &value, size_t size) {
         for (size_t i = 0; i < Size; ++i)
@@ -452,10 +463,14 @@ namespace detail {
     template <typename T>
     void extract_shape_recursive(size_t *out, size_t i, const T &array) {
         ENOKI_MARK_USED(out); ENOKI_MARK_USED(i); ENOKI_MARK_USED(array);
+        using Value = value_t<T>;
+
         if constexpr (is_array_v<T>) {
             *out = array.derived().size();
-            if constexpr (is_array_v<value_t<T>>)
-                extract_shape_recursive(out + 1, i + 1, array.derived().coeff(0));
+            if constexpr (is_array_v<Value>) {
+                if (*out > 0)
+                    extract_shape_recursive(out + 1, i + 1, array.derived().coeff(0));
+            }
         }
     }
 
@@ -466,13 +481,17 @@ namespace detail {
             size_t size = a.derived().size();
             if (*shape != size)
                 return false;
+
             bool match = true;
-            if (is_dynamic_v<value_t<T>>) {
+            using Value = value_t<T>;
+            if (is_dynamic_v<Value>) {
                 for (size_t i = 0; i < size; ++i)
                     match &= is_ragged_recursive(a.derived().coeff(i), shape + 1);
-            } else {
-                is_ragged_recursive(a.derived().coeff(0), shape + 1);
+            } else if (size > 0) {
+                // This is not really needed!
+                // match &= is_ragged_recursive(a.derived().coeff(0), shape + 1);
             }
+
             return match;
         } else {
             return true;
@@ -492,7 +511,8 @@ namespace detail {
                 for (size_t i = 0; i < size; ++i)
                     set_shape_recursive(a.derived().coeff(i), shape + 1);
             } else {
-                set_shape_recursive(a.derived().coeff(0), shape + 1);
+                if (size > 0)
+                    set_shape_recursive(a.derived().coeff(0), shape + 1);
             }
         }
     }
@@ -501,7 +521,7 @@ namespace detail {
 /// Extract the shape of a nested array as an std::array
 template <typename T, typename Result = std::array<size_t, array_depth_v<T>>>
 Result shape(const T &array) {
-    Result result;
+    Result result{0};
     detail::extract_shape_recursive(result.data(), 0, array);
     return result;
 }

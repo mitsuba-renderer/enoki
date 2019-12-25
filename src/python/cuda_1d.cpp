@@ -38,6 +38,8 @@ void bind_cuda_1d(py::module& m) {
         .def(py::init<const Int64C &>())
         .def(py::init<const UInt32C &>());
 
+    bind<Vector0mC>(m, "Vector0mC");
+    bind<Vector0fC>(m, "Vector0fC");
     bind<Vector1mC>(m, "Vector1mC");
     bind<Vector1fC>(m, "Vector1fC");
 }

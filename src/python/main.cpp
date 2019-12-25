@@ -108,4 +108,22 @@ PYBIND11_MODULE(enoki, m) {
           [](py::object o, bool value) {
               throw py::type_error("set_requires_gradient(): requires a differentiable type as input!");
           }, "array"_a, "value"_a = true);
+
+    m.def("zero",
+        [](py::handle h, size_t size) {
+            if (size == 1)
+                return h(0);
+            else
+                return h.attr("zero")(size);
+        },
+        "type"_a, "size"_a = 1);
+
+    m.def("empty",
+        [](py::handle h, size_t size) {
+            if (size == 1)
+                return h();
+            else
+                return h.attr("empty")(size);
+        },
+        "type"_a, "size"_a = 1);
 }

@@ -59,6 +59,8 @@ void bind_cuda_autodiff_1d(py::module& m) {
         .def(py::init<const UInt64C &>())
         .def(py::init<const FloatD &>());
 
+    bind<Vector0mD>(m, "Vector0mD");
+    bind<Vector0fD>(m, "Vector0fD");
     bind<Vector1mD>(m, "Vector1mD");
     bind<Vector1fD>(m, "Vector1fD");
 
