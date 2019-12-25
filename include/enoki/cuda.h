@@ -88,6 +88,9 @@ extern ENOKI_IMPORT uint32_t cuda_trace_append(EnokiType type,
 extern ENOKI_IMPORT void cuda_trace_printf(const char *fmt, uint32_t narg,
                                            uint32_t *arg);
 
+/// Computes the prefix sum of a given memory region
+template <typename T> extern ENOKI_IMPORT T* cuda_psum(size_t, const T *);
+
 /// Computes the horizontal sum of a given memory region
 template <typename T> extern ENOKI_IMPORT T* cuda_hsum(size_t, const T *);
 
@@ -158,6 +161,12 @@ extern ENOKI_IMPORT void cuda_fill(uint8_t *ptr, uint8_t value, size_t size);
 extern ENOKI_IMPORT void cuda_fill(uint16_t *ptr, uint16_t value, size_t size);
 extern ENOKI_IMPORT void cuda_fill(uint32_t *ptr, uint32_t value, size_t size);
 extern ENOKI_IMPORT void cuda_fill(uint64_t *ptr, uint64_t value, size_t size);
+
+/// Reverse an array
+extern ENOKI_IMPORT void cuda_reverse(uint8_t *out, const uint8_t *in, size_t size);
+extern ENOKI_IMPORT void cuda_reverse(uint16_t *out, const uint16_t *in, size_t size);
+extern ENOKI_IMPORT void cuda_reverse(uint32_t *out, const uint32_t *in, size_t size);
+extern ENOKI_IMPORT void cuda_reverse(uint64_t *out, const uint64_t *in, size_t size);
 
 /// Release device-local or unified memory
 extern ENOKI_IMPORT void cuda_free(void *);
@@ -678,6 +687,30 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
             cuda_eval_var(m_index);
             Value *result = cuda_hsum(n, (const Value *) cuda_var_ptr(m_index));
             return CUDAArray::from_index_(cuda_var_register(Type, 1, result, true));
+        }
+    }
+
+    CUDAArray reverse_() const {
+        using UInt = uint_array_t<Value>;
+
+        size_t n = size();
+        if (n <= 1)
+            return *this;
+
+        cuda_eval_var(m_index);
+        UInt *result = (UInt *) cuda_malloc(n * sizeof(Value));
+        cuda_reverse(result, (const UInt *) cuda_var_ptr(m_index), n);
+        return CUDAArray::from_index_(cuda_var_register(Type, n, result, true));
+    }
+
+    CUDAArray psum_() const {
+        size_t n = size();
+        if (n <= 1) {
+            return *this;
+        } else {
+            cuda_eval_var(m_index);
+            Value *result = cuda_psum(n, (const Value *) cuda_var_ptr(m_index));
+            return CUDAArray::from_index_(cuda_var_register(Type, n, result, true));
         }
     }
 

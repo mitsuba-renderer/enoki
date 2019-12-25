@@ -994,6 +994,32 @@ Horizontal operations
             bool b1 = (f1 != f2);
             bool b2 = any(neq(f1, f2));
 
+.. cpp:function:: template <typename Array> Array reverse(Array value)
+
+    Returns the input array with all components reversed, i.e.
+
+    .. code-block:: cpp
+
+
+        value[Array::Size-1], .., value[0]
+
+    For multidimensional arrays, the *outermost* dimension of ``Array`` are
+    reversed. Note that this operation is currently not efficiently vectorized
+    on 1D CPU arrays (though GPU and/or multi-dimensional arrays are fine).
+
+.. cpp:function:: template <typename Array> Array psum(Array value)
+
+    Computes the inclusive prefix sum of the components of ``value``, i.e.
+
+    .. code-block:: cpp
+
+        value[0], value[0] + value[1], .., value[0] + .. + value[Array::Size-1];
+
+    For multidimensional arrays, the horizontal reduction is performed over the
+    *outermost* dimension of ``Array``. Note that this operation is currently
+    not efficiently vectorized on 1D CPU arrays (though GPU and/or
+    multi-dimensional arrays are fine).
+
 .. cpp:function:: template <typename Array> value_t<Array> hsum(Array value)
 
     Efficiently computes the horizontal sum of the components of ``value``, i.e.
@@ -1002,7 +1028,7 @@ Horizontal operations
 
         value[0] + .. + value[Array::Size-1];
 
-    For 1D arrays, ``hsum()`` returns a scalar result. For multdimensional
+    For 1D arrays, ``hsum()`` returns a scalar result. For multidimensional
     arrays, the horizontal reduction is performed over the *outermost* dimension
     of ``Array``, and the result is of type ``value_t<Array>``.
 
@@ -1025,7 +1051,7 @@ Horizontal operations
 
         value[0] * .. * value[Array::Size-1];
 
-    For 1D arrays, ``hprod()`` returns a scalar result. For multdimensional
+    For 1D arrays, ``hprod()`` returns a scalar result. For multidimensional
     arrays, the horizontal reduction is performed over the *outermost* dimension
     of ``Array``, and the result is of type ``value_t<Array>``.
 
@@ -1048,7 +1074,7 @@ Horizontal operations
 
         max(value[0], max(value[1], ...))
 
-    For 1D arrays, ``hmax()`` returns a scalar result. For multdimensional
+    For 1D arrays, ``hmax()`` returns a scalar result. For multidimensional
     arrays, the horizontal reduction is performed over the *outermost* dimension
     of ``Array``, and the result is of type ``value_t<Array>``.
 
@@ -1071,7 +1097,7 @@ Horizontal operations
 
         min(value[0], min(value[1], ...))
 
-    For 1D arrays, ``hmin()`` returns a scalar result. For multdimensional
+    For 1D arrays, ``hmin()`` returns a scalar result. For multidimensional
     arrays, the horizontal reduction is performed over the *outermost* dimension
     of ``Array``, and the result is of type ``value_t<Array>``.
 
@@ -1095,7 +1121,7 @@ Horizontal operations
 
         value[0] & ... & value[Size-1]
 
-    For 1D arrays, ``all()`` returns a boolean result. For multdimensional
+    For 1D arrays, ``all()`` returns a boolean result. For multidimensional
     arrays, the horizontal reduction is performed over the *outermost* dimension
     of ``Mask``, and the result is of type ``mask_t<value_t<Mask>>``.
 
@@ -1126,7 +1152,7 @@ Horizontal operations
 
         value[0] | ... | value[Size-1]
 
-    For 1D arrays, ``any()`` returns a boolean result. For multdimensional
+    For 1D arrays, ``any()`` returns a boolean result. For multidimensional
     arrays, the horizontal reduction is performed over the *outermost* dimension
     of ``Mask``, and the result is of type ``mask_t<value_t<Mask>>``.
 
@@ -1157,7 +1183,7 @@ Horizontal operations
 
         ~(value[0] | ... | value[Size-1])
 
-    For 1D arrays, ``none()`` returns a boolean result. For multdimensional
+    For 1D arrays, ``none()`` returns a boolean result. For multidimensional
     arrays, the horizontal reduction is performed over the *outermost* dimension
     of ``Mask``, and the result is of type ``mask_t<value_t<Mask>>``.
 
@@ -1188,9 +1214,10 @@ Horizontal operations
 
         (value[0] ? 1 : 0) + ... (value[Size - 1] ? 1 : 0)
 
-    For 1D arrays, ``count()`` returns a result of type ``size_t``. For multdimensional
-    arrays, the horizontal reduction is performed over the *outermost* dimension
-    of ``Mask``, and the result is of type ``size_array_t<value_t<Mask>>``.
+    For 1D arrays, ``count()`` returns a result of type ``size_t``. For
+    multidimensional arrays, the horizontal reduction is performed over the
+    *outermost* dimension of ``Mask``, and the result is of type
+    ``size_array_t<value_t<Mask>>``.
 
 .. cpp:function:: template <typename Mask> auto count_inner(Mask value)
 

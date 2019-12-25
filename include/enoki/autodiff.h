@@ -35,7 +35,6 @@ private:
     using Int64 = int64_array_t<Type>;
 
     Tape();
-    ~Tape();
 
     // -----------------------------------------------------------------------
     //! @{ \name Append unary/binary/ternary operations to the tape
@@ -48,6 +47,9 @@ private:
 
     Index append(const char *label, size_t size, Index i1, Index i2, Index i3,
                  const Type &w1, const Type &w2, const Type &w3);
+
+    Index append_psum(Index i);
+    Index append_reverse(Index i);
 
     Index append_gather(const Int64 &offset, const Mask &mask);
 
@@ -112,9 +114,12 @@ private:
 
     static Tape* get() ENOKI_PURE;
 
+public:
+    ~Tape();
+
 private:
 
-    static Tape *s_tape;
+    static std::unique_ptr<Tape> s_tape;
     Detail *d;
 };
 
@@ -1019,6 +1024,30 @@ public:
             fail_unsupported("count_");
         else
             return count(m_value);
+    }
+
+    DiffArray reverse_() const {
+        if constexpr (is_mask_v<Type> || std::is_pointer_v<Scalar>) {
+            fail_unsupported("reverse_");
+        } else {
+            Index index_new = 0;
+            if constexpr (Enabled)
+                index_new = tape()->append_reverse(m_index);
+
+            return DiffArray::create(index_new, reverse(m_value));
+        }
+    }
+
+    DiffArray psum_() const {
+        if constexpr (is_mask_v<Type> || std::is_pointer_v<Scalar>) {
+            fail_unsupported("psum_");
+        } else {
+            Index index_new = 0;
+            if constexpr (Enabled)
+                index_new = tape()->append_psum(m_index);
+
+            return DiffArray::create(index_new, psum(m_value));
+        }
     }
 
     DiffArray hsum_() const {

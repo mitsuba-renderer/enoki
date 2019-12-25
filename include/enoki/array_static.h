@@ -729,6 +729,40 @@ public:
     //! @{ \name Fallback implementations of horizontal operations
     // -----------------------------------------------------------------------
 
+    /// Reverse fallback
+    ENOKI_INLINE Derived reverse_() const {
+        ENOKI_CHKSCALAR("reverse");
+        Derived result;
+        for (size_t i = 0; i < Derived::Size; ++i)
+            result.coeff(i) = (const Value &) derived().coeff(Derived::Size - 1 - i);
+        return result;
+    }
+
+    /// Prefix sum fallback
+    ENOKI_INLINE Derived psum_() const {
+        ENOKI_CHKSCALAR("psum");
+        Derived result;
+        result.coeff(0) = (const Value &) derived().coeff(0);
+        for (size_t i = 1; i < Derived::Size; ++i)
+            result.coeff(i) = (const Value &) result.coeff(i - 1) +
+                              (const Value &) derived().coeff(i);
+        return result;
+    }
+
+    /// Prefix sum over innermost dimension
+    ENOKI_INLINE auto psum_inner_() const {
+        if constexpr (is_array_v<Value>) {
+            using Value = decltype(psum_inner(derived().coeff(0)));
+            using Result = typename Derived::template ReplaceValue<Value>;
+            Result result;
+            for (size_t i = 0; i < Derived::Size; ++i)
+                result.coeff(i) = psum_inner(derived().coeff(i));
+            return result;
+        } else {
+            return psum(derived());
+        }
+    }
+
     /// Horizontal sum fallback
     ENOKI_INLINE Value hsum_() const {
         ENOKI_CHKSCALAR("hsum");

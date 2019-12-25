@@ -79,6 +79,28 @@ ENOKI_EXPORT void cuda_fill(uint64_t *ptr, uint64_t value, size_t size) {
     fill<<<256, 256>>>(ptr, value, size);
 }
 
+template <typename T> __global__ void reverse(T *out, const T *in, size_t n) {
+    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n;
+         i += blockDim.x * gridDim.x)
+        out[i] = in[n - 1 - i];
+}
+
+ENOKI_EXPORT void cuda_reverse(uint8_t *out, const uint8_t *in, size_t size) {
+    reverse<<<256, 256>>>(out, in, size);
+}
+
+ENOKI_EXPORT void cuda_reverse(uint16_t *out, const uint16_t *in, size_t size) {
+    reverse<<<256, 256>>>(out, in, size);
+}
+
+ENOKI_EXPORT void cuda_reverse(uint32_t *out, const uint32_t *in, size_t size) {
+    reverse<<<256, 256>>>(out, in, size);
+}
+
+ENOKI_EXPORT void cuda_reverse(uint64_t *out, const uint64_t *in, size_t size) {
+    reverse<<<256, 256>>>(out, in, size);
+}
+
 ENOKI_EXPORT void cuda_memcpy_to_device(void *dst, const void *src, size_t size) {
     cuda_check(cudaMemcpy(dst, src, size, cudaMemcpyHostToDevice));
 }

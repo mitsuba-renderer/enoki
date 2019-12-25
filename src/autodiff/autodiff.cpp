@@ -203,11 +203,11 @@ template <typename Value> struct Tape<Value>::SimplificationLock {
     bool state = false;
 };
 
-template <typename Value> Tape<Value> *Tape<Value>::s_tape = nullptr;
+template <typename Value> std::unique_ptr<Tape<Value>> Tape<Value>::s_tape;
 template <typename Value> Tape<Value> *Tape<Value>::get() {
     if (ENOKI_UNLIKELY(!s_tape))
-        s_tape = new Tape();
-    return s_tape;
+        s_tape = std::unique_ptr<Tape>(new Tape());
+    return s_tape.get();
 }
 
 template <typename Value> Tape<Value>::Tape() {
@@ -416,6 +416,106 @@ Index Tape<Value>::append_gather(const Int64 &offset, const Mask &mask) {
         return target;
     } else {
         return 0;
+    }
+}
+
+template <typename Value>
+Index Tape<Value>::append_reverse(Index source) {
+    if (source == 0)
+        return 0;
+
+    if constexpr (is_dynamic_v<Value>) {
+        struct Reverse : Special {
+            void forward(Detail *detail, Index target_idx, const Edge &edge) const override {
+                const Value &grad_source = detail->node(edge.source).grad;
+                Value &grad_target = detail->node(target_idx).grad;
+
+                Value result = reverse(grad_source);
+
+                if (grad_target.empty())
+                    grad_target = result;
+                else
+                    grad_target += result;
+            }
+
+            void backward(Detail *detail, Index target_idx, const Edge &edge) const override {
+                const Value &grad_target = detail->node(target_idx).grad;
+                Value &grad_source = detail->node(edge.source).grad;
+
+                Value result = reverse(grad_target);
+
+                if (grad_source.empty())
+                    grad_source = result;
+                else
+                    grad_source += result;
+            }
+        };
+
+        Reverse *s = new Reverse();
+
+        Index target = append_node(d->node(source).size, "reverse");
+        d->node(target).edges.emplace_back(source, s);
+        inc_ref_int(source, target);
+
+#if !defined(NDEBUG)
+        if (d->log_level >= 3)
+            std::cerr << "autodiff: append_reverse(" << target << " <- "
+                      << source << ")" << std::endl;
+#endif
+
+        return target;
+    } else {
+        throw std::runtime_error("append_reverse(): internal error!");
+    }
+}
+
+template <typename Value>
+Index Tape<Value>::append_psum(Index source) {
+    if (source == 0)
+        return 0;
+
+    if constexpr (is_dynamic_v<Value>) {
+        struct PrefixSum : Special {
+            void forward(Detail *detail, Index target_idx, const Edge &edge) const override {
+                const Value &grad_source = detail->node(edge.source).grad;
+                Value &grad_target = detail->node(target_idx).grad;
+
+                Value result = psum(grad_source);
+
+                if (grad_target.empty())
+                    grad_target = result;
+                else
+                    grad_target += result;
+            }
+
+            void backward(Detail *detail, Index target_idx, const Edge &edge) const override {
+                const Value &grad_target = detail->node(target_idx).grad;
+                Value &grad_source = detail->node(edge.source).grad;
+
+                Value result = reverse(psum(reverse(grad_target)));
+
+                if (grad_source.empty())
+                    grad_source = result;
+                else
+                    grad_source += result;
+            }
+        };
+
+        PrefixSum *s = new PrefixSum();
+
+        Index target = append_node(d->node(source).size, "psum");
+        d->node(target).edges.emplace_back(source, s);
+        inc_ref_int(source, target);
+
+#if !defined(NDEBUG)
+        if (d->log_level >= 3)
+            std::cerr << "autodiff: append_psum(" << target << " <- "
+                      << source << ")" << std::endl;
+#endif
+
+        return target;
+    } else {
+        throw std::runtime_error("append_psum(): internal error!");
     }
 }
 

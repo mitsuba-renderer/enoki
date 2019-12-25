@@ -53,6 +53,13 @@ void bind_scalar_1d(py::module& m) {
     m.def("acosh",   [](Float a) { return enoki::acosh(a); });
     m.def("atanh",   [](Float a) { return enoki::atanh(a); });
 
+    m.def("hsum",    [](Float a) { return enoki::hsum(a); });
+    m.def("hprod",   [](Float a) { return enoki::hprod(a); });
+    m.def("hmin",    [](Float a) { return enoki::hmin(a); });
+    m.def("hmax",    [](Float a) { return enoki::hmax(a); });
+    m.def("psum",    [](Float a) { return enoki::psum(a); });
+    m.def("reverse", [](Float a) { return enoki::reverse(a); });
+
     m.def("log",    [](Float a) { return enoki::log(a); });
     m.def("exp",    [](Float a) { return enoki::exp(a); });
     m.def("erfinv", [](Float a) { return enoki::erfinv(a); });

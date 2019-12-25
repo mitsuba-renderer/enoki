@@ -619,9 +619,13 @@ py::class_<Array> bind(py::module &m, const char *name) {
         m.def("mulhi", [](const Array &a, const Array &b) { return enoki::mulhi(a, b); });
     }
 
+    m.def("reverse", [](const Array &a) { return enoki::reverse(a); });
+
     if constexpr (!IsMask) {
         m.def("max", [](const Array &a, const Array &b) { return enoki::max(a, b); });
         m.def("min", [](const Array &a, const Array &b) { return enoki::min(a, b); });
+
+        m.def("psum", [](const Array &a) { return enoki::psum(a); });
 
         m.def("hsum", [](const Array &a) { return enoki::hsum(a); });
         m.def("hprod", [](const Array &a) { return enoki::hprod(a); });

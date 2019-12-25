@@ -16,6 +16,7 @@
 #include <cub/device/device_run_length_encode.cuh>
 #include <cub/device/device_reduce.cuh>
 #include <cub/device/device_select.cuh>
+#include <cub/device/device_scan.cuh>
 #include <vector>
 #include "common.cuh"
 
@@ -158,6 +159,26 @@ template <typename T> T* cuda_hsum(size_t size, const T *data) {
     temp = cuda_malloc(temp_size);
     result_p = (T *) cuda_malloc(sizeof(T));
     cuda_check_maybe_redo(cub::DeviceReduce::Sum(temp, temp_size, data, result_p, size));
+    cuda_free(temp);
+
+    return result_p;
+}
+
+template <typename T> T* cuda_psum(size_t size, const T *data) {
+#if !defined(NDEBUG)
+    if (cuda_log_level() >= 4)
+        std::cerr << "cuda_psum(size=" << size << ")" << std::endl;
+#endif
+
+    size_t temp_size  = 0;
+    void *temp        = nullptr;
+
+    T *result_p = nullptr;
+
+    cuda_check(cub::DeviceScan::InclusiveSum(temp, temp_size, data, result_p, size));
+    temp = cuda_malloc(temp_size);
+    result_p = (T *) cuda_malloc(sizeof(T) * size);
+    cuda_check_maybe_redo(cub::DeviceScan::InclusiveSum(temp, temp_size, data, result_p, size));
     cuda_free(temp);
 
     return result_p;
@@ -323,6 +344,13 @@ template ENOKI_EXPORT int64_t*  cuda_hsum(size_t, const int64_t *);
 template ENOKI_EXPORT uint64_t* cuda_hsum(size_t, const uint64_t *);
 template ENOKI_EXPORT float*    cuda_hsum(size_t, const float *);
 template ENOKI_EXPORT double*   cuda_hsum(size_t, const double *);
+
+template ENOKI_EXPORT int32_t*  cuda_psum(size_t, const int32_t *);
+template ENOKI_EXPORT uint32_t* cuda_psum(size_t, const uint32_t *);
+template ENOKI_EXPORT int64_t*  cuda_psum(size_t, const int64_t *);
+template ENOKI_EXPORT uint64_t* cuda_psum(size_t, const uint64_t *);
+template ENOKI_EXPORT float*    cuda_psum(size_t, const float *);
+template ENOKI_EXPORT double*   cuda_psum(size_t, const double *);
 
 template ENOKI_EXPORT int32_t*  cuda_hprod(size_t, const int32_t *);
 template ENOKI_EXPORT uint32_t* cuda_hprod(size_t, const uint32_t *);

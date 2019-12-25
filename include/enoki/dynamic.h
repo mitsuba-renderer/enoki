@@ -601,6 +601,34 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
     //! @{ \name Horizontal array operations
     // -----------------------------------------------------------------------
 
+    Derived reverse_() const {
+        using CoeffValue = std::conditional_t<IsMask, bool, Value>;
+
+        size_t n = size();
+
+        Derived result;
+        set_slices(result, n);
+
+        for (size_t i = 0; i < n; ++i)
+            result.coeff(i) = (CoeffValue) coeff(n - 1 - i);
+
+        return result;
+    }
+
+    Derived psum_() const {
+        Derived result;
+        set_slices(result, size());
+
+        if (!empty()) {
+            // Difficult to vectorize this..
+            result.coeff(0) = coeff(0);
+            for (size_t i = 1; i < size(); ++i)
+                result.coeff(i) = result.coeff(i - 1) + coeff(i);
+        }
+
+        return result;
+    }
+
     Value hsum_() const {
         if (size() == 0) {
             return Value(Scalar(0));
