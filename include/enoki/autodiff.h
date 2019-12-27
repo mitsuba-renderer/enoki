@@ -1363,7 +1363,26 @@ public:
 
     DiffArray &managed() {
         if constexpr (is_cuda_array_v<Type>)
-            m_value = m_value.managed();
+            m_value.managed();
+        return *this;
+    }
+
+    const DiffArray &managed() const {
+        if constexpr (is_cuda_array_v<Type>)
+            m_value.managed();
+        return *this;
+    }
+
+
+    DiffArray &eval() {
+        if constexpr (is_cuda_array_v<Type>)
+            m_value.eval();
+        return *this;
+    }
+
+    const DiffArray &eval() const {
+        if constexpr (is_cuda_array_v<Type>)
+            m_value.eval();
         return *this;
     }
 

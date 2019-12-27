@@ -643,6 +643,41 @@ Miscellaneous initialization
              [1, 3]]
         */
 
+.. cpp:function:: template <typename Predicate> binary_search(scalar_t<Index> start, scalar_t<Index> end, Predicate pred, mask_t<Index> index)
+
+    Perform binary search over a range given a predicate ``pred``, which
+    monotonically decreases over this range (i.e. max one ``true`` -> ``false``
+    transition).
+
+    Given a (scalar) ``start`` and ``end`` index of a range, this function
+    evaluates a predicate ``floor(log2(end-start) + 1)`` times to find the
+    first index that no longer satisfies it. Note that the template parameter
+    ``Index`` is automatically inferred from the supplied predicate. When
+    ``pred`` is ``false`` for all entries, the function returns ``start``, and
+    when it is ``true`` for all cases, it returns ``end``.
+
+    The predicate takes an index or an index vector of type ``Index`` as input
+    argument and can (optionally) take a mask argument as well. In the
+    vectorized case, each vector lane can use different predicate. 
+
+    The following code example shows a typical use case: ``array`` contains a
+    sorted list of floating point numbers, and the goal is to map floating
+    point entries of ``x`` to the first index ``j`` such that ``array[j] >= x``
+    (and all of this of course in parallel for each vector element).
+
+    .. code-block:: cpp
+
+        std::vector<float> array = ...;
+        Float32P x = ...;
+
+        UInt32P j = binary_search(
+           0,
+           array.size(),
+           [](UInt32P index, mask_t<UInt32P> mask) {
+               return gather(array.data(), index, mask) < x;
+           }
+        );
+
 
 Elementary Arithmetic Operators
 -------------------------------

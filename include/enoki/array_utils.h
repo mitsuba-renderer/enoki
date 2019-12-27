@@ -22,33 +22,59 @@ NAMESPACE_BEGIN(enoki)
 /// Analagous to meshgrid() in NumPy or MATLAB; for dynamic arrays
 template <typename T, enable_if_dynamic_array_t<T> = 0>
 Array<T, 2> meshgrid(const T &x, const T &y) {
-    T X, Y;
-    set_slices(X, x.size() * y.size());
-    set_slices(Y, x.size() * y.size());
+    if constexpr (is_cuda_array_v<T> || is_diff_array_v<T>) {
+        x.eval(); y.eval();
 
-    size_t pos = 0;
-
-    if (x.size() % T::PacketSize == 0) {
-        /* Fast path */
-
-        for (size_t i = 0; i < y.size(); ++i) {
-            for (size_t j = 0; j < packets(x); ++j) {
-                packet(X, pos) = packet(x, j);
-                packet(Y, pos) = y.coeff(i);
-                pos++;
-            }
+        if (x.size() == 1) {
+            T x2(x);
+            set_slices(x2, slices(y));
+            return Array<T, 2>(
+                std::move(x2),
+                y
+            );
         }
+
+        uint32_t n = (uint32_t) x.size() * (uint32_t) y.size();
+        divisor<uint32_t> div((uint32_t) x.size());
+
+        using UInt32 = uint32_array_t<T>;
+        UInt32 index = arange<UInt32>(n),
+               yi    = div(index),
+               xi    = index - yi * (uint32_t) x.size();
+
+        return Array<T, 2>(
+            gather<T>(x, xi),
+            gather<T>(y, yi)
+        );
     } else {
-        for (size_t i = 0; i < y.size(); ++i) {
-            for (size_t j = 0; j < x.size(); ++j) {
-                X.coeff(pos) = x.coeff(j);
-                Y.coeff(pos) = y.coeff(i);
-                pos++;
+        T X, Y;
+        set_slices(X, x.size() * y.size());
+        set_slices(Y, x.size() * y.size());
+
+        size_t pos = 0;
+
+        if (x.size() % T::PacketSize == 0) {
+            /* Fast path */
+
+            for (size_t i = 0; i < y.size(); ++i) {
+                for (size_t j = 0; j < packets(x); ++j) {
+                    packet(X, pos) = packet(x, j);
+                    packet(Y, pos) = y.coeff(i);
+                    pos++;
+                }
+            }
+        } else {
+            for (size_t i = 0; i < y.size(); ++i) {
+                for (size_t j = 0; j < x.size(); ++j) {
+                    X.coeff(pos) = x.coeff(j);
+                    Y.coeff(pos) = y.coeff(i);
+                    pos++;
+                }
             }
         }
-    }
 
-    return Array<T, 2>(std::move(X), std::move(Y));
+        return Array<T, 2>(std::move(X), std::move(Y));
+    }
 }
 
 /// Vectorized N-dimensional 'range' iterable with automatic mask computation
@@ -121,15 +147,32 @@ private:
     Size size;
 };
 
-namespace detail {
-    template <typename Array, bool Clear>
-    ENOKI_INLINE Array *alloca_helper(uint8_t *ptr, size_t size) {
-        (uintptr_t &) ptr +=
-            ((max_packet_size - (uintptr_t) ptr) % max_packet_size);
-        if constexpr (Clear)
-            memset(ptr, 0, size);
-        return (Array *) ptr;
+template <typename Predicate,
+          typename Args  = typename function_traits<Predicate>::Args,
+          typename Index = std::decay_t<std::tuple_element_t<0, Args>>>
+Index binary_search(scalar_t<Index> start_,
+                    scalar_t<Index> end_,
+                    const Predicate &pred,
+                    mask_t<Index> active = true) {
+
+    scalar_t<Index> iterations = log2i(end_ - start_) + 1;
+    Index start(start_), end(end_);
+
+    for (size_t i = 0; i < iterations; ++i) {
+        active &= end > start;
+        Index middle = sr<1>(start + end);
+
+        mask_t<Index> cond;
+        if constexpr (std::tuple_size_v<Args> == 1)
+            cond = pred(middle);
+        else
+            cond = pred(middle, active);
+
+        masked(start,  cond && active) = middle + 1;
+        masked(end,   !cond && active) = middle;
     }
+
+    return start;
 }
 
 // -----------------------------------------------------------------------
@@ -144,6 +187,17 @@ namespace detail {
     enoki::detail::alloca_helper<Array, Clear>((uint8_t *) alloca(            \
         sizeof(Array) * (Count) + enoki::max_packet_size - 4),                \
         sizeof(Array) * (Count))
+
+namespace detail {
+    template <typename Array, bool Clear>
+    ENOKI_INLINE Array *alloca_helper(uint8_t *ptr, size_t size) {
+        (uintptr_t &) ptr +=
+            ((max_packet_size - (uintptr_t) ptr) % max_packet_size);
+        if constexpr (Clear)
+            memset(ptr, 0, size);
+        return (Array *) ptr;
+    }
+}
 
 //! @}
 // -----------------------------------------------------------------------

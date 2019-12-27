@@ -1,12 +1,13 @@
 #include "common.h"
+#include <pybind11/functional.h>
 
 void bind_cuda_autodiff_1d(py::module& m) {
     auto mask_class = bind<mask_t<FloatD>>(m, "MaskD");
-    auto float_class = bind<FloatD>(m, "FloatD");
-    auto int32_class = bind<Int32D>(m, "Int32D");
-    auto int64_class = bind<Int64D>(m, "Int64D");
     auto uint32_class = bind<UInt32D>(m, "UInt32D");
     auto uint64_class = bind<UInt64D>(m, "UInt64D");
+    auto int32_class = bind<Int32D>(m, "Int32D");
+    auto int64_class = bind<Int64D>(m, "Int64D");
+    auto float_class = bind<FloatD>(m, "FloatD");
 
     mask_class
         .def(py::init<const MaskC &>());
@@ -63,6 +64,21 @@ void bind_cuda_autodiff_1d(py::module& m) {
     bind<Vector0fD>(m, "Vector0fD");
     bind<Vector1mD>(m, "Vector1mD");
     bind<Vector1fD>(m, "Vector1fD");
+
+    m.def(
+        "binary_search",
+        [](uint32_t start,
+           uint32_t end,
+           const std::function<MaskD(UInt32D, MaskD)> &pred,
+           MaskD mask) {
+            return enoki::binary_search(start, end, pred, mask);
+        },
+        "start"_a, "end"_a, "pred"_a, "mask"_a = true);
+
+    m.def("meshgrid", [](const FloatD &x, const FloatD &y) {
+        auto result = meshgrid(x, y);
+        return std::make_pair(std::move(result.x()), std::move(result.y()));
+    });
 
     struct Scope {
         Scope(const std::string &name) : name(name) { }

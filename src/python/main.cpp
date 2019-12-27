@@ -1,4 +1,5 @@
 #include "common.h"
+#include <pybind11/functional.h>
 
 extern void bind_scalar_1d(py::module&);
 extern void bind_scalar_2d(py::module&);

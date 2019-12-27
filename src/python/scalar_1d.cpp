@@ -1,4 +1,5 @@
 #include "common.h"
+#include <pybind11/functional.h>
 
 void bind_scalar_1d(py::module& m) {
     using Float = float;
@@ -79,8 +80,23 @@ void bind_scalar_1d(py::module& m) {
     m.def("isnan", [](Float a) { return enoki::isnan(a); });
     m.def("isinf", [](Float a) { return enoki::isinf(a); });
 
+    m.def("tzcnt",  [](size_t a) { return enoki::tzcnt(a); });
+    m.def("lzcnt",  [](size_t a) { return enoki::lzcnt(a); });
+    m.def("popcnt", [](size_t a) { return enoki::popcnt(a); });
+    m.def("log2i",  [](size_t a) { return enoki::log2i(a); });
+
     bind<Vector0m>(m, "Vector0m");
     bind<Vector0f>(m, "Vector0f");
     bind<Vector1m>(m, "Vector1m");
     bind<Vector1f>(m, "Vector1f");
+
+    m.def(
+        "binary_search",
+        [](uint32_t start,
+           uint32_t end,
+           const std::function<bool(uint32_t, bool)> &pred,
+           bool mask) {
+            return enoki::binary_search(start, end, pred, mask);
+        },
+        "start"_a, "end"_a, "pred"_a, "mask"_a = true);
 }

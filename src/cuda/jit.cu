@@ -466,9 +466,11 @@ ENOKI_EXPORT void cuda_make_managed(uint32_t idx) {
         std::cerr << "cuda_make_managed(" << idx << ") = " << v.data << std::endl;
 #endif
     size_t total_size = v.size * cuda_register_size(v.type);
-
-    if (!v.data || total_size == 0)
+    if (total_size == 0)
         return;
+
+    if (v.data == nullptr || v.dirty)
+        cuda_eval();
 
     cudaPointerAttributes attr;
     cuda_check(cudaPointerGetAttributes(&attr, v.data));

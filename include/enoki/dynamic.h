@@ -392,6 +392,10 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
     ENOKI_FWD_UNARY_OPERATION_IMM(rol, Derived, rol<Imm>(a))
     ENOKI_FWD_UNARY_OPERATION_IMM(ror, Derived, ror<Imm>(a))
 
+    ENOKI_FWD_UNARY_OPERATION(lzcnt, Derived, lzcnt(a))
+    ENOKI_FWD_UNARY_OPERATION(tzcnt, Derived, tzcnt(a))
+    ENOKI_FWD_UNARY_OPERATION(popcnt, Derived, popcnt(a))
+
     ENOKI_FWD_BINARY_OPERATION(or,     Derived, a1 | a2)
     ENOKI_FWD_BINARY_OPERATION(and,    Derived, a1 & a2)
     ENOKI_FWD_BINARY_OPERATION(andnot, Derived, andnot(a1, a2))
@@ -842,6 +846,9 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
     }
 
     Derived &managed() { return derived(); }
+    Derived &eval() { return derived(); }
+    Derived &managed() const { return derived(); }
+    Derived &eval() const { return derived(); }
 
     template <typename... Args> void resize_like(const Args&... args) {
         resize(check_size(args...));

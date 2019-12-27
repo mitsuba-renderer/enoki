@@ -684,7 +684,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         if (n == 1) {
             return *this;
         } else {
-            cuda_eval_var(m_index);
+            eval();
             Value *result = cuda_hsum(n, (const Value *) cuda_var_ptr(m_index));
             return CUDAArray::from_index_(cuda_var_register(Type, 1, result, true));
         }
@@ -697,7 +697,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         if (n <= 1)
             return *this;
 
-        cuda_eval_var(m_index);
+        eval();
         UInt *result = (UInt *) cuda_malloc(n * sizeof(Value));
         cuda_reverse(result, (const UInt *) cuda_var_ptr(m_index), n);
         return CUDAArray::from_index_(cuda_var_register(Type, n, result, true));
@@ -708,7 +708,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         if (n <= 1) {
             return *this;
         } else {
-            cuda_eval_var(m_index);
+            eval();
             Value *result = cuda_psum(n, (const Value *) cuda_var_ptr(m_index));
             return CUDAArray::from_index_(cuda_var_register(Type, n, result, true));
         }
@@ -719,7 +719,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         if (n == 1) {
             return *this;
         } else {
-            cuda_eval_var(m_index);
+            eval();
             Value *result = cuda_hprod(n, (const Value *) cuda_var_ptr(m_index));
             return CUDAArray::from_index_(cuda_var_register(Type, 1, result, true));
         }
@@ -730,7 +730,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         if (n == 1) {
             return *this;
         } else {
-            cuda_eval_var(m_index);
+            eval();
             Value *result = cuda_hmax(n, (const Value *) cuda_var_ptr(m_index));
             return CUDAArray::from_index_(cuda_var_register(Type, 1, result, true));
         }
@@ -741,7 +741,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         if (n == 1) {
             return *this;
         } else {
-            cuda_eval_var(m_index);
+            eval();
             Value *result = cuda_hmin(n, (const Value *) cuda_var_ptr(m_index));
             return CUDAArray::from_index_(cuda_var_register(Type, 1, result, true));
         }
@@ -752,7 +752,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         if (n == 1) {
             return coeff(0);
         } else {
-            cuda_eval_var(m_index);
+            eval();
             return cuda_all(n, (const Value *) cuda_var_ptr(m_index));
         }
     }
@@ -762,13 +762,23 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         if (n == 1) {
             return coeff(0);
         } else {
-            cuda_eval_var(m_index);
+            eval();
             return cuda_any(n, (const Value *) cuda_var_ptr(m_index));
         }
     }
 
-    size_t count_() const {
+    CUDAArray &eval() {
         cuda_eval_var(m_index);
+        return *this;
+    }
+
+    const CUDAArray &eval() const {
+        cuda_eval_var(m_index);
+        return *this;
+    }
+
+    size_t count_() const {
+        eval();
         return cuda_count(cuda_var_size(m_index), (const Value *) cuda_var_ptr(m_index));
     }
 
@@ -785,9 +795,14 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         return *this;
     }
 
+    const CUDAArray &managed() const {
+        cuda_make_managed(m_index);
+        return *this;
+    }
+
     template <typename T = Value, enable_if_t<std::is_pointer_v<T>> = 0>
     std::vector<std::pair<Value, CUDAArray<uint32_t>>> partition_() const {
-        cuda_eval_var(m_index);
+        eval();
 
         void **unique = nullptr;
         uint32_t *counts = nullptr;
@@ -882,8 +897,8 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
             return *this;
         else if (mask.size() != size())
             throw std::runtime_error("CUDAArray::compress_(): size mismatch!");
-        cuda_eval_var(m_index);
-        cuda_eval_var(mask.index_());
+        eval();
+        mask.eval();
 
         Value *ptr;
         size_t new_size;
