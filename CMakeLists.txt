@@ -352,6 +352,7 @@ if (ENOKI_PYTHON)
   pybind11_add_module(
       enoki-python
       THIN_LTO
+
       src/python/common.h
       src/python/main.cpp
 
@@ -386,6 +387,8 @@ if (ENOKI_PYTHON)
 
   if (CMAKE_CXX_COMPILER_ID MATCHES "GCC|Clang")
     target_compile_options(enoki-python PRIVATE -Os)
+  elseif (MSVC)
+    target_compile_options(enoki-python PRIVATE /Os)
   endif()
 endif()
 

@@ -247,6 +247,9 @@ py::class_<Array> bind(py::module &m, const char *name) {
 
     py::class_<Array> cl(m, name);
 
+    if constexpr (array_size_v<Array> == 0)
+        return cl;
+
     cl.def(py::init<>())
       .def(py::init<const Array &>())
       .def(py::init<const Value &>())
@@ -291,7 +294,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
                 return numpy_to_enoki<T>(obj);
             }
 
-            if constexpr (!IsKMask && array_depth_v<Array> == 1) {
+            if constexpr (!IsMask && array_depth_v<Array> == 1) {
                 if (strstr(tp_name, "enoki.") == nullptr &&
                     py::isinstance<py::sequence>(obj)) {
                     try {
@@ -458,8 +461,6 @@ py::class_<Array> bind(py::module &m, const char *name) {
                 arange<Int32>((uint32_t) slicelength) * (uint32_t) step +
                 (uint32_t) start;
 
-            std::cout << "Indices=" << indices << std::endl;
-
             return gather<Array>(s, indices);
         });
 
@@ -490,6 +491,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
             }
         });
     } else if constexpr (!IsKMask) {
+#if 0
         cl.def("__getitem__", [](const Array &src, py::slice slice) -> std::vector<Value> {
             ssize_t start, stop, step, slicelength;
             if (!slice.compute(src.size(), &start, &stop, &step, &slicelength))
@@ -514,6 +516,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
             for (ssize_t i = 0, j = start; j < stop; ++i, j += step)
                 dst[j] = src[src.size() == 1 ? 0 : i];
         });
+#endif
     }
 
     struct Iterator {
