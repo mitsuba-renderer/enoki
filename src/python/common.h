@@ -441,9 +441,37 @@ py::class_<Array> bind(py::module &m, const char *name) {
         return a.coeff(index);
     });
 
+
+    struct Iterator {
+        Array &array;
+        size_t pos = 0;
+
+        Iterator(Array &array) : array(array), pos(0) { }
+    };
+
+    py::class_<Iterator>(cl, "Iterator")
+        .def("__iter__",
+            [](Iterator &it) -> Iterator & { return it; }
+        )
+        .def("__next__",
+            [](Iterator &it) -> Value {
+                if (it.pos >= it.array.size())
+                    throw py::stop_iteration();
+                return it.array[it.pos++];
+            }
+        );
+
+    cl.def("__iter__",
+           [](Array &array) { return Iterator(array); },
+           py::keep_alive<0, 1>());
+
     cl.def("__len__", [](const Array &a) { return a.size(); });
-    cl.def("resize", [](Array &a, size_t size) { enoki::set_slices(a, size); });
+
     m.def("slices", [](const Array &a) { return slices(a); });
+    m.def("shape", [](const Array &a) { return shape(a); });
+
+    if constexpr (IsDynamic)
+        cl.def("resize", [](Array &a, size_t size) { a.resize(size); });
 
     if constexpr (!IsDynamic || array_depth_v<Array> > 1) {
         cl.def("__setitem__", [](Array &a, size_t index, const Value &b) {
@@ -740,8 +768,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
     if constexpr (!std::is_same_v<Value, Scalar>)
         implicitly_convertible<Scalar, Array>();
 
-    if constexpr (!IsDynamic || array_depth_v<Array> > 1)
-        implicitly_convertible<py::list, Array>();
+    implicitly_convertible<py::list, Array>();
 
     return cl;
 }
