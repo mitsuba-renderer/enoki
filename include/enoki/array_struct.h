@@ -226,7 +226,12 @@ struct struct_support<T, enable_if_static_array_t<T>> {
     static constexpr size_t Size = T::Size;
 
     using Dynamic = std::conditional_t<
-        array_depth_v<T> == 1, DynamicArray<std::decay_t<T>>,
+        array_depth_v<T> == 1,
+        std::conditional_t<
+            is_mask_v<T>,
+            DynamicMask<std::decay_t<T>>,
+            DynamicArray<std::decay_t<T>>
+        >,
         typename T::template ReplaceValue<make_dynamic_t<value_t<T>>>>;
 
     static ENOKI_INLINE size_t slices(const T &value) {
