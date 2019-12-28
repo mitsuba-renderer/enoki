@@ -443,7 +443,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
         if (index >= a.size())
             throw py::index_error();
         return a.coeff(index);
-    });
+    }, "index"_a);
 
     if constexpr (array_depth_v<Array> == 1 && IsDynamic && !IsKMask) {
         cl.def("__getitem__", [](const Array &s, py::slice slice) {
@@ -462,7 +462,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
                 (uint32_t) start;
 
             return gather<Array>(s, indices);
-        });
+        }, "slice"_a);
 
         cl.def("__setitem__", [](Array &dst, py::slice slice,
                                  const Array &src) {
@@ -489,34 +489,49 @@ py::class_<Array> bind(py::module &m, const char *name) {
 
                 scatter(dst, src, indices);
             }
-        });
+        }, "src"_a, "value"_a);
     } else if constexpr (!IsKMask) {
-#if 0
-        cl.def("__getitem__", [](const Array &src, py::slice slice) -> std::vector<Value> {
+        cl.def("__getitem__", [](const Array &src, py::slice slice) {
             ssize_t start, stop, step, slicelength;
             if (!slice.compute(src.size(), &start, &stop, &step, &slicelength))
                 throw py::error_already_set();
-            std::vector<Value> result((size_t) slicelength);
-            for (ssize_t i = 0, j = start; j < stop; ++i, j += step)
-                result[i] = src[j];
-            return result;
-        });
 
-        cl.def("__setitem__", [](Array &dst, py::slice slice, const std::vector<Value> &src) {
-            ssize_t start, stop, step, slicelength;
+            py::list result;
+            for (ssize_t i = 0, j = start; j < stop; ++i, j += step)
+                result.append(py::cast(src[j], py::return_value_policy::copy));
+            return result;
+        }, "slice"_a);
+
+        cl.def("__setitem__", [](Array &dst, py::slice slice, py::object src) {
+            ssize_t start, stop, step, slicelength, src_size = -1;
             if (!slice.compute(dst.size(), &start, &stop, &step, &slicelength))
                 throw py::error_already_set();
 
-            if (slicelength != src.size() && src.size() != 1)
+            py::list list;
+            if (py::isinstance<py::list>(src)) {
+                list = py::list(src);
+                src_size = (ssize_t) list.size();
+            }
+
+            if (slicelength != src_size && src_size != -1)
                 throw py::index_error(
                     "Size mismatch: tried to assign an array of size " +
-                    std::to_string(src.size()) + " to a slice of size " +
+                    std::to_string(src_size) + " to a slice of size " +
                     std::to_string(slicelength) + "!");
 
-            for (ssize_t i = 0, j = start; j < stop; ++i, j += step)
-                dst[j] = src[src.size() == 1 ? 0 : i];
-        });
-#endif
+            try {
+                if (src_size == -1) {
+                    Value v = py::cast<Value>(src);
+                    for (ssize_t j = start; j < stop; j += step)
+                        dst[j] = v;
+                } else {
+                    for (ssize_t i = 0, j = start; j < stop; ++i, j += step)
+                        dst[j] = py::cast<Value>(list[i]);
+                }
+            } catch (const py::cast_error &) {
+                throw py::reference_cast_error();
+            }
+        }, "slice"_a, "value"_a);
     }
 
     struct Iterator {
@@ -550,16 +565,16 @@ py::class_<Array> bind(py::module &m, const char *name) {
     if constexpr (IsDynamic)
         cl.def("resize", [](Array &a, size_t size) { a.resize(size); });
 
-    cl.def("__setitem__", [](Array &a, const Mask &m, const Array &b) {
-        a[m] = b;
-    });
+    cl.def("__setitem__", [](Array &a, const Mask &mask, const Array &value) {
+        a[mask] = value;
+    }, "mask"_a, "value"_a);
 
     if constexpr (!IsDynamic || array_depth_v<Array> > 1) {
-        cl.def("__setitem__", [](Array &a, size_t index, const Value &b) {
+        cl.def("__setitem__", [](Array &a, size_t index, const Value &value) {
             if (index >= Array::Size)
                 throw py::index_error();
-            a.coeff(index) = b;
-        });
+            a.coeff(index) = value;
+        }, "index"_a, "value"_a);
 
         if constexpr (!IsMask || array_depth_v<Array> > 1) {
             if constexpr (array_size_v<Array> == 2)
