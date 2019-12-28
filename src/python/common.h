@@ -243,6 +243,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
     static constexpr bool IsCUDA    = is_cuda_array_v<Array>;
     static constexpr bool IsDiff    = is_diff_array_v<Array>;
     static constexpr bool IsDynamic = is_dynamic_v<Array>;
+    static constexpr bool IsKMask   = IsMask && !is_cuda_array_v<Array>;
 
     py::class_<Array> cl(m, name);
 
@@ -290,7 +291,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
                 return numpy_to_enoki<T>(obj);
             }
 
-            if constexpr (!IsMask && array_depth_v<Array> == 1) {
+            if constexpr (!IsKMask && array_depth_v<Array> == 1) {
                 if (strstr(tp_name, "enoki.") == nullptr &&
                     py::isinstance<py::sequence>(obj)) {
                     try {
@@ -309,7 +310,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
     } else {
         cl.def(py::init([](const py::object &obj) -> Array {
             const char *tp_name = ((PyTypeObject *) obj.get_type().ptr())->tp_name;
-            if constexpr (IsDynamic && !IsMask) {
+            if constexpr (IsDynamic && !IsKMask) {
                 if (strstr(tp_name, "numpy.ndarray") != nullptr) {
                     using T = expr_t<decltype(detach(std::declval<Array&>()))>;
                     return numpy_to_enoki<T>(obj);
@@ -441,15 +442,77 @@ py::class_<Array> bind(py::module &m, const char *name) {
         return a.coeff(index);
     });
 
-    if constexpr (array_depth_v<Array> == 1 && IsDynamic) {
-        cl.def("__getitem__",[](const Array &s, py::slice slice) {
-          ssize_t start, stop, step, slicelength;
-          if (!slice.compute(s.size(), &start, &stop, &step, &slicelength))
-              throw py::error_already_set();
-          using UInt32 = uint32_array_t<Array>;
-          UInt32 indices =
-              arange<UInt32>((uint32_t) slicelength) * (uint32_t) step + (uint32_t) start;
-          return gather<Array>(s, indices);
+    if constexpr (array_depth_v<Array> == 1 && IsDynamic && !IsKMask) {
+        cl.def("__getitem__", [](const Array &s, py::slice slice) {
+            ssize_t start, stop, step, slicelength;
+            if (!slice.compute(s.size(), &start, &stop, &step, &slicelength))
+                throw py::error_already_set();
+
+            if (slicelength == 0)
+                return Array();
+            else if (step == 1 && slicelength == (ssize_t) s.size())
+                return s; // Fast path
+
+            using Int32 = int32_array_t<Array>;
+            Int32 indices =
+                arange<Int32>((uint32_t) slicelength) * (uint32_t) step +
+                (uint32_t) start;
+
+            std::cout << "Indices=" << indices << std::endl;
+
+            return gather<Array>(s, indices);
+        });
+
+        cl.def("__setitem__", [](Array &dst, py::slice slice,
+                                 const Array &src) {
+            ssize_t start, stop, step, slicelength;
+            if (!slice.compute(dst.size(), &start, &stop, &step, &slicelength))
+                throw py::error_already_set();
+
+            if (slicelength != src.size() && src.size() != 1)
+                throw py::index_error(
+                    "Size mismatch: tried to assign an array of size " +
+                    std::to_string(src.size()) + " to a slice of size " +
+                    std::to_string(slicelength) + "!");
+
+            if (step == 0) {
+                return;
+            } else if (step == 1 && slicelength == (ssize_t) dst.size()) {
+                dst = src; // Fast path
+                set_slices(dst, slicelength);
+            } else {
+                using Int32 = int32_array_t<Array>;
+                Int32 indices =
+                    arange<Int32>((int32_t) slicelength) * (int32_t) step +
+                    (int32_t) start;
+
+                scatter(dst, src, indices);
+            }
+        });
+    } else if constexpr (!IsKMask) {
+        cl.def("__getitem__", [](const Array &src, py::slice slice) -> std::vector<Value> {
+            ssize_t start, stop, step, slicelength;
+            if (!slice.compute(src.size(), &start, &stop, &step, &slicelength))
+                throw py::error_already_set();
+            std::vector<Value> result((size_t) slicelength);
+            for (ssize_t i = 0, j = start; j < stop; ++i, j += step)
+                result[i] = src[j];
+            return result;
+        });
+
+        cl.def("__setitem__", [](Array &dst, py::slice slice, const std::vector<Value> &src) {
+            ssize_t start, stop, step, slicelength;
+            if (!slice.compute(dst.size(), &start, &stop, &step, &slicelength))
+                throw py::error_already_set();
+
+            if (slicelength != src.size() && src.size() != 1)
+                throw py::index_error(
+                    "Size mismatch: tried to assign an array of size " +
+                    std::to_string(src.size()) + " to a slice of size " +
+                    std::to_string(slicelength) + "!");
+
+            for (ssize_t i = 0, j = start; j < stop; ++i, j += step)
+                dst[j] = src[src.size() == 1 ? 0 : i];
         });
     }
 
@@ -548,7 +611,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
     using IndexMask = mask_t<float32_array_t<Index>>;
 
     // Scatter/gather currently not supported for dynamic CPU arrays containing masks
-    if constexpr (IsDynamic && (!IsMask || IsCUDA)) {
+    if constexpr (IsDynamic && !IsKMask) {
         m.def("gather",
               [](const Array &source, const Index &index, const IndexMask &mask) {
                   return gather<Array>(source, index, mask);
