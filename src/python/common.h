@@ -441,6 +441,17 @@ py::class_<Array> bind(py::module &m, const char *name) {
         return a.coeff(index);
     });
 
+    if constexpr (array_depth_v<Array> == 1 && IsDynamic) {
+        cl.def("__getitem__",[](const Array &s, py::slice slice) {
+          ssize_t start, stop, step, slicelength;
+          if (!slice.compute(s.size(), &start, &stop, &step, &slicelength))
+              throw py::error_already_set();
+          using UInt32 = uint32_array_t<Array>;
+          UInt32 indices =
+              arange<UInt32>((uint32_t) slicelength) * (uint32_t) step + (uint32_t) start;
+          return gather<Array>(s, indices);
+        });
+    }
 
     struct Iterator {
         Array &array;
