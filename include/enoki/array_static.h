@@ -1126,8 +1126,14 @@ public:
 
     /// Construct an array that linearly interpolates from min..max
     static ENOKI_INLINE Derived linspace_(Scalar min, Scalar max) {
-        return linspace_(std::make_index_sequence<Derived::Size>(), min,
-            (max - min) / (Scalar) (Derived::Size - 1));
+        if constexpr (Derived::Size == 0) {
+            return Derived();
+        } else if constexpr (Derived::Size == 1) {
+            return Derived(min);
+        } else {
+            return linspace_(std::make_index_sequence<Derived::Size>(), min,
+                (max - min) / (Scalar) (Derived::Size - 1));
+        }
     }
 
     /// Return an unitialized array

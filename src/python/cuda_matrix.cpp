@@ -1,8 +1,13 @@
 #include "common.h"
 
-void bind_cuda_matrix(py::module& m) {
-    bind_matrix<Matrix2fC>(m, "Matrix2fC");
-    bind_matrix<Matrix3fC>(m, "Matrix3fC");
-    bind_matrix<Matrix4fC>(m, "Matrix4fC");
-    bind_matrix<Matrix44fC>(m, "Matrix44fC");
+void bind_cuda_matrix(py::module& m, py::module& s) {
+    bind_matrix<Matrix2fC>(m, s, "Matrix2f");
+    bind_matrix<Matrix3fC>(m, s, "Matrix3f");
+    bind_matrix<Matrix4fC>(m, s, "Matrix4f");
+    bind_matrix<Matrix44fC>(m, s, "Matrix44f");
+
+    bind_matrix<Matrix2dC>(m, s, "Matrix2d");
+    bind_matrix<Matrix3dC>(m, s, "Matrix3d");
+    bind_matrix<Matrix4dC>(m, s, "Matrix4d");
+    bind_matrix<Matrix44dC>(m, s, "Matrix44d");
 }

@@ -326,36 +326,20 @@ if (ENOKI_PYTHON)
   set(CMAKE_CXX_STANDARD 17)
   add_subdirectory(${ENOKI_PYBIND11_DIR} pybind11)
 
-  if (ENOKI_CUDA)
-    list(APPEND ENOKI_PYTHON_FILES
-      src/python/cuda_1d.cpp
-      src/python/cuda_2d.cpp
-      src/python/cuda_3d.cpp
-      src/python/cuda_4d.cpp
-      src/python/cuda_complex.cpp
-      src/python/cuda_matrix.cpp
-      src/python/cuda_pcg32.cpp
-    )
-
-    if (ENOKI_AUTODIFF)
-      list(APPEND ENOKI_PYTHON_FILES
-        src/python/cuda_autodiff_1d.cpp
-        src/python/cuda_autodiff_2d.cpp
-        src/python/cuda_autodiff_3d.cpp
-        src/python/cuda_autodiff_4d.cpp
-        src/python/cuda_autodiff_complex.cpp
-        src/python/cuda_autodiff_matrix.cpp
-      )
-    endif()
-  endif()
+  pybind11_add_module(
+      enoki-python-core
+      THIN_LTO
+      src/python/common.h
+      src/python/main.cpp
+  )
 
   pybind11_add_module(
-      enoki-python
+      enoki-python-scalar
       THIN_LTO
 
       src/python/common.h
-      src/python/main.cpp
-
+      src/python/scalar.cpp
+      src/python/scalar_0d.cpp
       src/python/scalar_1d.cpp
       src/python/scalar_2d.cpp
       src/python/scalar_3d.cpp
@@ -363,7 +347,15 @@ if (ENOKI_PYTHON)
       src/python/scalar_complex.cpp
       src/python/scalar_matrix.cpp
       src/python/scalar_pcg32.cpp
+  )
 
+  pybind11_add_module(
+      enoki-python-dynamic
+      THIN_LTO
+
+      src/python/common.h
+      src/python/dynamic.cpp
+      src/python/dynamic_0d.cpp
       src/python/dynamic_1d.cpp
       src/python/dynamic_2d.cpp
       src/python/dynamic_3d.cpp
@@ -371,25 +363,83 @@ if (ENOKI_PYTHON)
       src/python/dynamic_complex.cpp
       src/python/dynamic_matrix.cpp
       src/python/dynamic_pcg32.cpp
-
-      ${ENOKI_PYTHON_FILES}
   )
 
-  set_target_properties(enoki-python PROPERTIES OUTPUT_NAME "enoki")
-
-  if (ENOKI_AUTODIFF)
-    target_link_libraries(enoki-python PRIVATE enoki-autodiff)
-  endif()
+  set(ENOKI_PYTHON_TARGETS core scalar dynamic)
 
   if (ENOKI_CUDA)
-    target_link_libraries(enoki-python PRIVATE enoki-cuda cuda)
+    pybind11_add_module(
+        enoki-python-cuda
+        THIN_LTO
+
+        src/python/common.h
+        src/python/cuda.cpp
+        src/python/cuda_0d.cpp
+        src/python/cuda_1d.cpp
+        src/python/cuda_2d.cpp
+        src/python/cuda_3d.cpp
+        src/python/cuda_4d.cpp
+        src/python/cuda_complex.cpp
+        src/python/cuda_matrix.cpp
+        src/python/cuda_pcg32.cpp
+    )
+    target_link_libraries(enoki-python-cuda PRIVATE enoki-cuda cuda)
+    target_link_libraries(enoki-python-core PRIVATE enoki-cuda cuda)
+    set(ENOKI_PYTHON_TARGETS ${ENOKI_PYTHON_TARGETS} cuda)
   endif()
 
-  if (CMAKE_CXX_COMPILER_ID MATCHES "GCC|Clang")
-    target_compile_options(enoki-python PRIVATE -Os)
-  elseif (MSVC)
-    target_compile_options(enoki-python PRIVATE /Os)
+  if (ENOKI_CUDA AND ENOKI_AUTODIFF)
+    pybind11_add_module(
+        enoki-python-cuda-autodiff
+        THIN_LTO
+
+        src/python/common.h
+        src/python/cuda_autodiff.cpp
+        src/python/cuda_autodiff_0d.cpp
+        src/python/cuda_autodiff_1d.cpp
+        src/python/cuda_autodiff_2d.cpp
+        src/python/cuda_autodiff_3d.cpp
+        src/python/cuda_autodiff_4d.cpp
+        src/python/cuda_autodiff_complex.cpp
+        src/python/cuda_autodiff_matrix.cpp
+    )
+    target_link_libraries(enoki-python-cuda-autodiff PRIVATE enoki-autodiff enoki-cuda cuda)
+    set(ENOKI_PYTHON_TARGETS ${ENOKI_PYTHON_TARGETS} cuda-autodiff)
   endif()
+
+  foreach (TARGET IN LISTS ENOKI_PYTHON_TARGETS)
+    string(REPLACE "-" "_" TARGET_U ${TARGET})
+
+    if (${TARGET} MATCHES "core")
+      set_target_properties(enoki-python-${TARGET} PROPERTIES
+        OUTPUT_NAME "core"
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/enoki
+      )
+    else()
+      set_target_properties(enoki-python-${TARGET} PROPERTIES
+        OUTPUT_NAME ${TARGET_U}
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/enoki
+      )
+    endif()
+
+    if (CMAKE_CXX_COMPILER_ID MATCHES "GCC|Clang")
+      target_compile_options(enoki-python-${TARGET} PRIVATE -g0 -Os)
+    elseif (MSVC)
+      target_compile_options(enoki-python-${TARGET} PRIVATE /Os)
+    endif()
+  endforeach()
+
+  add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/enoki/__init__.py
+    COMMAND ${CMAKE_COMMAND} -E copy
+    ${CMAKE_CURRENT_SOURCE_DIR}/resources/__init__.py
+    ${CMAKE_CURRENT_BINARY_DIR}/enoki/__init__.py
+  )
+
+  add_custom_target(
+    enoki-python-init
+    ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/enoki/__init__.py
+  )
 endif()
 
 # Build the documentation

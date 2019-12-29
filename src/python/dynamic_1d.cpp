@@ -1,48 +1,86 @@
 #include "common.h"
 #include <pybind11/functional.h>
 
-void bind_dynamic_1d(py::module& m) {
-    auto mask_class = bind<MaskX>(m, "MaskX");
-    auto uint32_class = bind<UInt32X>(m, "UInt32X");
-    auto uint64_class = bind<UInt64X>(m, "UInt64X");
-    auto int32_class = bind<Int32X>(m, "Int32X");
-    auto int64_class = bind<Int64X>(m, "Int64X");
-    auto float_class = bind<FloatX>(m, "FloatX");
+void bind_dynamic_1d(py::module& m, py::module& s) {
+    auto mask_class = bind<MaskX>(m, s, "Mask");
+    auto uint32_class = bind<UInt32X>(m, s, "UInt32");
+    auto uint64_class = bind<UInt64X>(m, s, "UInt64");
+    auto int32_class = bind<Int32X>(m, s, "Int32");
+    auto int64_class = bind<Int64X>(m, s, "Int64");
+    auto float32_class = bind<Float32X>(m, s, "Float32");
+    auto float64_class = bind<Float64X>(m, s, "Float64");
 
-    float_class
+    float32_class
+        .def(py::init<const Float64X &>())
+        .def(py::init<const Int32X &>())
+        .def(py::init<const Int64X &>())
+        .def(py::init<const UInt32X &>())
+        .def(py::init<const UInt64X &>());
+
+    float64_class
+        .def(py::init<const Float32X &>())
         .def(py::init<const Int32X &>())
         .def(py::init<const Int64X &>())
         .def(py::init<const UInt32X &>())
         .def(py::init<const UInt64X &>());
 
     int32_class
-        .def(py::init<const FloatX &>())
+        .def(py::init<const Float32X &>())
+        .def(py::init<const Float64X &>())
         .def(py::init<const Int64X &>())
         .def(py::init<const UInt32X &>())
         .def(py::init<const UInt64X &>());
 
     int64_class
-        .def(py::init<const FloatX &>())
+        .def(py::init<const Float32X &>())
+        .def(py::init<const Float64X &>())
         .def(py::init<const Int32X &>())
         .def(py::init<const UInt32X &>())
         .def(py::init<const UInt64X &>());
 
     uint32_class
-        .def(py::init<const FloatX &>())
+        .def(py::init<const Float32X &>())
+        .def(py::init<const Float64X &>())
         .def(py::init<const Int32X &>())
         .def(py::init<const Int64X &>())
         .def(py::init<const UInt64X &>());
 
     uint64_class
-        .def(py::init<const FloatX &>())
+        .def(py::init<const Float32X &>())
+        .def(py::init<const Float64X &>())
         .def(py::init<const Int32X &>())
         .def(py::init<const Int64X &>())
         .def(py::init<const UInt32X &>());
 
-    bind<Vector0mX>(m, "Vector0mX");
-    bind<Vector0fX>(m, "Vector0fX");
-    bind<Vector1mX>(m, "Vector1mX");
-    bind<Vector1fX>(m, "Vector1fX");
+    auto vector1m_class = bind<Vector1mX>(m, s, "Vector1m");
+    auto vector1i_class = bind<Vector1iX>(m, s, "Vector1i");
+    auto vector1u_class = bind<Vector1uX>(m, s, "Vector1u");
+    auto vector1f_class = bind<Vector1fX>(m, s, "Vector1f");
+    auto vector1d_class = bind<Vector1dX>(m, s, "Vector1d");
+
+    vector1f_class
+        .def(py::init<const Vector1f  &>())
+        .def(py::init<const Vector1dX &>())
+        .def(py::init<const Vector1uX &>())
+        .def(py::init<const Vector1iX &>());
+
+    vector1d_class
+        .def(py::init<const Vector1d  &>())
+        .def(py::init<const Vector1fX &>())
+        .def(py::init<const Vector1uX &>())
+        .def(py::init<const Vector1iX &>());
+
+    vector1i_class
+        .def(py::init<const Vector1i  &>())
+        .def(py::init<const Vector1fX &>())
+        .def(py::init<const Vector1dX &>())
+        .def(py::init<const Vector1uX &>());
+
+    vector1u_class
+        .def(py::init<const Vector1u  &>())
+        .def(py::init<const Vector1fX &>())
+        .def(py::init<const Vector1dX &>())
+        .def(py::init<const Vector1iX &>());
 
     m.def(
         "binary_search",
@@ -54,7 +92,12 @@ void bind_dynamic_1d(py::module& m) {
         },
         "start"_a, "end"_a, "pred"_a, "mask"_a = true);
 
-    m.def("meshgrid", [](const FloatX &x, const FloatX &y) {
+    m.def("meshgrid", [](const Float32X &x, const Float32X &y) {
+        auto result = meshgrid(x, y);
+        return std::make_pair(std::move(result.x()), std::move(result.y()));
+    });
+
+    m.def("meshgrid", [](const Float64X &x, const Float64X &y) {
         auto result = meshgrid(x, y);
         return std::make_pair(std::move(result.x()), std::move(result.y()));
     });

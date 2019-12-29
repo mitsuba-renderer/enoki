@@ -1,8 +1,16 @@
 #include "common.h"
 #include <pybind11/functional.h>
 
-void bind_scalar_1d(py::module& m) {
-    using Float = float;
+void bind_scalar_1d(py::module& m, py::module& s) {
+    s.attr("Mask")    = py::handle((PyObject *) &PyBool_Type);
+    s.attr("Float32") = py::handle((PyObject *) &PyFloat_Type);
+    s.attr("Float64") = py::handle((PyObject *) &PyFloat_Type);
+    s.attr("Int32")   = py::handle((PyObject *) &PyLong_Type);
+    s.attr("UInt32")  = py::handle((PyObject *) &PyLong_Type);
+    s.attr("Int64")   = py::handle((PyObject *) &PyLong_Type);
+    s.attr("UInt64")  = py::handle((PyObject *) &PyLong_Type);
+
+    using Float = double;
 
     m.def("fmadd", [](Float a, Float b, Float c) {
         return enoki::fmadd(a, b, c);
@@ -85,10 +93,31 @@ void bind_scalar_1d(py::module& m) {
     m.def("popcnt", [](size_t a) { return enoki::popcnt(a); });
     m.def("log2i",  [](size_t a) { return enoki::log2i(a); });
 
-    bind<Vector0m>(m, "Vector0m");
-    bind<Vector0f>(m, "Vector0f");
-    bind<Vector1m>(m, "Vector1m");
-    bind<Vector1f>(m, "Vector1f");
+    auto vector1m_class = bind<Vector1m>(m, s, "Vector1m");
+    auto vector1i_class = bind<Vector1i>(m, s, "Vector1i");
+    auto vector1u_class = bind<Vector1u>(m, s, "Vector1u");
+    auto vector1f_class = bind<Vector1f>(m, s, "Vector1f");
+    auto vector1d_class = bind<Vector1d>(m, s, "Vector1d");
+
+    vector1f_class
+        .def(py::init<const Vector1d &>())
+        .def(py::init<const Vector1u &>())
+        .def(py::init<const Vector1i &>());
+
+    vector1d_class
+        .def(py::init<const Vector1f &>())
+        .def(py::init<const Vector1u &>())
+        .def(py::init<const Vector1i &>());
+
+    vector1i_class
+        .def(py::init<const Vector1f &>())
+        .def(py::init<const Vector1d &>())
+        .def(py::init<const Vector1u &>());
+
+    vector1u_class
+        .def(py::init<const Vector1f &>())
+        .def(py::init<const Vector1d &>())
+        .def(py::init<const Vector1i &>());
 
     m.def(
         "binary_search",

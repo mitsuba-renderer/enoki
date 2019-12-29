@@ -7,11 +7,11 @@
 #define D(...) DOC(__VA_ARGS__)
 
 template <typename PCG32>
-void bind_pcg32(py::module &m, const char *name) {
+void bind_pcg32(py::module &m, py::module s, const char *name) {
     using UInt64 = typename PCG32::UInt64;
     using Mask = mask_t<typename PCG32::Float32>;
 
-    py::class_<PCG32>(m, name, D(PCG32))
+    py::class_<PCG32>(s, name, D(PCG32))
         .def(py::init<UInt64, UInt64>(),
              "initstate"_a = PCG32_DEFAULT_STATE,
              "initseq"_a = PCG32_DEFAULT_STREAM,

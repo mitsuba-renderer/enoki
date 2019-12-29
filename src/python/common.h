@@ -15,59 +15,98 @@ using namespace enoki;
 namespace py = pybind11;
 using namespace py::literals;
 
-using Float  = float;
-using Int32  = int32_t;
-using UInt32 = uint32_t;
-using Int64  = int64_t;
-using UInt64 = uint64_t;
+using Float32 = float;
+using Float64 = double;
+using Int32   = int32_t;
+using UInt32  = uint32_t;
+using Int64   = int64_t;
+using UInt64  = uint64_t;
 
-constexpr size_t PacketSize = array_default_size<Float>;
+constexpr size_t PacketSize = array_default_size<Float32>;
 
-using FloatX    = DynamicArray<Packet<Float, PacketSize>>;
+using Float32X  = DynamicArray<Packet<Float32, PacketSize>>;
+using Float64X  = DynamicArray<Packet<Float64, PacketSize>>;
 using Int32X    = DynamicArray<Packet<Int32, PacketSize>>;
 using Int64X    = DynamicArray<Packet<Int64, PacketSize>>;
 using UInt32X   = DynamicArray<Packet<UInt32, PacketSize>>;
 using UInt64X   = DynamicArray<Packet<UInt64, PacketSize>>;
-using MaskX     = mask_t<FloatX>;
+using MaskX     = mask_t<Float32X>;
 
-using FloatC    = CUDAArray<Float>;
+using Float32C  = CUDAArray<Float32>;
+using Float64C  = CUDAArray<Float64>;
 using Int32C    = CUDAArray<Int32>;
 using Int64C    = CUDAArray<Int64>;
 using UInt32C   = CUDAArray<UInt32>;
 using UInt64C   = CUDAArray<UInt64>;
-using MaskC     = mask_t<FloatC>;
+using MaskC     = mask_t<Float32C>;
 
-using FloatD    = DiffArray<FloatC>;
+using Float32D  = DiffArray<Float32C>;
+using Float64D  = DiffArray<Float64C>;
 using Int32D    = DiffArray<Int32C>;
 using Int64D    = DiffArray<Int64C>;
 using UInt32D   = DiffArray<UInt32C>;
 using UInt64D   = DiffArray<UInt64C>;
-using MaskD     = mask_t<FloatD>;
+using MaskD     = mask_t<Float32D>;
 
-using Vector0f  = Array<Float , 0>;
-using Vector0fX = Array<FloatX, 0>;
-using Vector0fC = Array<FloatC, 0>;
-using Vector0fD = Array<FloatD, 0>;
+using Vector0f  = Array<Float32 , 0>;
+using Vector0fX = Array<Float32X, 0>;
+using Vector0fC = Array<Float32C, 0>;
+using Vector0fD = Array<Float32D, 0>;
 
-using Vector1f  = Array<Float , 1>;
-using Vector1fX = Array<FloatX, 1>;
-using Vector1fC = Array<FloatC, 1>;
-using Vector1fD = Array<FloatD, 1>;
+using Vector0d  = Array<Float64 , 0>;
+using Vector0dX = Array<Float64X, 0>;
+using Vector0dC = Array<Float64C, 0>;
+using Vector0dD = Array<Float64D, 0>;
+
+using Vector0i  = Array<Int32 , 0>;
+using Vector0iX = Array<Int32X, 0>;
+using Vector0iC = Array<Int32C, 0>;
+using Vector0iD = Array<Int32D, 0>;
+
+using Vector0u  = Array<UInt32 , 0>;
+using Vector0uX = Array<UInt32X, 0>;
+using Vector0uC = Array<UInt32C, 0>;
+using Vector0uD = Array<UInt32D, 0>;
 
 using Vector0m  = mask_t<Vector0f >;
 using Vector0mX = mask_t<Vector0fX>;
 using Vector0mC = mask_t<Vector0fC>;
 using Vector0mD = mask_t<Vector0fD>;
 
+using Vector1f  = Array<Float32 , 1>;
+using Vector1fX = Array<Float32X, 1>;
+using Vector1fC = Array<Float32C, 1>;
+using Vector1fD = Array<Float32D, 1>;
+
+using Vector1d  = Array<Float64 , 1>;
+using Vector1dX = Array<Float64X, 1>;
+using Vector1dC = Array<Float64C, 1>;
+using Vector1dD = Array<Float64D, 1>;
+
+using Vector1i  = Array<Int32 , 1>;
+using Vector1iX = Array<Int32X, 1>;
+using Vector1iC = Array<Int32C, 1>;
+using Vector1iD = Array<Int32D, 1>;
+
+using Vector1u  = Array<UInt32 , 1>;
+using Vector1uX = Array<UInt32X, 1>;
+using Vector1uC = Array<UInt32C, 1>;
+using Vector1uD = Array<UInt32D, 1>;
+
 using Vector1m  = mask_t<Vector1f >;
 using Vector1mX = mask_t<Vector1fX>;
 using Vector1mC = mask_t<Vector1fC>;
 using Vector1mD = mask_t<Vector1fD>;
 
-using Vector2f  = Array<Float , 2>;
-using Vector2fX = Array<FloatX, 2>;
-using Vector2fC = Array<FloatC, 2>;
-using Vector2fD = Array<FloatD, 2>;
+using Vector2f  = Array<Float32 , 2>;
+using Vector2fX = Array<Float32X, 2>;
+using Vector2fC = Array<Float32C, 2>;
+using Vector2fD = Array<Float32D, 2>;
+
+using Vector2d  = Array<Float64 , 2>;
+using Vector2dX = Array<Float64X, 2>;
+using Vector2dC = Array<Float64C, 2>;
+using Vector2dD = Array<Float64D, 2>;
 
 using Vector2i  = Array<Int32 , 2>;
 using Vector2iX = Array<Int32X, 2>;
@@ -84,10 +123,15 @@ using Vector2mX = mask_t<Vector2fX>;
 using Vector2mC = mask_t<Vector2fC>;
 using Vector2mD = mask_t<Vector2fD>;
 
-using Vector3f  = Array<Float , 3>;
-using Vector3fX = Array<FloatX, 3>;
-using Vector3fC = Array<FloatC, 3>;
-using Vector3fD = Array<FloatD, 3>;
+using Vector3f  = Array<Float32 , 3>;
+using Vector3fX = Array<Float32X, 3>;
+using Vector3fC = Array<Float32C, 3>;
+using Vector3fD = Array<Float32D, 3>;
+
+using Vector3d  = Array<Float64 , 3>;
+using Vector3dX = Array<Float64X, 3>;
+using Vector3dC = Array<Float64C, 3>;
+using Vector3dD = Array<Float64D, 3>;
 
 using Vector3i  = Array<Int32 , 3>;
 using Vector3iX = Array<Int32X, 3>;
@@ -104,10 +148,15 @@ using Vector3mX = mask_t<Vector3fX>;
 using Vector3mC = mask_t<Vector3fC>;
 using Vector3mD = mask_t<Vector3fD>;
 
-using Vector4f  = Array<Float , 4>;
-using Vector4fX = Array<FloatX, 4>;
-using Vector4fC = Array<FloatC, 4>;
-using Vector4fD = Array<FloatD, 4>;
+using Vector4f  = Array<Float32 , 4>;
+using Vector4fX = Array<Float32X, 4>;
+using Vector4fC = Array<Float32C, 4>;
+using Vector4fD = Array<Float32D, 4>;
+
+using Vector4d  = Array<Float64 , 4>;
+using Vector4dX = Array<Float64X, 4>;
+using Vector4dC = Array<Float64C, 4>;
+using Vector4dD = Array<Float64D, 4>;
 
 using Vector4i  = Array<Int32 , 4>;
 using Vector4iX = Array<Int32X, 4>;
@@ -124,35 +173,65 @@ using Vector4mX = mask_t<Vector4fX>;
 using Vector4mC = mask_t<Vector4fC>;
 using Vector4mD = mask_t<Vector4fD>;
 
-using Complex2f  = Complex<Float >;
-using Complex2fX = Complex<FloatX>;
-using Complex2fC = Complex<FloatC>;
-using Complex2fD = Complex<FloatD>;
+using Complex2f  = Complex<Float32 >;
+using Complex2fX = Complex<Float32X>;
+using Complex2fC = Complex<Float32C>;
+using Complex2fD = Complex<Float32D>;
+
+using Complex2d  = Complex<Float64 >;
+using Complex2dX = Complex<Float64X>;
+using Complex2dC = Complex<Float64C>;
+using Complex2dD = Complex<Float64D>;
 
 using Complex24f  = Complex<Vector4f >;
 using Complex24fX = Complex<Vector4fX>;
 using Complex24fC = Complex<Vector4fC>;
 using Complex24fD = Complex<Vector4fD>;
 
-using Matrix2f  = Matrix<Float , 2>;
-using Matrix2fX = Matrix<FloatX, 2>;
-using Matrix2fC = Matrix<FloatC, 2>;
-using Matrix2fD = Matrix<FloatD, 2>;
+using Complex24d  = Complex<Vector4d >;
+using Complex24dX = Complex<Vector4dX>;
+using Complex24dC = Complex<Vector4dC>;
+using Complex24dD = Complex<Vector4dD>;
 
-using Matrix3f  = Matrix<Float , 3>;
-using Matrix3fX = Matrix<FloatX, 3>;
-using Matrix3fC = Matrix<FloatC, 3>;
-using Matrix3fD = Matrix<FloatD, 3>;
+using Matrix2f  = Matrix<Float32 , 2>;
+using Matrix2fX = Matrix<Float32X, 2>;
+using Matrix2fC = Matrix<Float32C, 2>;
+using Matrix2fD = Matrix<Float32D, 2>;
 
-using Matrix4f  = Matrix<Float , 4>;
-using Matrix4fX = Matrix<FloatX, 4>;
-using Matrix4fC = Matrix<FloatC, 4>;
-using Matrix4fD = Matrix<FloatD, 4>;
+using Matrix2d  = Matrix<Float64 , 2>;
+using Matrix2dX = Matrix<Float64X, 2>;
+using Matrix2dC = Matrix<Float64C, 2>;
+using Matrix2dD = Matrix<Float64D, 2>;
+
+using Matrix3f  = Matrix<Float32 , 3>;
+using Matrix3fX = Matrix<Float32X, 3>;
+using Matrix3fC = Matrix<Float32C, 3>;
+using Matrix3fD = Matrix<Float32D, 3>;
+
+using Matrix3d  = Matrix<Float64 , 3>;
+using Matrix3dX = Matrix<Float64X, 3>;
+using Matrix3dC = Matrix<Float64C, 3>;
+using Matrix3dD = Matrix<Float64D, 3>;
+
+using Matrix4f  = Matrix<Float32 , 4>;
+using Matrix4fX = Matrix<Float32X, 4>;
+using Matrix4fC = Matrix<Float32C, 4>;
+using Matrix4fD = Matrix<Float32D, 4>;
+
+using Matrix4d  = Matrix<Float64 , 4>;
+using Matrix4dX = Matrix<Float64X, 4>;
+using Matrix4dC = Matrix<Float64C, 4>;
+using Matrix4dD = Matrix<Float64D, 4>;
 
 using Matrix44f  = Matrix<Vector4f , 4>;
 using Matrix44fX = Matrix<Vector4fX, 4>;
 using Matrix44fC = Matrix<Vector4fC, 4>;
 using Matrix44fD = Matrix<Vector4fD, 4>;
+
+using Matrix44d  = Matrix<Vector4d , 4>;
+using Matrix44dX = Matrix<Vector4dX, 4>;
+using Matrix44dC = Matrix<Vector4dC, 4>;
+using Matrix44dD = Matrix<Vector4dD, 4>;
 
 struct Buffer {
     Buffer(size_t size, bool cuda_managed)
@@ -190,7 +269,7 @@ template <typename Array> py::object enoki_to_numpy(const Array &array, bool eva
 template <typename Array> Array torch_to_enoki(py::object src);
 template <typename Array> Array numpy_to_enoki(py::array src);
 
-extern bool disable_print_flag;
+extern bool *disable_print_flag;
 
 /// Customized version of pybind11::implicitly_convertible() which disables
 /// __repr__ during implicit casts (this can be triggered at implicit cast
@@ -207,7 +286,7 @@ template <typename InputType, typename OutputType> void implicitly_convertible()
         if (currently_used) // implicit conversions are non-reentrant
             return nullptr;
         set_flag flag_helper(currently_used);
-        set_flag flag_helper_2(disable_print_flag);
+        set_flag flag_helper_2(*disable_print_flag);
         if (!py::detail::make_caster<InputType>().load(obj, false))
             return nullptr;
         py::tuple args(1);
@@ -226,7 +305,7 @@ template <typename InputType, typename OutputType> void implicitly_convertible()
 }
 
 template <typename Array>
-py::class_<Array> bind(py::module &m, const char *name) {
+py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
     using Scalar = std::conditional_t<
         !is_mask_v<Array>, scalar_t<Array>, bool>;
     using Value  = std::conditional_t<
@@ -239,16 +318,13 @@ py::class_<Array> bind(py::module &m, const char *name) {
     >;
 
     static constexpr bool IsMask    = is_mask_v<Array>;
-    static constexpr bool IsFloat   = is_float_v<Scalar>;
+    static constexpr bool IsFloat   = std::is_floating_point_v<Scalar>;
     static constexpr bool IsCUDA    = is_cuda_array_v<Array>;
     static constexpr bool IsDiff    = is_diff_array_v<Array>;
     static constexpr bool IsDynamic = is_dynamic_v<Array>;
     static constexpr bool IsKMask   = IsMask && !is_cuda_array_v<Array>;
 
-    py::class_<Array> cl(m, name);
-
-    if constexpr (array_size_v<Array> == 0)
-        return cl;
+    py::class_<Array> cl(s, name);
 
     cl.def(py::init<>())
       .def(py::init<const Array &>())
@@ -258,7 +334,7 @@ py::class_<Array> bind(py::module &m, const char *name) {
       .def("managed", py::overload_cast<>(&Array::managed), py::return_value_policy::reference)
       .def("eval", py::overload_cast<>(&Array::eval), py::return_value_policy::reference)
       .def("__repr__", [](const Array &a) -> std::string {
-          if (disable_print_flag)
+          if (*disable_print_flag)
               return "";
           std::ostringstream oss;
           oss << a;
@@ -737,9 +813,9 @@ py::class_<Array> bind(py::module &m, const char *name) {
             return enoki::lerp(a, b, t);
         });
 
-        m.def("isfinite", [](const Array &a) { return enoki::isfinite(a); });
-        m.def("isnan", [](const Array &a) { return enoki::isnan(a); });
-        m.def("isinf", [](const Array &a) { return enoki::isinf(a); });
+        m.def("isfinite", [](const Array &a) -> Mask { return enoki::isfinite(a); });
+        m.def("isnan", [](const Array &a) -> Mask { return enoki::isnan(a); });
+        m.def("isinf", [](const Array &a) -> Mask { return enoki::isinf(a); });
     } else if constexpr (!IsMask) {
         m.def("popcnt", [](const Array &a) { return enoki::popcnt(a); });
         m.def("lzcnt", [](const Array &a) { return enoki::lzcnt(a); });
@@ -870,13 +946,13 @@ py::class_<Array> bind(py::module &m, const char *name) {
 }
 
 template <typename Matrix>
-py::class_<Matrix> bind_matrix(py::module &m, const char *name) {
+py::class_<Matrix> bind_matrix(py::module &m, py::module &s, const char *name) {
     using Vector = typename Matrix::Column;
     using Value  = typename Matrix::Entry;
     using Array  = Array<Vector, Matrix::Size>;
     static constexpr bool IsDynamic = is_dynamic_v<Value>;
 
-    auto cls = py::class_<Matrix>(m, name)
+    auto cls = py::class_<Matrix>(s, name)
         .def(py::init<>())
         .def(py::init<const Value &>())
         .def(py::self == py::self)
@@ -889,7 +965,7 @@ py::class_<Matrix> bind_matrix(py::module &m, const char *name) {
             return Matrix(Array(a) * Array(b));
         })
         .def("__repr__", [](const Matrix &a) -> std::string {
-            if (disable_print_flag)
+            if (*disable_print_flag)
                 return "";
             std::ostringstream oss;
             oss << a;
@@ -991,10 +1067,10 @@ py::class_<Matrix> bind_matrix(py::module &m, const char *name) {
 }
 
 template <typename Complex>
-py::class_<Complex> bind_complex(py::module &m, const char *name) {
+py::class_<Complex> bind_complex(py::module &m, py::module &s, const char *name) {
     using Value = value_t<Complex>;
 
-    auto cls = py::class_<Complex>(m, name)
+    auto cls = py::class_<Complex>(s, name)
         .def(py::init<>())
         .def(py::init<const Value &>())
         .def(py::init<const Value &, const Value &>(), "real"_a, "imag"_a)
@@ -1006,7 +1082,7 @@ py::class_<Complex> bind_complex(py::module &m, const char *name) {
         .def(py::self / py::self)
         .def(-py::self)
         .def("__repr__", [](const Complex &a) -> std::string {
-            if (disable_print_flag)
+            if (*disable_print_flag)
                 return "";
             std::ostringstream oss;
             oss << a;
