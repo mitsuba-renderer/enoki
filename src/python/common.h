@@ -323,12 +323,13 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
     static constexpr bool IsDiff    = is_diff_array_v<Array>;
     static constexpr bool IsDynamic = is_dynamic_v<Array>;
     static constexpr bool IsKMask   = IsMask && !is_cuda_array_v<Array>;
+    static constexpr bool IsEmpty   = array_size_v<Array> == 0;
 
     py::class_<Array> cl(s, name);
 
     cl.def(py::init<>())
-      .def(py::init<const Array &>())
       .def(py::init<const Value &>())
+      .def(py::init<const Array &>())
       .def(py::self == py::self)
       .def(py::self != py::self)
       .def("managed", py::overload_cast<>(&Array::managed), py::return_value_policy::reference)
@@ -816,6 +817,17 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
         m.def("isfinite", [](const Array &a) -> Mask { return enoki::isfinite(a); });
         m.def("isnan", [](const Array &a) -> Mask { return enoki::isnan(a); });
         m.def("isinf", [](const Array &a) -> Mask { return enoki::isinf(a); });
+
+        const double relerr_default = std::is_same_v<Scalar, float> ? 1e-5 : 1e-10;
+        const double abserr_default = std::is_same_v<Scalar, float> ? 1e-5 : 1e-10;
+
+        m.def("allclose",
+              [](const Array &a1, const Array &a2, double relerr, double abserr) {
+                  return enoki::allclose(a1, a2, relerr, abserr);
+              },
+              "a1"_a, "a2"_a,
+              "relerr"_a = relerr_default,
+              "abserr"_a = abserr_default);
     } else if constexpr (!IsMask) {
         m.def("popcnt", [](const Array &a) { return enoki::popcnt(a); });
         m.def("lzcnt", [](const Array &a) { return enoki::lzcnt(a); });
@@ -932,13 +944,15 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
         });
     }
 
-    implicitly_convertible<Value, Array>();
+    if constexpr (!IsEmpty) {
+        implicitly_convertible<Value, Array>();
 
-    if constexpr (IsFloat)
-        implicitly_convertible<int, Array>();
+        if constexpr (IsFloat)
+            implicitly_convertible<int, Array>();
 
-    if constexpr (!std::is_same_v<Value, Scalar>)
-        implicitly_convertible<Scalar, Array>();
+        if constexpr (!std::is_same_v<Value, Scalar>)
+            implicitly_convertible<Scalar, Array>();
+    }
 
     implicitly_convertible<py::list, Array>();
 

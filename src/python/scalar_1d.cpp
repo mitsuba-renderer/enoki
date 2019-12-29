@@ -93,6 +93,15 @@ void bind_scalar_1d(py::module& m, py::module& s) {
     m.def("popcnt", [](size_t a) { return enoki::popcnt(a); });
     m.def("log2i",  [](size_t a) { return enoki::log2i(a); });
 
+    const double relerr_default = 1e-5;
+    const double abserr_default = 1e-5;
+
+    m.def("allclose",
+          [](const Float &a1, const Float &a2, double relerr, double abserr) {
+              return enoki::allclose(a1, a2, relerr, abserr);
+          },
+          "a1"_a, "a2"_a, "relerr"_a = relerr_default, "abserr"_a = abserr_default);
+
     auto vector1m_class = bind<Vector1m>(m, s, "Vector1m");
     auto vector1i_class = bind<Vector1i>(m, s, "Vector1i");
     auto vector1u_class = bind<Vector1u>(m, s, "Vector1u");

@@ -1294,16 +1294,28 @@ template <typename T> auto none_nested(const T &a) {
     return !any_nested(a);
 }
 
+/// Convert an array with 1 entry into a scalar or throw an error
+template <typename T> scalar_t<T> scalar_cast(const T &v) {
+    static_assert(array_depth_v<T> <= 1);
+    if constexpr (is_array_v<T>) {
+        if (v.size() != 1)
+            throw std::runtime_error("scalar_cast(): array should be of size 1!");
+        return v.coeff(0);
+    } else {
+        return v;
+    }
+}
+
 template <typename T1, typename T2, typename Value = expr_t<T1, T2>>
 bool allclose(const T1 &a1, const T2 &a2,
-              double relerr_thresh = std::is_same_v<scalar_t<T1>, float> ? 1e-5 : 1e-10,
-              double abserr_thresh = std::is_same_v<scalar_t<T1>, float> ? 1e-5 : 1e-10) {
+              double relerr = std::is_same_v<scalar_t<T1>, float> ? 1e-5 : 1e-10,
+              double abserr = std::is_same_v<scalar_t<T1>, float> ? 1e-5 : 1e-10) {
     using Scalar = scalar_t<Value>;
-    Scalar abserr = hmax_nested(abs(detach(a1) - detach(a2)));
-    Scalar relerr = abserr / hmax_nested(abs(detach(a2)));
+    Scalar abserr_value = scalar_cast(hmax_nested(abs(detach(a1) - detach(a2))));
+    Scalar relerr_value = abserr_value / scalar_cast(hmax_nested(abs(detach(a2))));
 
-    return (double) abserr < abserr_thresh ||
-           (double) relerr < relerr_thresh;
+    return (double) abserr_value < abserr ||
+           (double) relerr_value < relerr;
 }
 
 //! @}
