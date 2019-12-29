@@ -185,8 +185,8 @@ namespace detail {
     }
 
     template <typename Stream, typename Array, size_t N, typename... Indices>
-    Stream &print(Stream &os, const Array &a, bool abbrev,
-                  const std::array<size_t, N> &size, Indices... indices) {
+    void print(Stream &os, const Array &a, bool abbrev,
+               const std::array<size_t, N> &size, Indices... indices) {
         ENOKI_MARK_USED(size);
         ENOKI_MARK_USED(abbrev);
         if constexpr (sizeof...(Indices) == N) {
@@ -221,17 +221,16 @@ namespace detail {
             }
             os << "]";
         }
-        return os;
     }
 }
 
 template <typename Value, typename Derived>
 ENOKI_NOINLINE std::ostream &operator<<(std::ostream &os, const ArrayBase<Value, Derived> &a) {
     if (ragged(a))
-        throw std::runtime_error(
-            "Ragged Enoki array cannot be converted into a string "
-            "representation! (try printing the individual components)");
-    return detail::print(os, a, true, shape(a));
+        os << "[ragged array]";
+    else
+        detail::print(os, a, true, shape(a));
+    return os;
 }
 
 

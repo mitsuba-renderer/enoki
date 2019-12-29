@@ -8,12 +8,12 @@ extern void bind_cuda_autodiff_4d(py::module&, py::module&);
 extern void bind_cuda_autodiff_complex(py::module&, py::module&);
 extern void bind_cuda_autodiff_matrix(py::module&, py::module&);
 
-bool *disable_print_flag = nullptr;
+bool *implicit_conversion = nullptr;
 
 PYBIND11_MODULE(cuda_autodiff, s) {
     py::module m = py::module::import("enoki");
 
-    disable_print_flag = (bool *) py::get_shared_data("disable_print_flag");
+    implicit_conversion = (bool *) py::get_shared_data("implicit_conversion");
 
     bind_cuda_autodiff_0d(m, s);
     bind_cuda_autodiff_1d(m, s);

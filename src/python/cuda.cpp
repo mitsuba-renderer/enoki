@@ -9,12 +9,12 @@ extern void bind_cuda_complex(py::module&, py::module&);
 extern void bind_cuda_matrix(py::module&, py::module&);
 extern void bind_cuda_pcg32(py::module&, py::module&);
 
-bool *disable_print_flag = nullptr;
+bool *implicit_conversion = nullptr;
 
 PYBIND11_MODULE(cuda, s) {
     py::module m = py::module::import("enoki");
 
-    disable_print_flag = (bool *) py::get_shared_data("disable_print_flag");
+    implicit_conversion = (bool *) py::get_shared_data("implicit_conversion");
 
     cuda_sync();
     bind_cuda_0d(m, s);

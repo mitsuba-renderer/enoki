@@ -269,24 +269,22 @@ template <typename Array> py::object enoki_to_numpy(const Array &array, bool eva
 template <typename Array> Array torch_to_enoki(py::object src);
 template <typename Array> Array numpy_to_enoki(py::array src);
 
-extern bool *disable_print_flag;
+extern bool *implicit_conversion;
 
 /// Customized version of pybind11::implicitly_convertible() which disables
 /// __repr__ during implicit casts (this can be triggered at implicit cast
 /// failures and causes a totally unnecessary/undesired cuda_eval() invocation)
 template <typename InputType, typename OutputType> void implicitly_convertible() {
     struct set_flag {
-        bool &flag, backup;
-        set_flag(bool &flag) : flag(flag), backup(flag) { flag = true; }
-        ~set_flag() { flag = backup; }
+        bool &flag;
+        set_flag(bool &flag) : flag(flag) { flag = true; }
+        ~set_flag() { flag = false; }
     };
 
     auto implicit_caster = [](PyObject *obj, PyTypeObject *type) -> PyObject * {
-        static bool currently_used = false;
-        if (currently_used) // implicit conversions are non-reentrant
+        if (*implicit_conversion) // limit nesting of implicit conversions
             return nullptr;
-        set_flag flag_helper(currently_used);
-        set_flag flag_helper_2(*disable_print_flag);
+        set_flag flag_helper(*implicit_conversion);
         if (!py::detail::make_caster<InputType>().load(obj, false))
             return nullptr;
         py::tuple args(1);
@@ -335,7 +333,7 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
       .def("managed", py::overload_cast<>(&Array::managed), py::return_value_policy::reference)
       .def("eval", py::overload_cast<>(&Array::eval), py::return_value_policy::reference)
       .def("__repr__", [](const Array &a) -> std::string {
-          if (*disable_print_flag)
+          if (*implicit_conversion)
               return "";
           std::ostringstream oss;
           oss << a;
@@ -371,45 +369,42 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
                 return numpy_to_enoki<T>(obj);
             }
 
-            if constexpr (!IsMask && array_depth_v<Array> == 1) {
-                if (strstr(tp_name, "enoki.") == nullptr &&
-                    py::isinstance<py::sequence>(obj)) {
-                    try {
-                        std::vector<Value> result = py::cast<std::vector<Value>>(obj);
-                        return Array::copy(result.data(), result.size());
-                    } catch (...) { }
-                }
-            }
-
             throw py::reference_cast_error();
         }))
         .def("torch", [](const Array &a, bool eval) {
             return enoki_to_torch(detach(a), eval); },
             "eval"_a = true
         );
-    } else {
+    } else if constexpr (IsDynamic && !IsKMask) {
         cl.def(py::init([](const py::object &obj) -> Array {
             const char *tp_name = ((PyTypeObject *) obj.get_type().ptr())->tp_name;
-            if constexpr (IsDynamic && !IsKMask) {
-                if (strstr(tp_name, "numpy.ndarray") != nullptr) {
-                    using T = expr_t<decltype(detach(std::declval<Array&>()))>;
-                    return numpy_to_enoki<T>(obj);
-                }
-
-                if constexpr (array_depth_v<Array> == 1) {
-                    if (strstr(tp_name, "enoki.") == nullptr &&
-                        py::isinstance<py::sequence>(obj)) {
-                        try {
-                            std::vector<Value> result = py::cast<std::vector<Value>>(obj);
-                            return Array::copy(result.data(), result.size());
-                        } catch (...) { }
-                    }
-                }
+            if (strstr(tp_name, "numpy.ndarray") != nullptr) {
+                using T = expr_t<decltype(detach(std::declval<Array&>()))>;
+                return numpy_to_enoki<T>(obj);
             }
 
             throw py::reference_cast_error();
         }));
     }
+
+    cl.def(py::init([](const py::list &list) -> Array {
+        size_t size = list.size();
+
+        if constexpr (IsDynamic && array_depth_v<Array> == 1) {
+            std::unique_ptr<Value[]> result(new Value[size]);
+            for (size_t i = 0; i < size; ++i)
+                result[i] = py::cast<Value>(list[i]);
+            return Array::copy(result.get(), size);
+        } else {
+            if (size != Array::Size)
+                throw py::reference_cast_error();
+
+            Array result;
+            for (size_t i = 0; i < size; ++i)
+                result[i] = py::cast<Value>(list[i]);
+            return result;
+        }
+    }));
 
     if constexpr (IsCUDA || !IsMask) {
         cl.def("numpy", [](const Array &a, bool eval) {
@@ -636,8 +631,9 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
 
     cl.def("__len__", [](const Array &a) { return a.size(); });
 
-    m.def("slices", [](const Array &a) { return slices(a); });
     m.def("shape", [](const Array &a) { return shape(a); });
+    m.def("slices", [](const Array &a) { return slices(a); });
+    m.def("set_slices", [](Array &a, size_t size) { set_slices(a, size); }, "array"_a, "size"_a);
 
     if constexpr (IsDynamic)
         cl.def("resize", [](Array &a, size_t size) { a.resize(size); });
@@ -661,13 +657,6 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
             else if constexpr (array_size_v<Array> == 4)
                 cl.def(py::init<Value, Value, Value, Value>());
         }
-
-        cl.def(py::init([](const std::array<Value, Array::Size> &a) {
-            Array result;
-            for (size_t i = 0; i < Array::Size; ++i)
-                result.coeff(i) = a[i];
-            return result;
-        }));
 
         if constexpr (array_size_v<Array> >= 1)
             cl.def_property("x", [](const Array &a) { return a.x(); },
@@ -979,7 +968,7 @@ py::class_<Matrix> bind_matrix(py::module &m, py::module &s, const char *name) {
             return Matrix(Array(a) * Array(b));
         })
         .def("__repr__", [](const Matrix &a) -> std::string {
-            if (*disable_print_flag)
+            if (*implicit_conversion)
                 return "";
             std::ostringstream oss;
             oss << a;
@@ -1000,6 +989,10 @@ py::class_<Matrix> bind_matrix(py::module &m, py::module &s, const char *name) {
         })
         .def_static("identity", [](size_t size) { return identity<Matrix>(size); }, "size"_a = 1)
         .def_static("zero", [](size_t size) { return zero<Matrix>(size); }, "size"_a = 1);
+
+    m.def("shape", [](const Matrix &a) { return shape(a); });
+    m.def("slices", [](const Matrix &a) { return slices(a); });
+    m.def("set_slices", [](Matrix &a, size_t size) { set_slices(a, size); }, "array"_a, "slices"_a);
 
     if constexpr (array_depth_v<Value> == (IsDynamic ? 1 : 0)) {
         cls.def("__matmul__", [](const Matrix &a, const Matrix &b) {
@@ -1096,7 +1089,7 @@ py::class_<Complex> bind_complex(py::module &m, py::module &s, const char *name)
         .def(py::self / py::self)
         .def(-py::self)
         .def("__repr__", [](const Complex &a) -> std::string {
-            if (*disable_print_flag)
+            if (*implicit_conversion)
                 return "";
             std::ostringstream oss;
             oss << a;
