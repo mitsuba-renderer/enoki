@@ -1306,16 +1306,18 @@ template <typename T> scalar_t<T> scalar_cast(const T &v) {
     }
 }
 
-template <typename T1, typename T2, typename Value = expr_t<T1, T2>>
-bool allclose(const T1 &a1, const T2 &a2,
-              double relerr = std::is_same_v<scalar_t<T1>, float> ? 1e-5 : 1e-10,
-              double abserr = std::is_same_v<scalar_t<T1>, float> ? 1e-5 : 1e-10) {
-    using Scalar = scalar_t<Value>;
-    Scalar abserr_value = scalar_cast(hmax_nested(abs(detach(a1) - detach(a2))));
-    Scalar relerr_value = abserr_value / scalar_cast(hmax_nested(abs(detach(a2))));
+template <typename T1, typename T2>
+bool allclose(const T1 &a, const T2 &b, float rtol = 1e-5f, float atol = 1e-8f,
+              bool equal_nan = false) {
+    auto cond = abs(a - b) <= abs(b) * rtol + atol;
 
-    return (double) abserr_value < abserr ||
-           (double) relerr_value < relerr;
+    if constexpr (std::is_floating_point_v<scalar_t<T1>> &&
+                  std::is_floating_point_v<scalar_t<T2>>) {
+        if (equal_nan)
+            cond |= isnan(a) & isnan(b);
+    }
+
+    return all_nested(cond);
 }
 
 //! @}
