@@ -309,7 +309,7 @@ template <typename InputType, typename OutputType> void implicitly_convertible()
         }
         py::tuple args(1);
         args[0] = obj;
-        PyObject *result = PyObject_Call((PyObject *) type, args.ptr(), nullptr);
+        PyObject *result = PyObject_CallObject((PyObject *) type, args.ptr());
         if (result == nullptr)
             PyErr_Clear();
         return result;
@@ -961,10 +961,11 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
 
     if constexpr (Size != 0) {
         auto implicit_caster = [](PyObject *obj, PyTypeObject *type) -> PyObject * {
-            const char *tp_name = obj->ob_type->tp_name;
-            printf("try converting %s to %s -- ", tp_name, type->tp_name);
-            if (*implicit_conversion) {// limit nesting of implicit conversions
-                printf("no recursion.\n"); return nullptr; }
+            const char *tp_name_src = obj->ob_type->tp_name,
+                       *tp_name_dst = type->tp_name;
+
+            if (*implicit_conversion) // limit nesting of implicit conversions
+                return nullptr;
             set_flag flag_helper(*implicit_conversion);
 
             bool pass = false;
@@ -975,9 +976,16 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
                 pass = (Size == Dynamic) || Size == PyTuple_GET_SIZE(obj);
             } else if (PyNumber_Check(obj)) {
                 pass = true;
-            } else if (strcmp(tp_name, "numpy.ndarray") == 0 ||
-                       strcmp(tp_name, "Tensor") == 0) {
+            } else if (strcmp(tp_name_src, "numpy.ndarray") == 0 ||
+                       strcmp(tp_name_src, "Tensor") == 0) {
                 pass = true;
+            } else if (strncmp(tp_name_src, "enoki.", 6) == 0 &&
+                       strncmp(tp_name_dst, "enoki.", 6) == 0) {
+                const char *dot_src = strchr(tp_name_src + 6, '.'),
+                           *dot_dst = strchr(tp_name_dst + 6, '.');
+
+                if (dot_src && dot_dst)
+                    pass = strcmp(dot_src, dot_dst) == 0;
             }
 
             if (!pass)
