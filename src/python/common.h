@@ -31,6 +31,7 @@ using Int64X    = DynamicArray<Packet<Int64, PacketSize>>;
 using UInt32X   = DynamicArray<Packet<UInt32, PacketSize>>;
 using UInt64X   = DynamicArray<Packet<UInt64, PacketSize>>;
 using MaskX     = mask_t<Float32X>;
+using Mask64X   = mask_t<Float64X>;
 
 using Float32C  = CUDAArray<Float32>;
 using Float64C  = CUDAArray<Float64>;
@@ -233,31 +234,50 @@ using Matrix44dX = Matrix<Vector4dX, 4>;
 using Matrix44dC = Matrix<Vector4dC, 4>;
 using Matrix44dD = Matrix<Vector4dD, 4>;
 
-struct Buffer {
-    Buffer(size_t size, bool cuda_managed)
-        : cuda_managed(cuda_managed) {
-#if defined(ENOKI_CUDA)
-        if (cuda_managed) {
-            ptr = cuda_managed_malloc(size);
-            return;
+namespace pybind11 {
+    inline bool NDArray_Check(PyObject *obj) {
+        return strcmp(obj->ob_type->tp_name, "numpy.ndarray") == 0;
+    }
+
+    inline bool TorchTensor_Check(PyObject *obj) {
+        return strcmp(obj->ob_type->tp_name, "Tensor") == 0;
+    }
+
+    class ndarray : public object {
+    public:
+        PYBIND11_OBJECT_DEFAULT(ndarray, object, NDArray_Check)
+    };
+
+    class torch_tensor : public object {
+    public:
+        PYBIND11_OBJECT_DEFAULT(torch_tensor, object, TorchTensor_Check)
+    };
+};
+
+template <bool IsCUDA> struct Buffer {
+    Buffer(size_t size) {
+        if constexpr (IsCUDA) {
+            #if defined(ENOKI_CUDA)
+                ptr = cuda_managed_malloc(size);
+            #endif
+        } else {
+            #if defined(__APPLE__)
+                if (posix_memalign(&ptr, 64, size))
+                    throw std::runtime_error("Buffer: allocation failure!");
+            #else
+                ptr = std::aligned_alloc(64, size);
+            #endif
         }
-#endif
-#if defined(__APPLE__)
-        if (posix_memalign(&ptr, 64, size))
-            throw std::runtime_error("Buffer: allocation failure!");
-#else
-        ptr = std::aligned_alloc(64, size);
-#endif
     }
 
     ~Buffer() {
-#if defined(ENOKI_CUDA)
-        if (cuda_managed) {
-            cuda_free(ptr);
-            return;
+        if constexpr (IsCUDA) {
+            #if defined(ENOKI_CUDA)
+                cuda_free(ptr);
+            #endif
+        } else {
+            std::free(ptr);
         }
-#endif
-        std::free(ptr);
     }
 
     void *ptr = nullptr;
@@ -271,22 +291,22 @@ template <typename Array> Array numpy_to_enoki(py::array src);
 
 extern bool *implicit_conversion;
 
+struct set_flag {
+    bool &flag;
+    set_flag(bool &flag) : flag(flag) { flag = true; }
+    ~set_flag() { flag = false; }
+};
+
 /// Customized version of pybind11::implicitly_convertible() which disables
 /// __repr__ during implicit casts (this can be triggered at implicit cast
 /// failures and causes a totally unnecessary/undesired cuda_eval() invocation)
 template <typename InputType, typename OutputType> void implicitly_convertible() {
-    struct set_flag {
-        bool &flag;
-        set_flag(bool &flag) : flag(flag) { flag = true; }
-        ~set_flag() { flag = false; }
-    };
-
     auto implicit_caster = [](PyObject *obj, PyTypeObject *type) -> PyObject * {
-        if (*implicit_conversion) // limit nesting of implicit conversions
-            return nullptr;
+        if (*implicit_conversion) return nullptr;
         set_flag flag_helper(*implicit_conversion);
-        if (!py::detail::make_caster<InputType>().load(obj, false))
+        if (!py::detail::make_caster<InputType>().load(obj, std::is_scalar_v<InputType>)) {
             return nullptr;
+        }
         py::tuple args(1);
         args[0] = obj;
         PyObject *result = PyObject_Call((PyObject *) type, args.ptr(), nullptr);
@@ -306,9 +326,11 @@ template <typename Array>
 py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
     using Scalar = std::conditional_t<
         !is_mask_v<Array>, scalar_t<Array>, bool>;
+
     using Value  = std::conditional_t<
         is_mask_v<Array> && array_depth_v<Array> == 1,
         bool, value_t<Array>>;
+
     using Mask = std::conditional_t<
         !is_mask_v<Array>,
         mask_t<float32_array_t<Array>>,
@@ -321,13 +343,11 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
     static constexpr bool IsDiff    = is_diff_array_v<Array>;
     static constexpr bool IsDynamic = is_dynamic_v<Array>;
     static constexpr bool IsKMask   = IsMask && !is_cuda_array_v<Array>;
-    static constexpr bool IsEmpty   = array_size_v<Array> == 0;
+    static constexpr size_t Size    = array_size_v<Array>;
 
     py::class_<Array> cl(s, name);
 
     cl.def(py::init<>())
-      .def(py::init<const Value &>())
-      .def(py::init<const Array &>())
       .def(py::self == py::self)
       .def(py::self != py::self)
       .def("managed", py::overload_cast<>(&Array::managed), py::return_value_policy::reference)
@@ -344,6 +364,11 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
       .def_static("empty", [](size_t size) { return empty<Array>(size); },
                   "size"_a = 1);
 
+    cl.def(py::init<const Scalar &>());
+    if constexpr (!std::is_same_v<Value, Scalar>)
+        cl.def(py::init<const Value &>());
+    cl.def(py::init<const Array &>());
+
     if constexpr (array_depth_v<Array> == 1 && is_cuda_array_v<Array>) {
         cl.def(
             py::init([](Scalar scalar, bool literal) -> Array {
@@ -357,34 +382,41 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
     }
 
     if constexpr (IsCUDA) {
-        cl.def(py::init([](const py::object &obj) -> Array {
-            const char *tp_name = ((PyTypeObject *) obj.get_type().ptr())->tp_name;
-            if (strstr(tp_name, "Tensor") != nullptr) {
-                using T = expr_t<decltype(detach(std::declval<Array&>()))>;
-                return torch_to_enoki<T>(obj);
-            }
-
-            if (strstr(tp_name, "numpy.ndarray") != nullptr) {
-                using T = expr_t<decltype(detach(std::declval<Array&>()))>;
-                return numpy_to_enoki<T>(obj);
-            }
-
-            throw py::reference_cast_error();
+        cl.def(py::init([](const py::torch_tensor &obj) -> Array {
+            using T = expr_t<decltype(detach(std::declval<Array&>()))>;
+            return torch_to_enoki<T>(obj);
         }))
         .def("torch", [](const Array &a, bool eval) {
             return enoki_to_torch(detach(a), eval); },
             "eval"_a = true
         );
-    } else if constexpr (IsDynamic && !IsKMask) {
-        cl.def(py::init([](const py::object &obj) -> Array {
-            const char *tp_name = ((PyTypeObject *) obj.get_type().ptr())->tp_name;
-            if (strstr(tp_name, "numpy.ndarray") != nullptr) {
-                using T = expr_t<decltype(detach(std::declval<Array&>()))>;
-                return numpy_to_enoki<T>(obj);
-            }
+    }
 
-            throw py::reference_cast_error();
-        }));
+    if constexpr (!IsKMask) {
+        cl.def(py::init([](const py::ndarray &obj) -> Array {
+                   using T = expr_t<decltype(detach(std::declval<Array &>()))>;
+                   return numpy_to_enoki<T>(obj);
+               }))
+          .def("numpy", [](const Array &a, bool eval) { return enoki_to_numpy(detach(a), eval); },
+               "eval"_a = true)
+          .def_property_readonly("__array_interface__", [](const py::object &o) {
+              py::object np_array = o.attr("numpy")();
+              py::dict result;
+              result["data"]    = np_array;
+              result["shape"]   = np_array.attr("shape");
+              result["version"] = 3;
+              char typestr[4]   = { '<', 0, '0' + sizeof(Scalar), 0 };
+              if (std::is_floating_point_v<Scalar>)
+                  typestr[1] = 'f';
+              else if (std::is_same_v<Scalar, bool>)
+                  typestr[1] = 'b';
+              else if (std::is_unsigned_v<Scalar>)
+                  typestr[1] = 'u';
+              else
+                  typestr[1] = 'i';
+              result["typestr"] = typestr;
+              return result;
+          });
     }
 
     cl.def(py::init([](const py::list &list) -> Array {
@@ -406,29 +438,24 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
         }
     }));
 
-    if constexpr (IsCUDA || !IsMask) {
-        cl.def("numpy", [](const Array &a, bool eval) {
-                return enoki_to_numpy(detach(a), eval); },
-                "eval"_a = true)
-          .def_property_readonly("__array_interface__", [](const py::object &o) {
-               py::object np_array = o.attr("numpy")();
-               py::dict result;
-               result["data"] = np_array;
-               result["shape"] = np_array.attr("shape");
-               result["version"] = 3;
-               char typestr[4] = { '<', 0, '0' + sizeof(Scalar), 0 };
-               if (std::is_floating_point_v<Scalar>)
-                   typestr[1] = 'f';
-               else if (std::is_same_v<Scalar, bool>)
-                   typestr[1] = 'b';
-               else if (std::is_unsigned_v<Scalar>)
-                   typestr[1] = 'u';
-               else
-                   typestr[1] = 'i';
-               result["typestr"] = typestr;
-               return result;
-           });
-    }
+    cl.def(py::init([](const py::tuple &tuple) -> Array {
+        size_t size = tuple.size();
+
+        if constexpr (IsDynamic && array_depth_v<Array> == 1) {
+            std::unique_ptr<Value[]> result(new Value[size]);
+            for (size_t i = 0; i < size; ++i)
+                result[i] = py::cast<Value>(tuple[i]);
+            return Array::copy(result.get(), size);
+        } else {
+            if (size != Array::Size)
+                throw py::reference_cast_error();
+
+            Array result;
+            for (size_t i = 0; i < size; ++i)
+                result[i] = py::cast<Value>(tuple[i]);
+            return result;
+        }
+    }));
 
     if constexpr (!IsMask) {
         cl.def(py::self + py::self)
@@ -642,7 +669,7 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
         a[mask] = value;
     }, "mask"_a, "value"_a);
 
-    if constexpr (!IsDynamic || array_depth_v<Array> > 1) {
+    if constexpr (Size != Dynamic) {
         cl.def("__setitem__", [](Array &a, size_t index, const Value &value) {
             if (index >= Array::Size)
                 throw py::index_error();
@@ -650,24 +677,24 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
         }, "index"_a, "value"_a);
 
         if constexpr (!IsMask || array_depth_v<Array> > 1) {
-            if constexpr (array_size_v<Array> == 2)
-                cl.def(py::init<Value, Value>());
-            else if constexpr (array_size_v<Array> == 3)
-                cl.def(py::init<Value, Value, Value>());
-            else if constexpr (array_size_v<Array> == 4)
-                cl.def(py::init<Value, Value, Value, Value>());
+            if constexpr (Size == 2)
+                cl.def(py::init<Value, Value>(), "x"_a, "y"_a);
+            else if constexpr (Size == 3)
+                cl.def(py::init<Value, Value, Value>(), "x"_a, "y"_a, "z"_a);
+            else if constexpr (Size == 4)
+                cl.def(py::init<Value, Value, Value, Value>(), "x"_a, "y"_a, "z"_a, "w"_a);
         }
 
-        if constexpr (array_size_v<Array> >= 1)
+        if constexpr (Size >= 1)
             cl.def_property("x", [](const Array &a) { return a.x(); },
                                  [](Array &a, const Value &v) { a.x() = v; });
-        if constexpr (array_size_v<Array> >= 2)
+        if constexpr (Size >= 2)
             cl.def_property("y", [](const Array &a) { return a.y(); },
                                  [](Array &a, const Value &v) { a.y() = v; });
-        if constexpr (array_size_v<Array> >= 3)
+        if constexpr (Size >= 3)
             cl.def_property("z", [](const Array &a) { return a.z(); },
                                  [](Array &a, const Value &v) { a.z() = v; });
-        if constexpr (array_size_v<Array> >= 4)
+        if constexpr (Size >= 4)
             cl.def_property("w", [](const Array &a) { return a.w(); },
                                  [](Array &a, const Value &v) { a.w() = v; });
     } else {
@@ -685,7 +712,7 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
         m.def("squared_norm", [](const Array &a) { return enoki::squared_norm(a); });
         m.def("norm", [](const Array &a) { return enoki::norm(a); });
 
-        if constexpr (array_size_v<Array> == 3)
+        if constexpr (Size == 3)
             m.def("cross", [](const Array &a, const Array &b) { return enoki::cross(a, b); });
     }
 
@@ -922,28 +949,53 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
         }
     }
 
-    if constexpr (IsDiff) {
-        using BaseType = expr_t<decltype(detach(std::declval<Array&>()))>;
-        implicitly_convertible<BaseType, Array>();
-    }
-
     if constexpr (is_cuda_array_v<Array>) {
         m.def("set_label", [](const Array &a, const char *label) {
             set_label(a, label);
         });
     }
 
-    if constexpr (!IsEmpty) {
-        implicitly_convertible<Value, Array>();
+    //if constexpr (!IsEmpty) {
+        //implicitly_convertible<Value, Array>();
+    //}
 
-        if constexpr (IsFloat)
-            implicitly_convertible<int, Array>();
+    if constexpr (Size != 0) {
+        auto implicit_caster = [](PyObject *obj, PyTypeObject *type) -> PyObject * {
+            const char *tp_name = obj->ob_type->tp_name;
+            printf("try converting %s to %s -- ", tp_name, type->tp_name);
+            if (*implicit_conversion) {// limit nesting of implicit conversions
+                printf("no recursion.\n"); return nullptr; }
+            set_flag flag_helper(*implicit_conversion);
 
-        if constexpr (!std::is_same_v<Value, Scalar>)
-            implicitly_convertible<Scalar, Array>();
+            bool pass = false;
+
+            if (PyList_CheckExact(obj)) {
+                pass = (Size == Dynamic) || Size == PyList_GET_SIZE(obj);
+            } else if (PyTuple_CheckExact(obj)) {
+                pass = (Size == Dynamic) || Size == PyTuple_GET_SIZE(obj);
+            } else if (PyNumber_Check(obj)) {
+                pass = true;
+            } else if (strcmp(tp_name, "numpy.ndarray") == 0 ||
+                       strcmp(tp_name, "Tensor") == 0) {
+                pass = true;
+            }
+
+            if (!pass)
+                return nullptr;
+
+            PyObject *args = PyTuple_New(1);
+            Py_INCREF(obj);
+            PyTuple_SET_ITEM(args, 0, obj);
+            PyObject *result = PyObject_CallObject((PyObject *) type, args);
+            if (result == nullptr)
+                PyErr_Clear();
+            Py_DECREF(args);
+            return result;
+        };
+
+        auto tinfo = py::detail::get_type_info(typeid(Array));
+        tinfo->implicit_conversions.push_back(implicit_caster);
     }
-
-    implicitly_convertible<py::list, Array>();
 
     return cl;
 }
@@ -1324,7 +1376,8 @@ ENOKI_NOINLINE py::object enoki_to_numpy(const Array &src, bool eval) {
         stride *= shape_rev[i];
     }
 
-    Buffer *buf = new Buffer(stride, is_cuda_array_v<Array>);
+    using BufferType = Buffer<is_cuda_array_v<Array>>;
+    BufferType *buf = new BufferType(stride);
     py::object buf_py = py::cast(buf, py::return_value_policy::take_ownership);
 
     py::array result(py::dtype::of<Scalar>(), shape_rev, strides, buf->ptr, buf_py);

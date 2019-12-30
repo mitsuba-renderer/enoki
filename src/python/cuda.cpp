@@ -16,6 +16,8 @@ PYBIND11_MODULE(cuda, s) {
 
     implicit_conversion = (bool *) py::get_shared_data("implicit_conversion");
 
+    py::class_<Buffer<true>>(m, "GPUBuffer");
+
     cuda_sync();
     bind_cuda_0d(m, s);
     bind_cuda_1d(m, s);

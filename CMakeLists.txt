@@ -384,7 +384,6 @@ if (ENOKI_PYTHON)
         src/python/cuda_pcg32.cpp
     )
     target_link_libraries(enoki-python-cuda PRIVATE enoki-cuda cuda)
-    target_link_libraries(enoki-python-core PRIVATE enoki-cuda cuda)
     set(ENOKI_PYTHON_TARGETS ${ENOKI_PYTHON_TARGETS} cuda)
   endif()
 

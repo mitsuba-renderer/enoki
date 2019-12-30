@@ -3,12 +3,22 @@
 
 void bind_dynamic_1d(py::module& m, py::module& s) {
     auto mask_class = bind<MaskX>(m, s, "Mask");
+    auto mask64_class = bind<Mask64X>(m, s, "Mask64");
     auto uint32_class = bind<UInt32X>(m, s, "UInt32");
     auto uint64_class = bind<UInt64X>(m, s, "UInt64");
     auto int32_class = bind<Int32X>(m, s, "Int32");
     auto int64_class = bind<Int64X>(m, s, "Int64");
     auto float32_class = bind<Float32X>(m, s, "Float32");
     auto float64_class = bind<Float64X>(m, s, "Float64");
+
+    mask_class
+        .def(py::init<const Mask64X &>());
+
+    mask64_class
+        .def(py::init<const MaskX &>());
+
+    implicitly_convertible<Mask64X, MaskX>();
+    implicitly_convertible<MaskX, Mask64X>();
 
     float32_class
         .def(py::init<const Float64X &>())

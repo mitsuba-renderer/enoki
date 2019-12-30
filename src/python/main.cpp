@@ -10,7 +10,7 @@ PYBIND11_MODULE(core, m_) {
     m.attr("__version__") = ENOKI_VERSION;
     py::set_shared_data("implicit_conversion", &__implicit_conversion);
 
-    py::class_<Buffer>(m, "Buffer");
+    py::class_<Buffer<false>>(m, "CPUBuffer");
 
     m.def("zero",
         [](py::handle h, size_t size) {

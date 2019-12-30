@@ -12,6 +12,7 @@ bool *implicit_conversion = nullptr;
 
 PYBIND11_MODULE(cuda_autodiff, s) {
     py::module m = py::module::import("enoki");
+    py::module::import("enoki.cuda");
 
     implicit_conversion = (bool *) py::get_shared_data("implicit_conversion");
 
