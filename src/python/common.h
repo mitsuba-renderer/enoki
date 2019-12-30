@@ -833,17 +833,6 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
         m.def("isfinite", [](const Array &a) -> Mask { return enoki::isfinite(a); });
         m.def("isnan", [](const Array &a) -> Mask { return enoki::isnan(a); });
         m.def("isinf", [](const Array &a) -> Mask { return enoki::isinf(a); });
-
-        const double relerr_default = std::is_same_v<Scalar, float> ? 1e-5 : 1e-10;
-        const double abserr_default = std::is_same_v<Scalar, float> ? 1e-5 : 1e-10;
-
-        m.def("allclose",
-              [](const Array &a1, const Array &a2, double relerr, double abserr) {
-                  return enoki::allclose(a1, a2, relerr, abserr);
-              },
-              "a1"_a, "a2"_a,
-              "relerr"_a = relerr_default,
-              "abserr"_a = abserr_default);
     } else if constexpr (!IsMask) {
         m.def("popcnt", [](const Array &a) { return enoki::popcnt(a); });
         m.def("lzcnt", [](const Array &a) { return enoki::lzcnt(a); });
@@ -866,13 +855,11 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
         m.def("hmax", [](const Array &a) { return enoki::hmax(a); });
         m.def("hmean", [](const Array &a) { return enoki::hmean(a); });
 
-        if constexpr (array_depth_v<Array> > 1) {
-            m.def("hsum_nested", [](const Array &a) { return enoki::hsum_nested(a); });
-            m.def("hprod_nested", [](const Array &a) { return enoki::hprod_nested(a); });
-            m.def("hmin_nested", [](const Array &a) { return enoki::hmin_nested(a); });
-            m.def("hmax_nested", [](const Array &a) { return enoki::hmax_nested(a); });
-            m.def("hmean_nested", [](const Array &a) { return enoki::hmean_nested(a); });
-        }
+        m.def("hsum_nested", [](const Array &a) { return enoki::hsum_nested(a); });
+        m.def("hprod_nested", [](const Array &a) { return enoki::hprod_nested(a); });
+        m.def("hmin_nested", [](const Array &a) { return enoki::hmin_nested(a); });
+        m.def("hmax_nested", [](const Array &a) { return enoki::hmax_nested(a); });
+        m.def("hmean_nested", [](const Array &a) { return enoki::hmean_nested(a); });
 
         m.def("fmadd", [](const Array &a, const Array &b, const Array &c) {
             return enoki::fmadd(a, b, c);
