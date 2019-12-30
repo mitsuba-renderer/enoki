@@ -3,43 +3,49 @@
 
 bool __implicit_conversion = false;
 
-bool allclose_py(py::object value, py::object ref, double relerr, double abserr) {
-    ssize_t l1 = PyObject_Length(value.ptr()),
-            l2 = PyObject_Length(ref.ptr());
+bool allclose_py(const py::object &a, const py::object &b,
+                 const py::float_ &rtol, const py::float_ &atol,
+                 bool equal_nan) {
+    ssize_t la = PyObject_Length(a.ptr()),
+            lb = PyObject_Length(b.ptr());
 
-    const char *tp_name_1 = value.ptr()->ob_type->tp_name,
-               *tp_name_2 =   ref.ptr()->ob_type->tp_name;
+    const char *tp_name_a = a.ptr()->ob_type->tp_name,
+               *tp_name_b = b.ptr()->ob_type->tp_name;
 
-    if (l1 == -1 || l2 == -1)
+    if (la == -1 || lb == -1)
         PyErr_Clear();
 
-    if (l1 != l2)
+    if (la != lb)
         throw std::runtime_error("enoki.allclose(): length mismatch!");
 
-    bool ok_1 = PyNumber_Check(value.ptr()) || strncmp(tp_name_1, "enoki.", 6) == 0;
-    bool ok_2 = PyNumber_Check(ref.ptr())   || strncmp(tp_name_2, "enoki.", 6) == 0;
+    bool ok_a = PyNumber_Check(a.ptr()) || strncmp(tp_name_a, "enoki.", 6) == 0;
+    bool ok_b = PyNumber_Check(b.ptr()) || strncmp(tp_name_b, "enoki.", 6) == 0;
 
-    if (ok_1 && ok_2) {
+    if (ok_a && ok_b) {
         py::module ek = py::module::import("enoki");
 
-        py::object abs         = ek.attr("abs"),
-                   hmax_nested = ek.attr("hmax_nested");
+        py::object abs        = ek.attr("abs"),
+                   eq         = ek.attr("eq"),
+                   isnan      = ek.attr("isnan"),
+                   all_nested = ek.attr("all_nested");
 
-        py::object abserr_value = hmax_nested(abs(value - ref)),
-                   relerr_value = abserr_value / hmax_nested(abs(ref));
+        py::object lhs = abs(a - b),
+                   rhs = atol + abs(b) * rtol;
 
-        if (!PyNumber_Check(abserr_value.ptr()))
-            abserr_value = abserr_value[py::int_(0)];
+        py::object cond =
+            py::reinterpret_steal<py::object>(PyObject_RichCompare(lhs.ptr(), rhs.ptr(), Py_LE));
 
-        if (!PyNumber_Check(relerr_value.ptr()))
-            relerr_value = relerr_value[py::int_(0)];
+        if (!cond)
+            throw py::error_already_set();
 
-        return py::cast<double>(abserr_value) < abserr ||
-               py::cast<double>(relerr_value) < relerr;
-    } else if (l1 >= 0) {
-        for (size_t i = 0; i < (size_t) l1; ++i) {
-            py::int_  key(i);
-            if (!allclose_py(value[key], ref[key], relerr, abserr))
+        if (equal_nan)
+            cond = cond | (isnan(a) & isnan(b));
+
+        return py::cast<bool>(all_nested(cond));
+    } else if (la >= 0) {
+        for (size_t i = 0; i < (size_t) la; ++i) {
+            py::int_ key(i);
+            if (!allclose_py(a[key], b[key], rtol, atol, equal_nan))
                 return false;
         }
     } else {
@@ -86,6 +92,7 @@ PYBIND11_MODULE(core, m_) {
         "type"_a, "start"_a, "end"_a, "size"_a = 1);
 
     m.def("allclose", &allclose_py,
-        "value"_a, "ref"_a, "relerr"_a = 1e-5, "abserr"_a = 1e-5
+        "a"_a, "b"_a, "rtol"_a = 1e-5, "atol"_a = 1e-8,
+        "equal_nan"_a = false
     );
 }

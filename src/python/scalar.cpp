@@ -38,9 +38,24 @@ PYBIND11_MODULE(scalar, s) {
     m.def("fnmsub", [](Float a, Float b, Float c) {
         return enoki::fnmsub(a, b, c);
     });
+    m.def("fmadd", [](py::int_ a, py::int_ b, py::int_ c) {
+        return a*b+c;
+    });
+    m.def("fmsub", [](py::int_ a, py::int_ b, py::int_ c) {
+        return a*b-c;
+    });
+    m.def("fnmadd", [](py::int_ a, py::int_ b, py::int_ c) {
+        return -a*b+c;
+    });
+    m.def("fnmsub", [](py::int_ a, py::int_ b, py::int_ c) {
+        return -a*b-c;
+    });
 
     m.def("abs",   [](Float a) { return enoki::abs(a); });
+    m.def("abs",   [](py::int_ a) { return py::reinterpret_steal<py::int_>(PyNumber_Absolute(a.ptr())); });
     m.def("sqr",   [](Float a) { return enoki::sqr(a); });
+    m.def("sqr",   [](py::int_ a) { return a*a; });
+
     m.def("sqrt",  [](Float a) { return enoki::sqrt(a); });
     m.def("cbrt",  [](Float a) { return enoki::cbrt(a); });
     m.def("rcp",   [](Float a) { return enoki::rcp(a); });
@@ -81,10 +96,25 @@ PYBIND11_MODULE(scalar, s) {
     m.def("hmin",    [](Float a) { return a; });
     m.def("hmax",    [](Float a) { return a; });
 
+    m.def("hsum",    [](py::int_ a) { return a; });
+    m.def("hprod",   [](py::int_ a) { return a; });
+    m.def("hmin",    [](py::int_ a) { return a; });
+    m.def("hmax",    [](py::int_ a) { return a; });
+
     m.def("hsum_nested",  [](Float a) { return a; });
     m.def("hprod_nested", [](Float a) { return a; });
     m.def("hmin_nested",  [](Float a) { return a; });
     m.def("hmax_nested",  [](Float a) { return a; });
+
+    m.def("hsum_nested",  [](py::int_ a) { return a; });
+    m.def("hprod_nested", [](py::int_ a) { return a; });
+    m.def("hmin_nested",  [](py::int_ a) { return a; });
+    m.def("hmax_nested",  [](py::int_ a) { return a; });
+
+    m.def("min",     [](Float a, Float b) { return enoki::min(a, b); });
+    m.def("max",     [](Float a, Float b) { return enoki::max(a, b); });
+    m.def("min",     [](py::int_ a, py::int_ b) { if (a > b) return b; return a; });
+    m.def("max",     [](py::int_ a, py::int_ b) { if (a > b) return a; return b; });
 
     m.def("psum",    [](Float a) { return enoki::psum(a); });
     m.def("reverse", [](Float a) { return enoki::reverse(a); });
@@ -104,6 +134,15 @@ PYBIND11_MODULE(scalar, s) {
         return enoki::clamp(value, min, max);
     });
 
+    m.def("clamp", [](py::int_ value, py::int_ min, py::int_ max) {
+        if (value < min)
+            return min;
+        else if (value > max)
+            return max;
+        else
+            return value;
+    });
+
     m.def("isfinite", [](Float a) { return enoki::isfinite(a); });
     m.def("isnan", [](Float a) { return enoki::isnan(a); });
     m.def("isinf", [](Float a) { return enoki::isinf(a); });
@@ -112,6 +151,16 @@ PYBIND11_MODULE(scalar, s) {
     m.def("lzcnt",  [](size_t a) { return enoki::lzcnt(a); });
     m.def("popcnt", [](size_t a) { return enoki::popcnt(a); });
     m.def("log2i",  [](size_t a) { return enoki::log2i(a); });
+
+    m.def("all",   [](bool a) { return a; });
+    m.def("any",   [](bool a) { return a; });
+    m.def("none",  [](bool a) { return !a; });
+    m.def("count", [](bool a) { return a ? 1 : 0; });
+
+    m.def("all_nested",  [](bool a) { return a; });
+    m.def("any_nested",  [](bool a) { return a; });
+    m.def("none_nested", [](bool a) { return !a; });
+    m.def("count_nested", [](bool a) { return a ? 1 : 0; });
 
     bind_scalar_0d(m, s);
     bind_scalar_1d(m, s);

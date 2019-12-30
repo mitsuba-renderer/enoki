@@ -881,11 +881,10 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
         using Count = value_t<uint64_array_t<array_t<Array>>>;
         m.def("count", [](const Array &a) -> Count { return enoki::count(a); });
 
-        if constexpr (array_depth_v<Array> > 1) {
-            m.def("any_nested", [](const Array &a) { return enoki::any_nested(a); });
-            m.def("none_nested", [](const Array &a) { return enoki::none_nested(a); });
-            m.def("all_nested", [](const Array &a) { return enoki::all_nested(a); });
-        }
+        m.def("any_nested", [](const Array &a) { return enoki::any_nested(a); });
+        m.def("none_nested", [](const Array &a) { return enoki::none_nested(a); });
+        m.def("all_nested", [](const Array &a) { return enoki::all_nested(a); });
+        m.def("count_nested", [](const Array &a) { return enoki::count_nested(a); });
     }
 
     m.def("eq", [](const Array &a, const Array &b) -> Mask { return eq(a, b); });
