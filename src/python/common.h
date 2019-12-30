@@ -942,10 +942,6 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
         });
     }
 
-    //if constexpr (!IsEmpty) {
-        //implicitly_convertible<Value, Array>();
-    //}
-
     if constexpr (Size != 0) {
         auto implicit_caster = [](PyObject *obj, PyTypeObject *type) -> PyObject * {
             const char *tp_name_src = obj->ob_type->tp_name,
@@ -966,13 +962,22 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
             } else if (strcmp(tp_name_src, "numpy.ndarray") == 0 ||
                        strcmp(tp_name_src, "Tensor") == 0) {
                 pass = true;
-            } else if (strncmp(tp_name_src, "enoki.", 6) == 0 &&
-                       strncmp(tp_name_dst, "enoki.", 6) == 0) {
-                const char *dot_src = strchr(tp_name_src + 6, '.'),
-                           *dot_dst = strchr(tp_name_dst + 6, '.');
+            } else {
+                // Convert from a different vector type (Vector4f -> Vector4fX)
+                if (strncmp(tp_name_src, "enoki.", 6) == 0 &&
+                    strncmp(tp_name_dst, "enoki.", 6) == 0) {
+                    const char *dot_src = strchr(tp_name_src + 6, '.'),
+                               *dot_dst = strchr(tp_name_dst + 6, '.');
 
-                if (dot_src && dot_dst)
-                    pass = strcmp(dot_src, dot_dst) == 0;
+                    if (dot_src && dot_dst)
+                        pass |= strcmp(dot_src, dot_dst) == 0;
+                }
+
+                if constexpr (!std::is_same_v<Scalar, Value>) {
+                    auto tinfo = py::detail::get_global_type_info(typeid(Value));
+                    const char *value_type = ((PyTypeObject *) tinfo->type) ->tp_name;
+                    pass |= strcmp(tp_name_src, value_type) == 0;
+                }
             }
 
             if (!pass)
