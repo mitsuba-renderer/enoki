@@ -95,4 +95,9 @@ PYBIND11_MODULE(core, m_) {
         "a"_a, "b"_a, "rtol"_a = 1e-5, "atol"_a = 1e-8,
         "equal_nan"_a = false
     );
+
+    m.attr("pi") = M_PI;
+    m.attr("e") = M_E;
+    m.attr("inf") = std::numeric_limits<float>::infinity();
+    m.attr("nan") = std::numeric_limits<float>::quiet_NaN();
 }
