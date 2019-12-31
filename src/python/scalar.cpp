@@ -66,6 +66,12 @@ PYBIND11_MODULE(scalar, s) {
     m.def("round", [](Float a) { return enoki::round(a); });
     m.def("trunc", [](Float a) { return enoki::trunc(a); });
 
+    m.def("sign",         [](Float a) { return enoki::sign(a); });
+    m.def("copysign",     [](Float a, Float b) { return enoki::copysign(a, b); });
+    m.def("copysign_neg", [](Float a, Float b) { return enoki::copysign_neg(a, b); });
+    m.def("mulsign",      [](Float a, Float b) { return enoki::mulsign(a, b); });
+    m.def("mulsign_neg",  [](Float a, Float b) { return enoki::mulsign_neg(a, b); });
+
     m.def("sin",    [](Float a) { return enoki::sin(a); });
     m.def("cos",    [](Float a) { return enoki::cos(a); });
     m.def("sincos", [](Float a) { return enoki::sincos(a); });

@@ -771,6 +771,16 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
         m.def("round",      [](const Array &a) { return enoki::round(a); });
         m.def("trunc",      [](const Array &a) { return enoki::trunc(a); });
 
+        m.def("sign",         [](const Array &a) { return enoki::sign(a); });
+        m.def("copysign",     [](const Array &a, const Array &b) { return enoki::copysign(a, b); });
+        m.def("copysign_neg", [](const Array &a, const Array &b) {
+            return enoki::copysign_neg(a, b);
+        });
+        m.def("mulsign",      [](const Array &a, const Array &b) { return enoki::mulsign(a, b); });
+        m.def("mulsign_neg",  [](const Array &a, const Array &b) {
+            return enoki::mulsign_neg(a, b);
+        });
+
         m.def("sin",        [](const Array &a) { return enoki::sin(a); });
         m.def("cos",        [](const Array &a) { return enoki::cos(a); });
         m.def("sincos",     [](const Array &a) { return enoki::sincos(a); });
