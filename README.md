@@ -210,7 +210,7 @@ of mushroom with many long and parallel stalks reminiscent of data flow in
 vectorized arithmetic.
 
 Enoki is the numerical foundation of version 2 of the [Mitsuba
-renderer](https://github.com/mitsuba-renderer/mitsuba2), though it is
+renderer](https://github.com/mitsuba-renderer/mitsuba), though it is
 significantly more general and should be a trusty tool for a variety of
 simulation and optimization problems.
 
