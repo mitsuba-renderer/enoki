@@ -9,17 +9,20 @@ bool allclose_py(const py::object &a, const py::object &b,
     ssize_t la = PyObject_Length(a.ptr()),
             lb = PyObject_Length(b.ptr());
 
+    bool num_a = PyNumber_Check(a.ptr()),
+         num_b = PyNumber_Check(b.ptr());
+
     const char *tp_name_a = a.ptr()->ob_type->tp_name,
                *tp_name_b = b.ptr()->ob_type->tp_name;
 
     if (la == -1 || lb == -1)
         PyErr_Clear();
 
-    if (la != lb)
+    if (la != lb && !((num_a && lb > 0) || (num_b && la > 0)))
         throw std::runtime_error("enoki.allclose(): length mismatch!");
 
-    bool ok_a = PyNumber_Check(a.ptr()) || strncmp(tp_name_a, "enoki.", 6) == 0;
-    bool ok_b = PyNumber_Check(b.ptr()) || strncmp(tp_name_b, "enoki.", 6) == 0;
+    bool ok_a = num_a || strncmp(tp_name_a, "enoki.", 6) == 0;
+    bool ok_b = num_b || strncmp(tp_name_b, "enoki.", 6) == 0;
 
     if (ok_a && ok_b) {
         py::module ek = py::module::import("enoki");
@@ -45,7 +48,9 @@ bool allclose_py(const py::object &a, const py::object &b,
     } else if (la >= 0) {
         for (size_t i = 0; i < (size_t) la; ++i) {
             py::int_ key(i);
-            if (!allclose_py(a[key], b[key], rtol, atol, equal_nan))
+            py::object ai = num_a ? a : a[key],
+                       bi = num_b ? b : b[key];
+            if (!allclose_py(ai, bi, rtol, atol, equal_nan))
                 return false;
         }
     } else {
