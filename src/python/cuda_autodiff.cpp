@@ -16,8 +16,8 @@ PYBIND11_MODULE(cuda_autodiff, s) {
 
     implicit_conversion = (bool *) py::get_shared_data("implicit_conversion");
 
-    bind_cuda_autodiff_0d(m, s);
     bind_cuda_autodiff_1d(m, s);
+    bind_cuda_autodiff_0d(m, s); // after FloatD
     bind_cuda_autodiff_2d(m, s);
     bind_cuda_autodiff_3d(m, s);
     bind_cuda_autodiff_4d(m, s);

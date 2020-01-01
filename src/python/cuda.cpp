@@ -20,8 +20,8 @@ PYBIND11_MODULE(cuda, s) {
     py::class_<Buffer<true>>(m, "GPUBuffer");
 
     cuda_sync();
-    bind_cuda_0d(m, s);
     bind_cuda_1d(m, s);
+    bind_cuda_0d(m, s); // after FloatC
     bind_cuda_2d(m, s);
     bind_cuda_3d(m, s);
     bind_cuda_4d(m, s);

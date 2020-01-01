@@ -17,8 +17,8 @@ PYBIND11_MODULE(dynamic, s) {
 
     implicit_conversion = (bool *) py::get_shared_data("implicit_conversion");
 
-    bind_dynamic_0d(m, s);
     bind_dynamic_1d(m, s);
+    bind_dynamic_0d(m, s); // after FloatX
     bind_dynamic_2d(m, s);
     bind_dynamic_3d(m, s);
     bind_dynamic_4d(m, s);

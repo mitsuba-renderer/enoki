@@ -509,7 +509,9 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
                 return (a2 == 1) ? 1 : (a1 % a2);
             });
         }
-    } else {
+    }
+
+    if constexpr (!IsFloat) {
         cl.def(py::self | py::self)
           .def(py::self & py::self)
           .def(py::self ^ py::self)
@@ -744,7 +746,7 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
         if constexpr (!IsDiff) {
             m.def("compress", [](const Array &array, const IndexMask &mask) {
                 return compress(array, mask);
-            });
+            }, "array"_a, "mask"_a);
         }
     }
 

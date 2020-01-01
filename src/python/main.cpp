@@ -69,6 +69,15 @@ PYBIND11_MODULE(core, m_) {
 
     py::class_<Buffer<false>>(m, "CPUBuffer");
 
+    m.def("empty",
+        [](py::handle h, size_t size) {
+            if (size == 1)
+                return h();
+            else
+                return h.attr("empty")(size);
+        },
+        "type"_a, "size"_a = 1);
+
     m.def("zero",
         [](py::handle h, size_t size) {
             if (size == 1)
@@ -78,14 +87,23 @@ PYBIND11_MODULE(core, m_) {
         },
         "type"_a, "size"_a = 1);
 
-    m.def("empty",
+    m.def("arange",
         [](py::handle h, size_t size) {
             if (size == 1)
-                return h();
+                return h(0);
             else
-                return h.attr("empty")(size);
+                return h.attr("arange")(size);
         },
         "type"_a, "size"_a = 1);
+
+    m.def("full",
+        [](py::handle h, py::handle value, size_t size) {
+            if (size == 1)
+                return h(value);
+            else
+                return h.attr("full")(value, size);
+        },
+        "type"_a, "value"_a, "size"_a = 1);
 
     m.def("linspace",
         [](py::handle h, py::handle start, py::handle end, size_t size) {
