@@ -569,18 +569,18 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
             if (!slice.compute(dst.size(), &start, &stop, &step, &slicelength))
                 throw py::error_already_set();
 
-            if (slicelength != src.size() && src.size() != 1)
-                throw py::index_error(
-                    "Size mismatch: tried to assign an array of size " +
-                    std::to_string(src.size()) + " to a slice of size " +
-                    std::to_string(slicelength) + "!");
-
-            if (step == 0) {
-                return;
-            } else if (step == 1 && slicelength == (ssize_t) dst.size()) {
+            if (step == 1 && slicelength == (ssize_t) dst.size()) {
                 dst = src; // Fast path
-                set_slices(dst, slicelength);
             } else {
+                if (slicelength != src.size() && src.size() != 1)
+                    throw py::index_error(
+                        "Size mismatch: tried to assign an array of size " +
+                        std::to_string(src.size()) + " to a slice of size " +
+                        std::to_string(slicelength) + "!");
+
+                if (step == 0)
+                    return;
+
                 using Int32 = int32_array_t<Array>;
                 Int32 indices =
                     arange<Int32>((int32_t) slicelength) * (int32_t) step +
