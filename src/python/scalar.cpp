@@ -84,7 +84,7 @@ PYBIND11_MODULE(scalar, s) {
     m.def("atan",   [](Float a) { return enoki::atan(a); });
     m.def("atan2",  [](Float a, Float b) {
         return enoki::atan2(a, b);
-    });
+    }, "y"_a, "x"_a);
 
     m.def("sinh",    [](Float a) { return enoki::sinh(a); });
     m.def("cosh",    [](Float a) { return enoki::cosh(a); });

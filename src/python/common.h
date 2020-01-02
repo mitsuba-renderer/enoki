@@ -810,9 +810,9 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
         m.def("acos",       [](const Array &a) { return enoki::acos(a); });
         m.def("safe_acos",  [](const Array &a) { return enoki::safe_acos(a); });
         m.def("atan",       [](const Array &a) { return enoki::atan(a); });
-        m.def("atan2",      [](const Array &a, const Array &b) {
-            return enoki::atan2(a, b);
-        });
+        m.def("atan2",      [](const Array &x, const Array &y) {
+            return enoki::atan2(x, y);
+        }, "y"_a, "x"_a);
 
         m.def("sinh",    [](const Array &a) { return enoki::sinh(a); });
         m.def("cosh",    [](const Array &a) { return enoki::cosh(a); });
