@@ -332,7 +332,6 @@ if (ENOKI_PYTHON)
   pybind11_add_module(
       enoki-python-core
       THIN_LTO
-      src/python/common.h
       src/python/main.cpp
   )
 
@@ -341,6 +340,9 @@ if (ENOKI_PYTHON)
       THIN_LTO
 
       src/python/common.h
+      src/python/complex.h
+      src/python/matrix.h
+      src/python/quat.h
       src/python/scalar.cpp
       src/python/scalar_0d.cpp
       src/python/scalar_1d.cpp
@@ -349,6 +351,7 @@ if (ENOKI_PYTHON)
       src/python/scalar_4d.cpp
       src/python/scalar_complex.cpp
       src/python/scalar_matrix.cpp
+      src/python/scalar_quat.cpp
       src/python/scalar_pcg32.cpp
   )
 
@@ -357,6 +360,9 @@ if (ENOKI_PYTHON)
       THIN_LTO
 
       src/python/common.h
+      src/python/complex.h
+      src/python/matrix.h
+      src/python/quat.h
       src/python/dynamic.cpp
       src/python/dynamic_0d.cpp
       src/python/dynamic_1d.cpp
@@ -376,6 +382,9 @@ if (ENOKI_PYTHON)
         THIN_LTO
 
         src/python/common.h
+        src/python/complex.h
+        src/python/matrix.h
+        src/python/quat.h
         src/python/cuda.cpp
         src/python/cuda_0d.cpp
         src/python/cuda_1d.cpp
@@ -396,6 +405,9 @@ if (ENOKI_PYTHON)
         THIN_LTO
 
         src/python/common.h
+        src/python/complex.h
+        src/python/matrix.h
+        src/python/quat.h
         src/python/cuda_autodiff.cpp
         src/python/cuda_autodiff_0d.cpp
         src/python/cuda_autodiff_1d.cpp

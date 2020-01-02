@@ -69,8 +69,11 @@ struct Quaternion : StaticArrayImpl<Value_, 4, Approx_, RoundingMode::Default, f
 };
 
 template <typename T, enable_if_quaternion_t<T> = 0>
-ENOKI_INLINE T identity() {
-    return T(0.f, 0.f, 0.f, 1.f);
+ENOKI_INLINE T identity(size_t size = 1) {
+    using Value = value_t<T>;
+    Value z = zero<Value>(size),
+          o = full<Value>(1.f, size);
+    return T(z, z, z, o);
 }
 
 template <typename T, bool Approx> ENOKI_INLINE expr_t<T> real(const Quaternion<T, Approx> &q) { return q.w(); }

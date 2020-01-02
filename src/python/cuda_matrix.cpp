@@ -1,4 +1,4 @@
-#include "common.h"
+#include "matrix.h"
 
 void bind_cuda_matrix(py::module& m, py::module& s) {
     bind_matrix<Matrix2fC>(m, s, "Matrix2f");

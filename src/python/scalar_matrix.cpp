@@ -1,4 +1,4 @@
-#include "common.h"
+#include "matrix.h"
 
 void bind_scalar_matrix(py::module& m, py::module& s) {
     bind_matrix<Matrix2f>(m, s, "Matrix2f");

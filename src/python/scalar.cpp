@@ -7,6 +7,7 @@ extern void bind_scalar_3d(py::module&, py::module&);
 extern void bind_scalar_4d(py::module&, py::module&);
 extern void bind_scalar_complex(py::module&, py::module&);
 extern void bind_scalar_matrix(py::module&, py::module&);
+extern void bind_scalar_quaternion(py::module&, py::module&);
 extern void bind_scalar_pcg32(py::module&, py::module&);
 
 bool *implicit_conversion = nullptr;
@@ -177,5 +178,6 @@ PYBIND11_MODULE(scalar, s) {
     bind_scalar_4d(m, s);
     bind_scalar_complex(m, s);
     bind_scalar_matrix(m, s);
+    bind_scalar_quaternion(m, s);
     bind_scalar_pcg32(m, s);
 }
