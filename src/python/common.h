@@ -381,17 +381,6 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
         );
     }
 
-    if constexpr (IsCUDA) {
-        cl.def(py::init([](const py::torch_tensor &obj) -> Array {
-            using T = expr_t<decltype(detach(std::declval<Array&>()))>;
-            return torch_to_enoki<T>(obj);
-        }))
-        .def("torch", [](const Array &a, bool eval) {
-            return enoki_to_torch(detach(a), eval); },
-            "eval"_a = true
-        );
-    }
-
     if constexpr (!IsKMask) {
         cl.def(py::init([](const py::ndarray &obj) -> Array {
                    using T = expr_t<decltype(detach(std::declval<Array &>()))>;
@@ -417,6 +406,14 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
               result["typestr"] = typestr;
               return result;
           });
+        cl.def(py::init([](const py::torch_tensor &obj) -> Array {
+            using T = expr_t<decltype(detach(std::declval<Array&>()))>;
+            return torch_to_enoki<T>(obj);
+        }))
+        .def("torch", [](const Array &a, bool eval) {
+            return enoki_to_torch(detach(a), eval); },
+            "eval"_a = true
+        );
     }
 
     cl.def(py::init([](const py::list &list) -> Array {
@@ -1290,7 +1287,6 @@ static void copy_array(size_t offset,
     }
 }
 
-#if defined(ENOKI_CUDA)
 template <typename Array>
 ENOKI_NOINLINE py::object enoki_to_torch(const Array &src, bool eval) {
     constexpr size_t Depth = array_depth_v<Array>;
@@ -1310,7 +1306,7 @@ ENOKI_NOINLINE py::object enoki_to_torch(const Array &src, bool eval) {
     py::object result = torch.attr("empty")(
         py::cast(shape_rev),
         "dtype"_a = dtype_obj,
-        "device"_a = "cuda");
+        "device"_a = is_cuda_array_v<Array> ? "cuda" : "cpu");
 
     size_t size = 1;
     for (size_t i : shape)
@@ -1319,12 +1315,17 @@ ENOKI_NOINLINE py::object enoki_to_torch(const Array &src, bool eval) {
     strides = py::cast<std::array<size_t, Depth>>(result.attr("stride")());
     std::reverse(strides.begin(), strides.end());
     if (size > 0) {
-        CUDAArray<Scalar> target = CUDAArray<Scalar>::map(
+        using T = std::conditional_t<
+            is_cuda_array_v<Array>,
+            CUDAArray<Scalar>,
+            DynamicArray<Packet<Scalar, PacketSize>>
+        >;
+        T target = T::map(
             (Scalar *) py::cast<uintptr_t>(result.attr("data_ptr")()), size);
         copy_array</* Scatter = */ true, 0>(0, shape, strides, src, target);
 
 #if defined(ENOKI_CUDA)
-        if (eval) {
+        if (is_cuda_array_v<Array> && eval) {
             cuda_eval();
             cuda_sync();
         }
@@ -1341,8 +1342,12 @@ ENOKI_NOINLINE Array torch_to_enoki(py::object src) {
     py::tuple shape_obj = src.attr("shape");
     py::object dtype_obj = src.attr("dtype");
     py::object target_dtype = torch_dtype<Scalar>();
-    if (((std::string) ((py::str) src.attr("device"))).find("cuda") == std::string::npos)
+    std::string device = (std::string) (py::str) src.attr("device");
+
+    if (is_cuda_array_v<Array> && strncmp(device.c_str(), "cuda", 4) != 0)
         throw std::runtime_error("Attempted to cast a Torch CPU tensor to a Enoki GPU array!");
+    if (!is_cuda_array_v<Array> && strncmp(device.c_str(), "cpu", 3) != 0)
+        throw std::runtime_error("Attempted to cast a Torch GPU tensor to a Enoki CPU array!");
 
     if (shape_obj.size() != Depth || !dtype_obj.is(target_dtype))
         throw py::reference_cast_error();
@@ -1358,15 +1363,23 @@ ENOKI_NOINLINE Array torch_to_enoki(py::object src) {
 
     Array result;
 
+    if constexpr (!is_cuda_array_v<Array>)
+        set_shape(result, shape);
+
     if (size > 0) {
-        CUDAArray<Scalar> source = CUDAArray<Scalar>::map(
+        using T = std::conditional_t<
+            is_cuda_array_v<Array>,
+            CUDAArray<Scalar>,
+            DynamicArray<Packet<Scalar, PacketSize>>
+        >;
+
+        T source = T::map(
             (Scalar *) py::cast<uintptr_t>(src.attr("data_ptr")()), size);
 
         copy_array</* Scatter = */ false, 0>(0, shape, strides, source, result);
     }
     return result;
 }
-#endif
 
 template <typename Array>
 ENOKI_NOINLINE py::object enoki_to_numpy(const Array &src, bool eval) {
