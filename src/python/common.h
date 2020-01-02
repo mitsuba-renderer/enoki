@@ -1019,6 +1019,7 @@ py::class_<Matrix> bind_matrix(py::module &m, py::module &s, const char *name) {
     using Vector = typename Matrix::Column;
     using Value  = typename Matrix::Entry;
     using Array  = Array<Vector, Matrix::Size>;
+    using Scalar = scalar_t<Matrix>;
     static constexpr bool IsDynamic = is_dynamic_v<Value>;
 
     auto cls = py::class_<Matrix>(s, name)
@@ -1056,18 +1057,50 @@ py::class_<Matrix> bind_matrix(py::module &m, py::module &s, const char *name) {
         .def_static("identity", [](size_t size) { return identity<Matrix>(size); }, "size"_a = 1)
         .def_static("zero", [](size_t size) { return zero<Matrix>(size); }, "size"_a = 1);
 
+    cls.def(py::init([](const py::ndarray &obj) -> Matrix {
+               using T = expr_t<decltype(detach(std::declval<Matrix &>()))>;
+               return numpy_to_enoki<T>(obj);
+           }))
+      .def("numpy", [](const Matrix &a, bool eval) { return enoki_to_numpy(detach(a), eval); },
+           "eval"_a = true)
+      .def_property_readonly("__array_interface__", [](const py::object &o) {
+          py::object np_array = o.attr("numpy")();
+          py::dict result;
+          result["data"]    = np_array;
+          result["shape"]   = np_array.attr("shape");
+          result["version"] = 3;
+          char typestr[4]   = { '<', 0, '0' + sizeof(Scalar), 0 };
+          if (std::is_floating_point_v<Scalar>)
+              typestr[1] = 'f';
+          else if (std::is_same_v<Scalar, bool>)
+              typestr[1] = 'b';
+          else if (std::is_unsigned_v<Scalar>)
+              typestr[1] = 'u';
+          else
+              typestr[1] = 'i';
+          result["typestr"] = typestr;
+          return result;
+      });
+
+    cls.def(py::init([](const py::torch_tensor &obj) -> Matrix {
+        using T = expr_t<decltype(detach(std::declval<Matrix&>()))>;
+        return torch_to_enoki<T>(obj);
+    }))
+    .def("torch", [](const Matrix &a, bool eval) {
+        return enoki_to_torch(detach(a), eval); },
+        "eval"_a = true
+    );
+
     m.def("shape", [](const Matrix &a) { return shape(a); });
     m.def("slices", [](const Matrix &a) { return slices(a); });
     m.def("set_slices", [](Matrix &a, size_t size) { set_slices(a, size); }, "array"_a, "slices"_a);
 
-    if constexpr (array_depth_v<Value> == (IsDynamic ? 1 : 0)) {
-        cls.def("__matmul__", [](const Matrix &a, const Matrix &b) {
-                return a * b;
-            })
-            .def("__matmul__", [](const Matrix &a, const Vector &b) {
-                return a * b;
-            });
-    }
+    cls.def("__matmul__",
+            [](const Matrix &a, const Matrix &b) { return a * b; });
+
+    if constexpr (array_depth_v<Value> == (IsDynamic ? 1 : 0))
+        cls.def("__matmul__",
+                [](const Matrix &a, const Vector &b) { return a * b; });
 
     if constexpr (Matrix::Size == 2) {
         cls.def(py::init<const Value &, const Value &,
@@ -1107,7 +1140,10 @@ py::class_<Matrix> bind_matrix(py::module &m, py::module &s, const char *name) {
         }
     }
 
-    m.def("transpose", [](const Matrix &m) { return transpose(m); });
+    auto transpose_m = [](const Matrix &m) { return transpose(m); };
+    cls.def_property_readonly("T", transpose_m);
+
+    m.def("transpose", transpose_m);
     m.def("det", [](const Matrix &m) { return det(m); });
     m.def("inverse", [](const Matrix &m) { return inverse(m); });
     m.def("inverse_transpose", [](const Matrix &m) { return inverse_transpose(m); });
