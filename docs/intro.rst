@@ -132,8 +132,8 @@ calls across module boundaries. It has the following design goals:
    generally with an average error of :math:`<\!\frac{1}{2}` ULP on their full
    domain. These include exponentials, logarithms, and trigonometric and
    hyperbolic functions, as well as their inverses. Enoki also provides
-   real-valued versions of error function variants, Bessel functions, and
-   elliptical integrals.
+   real-valued versions of error function variants, Bessel functions, the Gamma
+   function, and various elliptic integrals.
 
    .. image:: intro-03.png
        :width: 720px

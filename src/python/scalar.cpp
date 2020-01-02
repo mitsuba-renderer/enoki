@@ -129,6 +129,8 @@ PYBIND11_MODULE(scalar, s) {
     m.def("exp",    [](Float a) { return enoki::exp(a); });
     m.def("erfinv", [](Float a) { return enoki::erfinv(a); });
     m.def("erf",    [](Float a) { return enoki::erf(a); });
+    m.def("tgamma", [](Float a) { return enoki::tgamma(a); });
+    m.def("lgamma", [](Float a) { return enoki::lgamma(a); });
     m.def("pow",    [](Float a, Float b) {
         return enoki::pow(a, b);
     });

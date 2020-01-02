@@ -780,6 +780,24 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
             return enoki::mulsign_neg(a, b);
         });
 
+        m.def("lerp", [](const Array &a, const Array &b, const Array &t) {
+            return enoki::lerp(a, b, t);
+        });
+
+        m.def("isfinite", [](const Array &a) -> Mask { return enoki::isfinite(a); });
+        m.def("isnan", [](const Array &a) -> Mask { return enoki::isnan(a); });
+        m.def("isinf", [](const Array &a) -> Mask { return enoki::isinf(a); });
+    }
+
+    if constexpr (!IsFloat && !IsMask && Size == -1) {
+        m.def("popcnt", [](const Array &a) { return enoki::popcnt(a); });
+        m.def("lzcnt", [](const Array &a) { return enoki::lzcnt(a); });
+        m.def("tzcnt", [](const Array &a) { return enoki::tzcnt(a); });
+        m.def("log2i", [](const Array &a) { return enoki::log2i(a); });
+        m.def("mulhi", [](const Array &a, const Array &b) { return enoki::mulhi(a, b); });
+    }
+
+    if constexpr (IsFloat && Size == -1) {
         m.def("sin",        [](const Array &a) { return enoki::sin(a); });
         m.def("cos",        [](const Array &a) { return enoki::cos(a); });
         m.def("sincos",     [](const Array &a) { return enoki::sincos(a); });
@@ -811,6 +829,8 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
         m.def("exp",    [](const Array &a) { return enoki::exp(a); });
         m.def("erfinv", [](const Array &a) { return enoki::erfinv(a); });
         m.def("erf",    [](const Array &a) { return enoki::erf(a); });
+        m.def("lgamma", [](const Array &a) { return enoki::lgamma(a); });
+        m.def("tgamma", [](const Array &a) { return enoki::tgamma(a); });
         m.def("pow",    [](const Array &a, const Array &b) {
             return enoki::pow(a, b);
         });
@@ -834,20 +854,6 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
         cl.def("__pow__", [](const Array &a, Scalar b) {
             return enoki::pow(a, b);
         });
-
-        m.def("lerp", [](const Array &a, const Array &b, const Array &t) {
-            return enoki::lerp(a, b, t);
-        });
-
-        m.def("isfinite", [](const Array &a) -> Mask { return enoki::isfinite(a); });
-        m.def("isnan", [](const Array &a) -> Mask { return enoki::isnan(a); });
-        m.def("isinf", [](const Array &a) -> Mask { return enoki::isinf(a); });
-    } else if constexpr (!IsMask) {
-        m.def("popcnt", [](const Array &a) { return enoki::popcnt(a); });
-        m.def("lzcnt", [](const Array &a) { return enoki::lzcnt(a); });
-        m.def("tzcnt", [](const Array &a) { return enoki::tzcnt(a); });
-        m.def("log2i", [](const Array &a) { return enoki::log2i(a); });
-        m.def("mulhi", [](const Array &a, const Array &b) { return enoki::mulhi(a, b); });
     }
 
     m.def("reverse", [](const Array &a) { return enoki::reverse(a); });

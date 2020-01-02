@@ -1760,6 +1760,18 @@ The following special functions require including the header
 
         I_0(x) = \frac{1}{\pi} \int_{0}^\pi e^{x\cos \theta}\mathrm{d}\theta.
 
+.. cpp:function:: template <typename Array> Array gamma(Array x)
+
+    Evaluates the Gamma function defined as
+
+    .. math::
+
+        \Gamma(x)=\int_0^\infty t^{x-1} e^{-t}\,\mathrm{d}t.
+
+.. cpp:function:: template <typename Array> Array lgamma(Array x)
+
+    Evaluates the natural logarithm of the Gamma function.
+
 .. cpp:function:: template <typename Array> Array dawson(Array x)
 
     Evaluates Dawson's integral defined as
