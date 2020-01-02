@@ -296,6 +296,7 @@ if (ENOKI_CUDA)
   )
   target_compile_definitions(enoki-cuda PRIVATE -DENOKI_CUDA_COMPUTE_CAPABILITY=${ENOKI_CUDA_COMPUTE_CAPABILITY})
   target_link_libraries(enoki-cuda PRIVATE cuda)
+  message(STATUS "Enoki: building the CUDA backend.")
 endif()
 
 enoki_set_native_flags()
@@ -317,11 +318,13 @@ if (ENOKI_AUTODIFF)
   if (ENOKI_CUDA)
       target_link_libraries(enoki-autodiff PRIVATE enoki-cuda)
   endif()
+  message(STATUS "Enoki: building the autodiff backend.")
 endif()
 
 if (ENOKI_PYTHON)
   set(ENOKI_PYBIND11_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ext/pybind11"
     CACHE STRING "Path containing the 'pybind11' library used to compile Enoki.")
+  message(STATUS "Enoki: building the Python plugin.")
 
   set(CMAKE_CXX_STANDARD 17)
   add_subdirectory(${ENOKI_PYBIND11_DIR} pybind11)
