@@ -9,8 +9,8 @@ bool allclose_py(const py::object &a, const py::object &b,
     ssize_t la = PyObject_Length(a.ptr()),
             lb = PyObject_Length(b.ptr());
 
-    bool num_a = PyNumber_Check(a.ptr()),
-         num_b = PyNumber_Check(b.ptr());
+    bool num_a = PyNumber_Check(a.ptr()) && la == -1,
+         num_b = PyNumber_Check(b.ptr()) && lb == -1;
 
     const char *tp_name_a = a.ptr()->ob_type->tp_name,
                *tp_name_b = b.ptr()->ob_type->tp_name;
