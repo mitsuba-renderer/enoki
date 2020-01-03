@@ -154,9 +154,10 @@ Index binary_search(scalar_t<Index> start_,
                     scalar_t<Index> end_,
                     const Predicate &pred,
                     mask_t<Index> active = true) {
-
-    scalar_t<Index> iterations = log2i(end_ - start_) + 1;
     Index start(start_), end(end_);
+
+    scalar_t<Index> iterations = (start_ < end_) ?
+        (log2i(end_ - start_) + 1) : 0;
 
     for (size_t i = 0; i < iterations; ++i) {
         active &= end > start;
