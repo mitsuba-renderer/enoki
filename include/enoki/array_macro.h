@@ -126,23 +126,23 @@
 #define ENOKI_MAP_EXPR_SCATTER_1(x, peek, ...) \
     enoki::scatter(dst.x, value.x, index, mask) ENOKI_MAP_EXPR_NEXT(peek, ENOKI_MAP_EXPR_SCATTER_0)(peek, __VA_ARGS__)
 
-#define ENOKI_MAP_IMPORT_0(base, x, peek, ...)                               \
+#define ENOKI_USING_MEMBERS_0(base, x, peek, ...)                               \
     using base::x;                                                           \
-    ENOKI_MAP_STMT_NEXT(peek, ENOKI_MAP_IMPORT_1)(base, peek, __VA_ARGS__)
-#define ENOKI_MAP_IMPORT_1(base, x, peek, ...)                               \
+    ENOKI_MAP_STMT_NEXT(peek, ENOKI_USING_MEMBERS_1)(base, peek, __VA_ARGS__)
+#define ENOKI_USING_MEMBERS_1(base, x, peek, ...)                               \
     using base::x;                                                           \
-    ENOKI_MAP_STMT_NEXT(peek, ENOKI_MAP_IMPORT_0)(base, peek, __VA_ARGS__)
-#define ENOKI_MAP_IMPORT_2(base, peek, ...) \
-    ENOKI_EVAL(ENOKI_MAP_STMT_NEXT(peek, ENOKI_MAP_IMPORT_0)(base, peek, __VA_ARGS__))
+    ENOKI_MAP_STMT_NEXT(peek, ENOKI_USING_MEMBERS_0)(base, peek, __VA_ARGS__)
+#define ENOKI_USING_MEMBERS_2(base, peek, ...) \
+    ENOKI_EVAL(ENOKI_MAP_STMT_NEXT(peek, ENOKI_USING_MEMBERS_0)(base, peek, __VA_ARGS__))
 
-#define ENOKI_MAP_USING_0(base, x, peek, ...)                               \
+#define ENOKI_USING_TYPES_0(base, x, peek, ...)                               \
     using x = typename base::x;                                             \
-    ENOKI_MAP_STMT_NEXT(peek, ENOKI_MAP_USING_1)(base, peek, __VA_ARGS__)
-#define ENOKI_MAP_USING_1(base, x, peek, ...)                               \
+    ENOKI_MAP_STMT_NEXT(peek, ENOKI_USING_TYPES_1)(base, peek, __VA_ARGS__)
+#define ENOKI_USING_TYPES_1(base, x, peek, ...)                               \
     using x = typename base::x;                                             \
-    ENOKI_MAP_STMT_NEXT(peek, ENOKI_MAP_USING_0)(base, peek, __VA_ARGS__)
-#define ENOKI_MAP_USING_2(base, peek, ...) \
-    ENOKI_EVAL(ENOKI_MAP_STMT_NEXT(peek, ENOKI_MAP_USING_0)(base, peek, __VA_ARGS__))
+    ENOKI_MAP_STMT_NEXT(peek, ENOKI_USING_TYPES_0)(base, peek, __VA_ARGS__)
+#define ENOKI_USING_TYPES_2(base, peek, ...) \
+    ENOKI_EVAL(ENOKI_MAP_STMT_NEXT(peek, ENOKI_USING_TYPES_0)(base, peek, __VA_ARGS__))
 
 // ENOKI_MAP_TEMPLATE_FWD(a1, a2, ...) expands to typename Ta1, typename Ta2, ...
 #define ENOKI_MAP_TEMPLATE_FWD(...) \
@@ -204,13 +204,13 @@
 #define ENOKI_MAP_EXPR_SCATTER(...) \
     ENOKI_EVAL(ENOKI_MAP_EXPR_SCATTER_0(__VA_ARGS__, (), 0))
 
-// ENOKI_MAP_USING(base, a1, a2, ...) expands to using a1 = typename base::a1; using a2 = typename base::a2; ...
-#define ENOKI_MAP_USING(...) \
-    ENOKI_EVAL_0(ENOKI_MAP_USING_2(__VA_ARGS__, (), 0))
+// ENOKI_USING_TYPES(base, a1, a2, ...) expands to using a1 = typename base::a1; using a2 = typename base::a2; ...
+#define ENOKI_USING_TYPES(...) \
+    ENOKI_EVAL_0(ENOKI_USING_TYPES_2(__VA_ARGS__, (), 0))
 
-// ENOKI_MAP_IMPORT(base, a1, a2, ...) expands to using base::a1; using base::a2; ...
-#define ENOKI_MAP_IMPORT(...) \
-    ENOKI_EVAL_0(ENOKI_MAP_IMPORT_2(__VA_ARGS__, (), 0))
+// ENOKI_USING_MEMBERS(base, a1, a2, ...) expands to using base::a1; using base::a2; ...
+#define ENOKI_USING_MEMBERS(...) \
+    ENOKI_EVAL_0(ENOKI_USING_MEMBERS_2(__VA_ARGS__, (), 0))
 
 
 #define ENOKI_STRUCT(Struct, ...)                                              \
