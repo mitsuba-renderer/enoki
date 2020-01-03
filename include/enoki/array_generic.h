@@ -295,8 +295,9 @@ struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, D
     using Base::derived;
 
     using StorageType =
-        std::conditional_t<std::is_reference_v<Value>,
-                           std::reference_wrapper<std::remove_reference_t<Value>>, Value>;
+        std::conditional_t<std::is_reference_v<Value> && Size_ != 0,
+                           std::reference_wrapper<std::remove_reference_t<Value>>,
+                           std::remove_reference_t<Value>>;
 
     using Ref = std::remove_reference_t<Value> &;
     using ConstRef = const std::remove_reference_t<Value> &;
