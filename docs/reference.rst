@@ -643,22 +643,22 @@ Miscellaneous initialization
              [1, 3]]
         */
 
-.. cpp:function:: template <typename Predicate> binary_search(scalar_t<Index> start, scalar_t<Index> end, Predicate pred, mask_t<Index> index)
+.. cpp:function:: template <typename Predicate, typename Index> Index binary_search(scalar_t<Index> start, scalar_t<Index> end, Predicate pred)
 
     Perform binary search over a range given a predicate ``pred``, which
     monotonically decreases over this range (i.e. max one ``true`` -> ``false``
     transition).
 
     Given a (scalar) ``start`` and ``end`` index of a range, this function
-    evaluates a predicate ``floor(log2(end-start) + 1)`` times to find the
-    first index that no longer satisfies it. Note that the template parameter
-    ``Index`` is automatically inferred from the supplied predicate. When
-    ``pred`` is ``false`` for all entries, the function returns ``start``, and
-    when it is ``true`` for all cases, it returns ``end``.
-
-    The predicate takes an index or an index vector of type ``Index`` as input
-    argument and can (optionally) take a mask argument as well. In the
-    vectorized case, each vector lane can use different predicate. 
+    evaluates a predicate ``floor(log2(end-start) + 1)`` times with index
+    values on the interval [start, end] (inclusive) to find the first index
+    that no longer satisfies it. Note that the template parameter ``Index`` is
+    automatically inferred from the supplied predicate. Specifically, the
+    predicate takes an index or an index vector of type ``Index`` as input
+    argument. In the vectorized case, each vector lane can thus evaluate a
+    different predicate. When ``pred`` is ``false`` for all entries, the
+    function returns ``start``, and when it is ``true`` for all cases, it
+    returns ``end``.
 
     The following code example shows a typical use case: ``array`` contains a
     sorted list of floating point numbers, and the goal is to map floating
@@ -672,9 +672,9 @@ Miscellaneous initialization
 
         UInt32P j = binary_search(
            0,
-           array.size(),
-           [](UInt32P index, mask_t<UInt32P> mask) {
-               return gather(array.data(), index, mask) < x;
+           array.size() - 1,
+           [&](UInt32P index) {
+               return gather(array.data(), index) < x;
            }
         );
 

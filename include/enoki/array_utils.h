@@ -152,25 +152,19 @@ template <typename Predicate,
           typename Index = std::decay_t<std::tuple_element_t<0, Args>>>
 Index binary_search(scalar_t<Index> start_,
                     scalar_t<Index> end_,
-                    const Predicate &pred,
-                    mask_t<Index> active = true) {
+                    const Predicate &pred) {
     Index start(start_), end(end_);
 
     scalar_t<Index> iterations = (start_ < end_) ?
         (log2i(end_ - start_) + 1) : 0;
 
     for (size_t i = 0; i < iterations; ++i) {
-        active &= end > start;
         Index middle = sr<1>(start + end);
 
-        mask_t<Index> cond;
-        if constexpr (std::tuple_size_v<Args> == 1)
-            cond = pred(middle);
-        else
-            cond = pred(middle, active);
+        mask_t<Index> cond = pred(middle);
 
-        masked(start,  cond && active) = middle + 1;
-        masked(end,   !cond && active) = middle;
+        masked(start,  cond) = min(middle + 1, end);
+        masked(end,   !cond) = middle;
     }
 
     return start;

@@ -86,11 +86,10 @@ void bind_cuda_1d(py::module& m, py::module& s) {
         "binary_search",
         [](uint32_t start,
            uint32_t end,
-           const std::function<MaskC(UInt32C, MaskC)> &pred,
-           MaskC mask) {
-            return enoki::binary_search(start, end, pred, mask);
+           const std::function<MaskC(UInt32C)> &pred) {
+            return enoki::binary_search(start, end, pred);
         },
-        "start"_a, "end"_a, "pred"_a, "mask"_a = true);
+        "start"_a, "end"_a, "pred"_a);
 
     m.def("meshgrid", [](const Float32C &x, const Float32C &y) {
         auto result = meshgrid(x, y);
