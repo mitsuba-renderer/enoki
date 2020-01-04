@@ -4,6 +4,58 @@ Advanced topics
 This section discusses a number of advanced operations and ways of extending
 Enoki.
 
+Improving introspection of Enoki types in LLDB
+----------------------------------------------
+
+When debugging programs built on top of Enoki using `LLDB
+<https://lldb.llvm.org/>`_, the stringified versions of arrays are needlessly
+verbose and reveal private implementation details. For instance, printing a
+simple statically sized 3D vectors like ``Array<float, 3>(1, 2, 3)`` yields
+
+.. code-block:: text
+
+    $0 = {
+      enoki::StaticArrayImpl<float, 3, false, enoki::Array<float, 3>, int> = {
+        enoki::StaticArrayImpl<float, 4, false, enoki::Array<float, 3>, int> = {
+          m = (1, 2, 3, 0)
+        }
+      }
+    }
+
+Dynamic arrays (e.g. ``FloatX(1, 2, 3)``) are even worse, as the values are
+obscured behind a pointer:
+
+.. code-block:: text
+
+    $0 = {
+      enoki::DynamicArrayImpl<enoki::Packet<float, 8>, enoki::DynamicArray<enoki::Packet<float, 8> > > = summary {
+        m_packets = {
+          __ptr_ = {
+            std::__1::__compressed_pair_elem<enoki::Packet<float, 8> *, 0, false> = {
+              __value_ = 0x0000000100300200
+            }
+          }
+        }
+        m_size = 1
+        m_packets_allocated = 1
+      }
+    }
+
+To improve readability, this repository includes a script that improves LLDB's
+understanding of Enoki types. With this script, both of the above turn into
+
+.. code-block:: text
+
+    $0 = [1, 2, 3]
+
+To install it, copy the file ``resources/enoki_lldb.py`` to ``~/.lldb``
+(creating the directory, if not present) and then apppend the following line to
+the file ``~/.lldbinit`` (again, creating it if, not already present):
+
+.. code-block:: text
+
+   command script import ~/.lldb/enoki_lldb.py
+
 .. _compression:
 
 Compressing arrays
