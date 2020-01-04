@@ -39,7 +39,6 @@ template <typename T> struct MaskedValue {
 };
 
 template <typename T> struct MaskedArray : ArrayBase<value_t<T>, MaskedArray<T>> {
-    static constexpr bool Approx = T::Approx;
     using Mask     = mask_t<T>;
     using Scalar   = MaskedValue<scalar_t<T>>;
     using MaskType = MaskedArray<Mask>;
@@ -70,10 +69,10 @@ template <typename T> struct MaskedArray : ArrayBase<value_t<T>, MaskedArray<T>>
 
 NAMESPACE_END(detail)
 
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
-struct Array<detail::MaskedArray<Value_>, Size_, Approx_, Mode_>
-    : detail::MaskedArray<Array<Value_, Size_, Approx_, Mode_>> {
-    using Base = detail::MaskedArray<Array<Value_, Size_, Approx_, Mode_>>;
+template <typename Value_, size_t Size_>
+struct Array<detail::MaskedArray<Value_>, Size_>
+    : detail::MaskedArray<Array<Value_, Size_>> {
+    using Base = detail::MaskedArray<Array<Value_, Size_>>;
     using Base::Base;
     using Base::operator=;
     Array(const Base &b) : Base(b) { }

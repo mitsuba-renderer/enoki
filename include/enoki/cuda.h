@@ -209,7 +209,6 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
     static constexpr EnokiType Type = enoki_type_v<Value>;
     static constexpr bool IsCUDA = true;
-    static constexpr bool Approx = std::is_floating_point_v<Value>;
     template <typename T> using ReplaceValue = CUDAArray<T>;
     using MaskType = CUDAArray<bool>;
     using ArrayType = CUDAArray;

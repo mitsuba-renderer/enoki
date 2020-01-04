@@ -137,7 +137,6 @@ public:
 
     static constexpr size_t Size = is_scalar_v<Type> ? 1 : array_size_v<Type>;
     static constexpr size_t Depth = is_scalar_v<Type> ? 1 : array_depth_v<Type>;
-    static constexpr bool Approx = array_approx_v<Type>;
     static constexpr bool IsMask = is_mask_v<Type>;
     static constexpr bool IsCUDA = is_cuda_array_v<Type>;
     static constexpr bool IsDiff = true;

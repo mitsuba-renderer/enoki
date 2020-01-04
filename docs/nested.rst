@@ -140,8 +140,8 @@ usage of such an approach.
 
 .. code-block:: cpp
 
-    /* Declare an underlying packet type with 4 floats (let's try non-approximate math mode first) */
-    using FloatP = Array<float, 4, /* Approx = */ false>;
+    /* Declare an underlying packet type with 4 floats */
+    using FloatP = Array<float, 4>;
 
     /* NEW: Packet of 3D vectors containing four separate directions */
     using Vector3fP = Array<FloatP, 3>;
@@ -225,8 +225,7 @@ vectors at the same time.
 
 Enoki will also avoid costly high-latency operations like division and square
 root if the user indicates that minor approximations are tolerable. The
-following snippet demonstrates code generation on an ARMv8 NEON machine when
-the ``Approx`` template argument is set to ``true`` in the above example. Note
+following snippet demonstrates code generation on an ARMv8 NEON machine. Note
 the use of the ``frsqrte`` and ``frsqrts`` instructions for the reciprocal
 square root.
 

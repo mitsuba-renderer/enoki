@@ -149,12 +149,12 @@ Matrix look_at(const Point &origin, const Point &target, const Vector &up) {
     );
 }
 
-template <typename T, bool Approx,
+template <typename T,
           typename E       = expr_t<T>,
-          typename Matrix3 = Matrix<E, 3, Approx>,
-          typename Vector3 = Array<E, 3, Approx>,
-          typename Quat    = Quaternion<E, Approx>>
-std::tuple<Matrix3, Quat, Vector3> transform_decompose(const Matrix<T, 4, Approx> &A) {
+          typename Matrix3 = Matrix<E, 3>,
+          typename Vector3 = Array<E, 3>,
+          typename Quat    = Quaternion<E>>
+std::tuple<Matrix3, Quat, Vector3> transform_decompose(const Matrix<T, 4> &A) {
     Matrix3 A_sub(A), Q, P;
     std::tie(Q, P) = polar_decomp(A_sub);
 
@@ -172,26 +172,26 @@ std::tuple<Matrix3, Quat, Vector3> transform_decompose(const Matrix<T, 4, Approx
     );
 }
 
-template <typename T, bool Approx,
+template <typename T,
           typename E = expr_t<T>,
-          typename Matrix3 = Matrix<E, 3, Approx>,
-          typename Matrix4 = Matrix<E, 4, Approx>,
+          typename Matrix3 = Matrix<E, 3>,
+          typename Matrix4 = Matrix<E, 4>,
           typename Vector3>
-Matrix4 transform_compose(const Matrix<T, 3, Approx> &S,
-                          const Quaternion<T, Approx> &q,
+Matrix4 transform_compose(const Matrix<T, 3> &S,
+                          const Quaternion<T> &q,
                           const Vector3 &t) {
     Matrix4 result = Matrix4(quat_to_matrix<Matrix3>(q) * S);
     result.coeff(3) = concat(t, scalar_t<Matrix4>(1));
     return result;
 }
 
-template <typename T, bool Approx,
+template <typename T,
           typename E = expr_t<T>,
-          typename Matrix3 = Matrix<E, 3, Approx>,
-          typename Matrix4 = Matrix<E, 4, Approx>,
+          typename Matrix3 = Matrix<E, 3>,
+          typename Matrix4 = Matrix<E, 4>,
           typename Vector3>
-Matrix4 transform_compose_inverse(const Matrix<T, 3, Approx> &S,
-                                  const Quaternion<T, Approx> &q,
+Matrix4 transform_compose_inverse(const Matrix<T, 3> &S,
+                                  const Quaternion<T> &q,
                                   const Vector3 &t) {
     auto inv_m = inverse(quat_to_matrix<Matrix3>(q) * S);
     Matrix4 result = Matrix4(inv_m);

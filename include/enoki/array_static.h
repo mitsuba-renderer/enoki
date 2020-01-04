@@ -21,20 +21,13 @@ namespace detail {
     }
 }
 
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_>
+template <typename Value_, size_t Size_, bool IsMask_, typename Derived_>
 struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     using Base = ArrayBase<Value_, Derived_>;
     using typename Base::Derived;
     using typename Base::Value;
     using typename Base::Scalar;
     using Base::derived;
-
-    static_assert(is_std_float<Scalar>::value || !Approx_ || IsMask_ || std::is_same_v<Scalar, bool>,
-                  "Approximate math library functions are only supported for "
-                  "single and double precision arrays!");
-
-    static_assert(!std::is_integral_v<Scalar> || Mode_ == RoundingMode::Default || IsMask_,
-                  "Integer arrays require Mode == RoundingMode::Default");
 
     // -----------------------------------------------------------------------
     //! @{ \name Basic declarations
@@ -52,22 +45,16 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     /// Size and ActualSize can be different, e.g. when representing 3D vectors using 4-wide registers
     static constexpr size_t ActualSize = Size;
 
-    /// Are arithmetic operations approximate?
-    static constexpr bool Approx = Approx_;
-
-    /// Rounding mode of arithmetic operations
-    static constexpr RoundingMode Mode = Mode_;
-
     /// Is this a mask type?
     static constexpr bool IsMask = Base::IsMask || IsMask_;
 
     /// Type of the low array part returned by low()
-    using Array1 = std::conditional_t<!IsMask_, Array<Value_, Size1, Approx_, Mode_>,
-                                                Mask <Value_, Size1, Approx_, Mode_>>;
+    using Array1 = std::conditional_t<!IsMask_, Array<Value_, Size1>,
+                                                Mask <Value_, Size1>>;
 
     /// Type of the high array part returned by high()
-    using Array2 = std::conditional_t<!IsMask_, Array<Value_, Size2, Approx_, Mode_>,
-                                                Mask <Value_, Size2, Approx_, Mode_>>;
+    using Array2 = std::conditional_t<!IsMask_, Array<Value_, Size2>,
+                                                Mask <Value_, Size2>>;
 
     //! @}
     // -----------------------------------------------------------------------
@@ -90,11 +77,11 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     StaticArrayBase &operator=(StaticArrayBase &&) = default;
 
     /// Type cast fallback
-    template <typename Value2, size_t Size2, bool Approx2, RoundingMode Mode2,
+    template <typename Value2, size_t Size2,
               typename Derived2, typename T = Derived,
               enable_if_t<Derived2::Size == T::Size> = 0>
     ENOKI_INLINE StaticArrayBase(
-        const StaticArrayBase<Value2, Size2, Approx2, Mode2, IsMask_, Derived2> &a) {
+        const StaticArrayBase<Value2, Size2, IsMask_, Derived2> &a) {
         ENOKI_CHKSCALAR("Copy constructor (type cast)");
         for (size_t i = 0; i < Derived::Size; ++i)
             (Value &) derived().coeff(i) = (const Value &) a.derived().coeff(i);

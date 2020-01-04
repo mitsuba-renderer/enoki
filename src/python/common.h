@@ -21,14 +21,12 @@ using UInt32  = uint32_t;
 using Int64   = int64_t;
 using UInt64  = uint64_t;
 
-constexpr size_t PacketSize = array_default_size<Float32>;
-
-using Float32X  = DynamicArray<Packet<Float32, PacketSize>>;
-using Float64X  = DynamicArray<Packet<Float64, PacketSize>>;
-using Int32X    = DynamicArray<Packet<Int32, PacketSize>>;
-using Int64X    = DynamicArray<Packet<Int64, PacketSize>>;
-using UInt32X   = DynamicArray<Packet<UInt32, PacketSize>>;
-using UInt64X   = DynamicArray<Packet<UInt64, PacketSize>>;
+using Float32X  = DynamicArray<Packet<Float32>>;
+using Float64X  = DynamicArray<Packet<Float64>>;
+using Int32X    = DynamicArray<Packet<Int32>>;
+using Int64X    = DynamicArray<Packet<Int64>>;
+using UInt32X   = DynamicArray<Packet<UInt32>>;
+using UInt64X   = DynamicArray<Packet<UInt64>>;
 using MaskX     = mask_t<Float32X>;
 using Mask64X   = mask_t<Float64X>;
 
@@ -1081,7 +1079,7 @@ ENOKI_NOINLINE py::object enoki_to_torch(const Array &src, bool eval) {
         using T = std::conditional_t<
             is_cuda_array_v<Array>,
             CUDAArray<Scalar>,
-            DynamicArray<Packet<Scalar, PacketSize>>
+            DynamicArray<Packet<Scalar>>
         >;
         T target = T::map(
             (Scalar *) py::cast<uintptr_t>(result.attr("data_ptr")()), size);
@@ -1133,7 +1131,7 @@ ENOKI_NOINLINE Array torch_to_enoki(py::object src) {
         using T = std::conditional_t<
             is_cuda_array_v<Array>,
             CUDAArray<Scalar>,
-            DynamicArray<Packet<Scalar, PacketSize>>
+            DynamicArray<Packet<Scalar>>
         >;
 
         T source = T::map(
@@ -1176,7 +1174,7 @@ ENOKI_NOINLINE py::object enoki_to_numpy(const Array &src, bool eval) {
         using T = std::conditional_t<
             is_cuda_array_v<Array>,
             CUDAArray<Scalar>,
-            DynamicArray<Packet<Scalar, PacketSize>>
+            DynamicArray<Packet<Scalar>>
         >;
         T target = T::map(buf->ptr, stride);
         copy_array</* Scatter = */ true, 0>(0, shape, strides, src, target);
@@ -1230,7 +1228,7 @@ ENOKI_NOINLINE Array numpy_to_enoki(py::array src) {
         using T = std::conditional_t<
             is_cuda_array_v<Array>,
             CUDAArray<Scalar>,
-            DynamicArray<Packet<Scalar, PacketSize>>
+            DynamicArray<Packet<Scalar>>
         >;
         const T source = T::copy(src.data(), size);
 

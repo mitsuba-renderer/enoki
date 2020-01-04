@@ -20,7 +20,7 @@ NAMESPACE_BEGIN(enoki)
 NAMESPACE_BEGIN(detail)
 
 /// Reciprocal (scalar fallback)
-template <bool Approx, typename T> ENOKI_INLINE T rcp_scalar(const T &a) {
+template <typename T> ENOKI_INLINE T rcp_scalar(const T &a) {
 #if defined(ENOKI_X86_AVX512ER)
     if (std::is_same_v<T, float>) {
         __m128 v = _mm_set_ss((float) a);
@@ -28,7 +28,7 @@ template <bool Approx, typename T> ENOKI_INLINE T rcp_scalar(const T &a) {
     }
 #endif
 
-    if constexpr (Approx && std::is_same_v<T, float>) {
+    if constexpr (std::is_same_v<T, float>) {
 #if defined(ENOKI_X86_SSE42)
         __m128 v = _mm_set_ss((float) a), r;
 
@@ -68,7 +68,7 @@ template <bool Approx, typename T> ENOKI_INLINE T rcp_scalar(const T &a) {
     }
 
 #if defined(ENOKI_X86_AVX512F) || defined(ENOKI_X86_AVX512ER)
-    if constexpr (Approx && std::is_same_v<T, double>) {
+    if constexpr (std::is_same_v<T, double>) {
         __m128d v = _mm_set_sd((double) a), r;
 
         #if defined(ENOKI_X86_AVX512ER)
@@ -101,7 +101,7 @@ template <bool Approx, typename T> ENOKI_INLINE T rcp_scalar(const T &a) {
 }
 
 /// Reciprocal square root (scalar fallback)
-template <bool Approx, typename T> ENOKI_INLINE T rsqrt_scalar(const T &a) {
+template <typename T> ENOKI_INLINE T rsqrt_scalar(const T &a) {
 #if defined(ENOKI_X86_AVX512ER)
     if (std::is_same_v<T, float>) {
         __m128 v = _mm_set_ss((float) a);
@@ -109,7 +109,7 @@ template <bool Approx, typename T> ENOKI_INLINE T rsqrt_scalar(const T &a) {
     }
 #endif
 
-    if constexpr (Approx && std::is_same_v<T, float>) {
+    if constexpr (std::is_same_v<T, float>) {
 #if defined(ENOKI_X86_SSE42)
         __m128 v = _mm_set_ss((float) a), r;
         #if defined(ENOKI_X86_AVX512F)
@@ -150,7 +150,7 @@ template <bool Approx, typename T> ENOKI_INLINE T rsqrt_scalar(const T &a) {
     }
 
 #if defined(ENOKI_X86_AVX512F) || defined(ENOKI_X86_AVX512ER)
-    if constexpr (Approx && std::is_same_v<T, double>) {
+    if constexpr (std::is_same_v<T, double>) {
         __m128d v = _mm_set_sd((double) a), r;
 
         #if defined(ENOKI_X86_AVX512ER)
@@ -183,19 +183,6 @@ template <bool Approx, typename T> ENOKI_INLINE T rsqrt_scalar(const T &a) {
 #endif
 
     return T(1) / std::sqrt(a);
-}
-
-template <bool Approx, typename T> ENOKI_INLINE T exp_scalar(const T &a) {
-#if defined(ENOKI_X86_AVX512ER)
-    if (std::is_same_v<T, float> && Approx) {
-        __m128 v = _mm512_castps512_ps128(
-            _mm512_exp2a23_ps(_mm512_castps128_ps512(_mm_mul_ps(
-                _mm_set_ss((float) a), _mm_set1_ps(1.4426950408889634074f)))));
-        return T(_mm_cvtss_f32(v));
-    }
-#endif
-
-    return std::exp(a);
 }
 
 template <typename T> ENOKI_INLINE T popcnt_scalar(T v) {

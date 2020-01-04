@@ -251,73 +251,29 @@ using ssize_t = std::make_signed_t<size_t>;
     static constexpr size_t max_packet_size = 4;
 #endif
 
-template <typename T, typename = int> struct array_approx {
-#if ENOKI_APPROX_DEFAULT == 1
-    static constexpr bool value = std::is_same_v<std::decay_t<T>, float> ||
-                                  std::is_same_v<std::decay_t<T>, double>;
-#else
-    static constexpr bool value = false;
-#endif
-};
-
-template <typename T> constexpr bool array_approx_v = array_approx<T>::value;
-
-/// Choice of rounding modes for floating point operations
-enum class RoundingMode {
-    /// Default rounding mode configured in the hardware's status register
-    Default = 4,
-
-    /// Round to the nearest representable value (tie-breaking method is hardware dependent)
-    Nearest = 8,
-
-    /// Always round to negative infinity
-    Down = 9,
-
-    /// Always round to positive infinity
-    Up = 10,
-
-    /// Always round to zero
-    Zero = 11
-};
-
-template <typename T>
-constexpr size_t array_default_size = (max_packet_size / sizeof(T) > 1)
-                                     ? max_packet_size / sizeof(T) : 1;
+constexpr size_t array_default_size = max_packet_size / 4;
 
 /// Base class of all arrays
 template <typename Value_, typename Derived_> struct ArrayBase;
 
 /// Base class of all statically sized arrays
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_,
-          bool IsMask_, typename Derived_>
+template <typename Value_, size_t Size_, bool IsMask_, typename Derived_>
 struct StaticArrayBase;
 
 /// Generic array class, which broadcasts from the outer to inner dimensions
-template <typename Value_,
-          size_t Size_ = array_default_size<Value_>,
-          bool Approx_ = array_approx_v<Value_>,
-          RoundingMode Mode_ = RoundingMode::Default>
+template <typename Value_, size_t Size_ = array_default_size>
 struct Array;
 
 /// Generic array class, which broadcasts from the inner to outer dimensions
-template <typename Value_,
-          size_t Size_ = array_default_size<Value_>,
-          bool Approx_ = array_approx_v<Value_>,
-          RoundingMode Mode_ = RoundingMode::Default>
+template <typename Value_, size_t Size_ = array_default_size>
 struct Packet;
 
 /// Generic mask class, which broadcasts from the outer to inner dimensions
-template <typename Value_,
-          size_t Size_ = array_default_size<Value_>,
-          bool Approx_ = array_approx_v<Value_>,
-          RoundingMode Mode_ = RoundingMode::Default>
+template <typename Value_, size_t Size_ = array_default_size>
 struct Mask;
 
 /// Generic mask class, which broadcasts from the inner to outer dimensions
-template <typename Value_,
-          size_t Size_ = array_default_size<Value_>,
-          bool Approx_ = array_approx_v<Value_>,
-          RoundingMode Mode_ = RoundingMode::Default>
+template <typename Value_, size_t Size_ = array_default_size>
 struct PacketMask;
 
 /// Dynamically sized array
@@ -327,13 +283,13 @@ template <typename Packet_> struct DynamicMask;
 /// Reverse-mode autodiff array
 template <typename Value> struct DiffArray;
 
-template <typename Value_, size_t Size_, bool Approx_ = array_approx_v<Value_>>
+template <typename Value_, size_t Size_>
 struct Matrix;
 
-template <typename Value_, bool Approx_ = array_approx_v<Value_>>
+template <typename Value_>
 struct Complex;
 
-template <typename Value_, bool Approx_ = array_approx_v<Value_>>
+template <typename Value_>
 struct Quaternion;
 
 /// Helper class for custom data structures

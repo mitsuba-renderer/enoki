@@ -148,7 +148,7 @@ ENOKI_TEST(test05_hsum_0) {
     FloatD y = hsum(x*x);
     my_backward(y);
     assert(y.size() == 1 && allclose(y.coeff(0), 95.f/27.f));
-    assert(allclose(gradient(x), 2.f * x));
+    assert(allclose(gradient(x), 2.f * detach(x)));
 }
 
 ENOKI_TEST(test05_hsum_0_fwd) {
@@ -199,7 +199,7 @@ ENOKI_TEST(test06_hprod) {
     set_requires_gradient(x);
     FloatD y = hprod(x);
     my_backward(y);
-    assert(allclose(gradient(x), hprod(x) / x) &&
+    assert(allclose(gradient(x), hprod(detach(x)) / detach(x)) &&
            y.size() == 1 && allclose(y.coeff(0), 45.5402f));
 }
 
@@ -209,7 +209,7 @@ ENOKI_TEST(test07_sqrt) {
     FloatD y = sqrt(x);
     my_backward(y);
     assert(allclose(y, sqrt(x)));
-    assert(allclose(gradient(x), .5f*rsqrt(x)));
+    assert(allclose(gradient(x), .5f*rsqrt(detach(x))));
 }
 
 ENOKI_TEST(test08_rsqrt) {
@@ -218,7 +218,7 @@ ENOKI_TEST(test08_rsqrt) {
     FloatD y = rsqrt(x);
     my_backward(y);
     assert(allclose(y, rsqrt(x)));
-    assert(allclose(gradient(x), -.5f * pow(x, -3.f / 2.f)));
+    assert(allclose(gradient(x), -.5f * pow(detach(x), -3.f / 2.f)));
 }
 
 ENOKI_TEST(test09_exp) {
@@ -227,7 +227,7 @@ ENOKI_TEST(test09_exp) {
     FloatD y = exp(x*x);
     my_backward(y);
     assert(allclose(y, exp(sqr(detach(x)))));
-    assert(allclose(gradient(x), 2.f * x * exp(sqr(x))));
+    assert(allclose(gradient(x), 2.f * detach(x) * exp(sqr(detach(x)))));
 }
 
 ENOKI_TEST(test10_log) {
@@ -236,7 +236,7 @@ ENOKI_TEST(test10_log) {
     FloatD y = log(x*x);
     my_backward(y);
     assert(allclose(y, log(sqr(detach(x)))));
-    assert(allclose(gradient(x), 2.f / x));
+    assert(allclose(gradient(x), 2.f / detach(x)));
 }
 
 ENOKI_TEST(test11_sin) {
@@ -426,8 +426,8 @@ ENOKI_TEST(test29_scatter_add) {
     FloatD ref_x {0.0000f, 0.5000f, 1.0000f, 3.5000f, 4.6667f};
     FloatD ref_y {3.5000f, 4.6667f, 3.3333f, 4.0000f};
 
-    assert(allclose(gradient(y), ref_y, 1e-4f, 1e-4f));
-    assert(allclose(gradient(x), ref_x, 1e-4f, 1e-4f));
+    assert(allclose(gradient(y), detach(ref_y), 1e-4f, 1e-4f));
+    assert(allclose(gradient(x), detach(ref_x), 1e-4f, 1e-4f));
 }
 
 ENOKI_TEST(test30_scatter) {
@@ -461,8 +461,8 @@ ENOKI_TEST(test30_scatter) {
     FloatD ref_x{ 0.0000f, 0.5000f, 1.0000f, 0.0000f, 0.0000f };
     FloatD ref_y{ 2.0000f, 2.6667f, 3.3333f, 4.0000f };
 
-    assert(allclose(gradient(y), ref_y, 1e-4f, 1e-4f));
-    assert(allclose(gradient(x), ref_x, 1e-4f, 1e-4f));
+    assert(allclose(gradient(y), detach(ref_y), 1e-4f, 1e-4f));
+    assert(allclose(gradient(x), detach(ref_x), 1e-4f, 1e-4f));
 }
 
 template <typename Vector2>
@@ -544,7 +544,7 @@ ENOKI_TEST(test33_bcast) {
     assert(allclose(gradient(x), -2.8803, 1e-4f, 1e-4f));
     assert(allclose(gradient(y),
                     FloatX(-0.0000, -0.8361, 0.6959, 0.2569, -0.9098, 0.5002,
-                           0.4934, -0.9109, 0.2647, 0.6906), 1e-4, 1e-4f));
+                           0.4934, -0.9109, 0.2647, 0.6906), 1e-4f, 1e-4f));
 }
 
 ENOKI_TEST(test34_gradient_descent) {

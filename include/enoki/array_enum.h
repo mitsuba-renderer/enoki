@@ -12,15 +12,14 @@
 
 NAMESPACE_BEGIN(enoki)
 
-template <typename Value_, size_t Size_, bool Approx_, bool IsMask_, typename Derived_>
-struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, Derived_,
+template <typename Value_, size_t Size_, bool IsMask_, typename Derived_>
+struct StaticArrayImpl<Value_, Size_, IsMask_, Derived_,
                        enable_if_t<detail::array_config<Value_, Size_>::use_enum_impl>>
-    : StaticArrayImpl<std::underlying_type_t<Value_>, Size_, Approx_, RoundingMode::Default, IsMask_, Derived_> {
+    : StaticArrayImpl<std::underlying_type_t<Value_>, Size_, IsMask_, Derived_> {
 
     using UnderlyingType = std::underlying_type_t<Value_>;
 
-    using Base = StaticArrayImpl<UnderlyingType, Size_, Approx_,
-                                 RoundingMode::Default, IsMask_, Derived_>;
+    using Base = StaticArrayImpl<UnderlyingType, Size_, IsMask_, Derived_>;
 
     ENOKI_ARRAY_DEFAULTS(StaticArrayImpl)
     using Base::derived;

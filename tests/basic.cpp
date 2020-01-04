@@ -36,8 +36,8 @@ ENOKI_TEST_ALL(test00_align) {
 #endif
 
     using Packet     = T;
-    using Vector4x   = Array<Value, 4, T::Approx>;
-    using Vector4xr  = Array<Value&, 4, T::Approx>;
+    using Vector4x   = Array<Value, 4>;
+    using Vector4xr  = Array<Value&, 4>;
     using Vector4xP  = Array<Packet, 4>;
     using Vector4xPr = Array<Packet&, 4>;
 
@@ -47,8 +47,8 @@ ENOKI_TEST_ALL(test00_align) {
     static_assert(std::is_same<value_t<Vector4xP>,  Packet>::value, "value_t failure");
     static_assert(std::is_same<value_t<Vector4xPr>, Packet&>::value, "value_t failure");
 
-    using DoubleP    = Array<double, array_size_v<T>, is_std_float_v<Value> ? array_approx_v<T> : true>;
-    using Vector4d   = Array<double, 4, is_std_float_v<Value> ? array_approx_v<T> : true>;
+    using DoubleP    = Array<double, array_size_v<T>>;
+    using Vector4d   = Array<double, 4>;
     using Vector4dP  = Array<DoubleP, 4>;
 
     /* Non-array input */

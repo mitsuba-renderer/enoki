@@ -17,7 +17,12 @@
 
 NAMESPACE_BEGIN(enoki)
 
-ENOKI_UNARY_OPERATION(linear_to_srgb, linear_to_srgb<true>(x)) {
+template <typename T> expr_t<T> linear_to_srgb(const T &x) {
+    using Value  = expr_t<T>;
+    using Mask   = mask_t<Value>;
+    using Scalar = scalar_t<Value>;
+    constexpr bool Single = std::is_same_v<Scalar, float>;
+
     Value r = Scalar(12.92);
     Mask large_mask = x > Scalar(0.0031308);
 
@@ -50,7 +55,12 @@ ENOKI_UNARY_OPERATION(linear_to_srgb, linear_to_srgb<true>(x)) {
     return r * x;
 }
 
-ENOKI_UNARY_OPERATION(srgb_to_linear, srgb_to_linear<true>(x)) {
+template <typename T> expr_t<T> srgb_to_linear(const T &x) {
+    using Value  = expr_t<T>;
+    using Mask   = mask_t<Value>;
+    using Scalar = scalar_t<Value>;
+    constexpr bool Single = std::is_same_v<Scalar, float>;
+
     Value r = Scalar(1.0 / 12.92);
     Mask large_mask = x > Scalar(0.04045);
 

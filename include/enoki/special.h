@@ -59,76 +59,71 @@ Expr erfc(const T &x) {
     using Scalar = scalar_t<T>;
 
     Expr r;
-    if constexpr (Expr::Approx) {
-        Expr xa = abs(x),
-             z  = exp(-x*x);
+    Expr xa = abs(x),
+         z  = exp(-x*x);
 
-        auto erf_mask   = xa < Scalar(1),
-             large_mask = xa > Scalar(Single ? 2 : 8);
+    auto erf_mask   = xa < Scalar(1),
+         large_mask = xa > Scalar(Single ? 2 : 8);
 
-        ENOKI_MARK_USED(erf_mask);
+    ENOKI_MARK_USED(erf_mask);
 
-        if constexpr (Single) {
-            Expr q  = rcp(xa),
-                 y  = q*q, p_small, p_large;
+    if constexpr (Single) {
+        Expr q  = rcp(xa),
+             y  = q*q, p_small, p_large;
 
-            if (is_cuda_array_v<Expr> || !all_nested(large_mask))
-                p_small = poly8(y, 5.638259427386472e-1, -2.741127028184656e-1,
-                                   3.404879937665872e-1, -4.944515323274145e-1,
-                                   6.210004621745983e-1, -5.824733027278666e-1,
-                                   3.687424674597105e-1, -1.387039388740657e-1,
-                                   2.326819970068386e-2);
+        if (is_cuda_array_v<Expr> || !all_nested(large_mask))
+            p_small = poly8(y, 5.638259427386472e-1, -2.741127028184656e-1,
+                               3.404879937665872e-1, -4.944515323274145e-1,
+                               6.210004621745983e-1, -5.824733027278666e-1,
+                               3.687424674597105e-1, -1.387039388740657e-1,
+                               2.326819970068386e-2);
 
-            if (is_cuda_array_v<Expr> || any_nested(large_mask))
-                p_large = poly7(y, 5.641895067754075e-1, -2.820767439740514e-1,
-                                   4.218463358204948e-1, -1.015265279202700e+0,
-                                   2.921019019210786e+0, -7.495518717768503e+0,
-                                   1.297719955372516e+1, -1.047766399936249e+1);
-            r = z * q * select(large_mask, p_large, p_small);
-        } else {
-            Expr p_small, p_large, q_small, q_large;
-
-            if (is_cuda_array_v<Expr> || !all_nested(large_mask)) {
-                p_small = poly8(xa, 5.57535335369399327526e2, 1.02755188689515710272e3,
-                                    9.34528527171957607540e2, 5.26445194995477358631e2,
-                                    1.96520832956077098242e2, 4.86371970985681366614e1,
-                                    7.46321056442269912687e0, 5.64189564831068821977e-1,
-                                    2.46196981473530512524e-10);
-
-                q_small = poly8(xa, 5.57535340817727675546e2, 1.65666309194161350182e3,
-                                    2.24633760818710981792e3, 1.82390916687909736289e3,
-                                    9.75708501743205489753e2, 3.54937778887819891062e2,
-                                    8.67072140885989742329e1, 1.32281951154744992508e1,
-                                    1.00000000000000000000e0);
-            }
-
-
-            if (is_cuda_array_v<Expr> || any_nested(large_mask)) {
-                p_large = poly5(xa, 2.97886665372100240670e0, 7.40974269950448939160e0,
-                                    6.16021097993053585195e0, 5.01905042251180477414e0,
-                                    1.27536670759978104416e0, 5.64189583547755073984e-1);
-
-                q_large = poly6(xa, 3.36907645100081516050e0, 9.60896809063285878198e0,
-                                    1.70814450747565897222e1, 1.20489539808096656605e1,
-                                    9.39603524938001434673e0, 2.26052863220117276590e0,
-                                    1.00000000000000000000e0);
-            }
-
-            r = (z * select(large_mask, p_large, p_small)) /
-                     select(large_mask, q_large, q_small);
-
-            r &= neq(z, zero<Expr>());
-        }
-
-        r[x < Scalar(0)] = Scalar(2) - r;
-
-        if constexpr (Recurse) {
-            if (ENOKI_UNLIKELY(is_cuda_array_v<Expr> || any_nested(erf_mask)))
-                r[erf_mask] = Scalar(1) - erf<T, false>(x);
-        }
+        if (is_cuda_array_v<Expr> || any_nested(large_mask))
+            p_large = poly7(y, 5.641895067754075e-1, -2.820767439740514e-1,
+                               4.218463358204948e-1, -1.015265279202700e+0,
+                               2.921019019210786e+0, -7.495518717768503e+0,
+                               1.297719955372516e+1, -1.047766399936249e+1);
+        r = z * q * select(large_mask, p_large, p_small);
     } else {
-        for (size_t i = 0; i < Expr::Size; ++i)
-            r.coeff(i) = enoki::erfc(x.coeff(i));
+        Expr p_small, p_large, q_small, q_large;
+
+        if (is_cuda_array_v<Expr> || !all_nested(large_mask)) {
+            p_small = poly8(xa, 5.57535335369399327526e2, 1.02755188689515710272e3,
+                                9.34528527171957607540e2, 5.26445194995477358631e2,
+                                1.96520832956077098242e2, 4.86371970985681366614e1,
+                                7.46321056442269912687e0, 5.64189564831068821977e-1,
+                                2.46196981473530512524e-10);
+
+            q_small = poly8(xa, 5.57535340817727675546e2, 1.65666309194161350182e3,
+                                2.24633760818710981792e3, 1.82390916687909736289e3,
+                                9.75708501743205489753e2, 3.54937778887819891062e2,
+                                8.67072140885989742329e1, 1.32281951154744992508e1,
+                                1.00000000000000000000e0);
+        }
+
+
+        if (is_cuda_array_v<Expr> || any_nested(large_mask)) {
+            p_large = poly5(xa, 2.97886665372100240670e0, 7.40974269950448939160e0,
+                                6.16021097993053585195e0, 5.01905042251180477414e0,
+                                1.27536670759978104416e0, 5.64189583547755073984e-1);
+
+            q_large = poly6(xa, 3.36907645100081516050e0, 9.60896809063285878198e0,
+                                1.70814450747565897222e1, 1.20489539808096656605e1,
+                                9.39603524938001434673e0, 2.26052863220117276590e0,
+                                1.00000000000000000000e0);
+        }
+
+        r = (z * select(large_mask, p_large, p_small)) /
+                 select(large_mask, q_large, q_small);
+
+        r &= neq(z, zero<Expr>());
+    }
+
+    r[x < Scalar(0)] = Scalar(2) - r;
+
+    if constexpr (Recurse) {
+        if (ENOKI_UNLIKELY(is_cuda_array_v<Expr> || any_nested(erf_mask)))
+            r[erf_mask] = Scalar(1) - erf<T, false>(x);
     }
     return r;
 }
@@ -138,37 +133,33 @@ Expr erf(const T &x) {
     using Scalar = scalar_t<T>;
 
     Expr r;
-    if constexpr (Expr::Approx) {
-        auto erfc_mask = abs(x) > Scalar(1);
-        ENOKI_MARK_USED(erfc_mask);
+    auto erfc_mask = abs(x) > Scalar(1);
+    ENOKI_MARK_USED(erfc_mask);
 
-        Expr z = x * x;
+    Expr z = x * x;
 
-        constexpr bool Single = std::is_same_v<scalar_t<T>, float>;
-        if constexpr (Single) {
-            r = poly6(z, 1.128379165726710e+0, -3.761262582423300e-1,
-                         1.128358514861418e-1, -2.685381193529856e-2,
-                         5.188327685732524e-3, -8.010193625184903e-4,
-                         7.853861353153693e-5);
-        } else {
-            r = poly4(z, 5.55923013010394962768e4, 7.00332514112805075473e3,
-                         2.23200534594684319226e3, 9.00260197203842689217e1,
-                         9.60497373987051638749e0) /
-                poly5(z, 4.92673942608635921086e4, 2.26290000613890934246e4,
-                         4.59432382970980127987e3, 5.21357949780152679795e2,
-                         3.35617141647503099647e1, 1.00000000000000000000e0);
-        }
-
-        r *= x;
-
-        if constexpr (Recurse) {
-            if (ENOKI_UNLIKELY(is_cuda_array_v<Expr> || any_nested(erfc_mask)))
-                r[erfc_mask] = Scalar(1) - erfc<T, false>(x);
-        }
+    constexpr bool Single = std::is_same_v<scalar_t<T>, float>;
+    if constexpr (Single) {
+        r = poly6(z, 1.128379165726710e+0, -3.761262582423300e-1,
+                     1.128358514861418e-1, -2.685381193529856e-2,
+                     5.188327685732524e-3, -8.010193625184903e-4,
+                     7.853861353153693e-5);
     } else {
-        for (size_t i = 0; i < Expr::Size; ++i)
-            r.coeff(i) = enoki::erf(x.coeff(i));
+        r = poly4(z, 5.55923013010394962768e4, 7.00332514112805075473e3,
+                     2.23200534594684319226e3, 9.00260197203842689217e1,
+                     9.60497373987051638749e0) /
+            poly5(z, 4.92673942608635921086e4, 2.26290000613890934246e4,
+                     4.59432382970980127987e3, 5.21357949780152679795e2,
+                     3.35617141647503099647e1, 1.00000000000000000000e0);
     }
+
+    r *= x;
+
+    if constexpr (Recurse) {
+        if (ENOKI_UNLIKELY(is_cuda_array_v<Expr> || any_nested(erfc_mask)))
+            r[erfc_mask] = Scalar(1) - erfc<T, false>(x);
+    }
+
     return r;
 }
 

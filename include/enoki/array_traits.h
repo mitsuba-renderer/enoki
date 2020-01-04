@@ -429,11 +429,6 @@ namespace detail {
     template <typename T>     struct expr<T> : detail::expr_1<deepest_array_t<T>,     T>     { };
 }
 
-/// Array-specific definition of array_approx (defined in 'fwd.h')
-template <typename T> struct array_approx<T, enable_if_array_t<T>> {
-    static constexpr bool value = std::decay_t<T>::Derived::Approx;
-};
-
 namespace detail {
     template <typename T, typename = int> struct array_broadcast_outer {
         static constexpr bool value = true;

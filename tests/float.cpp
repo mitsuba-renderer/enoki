@@ -54,11 +54,9 @@ ENOKI_TEST_FLOAT(test01_div_fp) {
 #if !defined(ENOKI_X86_AVX512F)
     /* In AVX512 mode, the approximate reciprocal function is
        considerably more accurate and this test fails */
-    if (std::is_same<Value, float>::value && T::Approx && has_sse42) {
-        using T2 = Array<float, T::Size, false>;
-        // Make sure that division optimization is used in approximate mode
+    if (std::is_same<Value, float>::value && has_sse42) {
+        // Make sure that division optimization is used
         assert(T (123.f) / 123.f != T (1.f));
-        assert(T2(123.f) / 123.f == T2(1.f));
     }
 #endif
 }
@@ -139,7 +137,7 @@ ENOKI_TEST_FLOAT(test07_rsqrt) {
         [](const T &a) -> T {
             T result;
             for (size_t i = 0; i < Size; ++i)
-               result.coeff(i) = rsqrt<T::Approx>(a.coeff(i));
+               result.coeff(i) = rsqrt(a.coeff(i));
             return result;
         },
         [](double a) { return 1 / std::sqrt(a); },
@@ -158,7 +156,7 @@ ENOKI_TEST_FLOAT(test08_rcp) {
         [](const T &a) -> T {
             T result;
             for (size_t i = 0; i < Size; ++i)
-               result.coeff(i) = rcp<T::Approx>(a.coeff(i));
+               result.coeff(i) = rcp(a.coeff(i));
             return result;
         },
         [](double a) { return 1 / a; },
@@ -237,26 +235,6 @@ ENOKI_TEST(test14_half) {
         assert((data2[0].value == data3[0]) || both_nan);
     }
 }
-
-#if !defined(ENOKI_ARM_32) && !defined(ENOKI_ARM_64) /* Can't change the rounding mode on ARM Neon */
-
-ENOKI_TEST_FLOAT(test15_round) {
-    using T1 = Array<Value, Size, T::Approx, RoundingMode::Up>;
-    using T2 = Array<Value, Size, T::Approx, RoundingMode::Down>;
-
-    T1 a = T1(Value(M_PI)) * T1(Value(M_PI));
-    T2 b = T2(Value(M_PI)) * T2(Value(M_PI));
-
-    assert(a[0] > b[0]);
-
-    if (std::is_same<Value, float>::value) {
-        using T3 = Array<double, Size>;
-        a = T1(T3(M_PI));
-        b = T2(T3(M_PI));
-        assert(a[0] > b[0]);
-    }
-}
-#endif
 
 ENOKI_TEST_FLOAT(test16_hypot) {
     auto sample = test::sample_values<Value>();

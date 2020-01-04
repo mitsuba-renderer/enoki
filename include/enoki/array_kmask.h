@@ -17,28 +17,26 @@ NAMESPACE_BEGIN(enoki)
 
 /// SFINAE macro for constructors that reinterpret another type
 #define ENOKI_REINTERPRET_KMASK(Value)                                         \
-    template <typename Value2, bool Approx2, RoundingMode Mode2,               \
-              typename Derived2, bool IsMask2,                                 \
+    template <typename Value2, typename Derived2, bool IsMask2,                \
               enable_if_t<detail::is_same_v<Value2, Value>> = 0>               \
     ENOKI_INLINE KMaskBase(                                                    \
-        const StaticArrayBase<Value2, Size, Approx2, Mode2, IsMask2, Derived2> \
-            &a, detail::reinterpret_flag)
+        const StaticArrayBase<Value2, Size, IsMask2, Derived2> &a,             \
+        detail::reinterpret_flag)
 
 #define ENOKI_REINTERPRET_KMASK_SIZE(Value, Size)                              \
-    template <typename Value2, bool Approx2, RoundingMode Mode2,               \
-              typename Derived2, bool IsMask2,                                 \
+    template <typename Value2, typename Derived2, bool IsMask2,                \
               enable_if_t<detail::is_same_v<Value2, Value>> = 0>               \
     ENOKI_INLINE KMaskBase(                                                    \
-        const StaticArrayBase<Value2, Size, Approx2, Mode2, IsMask2, Derived2> \
-            &a, detail::reinterpret_flag)
+        const StaticArrayBase<Value2, Size, IsMask2, Derived2> &a,             \
+        detail::reinterpret_flag)
 
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_> struct KMask;
+template <typename Value_, size_t Size_> struct KMask;
 
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, typename Derived_>
-struct KMaskBase : StaticArrayBase<Value_, Size_, Approx_, Mode_, true, Derived_> {
+template <typename Value_, size_t Size_, typename Derived_>
+struct KMaskBase : StaticArrayBase<Value_, Size_, true, Derived_> {
     using Register = std::conditional_t<(Size_ > 8), __mmask16, __mmask8>;
     using Derived = Derived_;
-    using Base = StaticArrayBase<Value_, Size_, Approx_, Mode_, true, Derived_>;
+    using Base = StaticArrayBase<Value_, Size_, true, Derived_>;
     using Base::Size;
     using Base::derived;
     static constexpr bool IsNative = true;
@@ -201,7 +199,7 @@ struct KMaskBase : StaticArrayBase<Value_, Size_, Approx_, Mode_, true, Derived_
 
     static Derived zero_() { return Derived::from_k(0); }
 
-    template <typename Return = KMask<Value_, Size_ / 2, Approx_, Mode_>>
+    template <typename Return = KMask<Value_, Size_ / 2>>
     ENOKI_INLINE Return low_() const {
         if constexpr (Size == 16)
             return Return::from_k(__mmask8(k));
@@ -209,7 +207,7 @@ struct KMaskBase : StaticArrayBase<Value_, Size_, Approx_, Mode_, true, Derived_
             return Return::from_k(Return::BitMask & k);
     }
 
-    template <typename Return = KMask<Value_, Size_ / 2, Approx_, Mode_>>
+    template <typename Return = KMask<Value_, Size_ / 2>>
     ENOKI_INLINE Return high_()  const {
         return Return::from_k(k >> (Size_ / 2));
     }
@@ -279,19 +277,17 @@ struct KMaskBase : StaticArrayBase<Value_, Size_, Approx_, Mode_, true, Derived_
     Register k;
 };
 
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
-struct KMask : KMaskBase<Value_, Size_, Approx_, Mode_,
-                         KMask<Value_, Size_, Approx_, Mode_>> {
-    using Base = KMaskBase<Value_, Size_, Approx_, Mode_,
-                           KMask<Value_, Size_, Approx_, Mode_>>;
+template <typename Value_, size_t Size_>
+struct KMask : KMaskBase<Value_, Size_, KMask<Value_, Size_>> {
+    using Base = KMaskBase<Value_, Size_, KMask<Value_, Size_>>;
 
     ENOKI_ARRAY_IMPORT(Base, KMask)
 };
 
-#define ENOKI_DECLARE_KMASK(Type, Size, Approx, Mode, Derived, SFINAE)         \
-    struct StaticArrayImpl<Type, Size, Approx, Mode, true, Derived, SFINAE>    \
-        : KMaskBase<Type, Size, Approx, Mode, Derived> {                       \
-        using Base = KMaskBase<Type, Size, Approx, Mode, Derived>;             \
+#define ENOKI_DECLARE_KMASK(Type, Size, Derived, SFINAE)                       \
+    struct StaticArrayImpl<Type, Size, true, Derived, SFINAE>                  \
+        : KMaskBase<Type, Size, Derived> {                                     \
+        using Base = KMaskBase<Type, Size, Derived>;                           \
         ENOKI_ARRAY_DEFAULTS(StaticArrayImpl)                                  \
         using Base::Base;                                                      \
         using Base::operator=;                                                 \

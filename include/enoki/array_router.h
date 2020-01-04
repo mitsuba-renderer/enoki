@@ -35,8 +35,7 @@ NAMESPACE_BEGIN(enoki)
 
 /// Define an unary operation with a fallback expression for scalar arguments
 #define ENOKI_ROUTE_UNARY_SCALAR(name, func, expr)                             \
-    template <bool Approx = false, typename T>                                 \
-    ENOKI_INLINE auto name(const T &a) {                                       \
+    template <typename T> ENOKI_INLINE auto name(const T &a) {                 \
         if constexpr (!is_array_v<T>)                                          \
             return expr; /* Scalar fallback implementation */                  \
         else                                                                   \
@@ -222,7 +221,7 @@ ENOKI_ROUTE_TERNARY_SCALAR(fmaddsub, fmaddsub, fmsub(a1, a2, a3))
 ENOKI_ROUTE_TERNARY_SCALAR(fmsubadd, fmsubadd, fmadd(a1, a2, a3))
 
 ENOKI_ROUTE_UNARY_SCALAR(rcp, rcp, 1 / a)
-ENOKI_ROUTE_UNARY_SCALAR(rsqrt, rsqrt, detail::rsqrt_scalar<Approx>(a))
+ENOKI_ROUTE_UNARY_SCALAR(rsqrt, rsqrt, detail::rsqrt_scalar(a))
 
 ENOKI_ROUTE_UNARY_SCALAR(popcnt, popcnt, detail::popcnt_scalar(a))
 ENOKI_ROUTE_UNARY_SCALAR(lzcnt, lzcnt, detail::lzcnt_scalar(a))
@@ -275,9 +274,9 @@ ENOKI_INLINE auto operator/(const T1 &a1, const T2 &a2) {
 
     if constexpr (std::is_same_v<T1, E> && std::is_same_v<T2, E>)
         return a1.derived().div_(a2.derived());
-    else if constexpr (array_depth_v<T1> > array_depth_v<T2> && E::Approx)
+    else if constexpr (array_depth_v<T1> > array_depth_v<T2>)
         return static_cast<const E &>(a1) * // reciprocal approximation
-               rcp<E::Approx>((const T &) a2);
+               rcp((const T &) a2);
     else
         return operator/(static_cast<const E &>(a1),
                          static_cast<const E &>(a2));
@@ -664,7 +663,7 @@ template <typename T> ENOKI_INLINE auto squared_norm(const T &v) {
 }
 
 template <typename T> ENOKI_INLINE auto normalize(const T &v) {
-    return v * rsqrt<array_approx_v<T>>(squared_norm(v));
+    return v * rsqrt(squared_norm(v));
 }
 
 template <typename T> ENOKI_INLINE auto partition(const T &v) {
@@ -918,7 +917,7 @@ namespace detail {
 }
 
 template <size_t Size, typename T,
-          typename Return = Array<value_t<T>, Size, T::Approx, T::Mode>>
+          typename Return = Array<value_t<T>, Size>>
 ENOKI_INLINE Return head(const T &a) {
     if constexpr (T::ActualSize == Return::ActualSize) {
         return a;
@@ -931,7 +930,7 @@ ENOKI_INLINE Return head(const T &a) {
 }
 
 template <size_t Size, typename T,
-          typename Return = Array<value_t<T>, Size, T::Approx, T::Mode>>
+          typename Return = Array<value_t<T>, Size>>
 ENOKI_INLINE Return tail(const T &a) {
     if constexpr (T::Size == Return::Size) {
         return a;

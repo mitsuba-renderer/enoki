@@ -186,18 +186,16 @@ ENOKI_TEST(array_uint32_04_concat) { test_concat<uint32_t>(); }
 ENOKI_TEST(array_double_04_concat) { test_concat<double>(); }
 ENOKI_TEST(array_uint64_t_04_concat) { test_concat<uint64_t>(); }
 
-template <typename Type, size_t Size_, bool Approx = array_approx_v<Type>>
-struct Vector : enoki::StaticArrayImpl<Type, Size_, Approx,
-                                       RoundingMode::Default, false, Vector<Type, Size_>> {
+template <typename Type, size_t Size_>
+struct Vector : enoki::StaticArrayImpl<Type, Size_, false, Vector<Type, Size_>> {
 
-    using Base = enoki::StaticArrayImpl<Type, Size_, Approx, RoundingMode::Default,
-                                        false, Vector<Type, Size_>>;
+    using Base = enoki::StaticArrayImpl<Type, Size_, false, Vector<Type, Size_>>;
     ENOKI_ARRAY_IMPORT(Base, Vector)
 
     using ArrayType = Vector;
-    using MaskType = Mask<Type, Size_, Approx, RoundingMode::Default>;
+    using MaskType = Mask<Type, Size_>;
 
-    /// Helper alias used to transition between vector types (used by enoki::vectorize)
+    /// Helper alias used to transition between vector types
     template <typename T> using ReplaceValue = Vector<T, Size_>;
 };
 

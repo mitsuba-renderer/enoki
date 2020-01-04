@@ -20,12 +20,12 @@
 
 NAMESPACE_BEGIN(enoki)
 
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_>
-struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, IsMask_, Derived_,
-                       enable_if_t<detail::array_config<Value_, Size_, Mode_>::use_recursive_impl>>
-    : StaticArrayBase<Value_, Size_, Approx_, Mode_, IsMask_, Derived_> {
+template <typename Value_, size_t Size_, bool IsMask_, typename Derived_>
+struct StaticArrayImpl<Value_, Size_, IsMask_, Derived_,
+                       enable_if_t<detail::array_config<Value_, Size_>::use_recursive_impl>>
+    : StaticArrayBase<Value_, Size_, IsMask_, Derived_> {
 
-    using Base = StaticArrayBase<Value_, Size_, Approx_, Mode_, IsMask_, Derived_>;
+    using Base = StaticArrayBase<Value_, Size_, IsMask_, Derived_>;
 
     ENOKI_ARRAY_IMPORT_BASIC(Base, StaticArrayImpl)
 
@@ -57,17 +57,17 @@ struct StaticArrayImpl<Value_, Size_, Approx_, Mode_, IsMask_, Derived_,
         : a1(a1), a2(a2) { }
 
     /// Cast another array
-    template <size_t Size2, typename Value2, bool Approx2, RoundingMode Mode2,
+    template <size_t Size2, typename Value2,
               typename Derived2, enable_if_t<Derived2::Size == Size_> = 0>
     ENOKI_INLINE StaticArrayImpl(
-        const StaticArrayBase<Value2, Size2, Approx2, Mode2, IsMask_, Derived2> &a)
+        const StaticArrayBase<Value2, Size2, IsMask_, Derived2> &a)
         : a1(low(a)), a2(high(a)) { }
 
     /// Reinterpret another array
-    template <typename Value2, size_t Size2, bool Approx2, RoundingMode Mode2,
+    template <typename Value2, size_t Size2,
               bool IsMask2, typename Derived2, enable_if_t<Derived2::Size == Size_> = 0>
     ENOKI_INLINE StaticArrayImpl(
-        const StaticArrayBase<Value2, Size2, Approx2, Mode2, IsMask2, Derived2> &a,
+        const StaticArrayBase<Value2, Size2, IsMask2, Derived2> &a,
         detail::reinterpret_flag)
         : a1(low (a), detail::reinterpret_flag()),
           a2(high(a), detail::reinterpret_flag()) { }

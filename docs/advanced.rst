@@ -413,20 +413,18 @@ same way as :cpp:class:`Array` and supports all regular Enoki operations.
 .. code-block:: cpp
 
     template <typename Value, size_t Size>
-    struct Spectrum : enoki::StaticArrayImpl<Value, Size, true,
-                                             RoundingMode::Default,
+    struct Spectrum : enoki::StaticArrayImpl<Value, Size, false,
                                              Spectrum<Value, Size>> {
 
         /// Base class
-        using Base = enoki::StaticArrayImpl<Value, Size, true,
-                                            RoundingMode::Default,
+        using Base = enoki::StaticArrayImpl<Value, Size, false,
                                             Spectrum<Value, Size>>;
 
-        /// Helper alias used to transition between vector types (used by enoki::replace_scalar_t)
+        /// Helper alias used to implement type promotion rules
         template <typename T> using ReplaceValue = Spectrum<T, Size>;
 
         /// Mask type associated with this custom type
-        using MaskType = enoki::Mask<Value, Size, true, RoundingMode::Default>;
+        using MaskType = enoki::Mask<Value, Size>;
 
         /// Import constructors, assignment operators, etc.
         ENOKI_IMPORT_ARRAY(Base, Spectrum)
@@ -517,15 +515,7 @@ a partial list:
    Enoki emulates such operations using other vector instructions whenever
    possible.
 
-4. Enoki provides control over the rounding mode of elementary arithmetic
-   operations. The AVX512 back-end can translate this into particularly
-   efficient instruction sequences with embedded rounding flags.
-
-   On other platforms, this entails changing the rounding flags in the floating
-   point control register, performing the operation, and reverting to the
-   previous set of flags.
-
-5. Various operations that work with 64 bit registers aren't available
+4. Various operations that work with 64 bit registers aren't available
    when Enoki is compiled on a 32-bit platform and must be emulated.
 
 Adding backends for new instruction sets

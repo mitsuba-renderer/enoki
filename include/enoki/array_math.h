@@ -118,8 +118,7 @@ ENOKI_INLINE T poly10(const T1 &x, const T2 &c0, const T2 &c1, const T2 &c2,
                   bool Single = std::is_same_v<float, Scalar>>                 \
         Value name##_impl(const Value &);                                      \
     }                                                                          \
-    template <bool Approx = false, typename T>                                 \
-    auto name(const T &x) {                                                    \
+    template <typename T> auto name(const T &x) {                              \
         using E = expr_t<T>;                                                   \
         using Value = value_t<E>;                                              \
         if constexpr (detail::has_##name##_v<E>) {                             \
@@ -135,14 +134,13 @@ ENOKI_INLINE T poly10(const T1 &x, const T2 &c0, const T2 &c1, const T2 &c2,
             for (size_t i = 0, n = r.packets(); i < n; ++i, ++pr, ++px)        \
                 *pr = name(*px);                                               \
             return r;                                                          \
-        } else if constexpr (array_depth_v<E> > 1 ||                           \
-                             (is_array_v<E> && !array_approx_v<E>)) {          \
+        } else if constexpr (array_depth_v<E> > 1) {                           \
             E r;                                                               \
             ENOKI_CHKSCALAR(#name);                                            \
             for (size_t i = 0; i < x.size(); ++i)                              \
-                r.coeff(i) = name<E::Approx>(x.coeff(i));                      \
+                r.coeff(i) = name(x.coeff(i));                                 \
             return r;                                                          \
-        } else if constexpr (is_array_v<E> || Approx) {                        \
+        } else if constexpr (is_array_v<E>) {                                  \
             return detail::name##_impl((const E &) x);                         \
         } else {                                                               \
             return expr;                                                       \
@@ -162,8 +160,7 @@ ENOKI_INLINE T poly10(const T1 &x, const T2 &c0, const T2 &c1, const T2 &c2,
                   bool Single = std::is_same_v<float, Scalar>>                 \
         std::pair<Value, Value> name##_impl(const Value &);                    \
     }                                                                          \
-    template <bool Approx = false, typename T>                                 \
-    auto name(const T &x) {                                                    \
+    template <typename T> auto name(const T &x) {                              \
         using E = expr_t<T>;                                                   \
         using Value = value_t<E>;                                              \
         if constexpr (detail::has_##name##_v<E>) {                             \
@@ -184,15 +181,14 @@ ENOKI_INLINE T poly10(const T1 &x, const T2 &c0, const T2 &c1, const T2 &c2,
                  i < n; ++i, ++pr0, ++pr1, ++px)                               \
                 std::tie(*pr0, *pr1) = name(*px);                              \
             return r;                                                          \
-        } else if constexpr (array_depth_v<E> > 1 ||                           \
-                             (is_array_v<E> && !array_approx_v<E>)) {          \
+        } else if constexpr (array_depth_v<E> > 1) {                           \
             std::pair<E, E> r;                                                 \
             ENOKI_CHKSCALAR(#name);                                            \
             for (size_t i = 0; i < x.size(); ++i)                              \
                 std::tie(r.first.coeff(i),                                     \
-                         r.second.coeff(i)) = name<E::Approx>(x.coeff(i));     \
+                         r.second.coeff(i)) = name(x.coeff(i));                \
             return r;                                                          \
-        } else if constexpr (is_array_v<E> || Approx) {                        \
+        } else if constexpr (is_array_v<E>) {                                  \
             return detail::name##_impl((const E &) x);                         \
         } else {                                                               \
             return expr;                                                       \
@@ -215,8 +211,7 @@ ENOKI_INLINE T poly10(const T1 &x, const T2 &c0, const T2 &c1, const T2 &c2,
                   bool Single = std::is_same_v<float, Scalar>>                 \
         Value name##_impl(const Value &, const Value &);                       \
     }                                                                          \
-    template <bool Approx = false, typename T1, typename T2>                   \
-    auto name(const T1 &x, const T2 &y) {                                      \
+    template <typename T1, typename T2> auto name(const T1 &x, const T2 &y) {  \
         using E = expr_t<T1, T2>;                                              \
         using Value = value_t<E>;                                              \
         if constexpr (detail::has_##name##_v<E>) {                             \
@@ -240,15 +235,14 @@ ENOKI_INLINE T poly10(const T1 &x, const T2 &c0, const T2 &c1, const T2 &c2,
                  ++i, pr += 1, px += xs, py += ys)                             \
                 *pr = name(*px, *py);                                          \
             return r;                                                          \
-        } else if constexpr (array_depth_v<E> > 1 ||                           \
-                             (is_array_v<E> && !array_approx_v<E>)) {          \
+        } else if constexpr (array_depth_v<E> > 1) {                           \
             assert(x.size() == y.size());                                      \
             E r;                                                               \
             ENOKI_CHKSCALAR(#name);                                            \
             for (size_t i = 0; i < x.size(); ++i)                              \
-                r.coeff(i) = name<E::Approx>(x.coeff(i), y.coeff(i));          \
+                r.coeff(i) = name(x.coeff(i), y.coeff(i));                     \
             return r;                                                          \
-        } else if constexpr (is_array_v<E> || Approx) {                        \
+        } else if constexpr (is_array_v<E>) {                                  \
             return detail::name##_impl((const E &) x, (const E &) y);          \
         } else {                                                               \
             return expr;                                                       \
@@ -714,7 +708,7 @@ ENOKI_UNARY_OPERATION_PAIR(frexp, detail::frexp_scalar(x)) {
     );
 }
 
-ENOKI_UNARY_OPERATION(exp, detail::exp_scalar<Approx>(x)) {
+ENOKI_UNARY_OPERATION(exp, std::exp(x)) {
     /* Exponential function approximation based on CEPHES
 
        Redistributed under a BSD license with permission of the author, see
@@ -965,14 +959,14 @@ ENOKI_BINARY_OPERATION(pow, std::pow(x, y)) {
 
 template <typename T, typename E = expr_t<T>>
 ENOKI_INLINE E pow(const T &x_, const int &y) {
-	int n = std::abs(y);
-	E result(1.f), x(x_);
+    int n = std::abs(y);
+    E result(1.f), x(x_);
 
     while (n > 0) {
-		if (n & 1)
-			result *= x;
-		x *= x;
-		n /= 2;
+        if (n & 1)
+            result *= x;
+        x *= x;
+        n /= 2;
     }
 
     return (y >= 0) ? result : rcp(result);
@@ -980,18 +974,18 @@ ENOKI_INLINE E pow(const T &x_, const int &y) {
 
 template <typename T, typename E = expr_t<T, float>>
 ENOKI_INLINE E pow(const T &x, const float &y) {
-	if (enoki::round(y) == y)
-		return enoki::pow(E(x), (int) y);
-	else
-		return enoki::pow(E(x), E(y));
+    if (enoki::round(y) == y)
+        return enoki::pow(E(x), (int) y);
+    else
+        return enoki::pow(E(x), E(y));
 }
 
 template <typename T, typename E = expr_t<T, double>>
 ENOKI_INLINE E pow(const T &x, const double &y) {
-	if (enoki::round(y) == y)
-		return enoki::pow(E(x), (int) y);
-	else
-		return enoki::pow(E(x), E(y));
+    if (enoki::round(y) == y)
+        return enoki::pow(E(x), (int) y);
+    else
+        return enoki::pow(E(x), E(y));
 }
 
 // -----------------------------------------------------------------------

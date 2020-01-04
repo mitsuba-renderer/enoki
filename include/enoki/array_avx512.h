@@ -15,17 +15,17 @@
 
 NAMESPACE_BEGIN(enoki)
 NAMESPACE_BEGIN(detail)
-template <RoundingMode Mode> struct is_native<float, 16, Mode> : std::true_type { } ;
-template <RoundingMode Mode> struct is_native<double, 8, Mode> : std::true_type { };
-template <typename Value>    struct is_native<Value, 16, RoundingMode::Default, enable_if_int32_t<Value>> : std::true_type { };
-template <typename Value>    struct is_native<Value, 8, RoundingMode::Default, enable_if_int64_t<Value>> : std::true_type { };
+template <> struct is_native<float, 16> : std::true_type { } ;
+template <> struct is_native<double, 8> : std::true_type { };
+template <typename Value>    struct is_native<Value, 16, enable_if_int32_t<Value>> : std::true_type { };
+template <typename Value>    struct is_native<Value, 8, enable_if_int64_t<Value>> : std::true_type { };
 NAMESPACE_END(detail)
 
 /// Partial overload of StaticArrayImpl using AVX512 intrinsics (single precision)
-template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> struct alignas(64)
-    StaticArrayImpl<float, 16, Approx_, Mode_, IsMask_, Derived_>
-  : StaticArrayBase<float, 16, Approx_, Mode_, IsMask_, Derived_> {
-    ENOKI_NATIVE_ARRAY(float, 16, Approx_, __m512, Mode_)
+template <bool IsMask_, typename Derived_> struct alignas(64)
+    StaticArrayImpl<float, 16, IsMask_, Derived_>
+  : StaticArrayBase<float, 16, IsMask_, Derived_> {
+    ENOKI_NATIVE_ARRAY(float, 16, __m512)
 
     // -----------------------------------------------------------------------
     //! @{ \name Value constructors
@@ -53,22 +53,22 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
 
     ENOKI_CONVERT(float) : m(a.derived().m) { }
 
-    ENOKI_CONVERT(int32_t) : m(_mm512_cvt_roundepi32_ps(a.derived().m, (int) Mode)) { }
+    ENOKI_CONVERT(int32_t) : m(_mm512_cvtepi32_ps(a.derived().m)) { }
 
-    ENOKI_CONVERT(uint32_t) : m(_mm512_cvt_roundepu32_ps(a.derived().m, (int) Mode)) { }
+    ENOKI_CONVERT(uint32_t) : m(_mm512_cvtepu32_ps(a.derived().m)) { }
 
     ENOKI_CONVERT(double)
-        : m(detail::concat(_mm512_cvt_roundpd_ps(low(a).m, (int) Mode),
-                           _mm512_cvt_roundpd_ps(high(a).m, (int) Mode))) { }
+        : m(detail::concat(_mm512_cvtpd_ps(low(a).m),
+                           _mm512_cvtpd_ps(high(a).m))) { }
 
 #if defined(ENOKI_X86_AVX512DQ)
     ENOKI_CONVERT(int64_t)
-        : m(detail::concat(_mm512_cvt_roundepi64_ps(low(a).m, (int) Mode),
-                           _mm512_cvt_roundepi64_ps(high(a).m, (int) Mode))) { }
+        : m(detail::concat(_mm512_cvtepi64_ps(low(a).m),
+                           _mm512_cvtepi64_ps(high(a).m))) { }
 
     ENOKI_CONVERT(uint64_t)
-        : m(detail::concat(_mm512_cvt_roundepu64_ps(low(a).m, (int) Mode),
-                           _mm512_cvt_roundepu64_ps(high(a).m, (int) Mode))) { }
+        : m(detail::concat(_mm512_cvtepu64_ps(low(a).m),
+                           _mm512_cvtepu64_ps(high(a).m))) { }
 #elif defined(ENOKI_X86_AVX512CD)
     /* Emulate uint64_t -> float conversion instead of falling
        back to scalar operations. This is quite a bit faster
@@ -143,10 +143,10 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
     //! @{ \name Vertical operations
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE Derived add_(Ref a) const { return _mm512_add_round_ps(m, a.m, (int) Mode); }
-    ENOKI_INLINE Derived sub_(Ref a) const { return _mm512_sub_round_ps(m, a.m, (int) Mode); }
-    ENOKI_INLINE Derived mul_(Ref a) const { return _mm512_mul_round_ps(m, a.m, (int) Mode); }
-    ENOKI_INLINE Derived div_(Ref a) const { return _mm512_div_round_ps(m, a.m, (int) Mode); }
+    ENOKI_INLINE Derived add_(Ref a) const { return _mm512_add_ps(m, a.m); }
+    ENOKI_INLINE Derived sub_(Ref a) const { return _mm512_sub_ps(m, a.m); }
+    ENOKI_INLINE Derived mul_(Ref a) const { return _mm512_mul_ps(m, a.m); }
+    ENOKI_INLINE Derived div_(Ref a) const { return _mm512_div_ps(m, a.m); }
 
     template <typename T> ENOKI_INLINE Derived or_(const T &a) const {
         if constexpr (is_mask_v<T>) {
@@ -219,7 +219,7 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
     ENOKI_INLINE Derived max_(Ref b) const { return _mm512_max_ps(b.m, m); }
     ENOKI_INLINE Derived ceil_()     const { return _mm512_ceil_ps(m);     }
     ENOKI_INLINE Derived floor_()    const { return _mm512_floor_ps(m);    }
-    ENOKI_INLINE Derived sqrt_()     const { return _mm512_sqrt_round_ps(m, (int) Mode); }
+    ENOKI_INLINE Derived sqrt_()     const { return _mm512_sqrt_ps(m); }
 
     ENOKI_INLINE Derived round_() const {
         return _mm512_roundscale_ps(m, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
@@ -282,12 +282,12 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
         }
     }
 
-    ENOKI_INLINE Derived fmadd_   (Ref b, Ref c) const { return _mm512_fmadd_round_ps   (m, b.m, c.m, (int) Mode); }
-    ENOKI_INLINE Derived fmsub_   (Ref b, Ref c) const { return _mm512_fmsub_round_ps   (m, b.m, c.m, (int) Mode); }
-    ENOKI_INLINE Derived fnmadd_  (Ref b, Ref c) const { return _mm512_fnmadd_round_ps  (m, b.m, c.m, (int) Mode); }
-    ENOKI_INLINE Derived fnmsub_  (Ref b, Ref c) const { return _mm512_fnmsub_round_ps  (m, b.m, c.m, (int) Mode); }
-    ENOKI_INLINE Derived fmsubadd_(Ref b, Ref c) const { return _mm512_fmsubadd_round_ps(m, b.m, c.m, (int) Mode); }
-    ENOKI_INLINE Derived fmaddsub_(Ref b, Ref c) const { return _mm512_fmaddsub_round_ps(m, b.m, c.m, (int) Mode); }
+    ENOKI_INLINE Derived fmadd_   (Ref b, Ref c) const { return _mm512_fmadd_ps   (m, b.m, c.m); }
+    ENOKI_INLINE Derived fmsub_   (Ref b, Ref c) const { return _mm512_fmsub_ps   (m, b.m, c.m); }
+    ENOKI_INLINE Derived fnmadd_  (Ref b, Ref c) const { return _mm512_fnmadd_ps  (m, b.m, c.m); }
+    ENOKI_INLINE Derived fnmsub_  (Ref b, Ref c) const { return _mm512_fnmsub_ps  (m, b.m, c.m); }
+    ENOKI_INLINE Derived fmsubadd_(Ref b, Ref c) const { return _mm512_fmsubadd_ps(m, b.m, c.m); }
+    ENOKI_INLINE Derived fmaddsub_(Ref b, Ref c) const { return _mm512_fmaddsub_ps(m, b.m, c.m); }
 
     template <typename Mask>
     static ENOKI_INLINE Derived select_(const Mask &m, Ref t, Ref f) {
@@ -314,22 +314,18 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
             /* rel err < 2^28, use as is */
             return _mm512_rcp28_ps(m);
         #else
-            if constexpr (Approx_) {
-                /* Use best reciprocal approximation available on the current
-                   hardware and refine */
-                __m512 r = _mm512_rcp14_ps(m); /* rel error < 2^-14 */
+            /* Use best reciprocal approximation available on the current
+               hardware and refine */
+            __m512 r = _mm512_rcp14_ps(m); /* rel error < 2^-14 */
 
-                /* Refine using one Newton-Raphson iteration */
-                __m512 t0 = _mm512_add_ps(r, r),
-                       t1 = _mm512_mul_ps(r, m);
+            /* Refine using one Newton-Raphson iteration */
+            __m512 t0 = _mm512_add_ps(r, r),
+                   t1 = _mm512_mul_ps(r, m);
 
-                r = _mm512_fnmadd_ps(t1, r, t0);
+            r = _mm512_fnmadd_ps(t1, r, t0);
 
-                return _mm512_fixupimm_ps(r, m,
-                    _mm512_set1_epi32(0x0087A622), 0);
-            } else {
-                return (Scalar) 1 / derived();
-            }
+            return _mm512_fixupimm_ps(r, m,
+                _mm512_set1_epi32(0x0087A622), 0);
         #endif
     }
 
@@ -338,41 +334,21 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
             /* rel err < 2^28, use as is */
             return _mm512_rsqrt28_ps(m);
         #else
-            if constexpr (Approx_) {
-                __m512 r = _mm512_rsqrt14_ps(m); /* rel error < 2^-14 */
+            __m512 r = _mm512_rsqrt14_ps(m); /* rel error < 2^-14 */
 
-                /* Refine using one Newton-Raphson iteration */
-                const __m512 c0 = _mm512_set1_ps(0.5f),
-                             c1 = _mm512_set1_ps(3.0f);
+            /* Refine using one Newton-Raphson iteration */
+            const __m512 c0 = _mm512_set1_ps(0.5f),
+                         c1 = _mm512_set1_ps(3.0f);
 
-                __m512 t0 = _mm512_mul_ps(r, c0),
-                       t1 = _mm512_mul_ps(r, m);
+            __m512 t0 = _mm512_mul_ps(r, c0),
+                   t1 = _mm512_mul_ps(r, m);
 
-                r = _mm512_mul_ps(_mm512_fnmadd_ps(t1, r, c1), t0);
+            r = _mm512_mul_ps(_mm512_fnmadd_ps(t1, r, c1), t0);
 
-                return _mm512_fixupimm_ps(r, m,
-                    _mm512_set1_epi32(0x0383A622), 0);
-            } else {
-                return (Scalar) 1 / sqrt(derived());
-            }
+            return _mm512_fixupimm_ps(r, m,
+                _mm512_set1_epi32(0x0383A622), 0);
         #endif
     }
-
-#if defined(ENOKI_X86_AVX512ER)
-    ENOKI_INLINE Derived exp_() const {
-        if constexpr (Approx_) {
-            /* 23 bit precision, only use in approximate mode */
-            return _mm512_exp2a23_round_ps(
-                _mm512_mul_round_ps(m, _mm512_set1_ps(1.4426950408889634074f),
-                                    (int) Mode), (int) Mode);
-        } else {
-            Derived r;
-            for (size_t i = 0; i < Derived::Size; ++i)
-                r.coeff(i) = exp<Approx_>(coeff(i));
-            return r;
-        }
-    }
-#endif
 
     ENOKI_INLINE Derived ldexp_(Ref arg) const { return _mm512_scalef_ps(m, arg.m); }
 
@@ -535,13 +511,13 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
     template <typename Mask>
     ENOKI_INLINE void massign_(const Derived &a, const Mask &mask) { m = _mm512_mask_mov_ps(m, mask.k, a.m); }
     template <typename Mask>
-    ENOKI_INLINE void madd_   (const Derived &a, const Mask &mask) { m = _mm512_mask_add_round_ps(m, mask.k, m, a.m, (int) Mode); }
+    ENOKI_INLINE void madd_   (const Derived &a, const Mask &mask) { m = _mm512_mask_add_ps(m, mask.k, m, a.m); }
     template <typename Mask>
-    ENOKI_INLINE void msub_   (const Derived &a, const Mask &mask) { m = _mm512_mask_sub_round_ps(m, mask.k, m, a.m, (int) Mode); }
+    ENOKI_INLINE void msub_   (const Derived &a, const Mask &mask) { m = _mm512_mask_sub_ps(m, mask.k, m, a.m); }
     template <typename Mask>
-    ENOKI_INLINE void mmul_   (const Derived &a, const Mask &mask) { m = _mm512_mask_mul_round_ps(m, mask.k, m, a.m, (int) Mode); }
+    ENOKI_INLINE void mmul_   (const Derived &a, const Mask &mask) { m = _mm512_mask_mul_ps(m, mask.k, m, a.m); }
     template <typename Mask>
-    ENOKI_INLINE void mdiv_   (const Derived &a, const Mask &mask) { m = _mm512_mask_div_round_ps(m, mask.k, m, a.m, (int) Mode); }
+    ENOKI_INLINE void mdiv_   (const Derived &a, const Mask &mask) { m = _mm512_mask_div_ps(m, mask.k, m, a.m); }
     template <typename Mask>
     ENOKI_INLINE void mor_    (const Derived &a, const Mask &mask) {
         #if defined(ENOKI_X86_AVX512DQ)
@@ -580,10 +556,10 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
 } ENOKI_MAY_ALIAS;
 
 /// Partial overload of StaticArrayImpl using AVX512 intrinsics (double precision)
-template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> struct alignas(64)
-    StaticArrayImpl<double, 8, Approx_, Mode_, IsMask_, Derived_>
-  : StaticArrayBase<double, 8, Approx_, Mode_, IsMask_, Derived_> {
-    ENOKI_NATIVE_ARRAY(double, 8, Approx_, __m512d, Mode_)
+template <bool IsMask_, typename Derived_> struct alignas(64)
+    StaticArrayImpl<double, 8, IsMask_, Derived_>
+  : StaticArrayBase<double, 8, IsMask_, Derived_> {
+    ENOKI_NATIVE_ARRAY(double, 8, __m512d)
 
     // -----------------------------------------------------------------------
     //! @{ \name Value constructors
@@ -613,10 +589,10 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
 
 #if defined(ENOKI_X86_AVX512DQ)
     ENOKI_CONVERT(int64_t)
-        : m(_mm512_cvt_roundepi64_pd(a.derived().m, (int) Mode)) { }
+        : m(_mm512_cvtepi64_pd(a.derived().m)) { }
 
     ENOKI_CONVERT(uint64_t)
-        : m(_mm512_cvt_roundepu64_pd(a.derived().m, (int) Mode)) { }
+        : m(_mm512_cvtepu64_pd(a.derived().m)) { }
 #elif defined(ENOKI_X86_AVX512CD)
     /* Emulate uint64_t -> double conversion instead of falling
        back to scalar operations. This is quite a bit faster
@@ -682,10 +658,10 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
     //! @{ \name Vertical operations
     // -----------------------------------------------------------------------
 
-    ENOKI_INLINE Derived add_(Ref a) const { return _mm512_add_round_pd(m, a.m, (int) Mode); }
-    ENOKI_INLINE Derived sub_(Ref a) const { return _mm512_sub_round_pd(m, a.m, (int) Mode); }
-    ENOKI_INLINE Derived mul_(Ref a) const { return _mm512_mul_round_pd(m, a.m, (int) Mode); }
-    ENOKI_INLINE Derived div_(Ref a) const { return _mm512_div_round_pd(m, a.m, (int) Mode); }
+    ENOKI_INLINE Derived add_(Ref a) const { return _mm512_add_pd(m, a.m); }
+    ENOKI_INLINE Derived sub_(Ref a) const { return _mm512_sub_pd(m, a.m); }
+    ENOKI_INLINE Derived mul_(Ref a) const { return _mm512_mul_pd(m, a.m); }
+    ENOKI_INLINE Derived div_(Ref a) const { return _mm512_div_pd(m, a.m); }
 
     template <typename T> ENOKI_INLINE Derived or_(const T &a) const {
         if constexpr (is_mask_v<T>) {
@@ -758,7 +734,7 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
     ENOKI_INLINE Derived max_(Ref b) const { return _mm512_max_pd(b.m, m); }
     ENOKI_INLINE Derived ceil_()     const { return _mm512_ceil_pd(m);     }
     ENOKI_INLINE Derived floor_()    const { return _mm512_floor_pd(m);    }
-    ENOKI_INLINE Derived sqrt_()     const { return _mm512_sqrt_round_pd(m, (int) Mode); }
+    ENOKI_INLINE Derived sqrt_()     const { return _mm512_sqrt_pd(m); }
 
     template <typename T>
     ENOKI_INLINE auto ceil2int_() const {
@@ -806,12 +782,12 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
         return _mm512_roundscale_pd(m, _MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC);
     }
 
-    ENOKI_INLINE Derived fmadd_   (Ref b, Ref c) const { return _mm512_fmadd_round_pd   (m, b.m, c.m, (int) Mode); }
-    ENOKI_INLINE Derived fmsub_   (Ref b, Ref c) const { return _mm512_fmsub_round_pd   (m, b.m, c.m, (int) Mode); }
-    ENOKI_INLINE Derived fnmadd_  (Ref b, Ref c) const { return _mm512_fnmadd_round_pd  (m, b.m, c.m, (int) Mode); }
-    ENOKI_INLINE Derived fnmsub_  (Ref b, Ref c) const { return _mm512_fnmsub_round_pd  (m, b.m, c.m, (int) Mode); }
-    ENOKI_INLINE Derived fmsubadd_(Ref b, Ref c) const { return _mm512_fmsubadd_round_pd(m, b.m, c.m, (int) Mode); }
-    ENOKI_INLINE Derived fmaddsub_(Ref b, Ref c) const { return _mm512_fmaddsub_round_pd(m, b.m, c.m, (int) Mode); }
+    ENOKI_INLINE Derived fmadd_   (Ref b, Ref c) const { return _mm512_fmadd_pd   (m, b.m, c.m); }
+    ENOKI_INLINE Derived fmsub_   (Ref b, Ref c) const { return _mm512_fmsub_pd   (m, b.m, c.m); }
+    ENOKI_INLINE Derived fnmadd_  (Ref b, Ref c) const { return _mm512_fnmadd_pd  (m, b.m, c.m); }
+    ENOKI_INLINE Derived fnmsub_  (Ref b, Ref c) const { return _mm512_fnmsub_pd  (m, b.m, c.m); }
+    ENOKI_INLINE Derived fmsubadd_(Ref b, Ref c) const { return _mm512_fmsubadd_pd(m, b.m, c.m); }
+    ENOKI_INLINE Derived fmaddsub_(Ref b, Ref c) const { return _mm512_fmaddsub_pd(m, b.m, c.m); }
 
     template <typename Mask>
     static ENOKI_INLINE Derived select_(const Mask &m, Ref t, Ref f) {
@@ -831,63 +807,53 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
     }
 
     ENOKI_INLINE Derived rcp_() const {
-        if constexpr (Approx_) {
-            /* Use best reciprocal approximation available on the current
-               hardware and refine */
-            __m512d r;
+        /* Use best reciprocal approximation available on the current
+           hardware and refine */
+        __m512d r;
 
-            #if defined(ENOKI_X86_AVX512ER)
-                r = _mm512_rcp28_pd(m); /* rel err < 2^28 */
-            #else
-                r = _mm512_rcp14_pd(m); /* rel error < 2^-14 */
-            #endif
+        #if defined(ENOKI_X86_AVX512ER)
+            r = _mm512_rcp28_pd(m); /* rel err < 2^28 */
+        #else
+            r = _mm512_rcp14_pd(m); /* rel error < 2^-14 */
+        #endif
 
-            /* Refine using 1-2 Newton-Raphson iterations */
-            ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
-                __m512d t0 = _mm512_add_pd(r, r);
-                __m512d t1 = _mm512_mul_pd(r, m);
+        /* Refine using 1-2 Newton-Raphson iterations */
+        ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
+            __m512d t0 = _mm512_add_pd(r, r);
+            __m512d t1 = _mm512_mul_pd(r, m);
 
-                r = _mm512_fnmadd_pd(t1, r, t0);
-            }
-
-            return _mm512_fixupimm_pd(r, m,
-                _mm512_set1_epi32(0x0087A622), 0);
-        } else {
-            return (Scalar) 1 / derived();
+            r = _mm512_fnmadd_pd(t1, r, t0);
         }
+
+        return _mm512_fixupimm_pd(r, m,
+            _mm512_set1_epi32(0x0087A622), 0);
     }
 
     ENOKI_INLINE Derived rsqrt_() const {
-        if constexpr (Approx_) {
-            /* Use best reciprocal square root approximation available
-               on the current hardware and refine */
-            __m512d r;
-            #if defined(ENOKI_X86_AVX512ER)
-                r = _mm512_rsqrt28_pd(m); /* rel err < 2^28 */
-            #else
-                r = _mm512_rsqrt14_pd(m); /* rel error < 2^-14 */
-            #endif
+        /* Use best reciprocal square root approximation available
+           on the current hardware and refine */
+        __m512d r;
+        #if defined(ENOKI_X86_AVX512ER)
+            r = _mm512_rsqrt28_pd(m); /* rel err < 2^28 */
+        #else
+            r = _mm512_rsqrt14_pd(m); /* rel error < 2^-14 */
+        #endif
 
-            const __m512d c0 = _mm512_set1_pd(0.5),
-                          c1 = _mm512_set1_pd(3.0);
+        const __m512d c0 = _mm512_set1_pd(0.5),
+                      c1 = _mm512_set1_pd(3.0);
 
-            /* Refine using 1-2 Newton-Raphson iterations */
-            ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
-                __m512d t0 = _mm512_mul_pd(r, c0);
-                __m512d t1 = _mm512_mul_pd(r, m);
+        /* Refine using 1-2 Newton-Raphson iterations */
+        ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
+            __m512d t0 = _mm512_mul_pd(r, c0);
+            __m512d t1 = _mm512_mul_pd(r, m);
 
-                r = _mm512_mul_pd(_mm512_fnmadd_pd(t1, r, c1), t0);
-            }
-
-            return _mm512_fixupimm_pd(r, m,
-                _mm512_set1_epi32(0x0383A622), 0);
-        } else {
-            return (Scalar) 1 / sqrt(derived());
+            r = _mm512_mul_pd(_mm512_fnmadd_pd(t1, r, c1), t0);
         }
+
+        return _mm512_fixupimm_pd(r, m,
+            _mm512_set1_epi32(0x0383A622), 0);
     }
 
-
-    /// No double precision exp_() via _mm512_exp2a23_pd -- too approximate!
 
     ENOKI_INLINE Derived ldexp_(Ref arg) const { return _mm512_scalef_pd(m, arg.m); }
 
@@ -1042,13 +1008,13 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
     template <typename Mask>
     ENOKI_INLINE void massign_(const Derived &a, const Mask &mask) { m = _mm512_mask_mov_pd(m, mask.k, a.m); }
     template <typename Mask>
-    ENOKI_INLINE void madd_   (const Derived &a, const Mask &mask) { m = _mm512_mask_add_round_pd(m, mask.k, m, a.m, (int) Mode); }
+    ENOKI_INLINE void madd_   (const Derived &a, const Mask &mask) { m = _mm512_mask_add_pd(m, mask.k, m, a.m); }
     template <typename Mask>
-    ENOKI_INLINE void msub_   (const Derived &a, const Mask &mask) { m = _mm512_mask_sub_round_pd(m, mask.k, m, a.m, (int) Mode); }
+    ENOKI_INLINE void msub_   (const Derived &a, const Mask &mask) { m = _mm512_mask_sub_pd(m, mask.k, m, a.m); }
     template <typename Mask>
-    ENOKI_INLINE void mmul_   (const Derived &a, const Mask &mask) { m = _mm512_mask_mul_round_pd(m, mask.k, m, a.m, (int) Mode); }
+    ENOKI_INLINE void mmul_   (const Derived &a, const Mask &mask) { m = _mm512_mask_mul_pd(m, mask.k, m, a.m); }
     template <typename Mask>
-    ENOKI_INLINE void mdiv_   (const Derived &a, const Mask &mask) { m = _mm512_mask_div_round_pd(m, mask.k, m, a.m, (int) Mode); }
+    ENOKI_INLINE void mdiv_   (const Derived &a, const Mask &mask) { m = _mm512_mask_div_pd(m, mask.k, m, a.m); }
     template <typename Mask>
     ENOKI_INLINE void mor_    (const Derived &a, const Mask &mask) {
         #if defined(ENOKI_X86_AVX512DQ)
@@ -1088,9 +1054,9 @@ template <bool Approx_, RoundingMode Mode_, bool IsMask_, typename Derived_> str
 
 /// Partial overload of StaticArrayImpl using AVX512 intrinsics (32 bit integers)
 template <typename Value_, bool IsMask_, typename Derived_> struct alignas(64)
-    StaticArrayImpl<Value_, 16, false, RoundingMode::Default, IsMask_, Derived_, enable_if_int32_t<Value_>>
-  : StaticArrayBase<Value_, 16, false, RoundingMode::Default, IsMask_, Derived_> {
-    ENOKI_NATIVE_ARRAY(Value_, 16, false, __m512i, RoundingMode::Default)
+    StaticArrayImpl<Value_, 16, IsMask_, Derived_, enable_if_int32_t<Value_>>
+  : StaticArrayBase<Value_, 16, IsMask_, Derived_> {
+    ENOKI_NATIVE_ARRAY(Value_, 16, __m512i)
 
 
     // -----------------------------------------------------------------------
@@ -1487,9 +1453,9 @@ template <typename Value_, bool IsMask_, typename Derived_> struct alignas(64)
 
 /// Partial overload of StaticArrayImpl using AVX512 intrinsics (64 bit integers)
 template <typename Value_, bool IsMask_, typename Derived_> struct alignas(64)
-    StaticArrayImpl<Value_, 8, false, RoundingMode::Default, IsMask_, Derived_, enable_if_int64_t<Value_>>
-  : StaticArrayBase<Value_, 8, false, RoundingMode::Default, IsMask_, Derived_> {
-    ENOKI_NATIVE_ARRAY(Value_, 8, false, __m512i, RoundingMode::Default)
+    StaticArrayImpl<Value_, 8, IsMask_, Derived_, enable_if_int64_t<Value_>>
+  : StaticArrayBase<Value_, 8, IsMask_, Derived_> {
+    ENOKI_NATIVE_ARRAY(Value_, 8, __m512i)
 
 
     // -----------------------------------------------------------------------
@@ -1950,13 +1916,13 @@ template <typename Value_, bool IsMask_, typename Derived_> struct alignas(64)
     // -----------------------------------------------------------------------
 } ENOKI_MAY_ALIAS;
 
-template <bool Approx_, typename Derived_>
-ENOKI_DECLARE_KMASK(float, 16, Approx_, RoundingMode::Default, Derived_, int)
-template <bool Approx_, typename Derived_>
-ENOKI_DECLARE_KMASK(double, 8, Approx_, RoundingMode::Default, Derived_, int)
+template <typename Derived_>
+ENOKI_DECLARE_KMASK(float, 16, Derived_, int)
+template <typename Derived_>
+ENOKI_DECLARE_KMASK(double, 8, Derived_, int)
 template <typename Value_, typename Derived_>
-ENOKI_DECLARE_KMASK(Value_, 16, false, RoundingMode::Default, Derived_, enable_if_int32_t<Value_>)
+ENOKI_DECLARE_KMASK(Value_, 16, Derived_, enable_if_int32_t<Value_>)
 template <typename Value_, typename Derived_>
-ENOKI_DECLARE_KMASK(Value_, 8, false, RoundingMode::Default, Derived_, enable_if_int64_t<Value_>)
+ENOKI_DECLARE_KMASK(Value_, 8, Derived_, enable_if_int64_t<Value_>)
 
 NAMESPACE_END(enoki)

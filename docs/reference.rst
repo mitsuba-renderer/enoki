@@ -194,44 +194,15 @@ Global variable definitions
    vector registers. It is equal to 64 if AVX512 is present, 32 if AVX is
    present, and 16 for machines with SSE 4.2 or ARM NEON.
 
-Rounding modes
---------------
+.. cpp:var:: static constexpr size_t array_default_size
 
-.. cpp:enum:: RoundingMode
-
-    Enumeration defining the choice of rounding modes for floating point
-    operations. :cpp:enumerator:`RoundingMode::Default` must be used for integer
-    arrays.
-
-    .. cpp:enumerator:: Default
-
-        Don't interfere with the rounding mode that is currently configured in
-        the hardware's status register.
-
-    .. cpp:enumerator:: Nearest
-
-        Round to the nearest representable value (the tie-breaking method is
-        hardware dependent)
-
-    .. cpp:enumerator:: Down
-
-        Always round to negative infinity
-
-    .. cpp:enumerator:: Up
-
-        Always round to positive infinity
-
-    .. cpp:enumerator:: Zero
-
-        Always round to zero
+   Denotes the default size of Enoki arrays. Equal to ``max_packet_size / 4``.
 
 Static arrays
 -------------
 
-.. cpp:class:: template <typename Value, size_t Size = max_packet_size / sizeof(Value), \
-                         bool Approx = detail::array_approx_v<Value>, \
-                         RoundingMode Mode = RoundingMode::Default> \
-               Array : StaticArrayImpl<Value, Size, Approx, Mode, Array<Value, Size, Approx, Mode>>
+.. cpp:class:: template <typename Value, size_t Size = array_default_size>
+               Array : StaticArrayImpl<Value, Size, Array<Value, Size>>
 
     The default Enoki array class -- a generic container that stores a
     fixed-size array of an arbitrary data type similar to the standard template
@@ -245,35 +216,18 @@ Static arrays
 
     * ``size_t Size``: the number of packed array entries.
 
-    * ``bool Approx``: specifies whether the vectorized approximate math
-      library should be used. In this case, transcendental operations like
-      ``sin``, ``atanh``, etc. will run using a fast vectorized implementation
-      that is slightly more approximate than the (scalar) implementation
-      provided by the C math library.
-
-      The default is to enable the approximate math library for single
-      precision floats. It is not supported for other types, and a
-      compile-time assertion will be raised in this case.
-
-    * ``RoundingMode Mode``: specifies the rounding mode used for elementary
-      arithmetic operations. Must be set to :any:`RoundingMode::Default` for
-      integer types or a compile-time assertion will be raised.
-
     This class is just a small wrapper that instantiates
     :cpp:class:`enoki::StaticArrayImpl` using the Curiously Recurring Template
     Pattern (CRTP). The latter provides the actual machinery that is needed to
     evaluate array expressions. See :ref:`custom-arrays` for details.
 
-.. cpp:class:: template <typename Value, size_t Size = max_packet_size / sizeof(Value), \
-                         bool Approx = detail::array_approx_v<Value>, \
-                         RoundingMode Mode = RoundingMode::Default> \
-               Packet : StaticArrayImpl<Value, Size, Approx, Mode, Array<Value, Size, Approx, Mode>>
+.. cpp:class:: template <typename Value, size_t Size = array_default_size>
+               Packet : StaticArrayImpl<Value, Size, Array<Value, Size>>
 
     The ``Packet`` type is identical to :cpp:class:`enoki::Array` except for
     its :ref:`broadcasting behavior <broadcasting>`.
 
-.. cpp:class:: template <typename Value, size_t Size, bool Approx, \
-                         RoundingMode Mode, typename Derived> StaticArrayImpl
+.. cpp:class:: template <typename Value, size_t Size, typename Derived> StaticArrayImpl
 
     This base class provides the core implementation of an Enoki array. It
     cannot be instantiated directly and is used via the Curiously Recurring
@@ -295,8 +249,8 @@ Static arrays
         Initialize the individual array entries with ``args`` (where
         ``sizeof...(args) == Size``).
 
-    .. cpp:function:: template<typename Value2, bool Approx2, RoundingMode Mode2, typename Derived2> \
-                      StaticArrayImpl(const StaticArrayImpl<Value2, Size, Approx2, Mode2, Derived2> &other)
+    .. cpp:function:: template<typename Value2, typename Derived2> \
+                      StaticArrayImpl(const StaticArrayImpl<Value2, Size, Derived2> &other)
 
         Initialize the array with the contents of another given array that
         potentially has a different underlying type. Enoki will perform a

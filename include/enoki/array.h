@@ -29,8 +29,6 @@
 
 #include <enoki/array_generic.h>
 
-#include <enoki/array_round.h>
-
 #include <enoki/array_math.h>
 
 #if defined(ENOKI_ARM_NEON) || defined(ENOKI_X86_SSE42)
@@ -71,35 +69,26 @@
 
 NAMESPACE_BEGIN(enoki)
 
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
-struct Array : StaticArrayImpl<Value_, Size_, Approx_, Mode_, false,
-                               Array<Value_, Size_, Approx_, Mode_>> {
+template <typename Value_, size_t Size_>
+struct Array : StaticArrayImpl<Value_, Size_, false, Array<Value_, Size_>> {
 
-    using Base = StaticArrayImpl<Value_, Size_, Approx_, Mode_, false,
-                                 Array<Value_, Size_, Approx_, Mode_>>;
+    using Base = StaticArrayImpl<Value_, Size_, false, Array<Value_, Size_>>;
 
     using ArrayType = Array;
-    using MaskType = Mask<Value_, Size_, Approx_, Mode_>;
+    using MaskType = Mask<Value_, Size_>;
 
     /// Type alias for creating a similar-shaped array over a different type
-    template <typename T>
-    using ReplaceValue = Array<T, Size_,
-              is_std_float_v<scalar_t<T>> && is_std_float_v<scalar_t<Value_>>
-                  ? Approx_ : array_approx_v<scalar_t<T>>,
-              is_std_float_v<scalar_t<T>> && is_std_float_v<scalar_t<Value_>>
-                  ? Mode_ : RoundingMode::Default>;
+    template <typename T> using ReplaceValue = Array<T, Size_>;
 
     ENOKI_ARRAY_IMPORT(Base, Array)
 };
 
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
-struct Mask : StaticArrayImpl<Value_, Size_, Approx_, Mode_, true,
-                              Mask<Value_, Size_, Approx_, Mode_>> {
+template <typename Value_, size_t Size_>
+struct Mask : StaticArrayImpl<Value_, Size_, true, Mask<Value_, Size_>> {
 
-    using Base = StaticArrayImpl<Value_, Size_, Approx_, Mode_, true,
-                                 Mask<Value_, Size_, Approx_, Mode_>>;
+    using Base = StaticArrayImpl<Value_, Size_, true, Mask<Value_, Size_>>;
 
-    using ArrayType = Array<Value_, Size_, Approx_, Mode_>;
+    using ArrayType = Array<Value_, Size_>;
     using MaskType = Mask;
 
     /// Type alias for creating a similar-shaped array over a different type
@@ -130,39 +119,30 @@ struct Mask : StaticArrayImpl<Value_, Size_, Approx_, Mode_, true,
     using Base::operator=;
 };
 
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
-struct Packet : StaticArrayImpl<Value_, Size_, Approx_, Mode_, false,
-                                Packet<Value_, Size_, Approx_, Mode_>> {
+template <typename Value_, size_t Size_>
+struct Packet : StaticArrayImpl<Value_, Size_, false, Packet<Value_, Size_>> {
 
-    using Base = StaticArrayImpl<Value_, Size_, Approx_, Mode_, false,
-                                 Packet<Value_, Size_, Approx_, Mode_>>;
+    using Base = StaticArrayImpl<Value_, Size_, false, Packet<Value_, Size_>>;
 
     using ArrayType = Packet;
-    using MaskType = PacketMask<Value_, Size_, Approx_, Mode_>;
+    using MaskType = PacketMask<Value_, Size_>;
 
     static constexpr bool BroadcastPreferOuter = false;
 
     /// Type alias for creating a similar-shaped array over a different type
-    template <typename T>
-    using ReplaceValue = Packet<T, Size_,
-              is_std_float_v<scalar_t<T>> && is_std_float_v<scalar_t<Value_>>
-                  ? Approx_ : array_approx_v<scalar_t<T>>,
-              is_std_float_v<scalar_t<T>> && is_std_float_v<scalar_t<Value_>>
-                  ? Mode_ : RoundingMode::Default>;
+    template <typename T> using ReplaceValue = Packet<T, Size_>;
 
     ENOKI_ARRAY_IMPORT(Base, Packet)
 };
 
-template <typename Value_, size_t Size_, bool Approx_, RoundingMode Mode_>
-struct PacketMask : StaticArrayImpl<Value_, Size_, Approx_, Mode_, true,
-                              PacketMask<Value_, Size_, Approx_, Mode_>> {
+template <typename Value_, size_t Size_>
+struct PacketMask : StaticArrayImpl<Value_, Size_, true, PacketMask<Value_, Size_>> {
 
-    using Base = StaticArrayImpl<Value_, Size_, Approx_, Mode_, true,
-                                 PacketMask<Value_, Size_, Approx_, Mode_>>;
+    using Base = StaticArrayImpl<Value_, Size_, true, PacketMask<Value_, Size_>>;
 
     static constexpr bool BroadcastPreferOuter = false;
 
-    using ArrayType = Packet<Value_, Size_, Approx_, Mode_>;
+    using ArrayType = Packet<Value_, Size_>;
     using MaskType = PacketMask;
 
     /// Type alias for creating a similar-shaped array over a different type

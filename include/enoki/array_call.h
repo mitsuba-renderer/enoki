@@ -18,15 +18,14 @@ template <typename Class, typename Storage> struct call_support {
     call_support(const Storage &) { }
 };
 
-template <typename Value_, size_t Size_, bool Approx_, bool IsMask_, typename Derived_>
-struct StaticArrayImpl<Value_, Size_, Approx_, RoundingMode::Default, IsMask_, Derived_,
+template <typename Value_, size_t Size_, bool IsMask_, typename Derived_>
+struct StaticArrayImpl<Value_, Size_, IsMask_, Derived_,
                        enable_if_t<detail::array_config<Value_, Size_>::use_pointer_impl>>
-    : StaticArrayImpl<uintptr_t, Size_, Approx_, RoundingMode::Default, IsMask_, Derived_> {
+    : StaticArrayImpl<uintptr_t, Size_, IsMask_, Derived_> {
 
     using UnderlyingType = std::uintptr_t;
 
-    using Base = StaticArrayImpl<UnderlyingType, Size_, Approx_,
-                                 RoundingMode::Default, IsMask_, Derived_>;
+    using Base = StaticArrayImpl<UnderlyingType, Size_, IsMask_, Derived_>;
 
     ENOKI_ARRAY_DEFAULTS(StaticArrayImpl)
     using Base::derived;

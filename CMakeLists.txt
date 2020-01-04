@@ -221,7 +221,6 @@ set(ENOKI_HEADERS
     ${PROJECT_SOURCE_DIR}/include/enoki/array_macro.h
     ${PROJECT_SOURCE_DIR}/include/enoki/array_math.h
     ${PROJECT_SOURCE_DIR}/include/enoki/array_recursive.h
-    ${PROJECT_SOURCE_DIR}/include/enoki/array_round.h
     ${PROJECT_SOURCE_DIR}/include/enoki/array_router.h
     ${PROJECT_SOURCE_DIR}/include/enoki/array_sse42.h
     ${PROJECT_SOURCE_DIR}/include/enoki/array_static.h

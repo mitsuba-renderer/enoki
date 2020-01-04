@@ -32,8 +32,6 @@ struct DynamicArrayReference : ArrayBase<value_t<Packet_>, DynamicArrayReference
     using MaskType = DynamicArrayReference<mask_t<Packet>>;
 
     static constexpr size_t       PacketSize  = Packet::Size;
-    static constexpr bool         Approx      = Packet::Approx;
-    static constexpr RoundingMode Mode        = Packet::Mode;
     static constexpr bool         IsMask      = Packet::IsMask;
 
     DynamicArrayReference(Packet *packets) : m_packets(packets) { }
@@ -67,8 +65,6 @@ struct DynamicArrayImpl : ArrayBase<value_t<Packet_>, Derived_> {
     using PacketHolder                        = std::unique_ptr<Packet[]>;
 
     static constexpr size_t       PacketSize  = Packet::Size;
-    static constexpr bool         Approx      = Packet::Approx;
-    static constexpr RoundingMode Mode        = Packet::Mode;
     static constexpr bool         IsMask      = Packet::IsMask;
 
     using typename Base::Derived;

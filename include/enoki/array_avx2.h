@@ -15,16 +15,16 @@
 
 NAMESPACE_BEGIN(enoki)
 NAMESPACE_BEGIN(detail)
-template <typename Value>    struct is_native<Value, 8, RoundingMode::Default, enable_if_int32_t<Value>> : std::true_type { };
-template <typename Value>    struct is_native<Value, 4, RoundingMode::Default, enable_if_int64_t<Value>> : std::true_type { };
-template <typename Value>    struct is_native<Value, 3, RoundingMode::Default, enable_if_int64_t<Value>> : std::true_type { };
+template <typename Value>    struct is_native<Value, 8, enable_if_int32_t<Value>> : std::true_type { };
+template <typename Value>    struct is_native<Value, 4, enable_if_int64_t<Value>> : std::true_type { };
+template <typename Value>    struct is_native<Value, 3, enable_if_int64_t<Value>> : std::true_type { };
 NAMESPACE_END(detail)
 
 /// Partial overload of StaticArrayImpl using AVX intrinsics (32 bit integers)
 template <typename Value_, bool IsMask_, typename Derived_> struct alignas(32)
-    StaticArrayImpl<Value_, 8, false, RoundingMode::Default, IsMask_, Derived_, enable_if_int32_t<Value_>>
-  : StaticArrayBase<Value_, 8, false, RoundingMode::Default, IsMask_, Derived_> {
-    ENOKI_NATIVE_ARRAY(Value_, 8, false, __m256i, RoundingMode::Default)
+    StaticArrayImpl<Value_, 8, IsMask_, Derived_, enable_if_int32_t<Value_>>
+  : StaticArrayBase<Value_, 8, IsMask_, Derived_> {
+    ENOKI_NATIVE_ARRAY(Value_, 8, __m256i)
 
     // -----------------------------------------------------------------------
     //! @{ \name Value constructors
@@ -556,9 +556,9 @@ template <typename Value_, bool IsMask_, typename Derived_> struct alignas(32)
 
 /// Partial overload of StaticArrayImpl using AVX intrinsics (64 bit integers)
 template <typename Value_, bool IsMask_, typename Derived_> struct alignas(32)
-    StaticArrayImpl<Value_, 4, false, RoundingMode::Default, IsMask_, Derived_, enable_if_int64_t<Value_>>
-  : StaticArrayBase<Value_, 4, false, RoundingMode::Default, IsMask_, Derived_> {
-    ENOKI_NATIVE_ARRAY(Value_, 4, false, __m256i, RoundingMode::Default)
+    StaticArrayImpl<Value_, 4, IsMask_, Derived_, enable_if_int64_t<Value_>>
+  : StaticArrayBase<Value_, 4, IsMask_, Derived_> {
+    ENOKI_NATIVE_ARRAY(Value_, 4, __m256i)
 
     // -----------------------------------------------------------------------
     //! @{ \name Value constructors
@@ -1111,9 +1111,9 @@ template <typename Value_, bool IsMask_, typename Derived_> struct alignas(32)
 
 /// Partial overload of StaticArrayImpl for the n=3 case (64 bit integers)
 template <typename Value_, bool IsMask_, typename Derived_> struct alignas(32)
-    StaticArrayImpl<Value_, 3, false, RoundingMode::Default, IsMask_, Derived_, enable_if_int64_t<Value_>>
-  : StaticArrayImpl<Value_, 4, false, RoundingMode::Default, IsMask_, Derived_> {
-    using Base = StaticArrayImpl<Value_, 4, false, RoundingMode::Default, IsMask_, Derived_>;
+    StaticArrayImpl<Value_, 3, IsMask_, Derived_, enable_if_int64_t<Value_>>
+  : StaticArrayImpl<Value_, 4, IsMask_, Derived_> {
+    using Base = StaticArrayImpl<Value_, 4, IsMask_, Derived_>;
 
     ENOKI_DECLARE_3D_ARRAY(StaticArrayImpl)
 
@@ -1247,11 +1247,11 @@ template <typename Value_, bool IsMask_, typename Derived_> struct alignas(32)
 
 #if defined(ENOKI_X86_AVX512VL)
 template <typename Value_, typename Derived_>
-ENOKI_DECLARE_KMASK(Value_, 8, false, RoundingMode::Default, Derived_, enable_if_int32_t<Value_>)
+ENOKI_DECLARE_KMASK(Value_, 8, Derived_, enable_if_int32_t<Value_>)
 template <typename Value_, typename Derived_>
-ENOKI_DECLARE_KMASK(Value_, 4, false, RoundingMode::Default, Derived_, enable_if_int64_t<Value_>)
+ENOKI_DECLARE_KMASK(Value_, 4, Derived_, enable_if_int64_t<Value_>)
 template <typename Value_, typename Derived_>
-ENOKI_DECLARE_KMASK(Value_, 3, false, RoundingMode::Default, Derived_, enable_if_int64_t<Value_>)
+ENOKI_DECLARE_KMASK(Value_, 3, Derived_, enable_if_int64_t<Value_>)
 #endif
 
 NAMESPACE_END(enoki)

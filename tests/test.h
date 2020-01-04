@@ -106,7 +106,6 @@ public:
                 while (!length.empty() && length[0] == '0')
                     length = length.substr(1);
                 name = name.substr(offset+1);
-                replace(length, "acc", ", approx=false");
                 prefix = "Array<" + type + ", " + length + ">";
             }
 
@@ -482,22 +481,19 @@ NAMESPACE_END(test)
 
 #define ENOKI_TEST_TYPE(name, type)                                             \
     template <typename Value, size_t Size,                                      \
-              bool Approx = array_approx_v<Value>,                              \
-              typename T = enoki::Array<Value, Size, Approx>>                   \
+              typename T = enoki::Array<Value, Size>>                           \
     void name##_##type();                                                       \
     ENOKI_TEST_HELPER(name##_##type, type)                                      \
-    template <typename Value, size_t Size, bool Approx, typename T>             \
+    template <typename Value, size_t Size, typename T>                          \
     void name##_##type()
 
 #define ENOKI_TEST_FLOAT(name)                                                  \
     template <typename Value, size_t Size,                                      \
-              bool Approx = array_approx_v<Value>,                              \
-              typename T = enoki::Array<Value, Size, Approx>>                   \
+              typename T = enoki::Array<Value, Size>>                           \
     void name();                                                                \
-    ENOKI_TEST(array_float_01acc_##name) { name<float, 1, false>();  }          \
     ENOKI_TEST_HELPER(name, float)                                              \
     ENOKI_TEST_HELPER(name, double)                                             \
-    template <typename Value, size_t Size, bool Approx, typename T>             \
+    template <typename Value, size_t Size, typename T>                          \
     void name()
 
 #define ENOKI_TEST_INT(name)                                                    \
@@ -513,17 +509,15 @@ NAMESPACE_END(test)
 
 #define ENOKI_TEST_ALL(name)                                                    \
     template <typename Value, size_t Size,                                      \
-              bool Approx = array_approx_v<Value>,                              \
-              typename T = enoki::Array<Value, Size, Approx>>                   \
+              typename T = enoki::Array<Value, Size>>                           \
     void name();                                                                \
-    ENOKI_TEST(array_float_01acc_##name) { name<float, 1, false>();  }          \
     ENOKI_TEST_HELPER(name, float)                                              \
     ENOKI_TEST_HELPER(name, double)                                             \
     ENOKI_TEST_HELPER(name, int32_t)                                            \
     ENOKI_TEST_HELPER(name, uint32_t)                                           \
     ENOKI_TEST_HELPER(name, int64_t)                                            \
     ENOKI_TEST_HELPER(name, uint64_t)                                           \
-    template <typename Value, size_t Size, bool Approx, typename T>             \
+    template <typename Value, size_t Size, typename T>                          \
     void name()
 
 int main(int argc, char** argv) {

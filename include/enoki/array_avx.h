@@ -21,10 +21,10 @@ template <> struct is_native<double, 3> : std::true_type { };
 NAMESPACE_END(detail)
 
 /// Partial overload of StaticArrayImpl using AVX intrinsics (single precision)
-template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(32)
-    StaticArrayImpl<float, 8, Approx_, RoundingMode::Default, IsMask_, Derived_>
-  : StaticArrayBase<float, 8, Approx_, RoundingMode::Default, IsMask_, Derived_> {
-    ENOKI_NATIVE_ARRAY(float, 8, Approx_, __m256, RoundingMode::Default)
+template <bool IsMask_, typename Derived_> struct alignas(32)
+    StaticArrayImpl<float, 8, IsMask_, Derived_>
+  : StaticArrayBase<float, 8, IsMask_, Derived_> {
+    ENOKI_NATIVE_ARRAY(float, 8, __m256)
 
     // -----------------------------------------------------------------------
     //! @{ \name Value constructors
@@ -327,36 +327,32 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(32)
             return _mm512_castps512_ps256(
                 _mm512_rcp28_ps(_mm512_castps256_ps512(m)));
         #else
-            if constexpr (Approx_) {
-                /* Use best reciprocal approximation available on the current
-                   hardware and refine */
-                __m256 r;
-                #if defined(ENOKI_X86_AVX512VL)
-                    r = _mm256_rcp14_ps(m); /* rel error < 2^-14 */
-                #else
-                    r = _mm256_rcp_ps(m);   /* rel error < 1.5*2^-12 */
-                #endif
+            /* Use best reciprocal approximation available on the current
+               hardware and refine */
+            __m256 r;
+            #if defined(ENOKI_X86_AVX512VL)
+                r = _mm256_rcp14_ps(m); /* rel error < 2^-14 */
+            #else
+                r = _mm256_rcp_ps(m);   /* rel error < 1.5*2^-12 */
+            #endif
 
-                /* Refine using one Newton-Raphson iteration */
-                __m256 t0 = _mm256_add_ps(r, r),
-                       t1 = _mm256_mul_ps(r, m),
-                       ro = r;
-                (void) ro;
+            /* Refine using one Newton-Raphson iteration */
+            __m256 t0 = _mm256_add_ps(r, r),
+                   t1 = _mm256_mul_ps(r, m),
+                   ro = r;
+            (void) ro;
 
-                #if defined(ENOKI_X86_FMA)
-                    r = _mm256_fnmadd_ps(t1, r, t0);
-                #else
-                    r = _mm256_sub_ps(t0, _mm256_mul_ps(r, t1));
-                #endif
+            #if defined(ENOKI_X86_FMA)
+                r = _mm256_fnmadd_ps(t1, r, t0);
+            #else
+                r = _mm256_sub_ps(t0, _mm256_mul_ps(r, t1));
+            #endif
 
-                #if defined(ENOKI_X86_AVX512VL)
-                    return _mm256_fixupimm_ps(r, m, _mm256_set1_epi32(0x0087A622), 0);
-                #else
-                    return _mm256_blendv_ps(r, ro, t1); /* mask bit is '1' iff t1 == nan */
-                #endif
-            } else {
-                return (Scalar) 1 / derived();
-            }
+            #if defined(ENOKI_X86_AVX512VL)
+                return _mm256_fixupimm_ps(r, m, _mm256_set1_epi32(0x0087A622), 0);
+            #else
+                return _mm256_blendv_ps(r, ro, t1); /* mask bit is '1' iff t1 == nan */
+            #endif
         #endif
     }
 
@@ -366,57 +362,37 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(32)
             return _mm512_castps512_ps256(
                 _mm512_rsqrt28_ps(_mm512_castps256_ps512(m)));
         #else
-            if constexpr (Approx_) {
-                /* Use best reciprocal square root approximation available
-                   on the current hardware and refine */
-                __m256 r;
-                #if defined(ENOKI_X86_AVX512VL)
-                    r = _mm256_rsqrt14_ps(m); /* rel error < 2^-14 */
-                #else
-                    r = _mm256_rsqrt_ps(m);   /* rel error < 1.5*2^-12 */
-                #endif
+            /* Use best reciprocal square root approximation available
+               on the current hardware and refine */
+            __m256 r;
+            #if defined(ENOKI_X86_AVX512VL)
+                r = _mm256_rsqrt14_ps(m); /* rel error < 2^-14 */
+            #else
+                r = _mm256_rsqrt_ps(m);   /* rel error < 1.5*2^-12 */
+            #endif
 
-                /* Refine using one Newton-Raphson iteration */
-                const __m256 c0 = _mm256_set1_ps(.5f),
-                             c1 = _mm256_set1_ps(3.f);
+            /* Refine using one Newton-Raphson iteration */
+            const __m256 c0 = _mm256_set1_ps(.5f),
+                         c1 = _mm256_set1_ps(3.f);
 
-                __m256 t0 = _mm256_mul_ps(r, c0),
-                       t1 = _mm256_mul_ps(r, m),
-                       ro = r;
-                (void) ro;
+            __m256 t0 = _mm256_mul_ps(r, c0),
+                   t1 = _mm256_mul_ps(r, m),
+                   ro = r;
+            (void) ro;
 
-                #if defined(ENOKI_X86_FMA)
-                    r = _mm256_mul_ps(_mm256_fnmadd_ps(t1, r, c1), t0);
-                #else
-                    r = _mm256_mul_ps(_mm256_sub_ps(c1, _mm256_mul_ps(t1, r)), t0);
-                #endif
+            #if defined(ENOKI_X86_FMA)
+                r = _mm256_mul_ps(_mm256_fnmadd_ps(t1, r, c1), t0);
+            #else
+                r = _mm256_mul_ps(_mm256_sub_ps(c1, _mm256_mul_ps(t1, r)), t0);
+            #endif
 
-                #if defined(ENOKI_X86_AVX512VL)
-                    return _mm256_fixupimm_ps(r, m, _mm256_set1_epi32(0x0383A622), 0);
-                #else
-                    return _mm256_blendv_ps(r, ro, t1); /* mask bit is '1' iff t1 == nan */
-                #endif
-            } else {
-                return (Scalar) 1 / sqrt(derived());
-            }
+            #if defined(ENOKI_X86_AVX512VL)
+                return _mm256_fixupimm_ps(r, m, _mm256_set1_epi32(0x0383A622), 0);
+            #else
+                return _mm256_blendv_ps(r, ro, t1); /* mask bit is '1' iff t1 == nan */
+            #endif
         #endif
     }
-
-#if defined(ENOKI_X86_AVX512ER)
-    ENOKI_INLINE Derived exp_() const {
-        if constexpr (Approx_) {
-            /* 23 bit precision, only use in approximate mode */
-            return _mm512_castps512_ps256(
-                _mm512_exp2a23_ps(_mm512_castps256_ps512(
-                    _mm256_mul_ps(m, _mm256_set1_ps(1.4426950408889634074f)))));
-        } else {
-            Derived r;
-            for (size_t i = 0; i < Derived::Size; ++i)
-                r.coeff(i) = exp<Approx_>(coeff(i));
-            return r;
-        }
-    }
-#endif
 
     //! @}
     // -----------------------------------------------------------------------
@@ -609,10 +585,10 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(32)
 } ENOKI_MAY_ALIAS;
 
 /// Partial overload of StaticArrayImpl using AVX intrinsics (double precision)
-template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(32)
-    StaticArrayImpl<double, 4, Approx_, RoundingMode::Default, IsMask_, Derived_>
-  : StaticArrayBase<double, 4, Approx_, RoundingMode::Default, IsMask_, Derived_> {
-    ENOKI_NATIVE_ARRAY(double, 4, Approx_, __m256d, RoundingMode::Default)
+template <bool IsMask_, typename Derived_> struct alignas(32)
+    StaticArrayImpl<double, 4, IsMask_, Derived_>
+  : StaticArrayBase<double, 4, IsMask_, Derived_> {
+    ENOKI_NATIVE_ARRAY(double, 4, __m256d)
 
     // -----------------------------------------------------------------------
     //! @{ \name Value constructors
@@ -843,72 +819,64 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(32)
 
 #if defined(ENOKI_X86_AVX512VL) || defined(ENOKI_X86_AVX512ER)
     ENOKI_INLINE Derived rcp_() const {
-        if constexpr (Approx_) {
-            /* Use best reciprocal approximation available on the current
-               hardware and refine */
-            __m256d r;
-            #if defined(ENOKI_X86_AVX512ER)
-                /* rel err < 2^28 */
-                r = _mm512_castpd512_pd256(
-                    _mm512_rcp28_pd(_mm512_castpd256_pd512(m)));
-            #elif defined(ENOKI_X86_AVX512VL)
-                r = _mm256_rcp14_pd(m); /* rel error < 2^-14 */
-            #endif
+        /* Use best reciprocal approximation available on the current
+           hardware and refine */
+        __m256d r;
+        #if defined(ENOKI_X86_AVX512ER)
+            /* rel err < 2^28 */
+            r = _mm512_castpd512_pd256(
+                _mm512_rcp28_pd(_mm512_castpd256_pd512(m)));
+        #elif defined(ENOKI_X86_AVX512VL)
+            r = _mm256_rcp14_pd(m); /* rel error < 2^-14 */
+        #endif
 
-            __m256d ro = r, t0, t1;
-            (void) ro;
+        __m256d ro = r, t0, t1;
+        (void) ro;
 
-            /* Refine using 1-2 Newton-Raphson iterations */
-            ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
-                t0 = _mm256_add_pd(r, r);
-                t1 = _mm256_mul_pd(r, m);
-                r = _mm256_fnmadd_pd(t1, r, t0);
-            }
-
-            #if defined(ENOKI_X86_AVX512VL)
-                return _mm256_fixupimm_pd(r, m, _mm256_set1_epi32(0x0087A622), 0);
-            #else
-                return _mm256_blendv_pd(r, ro, t1); /* mask bit is '1' iff t1 == nan */
-            #endif
-        } else {
-            return (Scalar) 1 / derived();
+        /* Refine using 1-2 Newton-Raphson iterations */
+        ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
+            t0 = _mm256_add_pd(r, r);
+            t1 = _mm256_mul_pd(r, m);
+            r = _mm256_fnmadd_pd(t1, r, t0);
         }
+
+        #if defined(ENOKI_X86_AVX512VL)
+            return _mm256_fixupimm_pd(r, m, _mm256_set1_epi32(0x0087A622), 0);
+        #else
+            return _mm256_blendv_pd(r, ro, t1); /* mask bit is '1' iff t1 == nan */
+        #endif
     }
 
     ENOKI_INLINE Derived rsqrt_() const {
-        if constexpr (Approx_) {
-            /* Use best reciprocal square root approximation available
-               on the current hardware and refine */
-            __m256d r;
-            #if defined(ENOKI_X86_AVX512ER)
-                /* rel err < 2^28 */
-                r = _mm512_castpd512_pd256(
-                    _mm512_rsqrt28_pd(_mm512_castpd256_pd512(m)));
-            #elif defined(ENOKI_X86_AVX512VL)
-                r = _mm256_rsqrt14_pd(m); /* rel error < 2^-14 */
-            #endif
+        /* Use best reciprocal square root approximation available
+           on the current hardware and refine */
+        __m256d r;
+        #if defined(ENOKI_X86_AVX512ER)
+            /* rel err < 2^28 */
+            r = _mm512_castpd512_pd256(
+                _mm512_rsqrt28_pd(_mm512_castpd256_pd512(m)));
+        #elif defined(ENOKI_X86_AVX512VL)
+            r = _mm256_rsqrt14_pd(m); /* rel error < 2^-14 */
+        #endif
 
-            const __m256d c0 = _mm256_set1_pd(0.5),
-                          c1 = _mm256_set1_pd(3.0);
+        const __m256d c0 = _mm256_set1_pd(0.5),
+                      c1 = _mm256_set1_pd(3.0);
 
-            __m256d ro = r, t0, t1;
-            (void) ro;
+        __m256d ro = r, t0, t1;
+        (void) ro;
 
-            /* Refine using 1-2 Newton-Raphson iterations */
-            ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
-                t0 = _mm256_mul_pd(r, c0);
-                t1 = _mm256_mul_pd(r, m);
-                r = _mm256_mul_pd(_mm256_fnmadd_pd(t1, r, c1), t0);
-            }
-
-            #if defined(ENOKI_X86_AVX512VL)
-                return _mm256_fixupimm_pd(r, m, _mm256_set1_epi32(0x0383A622), 0);
-            #else
-                return _mm256_blendv_pd(r, ro, t1); /* mask bit is '1' iff t1 == nan */
-            #endif
-        } else {
-            return (Scalar) 1 / sqrt(derived());
+        /* Refine using 1-2 Newton-Raphson iterations */
+        ENOKI_UNROLL for (int i = 0; i < (has_avx512er ? 1 : 2); ++i) {
+            t0 = _mm256_mul_pd(r, c0);
+            t1 = _mm256_mul_pd(r, m);
+            r = _mm256_mul_pd(_mm256_fnmadd_pd(t1, r, c1), t0);
         }
+
+        #if defined(ENOKI_X86_AVX512VL)
+            return _mm256_fixupimm_pd(r, m, _mm256_set1_epi32(0x0383A622), 0);
+        #else
+            return _mm256_blendv_pd(r, ro, t1); /* mask bit is '1' iff t1 == nan */
+        #endif
     }
 #endif
 
@@ -1064,17 +1032,16 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(32)
 } ENOKI_MAY_ALIAS;
 
 /// Partial overload of StaticArrayImpl for the n=3 case (double precision)
-template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(32)
-    StaticArrayImpl<double, 3, Approx_, RoundingMode::Default, IsMask_, Derived_>
-  : StaticArrayImpl<double, 4, Approx_, RoundingMode::Default, IsMask_, Derived_> {
-    using Base = StaticArrayImpl<double, 4, Approx_, RoundingMode::Default, IsMask_, Derived_>;
+template <bool IsMask_, typename Derived_> struct alignas(32)
+    StaticArrayImpl<double, 3, IsMask_, Derived_>
+  : StaticArrayImpl<double, 4, IsMask_, Derived_> {
+    using Base = StaticArrayImpl<double, 4, IsMask_, Derived_>;
 
     ENOKI_DECLARE_3D_ARRAY(StaticArrayImpl)
 
 #if defined(ENOKI_X86_F16C)
-    template <bool Approx2, RoundingMode Mode2, typename Derived2>
-    ENOKI_INLINE StaticArrayImpl(
-        const StaticArrayBase<half, 3, Approx2, Mode2, IsMask_, Derived2> &a) {
+    template <typename Derived2>
+    ENOKI_INLINE StaticArrayImpl(const StaticArrayBase<half, 3, IsMask_, Derived2> &a) {
         uint16_t temp[4];
         memcpy(temp, a.derived().data(), sizeof(uint16_t) * 3);
         temp[3] = 0;
@@ -1195,12 +1162,12 @@ template <bool Approx_, bool IsMask_, typename Derived_> struct alignas(32)
 } ENOKI_MAY_ALIAS;
 
 #if defined(ENOKI_X86_AVX512VL)
-template <bool Approx_, typename Derived_>
-ENOKI_DECLARE_KMASK(float, 8, Approx_, RoundingMode::Default, Derived_, int)
-template <bool Approx_, typename Derived_>
-ENOKI_DECLARE_KMASK(double, 4, Approx_, RoundingMode::Default, Derived_, int)
-template <bool Approx_, typename Derived_>
-ENOKI_DECLARE_KMASK(double, 3, Approx_, RoundingMode::Default, Derived_, int)
+template <typename Derived_>
+ENOKI_DECLARE_KMASK(float, 8, Derived_, int)
+template <typename Derived_>
+ENOKI_DECLARE_KMASK(double, 4, Derived_, int)
+template <typename Derived_>
+ENOKI_DECLARE_KMASK(double, 3, Derived_, int)
 #endif
 
 NAMESPACE_END(enoki)
