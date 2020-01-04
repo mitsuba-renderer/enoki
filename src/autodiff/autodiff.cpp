@@ -204,7 +204,7 @@ template <typename Value> struct Tape<Value>::SimplificationLock {
 };
 
 template <typename Value> std::unique_ptr<Tape<Value>> Tape<Value>::s_tape;
-template <typename Value> Tape<Value> *Tape<Value>::get() {
+template <typename Value> ENOKI_PURE Tape<Value> *Tape<Value>::get() {
     if (ENOKI_UNLIKELY(!s_tape))
         s_tape = std::unique_ptr<Tape>(new Tape());
     return s_tape.get();
