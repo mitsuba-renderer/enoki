@@ -319,8 +319,8 @@ template <typename Array, typename Value> void register_implicit_casts() {
 
                 if constexpr (!std::is_same_v<Scalar, Value>) {
                     auto tinfo = py::detail::get_global_type_info(typeid(Value));
-                    const char *value_type = ((PyTypeObject *) tinfo->type) ->tp_name;
-                    pass |= strcmp(tp_name_src, value_type) == 0;
+                    if (tinfo)
+                        pass |= strcmp(tp_name_src, tinfo->type->tp_name) == 0;
                 }
             }
 
