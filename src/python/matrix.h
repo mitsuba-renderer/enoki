@@ -68,7 +68,7 @@ py::class_<Matrix> bind_matrix(py::module &m, py::module &s, const char *name) {
             Matrix result;
             for (size_t i = 0; i < size; ++i)
                 result[i] = py::cast<Vector>(list[i]);
-            return result;
+            return transpose(result);
         }))
         .def(py::self == py::self)
         .def(py::self != py::self)
@@ -83,6 +83,11 @@ py::class_<Matrix> bind_matrix(py::module &m, py::module &s, const char *name) {
             if (index.first >= Matrix::Size || index.second >= Matrix::Size)
                 throw py::index_error();
             return a.coeff(index.second, index.first);
+        })
+        .def("__getitem__", [](const Matrix &a, size_t index) {
+            if (index >= Matrix::Size)
+                throw py::index_error();
+            return a[index];
         })
         .def("__setitem__", [](Matrix &a, std::pair<size_t, size_t> index, const Value &value) {
             if (index.first >= Matrix::Size || index.second >= Matrix::Size)
@@ -144,6 +149,8 @@ py::class_<Matrix> bind_matrix(py::module &m, py::module &s, const char *name) {
 
     cl.def_static("identity", [](size_t size) { return identity<Matrix>(size); }, "size"_a = 1);
     cl.def_static("zero", [](size_t size) { return zero<Matrix>(size); }, "size"_a = 1);
+
+    cl.def("__len__", [](const Matrix &m) { return Matrix::Size; });
 
     cl.def(py::init([](const py::ndarray &obj) -> Matrix {
             using T = expr_t<decltype(detach(std::declval<Matrix &>()))>;

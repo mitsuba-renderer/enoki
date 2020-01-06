@@ -6,14 +6,23 @@ bool __implicit_conversion = false;
 bool allclose_py(const py::object &a, const py::object &b,
                  const py::float_ &rtol, const py::float_ &atol,
                  bool equal_nan) {
+    const char *tp_name_a = a.ptr()->ob_type->tp_name,
+               *tp_name_b = b.ptr()->ob_type->tp_name;
+
     ssize_t la = PyObject_Length(a.ptr()),
             lb = PyObject_Length(b.ptr());
 
-    bool num_a = PyNumber_Check(a.ptr()) && la == -1,
-         num_b = PyNumber_Check(b.ptr()) && lb == -1;
+    bool num_a     = PyNumber_Check(a.ptr()) && la == -1,
+         num_b     = PyNumber_Check(b.ptr()) && lb == -1,
+         enoki_a   = strncmp(tp_name_a, "enoki.", 6) == 0,
+         enoki_b   = strncmp(tp_name_b, "enoki.", 6) == 0,
+         ndarray_a = strcmp(tp_name_a, "numpy.ndarray") == 0,
+         ndarray_b = strcmp(tp_name_b, "numpy.ndarray") == 0;
 
-    const char *tp_name_a = a.ptr()->ob_type->tp_name,
-               *tp_name_b = b.ptr()->ob_type->tp_name;
+    if (enoki_a && (ndarray_b || num_b))
+        return allclose_py(a, a.get_type()(b), rtol, atol, equal_nan);
+    else if (enoki_b && (ndarray_a || num_a))
+        return allclose_py(b.get_type()(a), b, rtol, atol, equal_nan);
 
     if (la == -1 || lb == -1)
         PyErr_Clear();
@@ -21,10 +30,7 @@ bool allclose_py(const py::object &a, const py::object &b,
     if (la != lb && !((num_a && lb > 0) || (num_b && la > 0)))
         throw std::runtime_error("enoki.allclose(): length mismatch!");
 
-    bool ok_a = num_a || strncmp(tp_name_a, "enoki.", 6) == 0;
-    bool ok_b = num_b || strncmp(tp_name_b, "enoki.", 6) == 0;
-
-    if (ok_a && ok_b) {
+    if ((enoki_a && enoki_b) || (num_a && num_b)) {
         py::module ek = py::module::import("enoki");
 
         py::object abs        = ek.attr("abs"),

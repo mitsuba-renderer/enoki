@@ -252,9 +252,9 @@ template <typename Array> Array numpy_to_enoki(py::array src);
 extern bool *implicit_conversion;
 
 struct set_flag {
-    bool &flag;
-    set_flag(bool &flag) : flag(flag) { flag = true; }
-    ~set_flag() { flag = false; }
+    bool &flag, backup;
+    set_flag(bool &flag_, bool value = true) : flag(flag_), backup(flag_) { flag = value; }
+    ~set_flag() { flag = backup; }
 };
 
 /// Customized version of pybind11::implicitly_convertible() which disables
@@ -298,9 +298,9 @@ template <typename Array, typename Value> void register_implicit_casts() {
             bool pass = false;
 
             if (PyList_CheckExact(obj)) {
-                pass = (Size == Dynamic) || Size == PyList_GET_SIZE(obj);
+                pass = Size == Dynamic || Size == PyList_GET_SIZE(obj);
             } else if (PyTuple_CheckExact(obj)) {
-                pass = (Size == Dynamic) || Size == PyTuple_GET_SIZE(obj);
+                pass = Size == Dynamic || Size == PyTuple_GET_SIZE(obj);
             } else if (PyNumber_Check(obj)) {
                 pass = true;
             } else if (strcmp(tp_name_src, "numpy.ndarray") == 0 ||
@@ -448,6 +448,8 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
             if (size != Array::Size)
                 throw py::reference_cast_error();
 
+            // allow nested implicit conversions
+            set_flag flag_helper(*implicit_conversion, false);
             Array result;
             for (size_t i = 0; i < size; ++i)
                 result[i] = py::cast<Value>(list[i]);
@@ -467,6 +469,8 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
             if (size != Array::Size)
                 throw py::reference_cast_error();
 
+            // allow nested implicit conversions
+            set_flag flag_helper(*implicit_conversion, false);
             Array result;
             for (size_t i = 0; i < size; ++i)
                 result[i] = py::cast<Value>(tuple[i]);
