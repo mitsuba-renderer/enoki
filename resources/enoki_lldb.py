@@ -161,7 +161,7 @@ def __lldb_init_module(debugger, internal_dict):
 
     # Mitsuba 2 is one of the main users of Enoki. For convenience, also
     # declare its custom array types here
-    regexp_2 = r'mitsuba::(Vector|Point|Normal|Spectrum|Color)?<.+>'
+    regexp_2 = r'mitsuba::(Vector|Point|Normal|Spectrum|Color)<.+>'
 
     regexp_combined = r'^(%s)|(%s)$' % (regexp_1, regexp_2)
     attach(enoki_category, StaticArraySynthProvider, regexp_combined)

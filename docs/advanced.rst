@@ -4,13 +4,14 @@ Advanced topics
 This section discusses a number of advanced operations and ways of extending
 Enoki.
 
-Improving introspection of Enoki types in LLDB
-----------------------------------------------
+Improving introspection of Enoki types in LLDB/GDB
+--------------------------------------------------
 
 When debugging programs built on top of Enoki using `LLDB
-<https://lldb.llvm.org/>`_, the stringified versions of arrays are needlessly
-verbose and reveal private implementation details. For instance, printing a
-simple statically sized 3D vectors like ``Array<float, 3>(1, 2, 3)`` yields
+<https://lldb.llvm.org/>`_ or `GDB <https://www.gnu.org/software/gdb/>`_, the
+stringified versions of arrays are needlessly verbose and reveal private
+implementation details. For instance, printing a simple statically sized 3D
+vectors like ``Array<float, 3>(1, 2, 3)`` in LLDB yields
 
 .. code-block:: text
 
@@ -41,20 +42,29 @@ obscured behind a pointer:
       }
     }
 
-To improve readability, this repository includes a script that improves LLDB's
+To improve readability, this repository includes scripts that improve GDB and LLDB's
 understanding of Enoki types. With this script, both of the above turn into
 
 .. code-block:: text
 
     $0 = [1, 2, 3]
 
-To install it, copy the file ``resources/enoki_lldb.py`` to ``~/.lldb``
+To install it in LLDB, copy the file ``resources/enoki_lldb.py`` to ``~/.lldb``
 (creating the directory, if not present) and then apppend the following line to
 the file ``~/.lldbinit`` (again, creating it if, not already present):
 
 .. code-block:: text
 
-   command script import ~/.lldb/enoki_lldb.py
+    command script import ~/.lldb/enoki_lldb.py
+
+To install it in GDB, copy the file ``resources/enoki_gdb.py`` to ``~/.gdb``
+(creating the directory, if not present) and then apppend the following two lines to
+the file ``~/.gdbinit`` (again, creating it if, not already present):
+
+.. code-block:: text
+
+    set print pretty
+    source ~/.gdb/enoki_gdb.py
 
 .. _compression:
 
