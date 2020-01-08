@@ -286,60 +286,59 @@ template <typename Array, typename Value> void register_implicit_casts() {
     using Scalar = std::conditional_t<!is_mask_v<Array>, scalar_t<Array>, bool>;
     static constexpr size_t Size = array_size_v<Array>;
 
-    if constexpr (Size != 0) {
-        auto implicit_caster = [](PyObject *obj, PyTypeObject *type) -> PyObject * {
-            const char *tp_name_src = obj->ob_type->tp_name,
-                       *tp_name_dst = type->tp_name;
+    auto implicit_caster = [](PyObject *obj, PyTypeObject *type) -> PyObject * {
+        const char *tp_name_src = obj->ob_type->tp_name,
+                    *tp_name_dst = type->tp_name;
 
-            if (*implicit_conversion) // limit nesting of implicit conversions
-                return nullptr;
-            set_flag flag_helper(*implicit_conversion);
+        if (*implicit_conversion) // limit nesting of implicit conversions
+            return nullptr;
+        set_flag flag_helper(*implicit_conversion);
 
-            bool pass = false;
+        bool pass = false;
 
-            if (PyList_CheckExact(obj)) {
-                pass = Size == Dynamic || Size == PyList_GET_SIZE(obj);
-            } else if (PyTuple_CheckExact(obj)) {
-                pass = Size == Dynamic || Size == PyTuple_GET_SIZE(obj);
-            } else if (PyNumber_Check(obj)) {
-                pass = true;
-            } else if (strcmp(tp_name_src, "numpy.ndarray") == 0 ||
-                       strcmp(tp_name_src, "Tensor") == 0) {
-                pass = true;
-            } else {
-                // Convert from a different vector type (Vector4f -> Vector4fX)
-                if (strncmp(tp_name_src, "enoki.", 6) == 0 &&
-                    strncmp(tp_name_dst, "enoki.", 6) == 0) {
-                    const char *dot_src = strchr(tp_name_src + 6, '.'),
-                               *dot_dst = strchr(tp_name_dst + 6, '.');
+        if (PyList_CheckExact(obj)) {
+            pass = Size == Dynamic || Size == PyList_GET_SIZE(obj);
+        } else if (PyTuple_CheckExact(obj)) {
+            pass = Size == Dynamic || Size == PyTuple_GET_SIZE(obj);
+        } else if (Size != 0 && PyNumber_Check(obj)) {
+            pass = true;
+        } else if (Size != 0 &&
+                    (strcmp(tp_name_src, "numpy.ndarray") == 0 ||
+                    strcmp(tp_name_src, "Tensor") == 0)) {
+            pass = true;
+        } else {
+            // Convert from a different vector type (Vector4f -> Vector4fX)
+            if (strncmp(tp_name_src, "enoki.", 6) == 0 &&
+                strncmp(tp_name_dst, "enoki.", 6) == 0) {
+                const char *dot_src = strchr(tp_name_src + 6, '.'),
+                            *dot_dst = strchr(tp_name_dst + 6, '.');
 
-                    if (dot_src && dot_dst)
-                        pass |= strcmp(dot_src, dot_dst) == 0;
-                }
-
-                if constexpr (!std::is_same_v<Scalar, Value>) {
-                    auto tinfo = py::detail::get_global_type_info(typeid(Value));
-                    if (tinfo)
-                        pass |= strcmp(tp_name_src, tinfo->type->tp_name) == 0;
-                }
+                if (dot_src && dot_dst)
+                    pass |= strcmp(dot_src, dot_dst) == 0;
             }
 
-            if (!pass)
-                return nullptr;
+            if constexpr (!std::is_same_v<Scalar, Value>) {
+                auto tinfo = py::detail::get_global_type_info(typeid(Value));
+                if (tinfo)
+                    pass |= strcmp(tp_name_src, tinfo->type->tp_name) == 0;
+            }
+        }
 
-            PyObject *args = PyTuple_New(1);
-            Py_INCREF(obj);
-            PyTuple_SET_ITEM(args, 0, obj);
-            PyObject *result = PyObject_CallObject((PyObject *) type, args);
-            if (result == nullptr)
-                PyErr_Clear();
-            Py_DECREF(args);
-            return result;
-        };
+        if (!pass)
+            return nullptr;
 
-        auto tinfo = py::detail::get_type_info(typeid(Array));
-        tinfo->implicit_conversions.push_back(implicit_caster);
-    }
+        PyObject *args = PyTuple_New(1);
+        Py_INCREF(obj);
+        PyTuple_SET_ITEM(args, 0, obj);
+        PyObject *result = PyObject_CallObject((PyObject *) type, args);
+        if (result == nullptr)
+            PyErr_Clear();
+        Py_DECREF(args);
+        return result;
+    };
+
+    auto tinfo = py::detail::get_type_info(typeid(Array));
+    tinfo->implicit_conversions.push_back(implicit_caster);
 }
 
 template <typename Array>

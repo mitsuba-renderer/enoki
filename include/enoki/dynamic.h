@@ -1045,7 +1045,7 @@ auto vectorize(Func &&f, Args &&... args)
 
     if constexpr (Check || Resize) {
         size_t status[] = { (
-            !is_dynamic_v<Args> ||
+            (!is_dynamic_v<Args> || array_size_v<Args> == 0) ||
             ((slice_count != 1 && slices(args) == 1 && Resize)
                  ? (set_slices((detail::mutable_ref_t<decltype(args)>) args, slice_count), true)
                  : (slices(args) == slice_count)))... };
