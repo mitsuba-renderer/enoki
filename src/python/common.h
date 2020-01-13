@@ -539,7 +539,7 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
           .def(~py::self);
     }
 
-    if constexpr (!IsMask && array_depth_v<Array> == 1) {
+    if constexpr (!IsMask && array_depth_v<Array> == 1 && array_size_v<Array> == -1) {
         if (IsFloat)
             cl.def_static("linspace",
                   [](Scalar min, Scalar max, size_t size) {
@@ -549,6 +549,12 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
 
         cl.def_static("arange",
               [](size_t size) { return arange<Array>(size); }, "size"_a);
+
+        cl.def_static("arange",
+                      [](size_t start, size_t end, size_t step) {
+                          return arange<Array>(start, end, step);
+                      },
+                      "start"_a, "end"_a, "step"_a = 1);
     }
 
     if constexpr (IsDynamic) {
