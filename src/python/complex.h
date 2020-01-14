@@ -5,6 +5,7 @@
 template <typename Complex>
 py::class_<Complex> bind_complex(py::module &m, py::module &s, const char *name) {
     using Value = value_t<Complex>;
+    using Scalar = scalar_t<Value>;
 
     auto cls = py::class_<Complex>(s, name)
         .def(py::init<>())
@@ -45,6 +46,7 @@ py::class_<Complex> bind_complex(py::module &m, py::module &s, const char *name)
     m.def("conj", [](const Complex &z) { return conj(z); });
     m.def("exp", [](const Complex &z) { return exp(z); });
     m.def("log", [](const Complex &z) { return log(z); });
+    m.def("arg", [](const Complex &z) { return arg(z); });
     m.def("pow", [](const Complex &z1, const Complex &z2) { return pow(z1, z2); });
     m.def("sqrt", [](const Complex &z) { return sqrt(z); });
     m.def("sin", [](const Complex &z) { return sin(z); });
@@ -85,6 +87,9 @@ py::class_<Complex> bind_complex(py::module &m, py::module &s, const char *name)
             set_label(a, label);
         });
     }
+
+    py::implicitly_convertible<Value, Complex>();
+    py::implicitly_convertible<Scalar, Complex>();
 
     return cls;
 }
