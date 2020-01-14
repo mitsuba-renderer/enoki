@@ -558,12 +558,11 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
     }
 
     if constexpr (IsDynamic) {
-        cl.def_static("full",
-                      [](Scalar value, size_t size) {
-                          Array result(value);
-                          set_slices(result, size);
-                          return result;
-                      }, "value"_a, "size"_a);
+        cl.def_static(
+            "full",
+            [](Scalar value, size_t size) {
+                return full<Array>(value, size);
+            }, "value"_a, "size"_a = 1);
     }
 
     cl.def("__getitem__", [](const Array &a, size_t index) -> Value {

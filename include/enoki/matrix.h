@@ -165,34 +165,40 @@ ENOKI_INLINE Result operator*(const Matrix<T0, Size> &m0,
     return result;
 }
 
-template <typename T0, typename T1, size_t Size,
-          typename Value = expr_t<T0, T1>>
+template <typename T0, typename T1, size_t Size, enable_if_t<!T1::IsMatrix> = 0>
 ENOKI_INLINE auto operator*(const Matrix<T0, Size> &m, const T1 &s) {
-    if constexpr (array_size_v<T1> == Size && !std::is_same_v<T1, T0>) {
-        using Return = column_t<Matrix<expr_t<T0, value_t<T1>>, Size>>;
-        Return sum = m.coeff(0) * Return::full_(s.coeff(0), 1);
+    if constexpr (array_size_v<T1> == Size) {
+        using EValue  = expr_t<T0, value_t<T1>>;
+        using EVector = Array<EValue, Size>;
+        EVector sum = m.coeff(0) * EVector::full_(s.coeff(0), 1);
         for (size_t i = 1; i < Size; ++i)
-            sum = fmadd(m.coeff(i), Return::full_(s.coeff(i), 1), sum);
+            sum = fmadd(m.coeff(i), EVector::full_(s.coeff(i), 1), sum);
         return sum;
     } else {
-        using Result = Matrix<expr_t<T0, T1>, Size>;
-        return Result(Array<Array<expr_t<T0>, Size>, Size>(m) *
-                      full<Array<Array<scalar_t<T1>, Size>, Size>>(s));
+        using EValue  = expr_t<T0, T1>;
+        using EArray  = Array<Array<EValue, Size>, Size>;
+        using EMatrix = Matrix<EValue, Size>;
+
+        return EMatrix(EArray(m) * EArray::full_(EValue(s), 1));
     }
 }
 
-template <typename T0, typename T1, size_t Size,
-          typename Value = expr_t<T0, T1>, typename Result = Matrix<Value, Size>>
-ENOKI_INLINE Result operator*(const T0 &s, const Matrix<T1, Size> &m) {
-    return Array<Array<expr_t<T1>, Size>, Size>(m) *
-           full<Array<Array<scalar_t<T0>, Size>, Size>>(s);
+template <typename T0, typename T1, size_t Size, enable_if_t<!T0::IsMatrix> = 0>
+ENOKI_INLINE auto operator*(const T0 &s, const Matrix<T1, Size> &m) {
+    using EValue  = expr_t<T0, T1>;
+    using EArray  = Array<Array<EValue, Size>, Size>;
+    using EMatrix = Matrix<EValue, Size>;
+
+    return EMatrix(EArray::full_(EValue(s), 1) * EArray(m));
 }
 
-template <typename T0, typename T1, size_t Size,
-          typename Value = expr_t<T0, T1>, typename Result = Matrix<Value, Size>>
-ENOKI_INLINE Result operator/(const Matrix<T0, Size> &m, const T1 &s) {
-    return Array<Array<expr_t<T0>, Size>, Size>(m) *
-           full<Array<Array<scalar_t<Value>, Size>, Size>>(rcp(Value(s)));
+template <typename T0, typename T1, size_t Size, enable_if_t<!T1::IsMatrix> = 0>
+ENOKI_INLINE auto operator/(const Matrix<T0, Size> &m, const T1 &s) {
+    using EValue  = expr_t<T0, T1>;
+    using EArray  = Array<Array<EValue, Size>, Size>;
+    using EMatrix = Matrix<EValue, Size>;
+
+    return EMatrix(EArray(m) * EArray::full_(rcp(EValue(s)), 1));
 }
 
 template <typename Value, size_t Size>

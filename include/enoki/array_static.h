@@ -1088,13 +1088,12 @@ public:
                                    derived().coeff(i), mask.coeff(i));
     }
 
-    static ENOKI_INLINE Derived zero_() { return Derived(Value(0)); }
+    static ENOKI_INLINE Derived zero_() { return Derived(zero<Value>()); }
 
     template <typename T> static Derived full_(const T &value, size_t size) {
         ENOKI_MARK_USED(size);
-        if constexpr (array_depth_v<T> == array_depth_v<Derived> ||
-                      !is_static_array_v<Value> ||
-                      (array_depth_v<T> == 0 && !is_dynamic_v<Derived>)) {
+
+        if constexpr (array_depth_v<T> >= array_depth_v<Value>) {
             return Derived(value);
         } else {
             Derived result;

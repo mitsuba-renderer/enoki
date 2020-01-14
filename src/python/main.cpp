@@ -36,10 +36,11 @@ bool allclose_py(const py::object &a, const py::object &b,
         py::object abs        = ek.attr("abs"),
                    eq         = ek.attr("eq"),
                    isnan      = ek.attr("isnan"),
+                   full       = ek.attr("full"),
                    all_nested = ek.attr("all_nested");
 
         py::object lhs = abs(a - b),
-                   rhs = atol + abs(b) * rtol;
+                   rhs = full(b.get_type(), atol) + abs(b) * rtol;
 
         py::object cond =
             py::reinterpret_steal<py::object>(PyObject_RichCompare(lhs.ptr(), rhs.ptr(), Py_LE));
@@ -66,6 +67,11 @@ bool allclose_py(const py::object &a, const py::object &b,
     return true;
 }
 
+bool is_enoki_type(py::handle h) {
+    return PyType_CheckExact(h.ptr()) &&
+           strncmp(h.ptr()->ob_type->tp_name, "enoki.", 6) == 0;
+}
+
 PYBIND11_MODULE(core, m_) {
     ENOKI_MARK_USED(m_);
     py::module m = py::module::import("enoki");
@@ -77,7 +83,7 @@ PYBIND11_MODULE(core, m_) {
 
     m.def("empty",
         [](py::handle h, size_t size) {
-            if (size == 1)
+            if (!is_enoki_type(h) && size == 1)
                 return h();
             else
                 return h.attr("empty")(size);
@@ -86,7 +92,7 @@ PYBIND11_MODULE(core, m_) {
 
     m.def("zero",
         [](py::handle h, size_t size) {
-            if (size == 1)
+            if (!is_enoki_type(h) && size == 1)
                 return h(0);
             else
                 return h.attr("zero")(size);
@@ -95,7 +101,7 @@ PYBIND11_MODULE(core, m_) {
 
     m.def("arange",
         [](py::handle h, size_t size) {
-            if (size == 1)
+            if (!is_enoki_type(h) && size == 1)
                 return h(0);
             else
                 return h.attr("arange")(size);
@@ -104,7 +110,7 @@ PYBIND11_MODULE(core, m_) {
 
     m.def("full",
         [](py::handle h, py::handle value, size_t size) {
-            if (size == 1)
+            if (!is_enoki_type(h) && size == 1)
                 return h(value);
             else
                 return h.attr("full")(value, size);
@@ -113,7 +119,7 @@ PYBIND11_MODULE(core, m_) {
 
     m.def("linspace",
         [](py::handle h, py::handle start, py::handle end, size_t size) {
-            if (size == 1)
+            if (!is_enoki_type(h))
                 return h(start);
             else
                 return h.attr("linspace")(start, end, size);

@@ -527,7 +527,7 @@ ENOKI_TEST(test32_sample_disk) {
                     square_to_beckmann(x - Vector2f(0.f, eps), .4f)) /
                         (2 * eps);
 
-    assert(allclose(gradient(y), Vector2f(dx, dy), 1e-3f));
+    assert(allclose(gradient(y), Vector2f(dx, dy), 1e-3f, 1e-3f));
 }
 
 ENOKI_TEST(test33_bcast) {
