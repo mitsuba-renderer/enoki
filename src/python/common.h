@@ -381,7 +381,9 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
       .def_static("zero", [](size_t size) { return zero<Array>(size); },
                   "size"_a = 1)
       .def_static("empty", [](size_t size) { return empty<Array>(size); },
-                  "size"_a = 1);
+                  "size"_a = 1)
+      .def_static("full", [](Scalar value, size_t size) { return full<Array>(value, size); },
+                  "value"_a, "size"_a = 1);
 
     cl.def(py::init<const Scalar &>());
     if constexpr (!std::is_same_v<Value, Scalar>)
@@ -555,14 +557,6 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
                           return arange<Array>(start, end, step);
                       },
                       "start"_a, "end"_a, "step"_a = 1);
-    }
-
-    if constexpr (IsDynamic) {
-        cl.def_static(
-            "full",
-            [](Scalar value, size_t size) {
-                return full<Array>(value, size);
-            }, "value"_a, "size"_a = 1);
     }
 
     cl.def("__getitem__", [](const Array &a, size_t index) -> Value {

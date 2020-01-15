@@ -149,6 +149,8 @@ py::class_<Matrix> bind_matrix(py::module &m, py::module &s, const char *name) {
 
     cl.def_static("identity", [](size_t size) { return identity<Matrix>(size); }, "size"_a = 1);
     cl.def_static("zero", [](size_t size) { return zero<Matrix>(size); }, "size"_a = 1);
+    cl.def_static("full", [](Scalar value, size_t size) { return full<Matrix>(value, size); },
+                  "value"_a, "size"_a = 1);
 
     cl.def("__len__", [](const Matrix &m) { return Matrix::Size; });
 
@@ -245,14 +247,6 @@ py::class_<Matrix> bind_matrix(py::module &m, py::module &s, const char *name) {
     m.def("eq",  [](const Matrix &a, const Matrix &b) -> Mask { return eq(a, b); });
     m.def("neq", [](const Matrix &a, const Matrix &b) -> Mask { return neq(a, b); });
 
-    if constexpr (IsDynamic) {
-        cl.def_static(
-            "full",
-            [](Scalar value, size_t size) {
-                return full<Matrix>(value, size);
-            },
-            "value"_a, "size"_a = 1);
-    }
 
     if constexpr (IsDiff) {
         using Detached = expr_t<decltype(detach(std::declval<Matrix&>()))>;

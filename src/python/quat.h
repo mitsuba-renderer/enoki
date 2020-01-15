@@ -5,6 +5,7 @@
 template <typename Quat>
 py::class_<Quat> bind_quaternion(py::module &m, py::module &s, const char *name) {
     using Value  = value_t<Quat>;
+    using Scalar = scalar_t<Quat>;
 
     auto cls = py::class_<Quat>(s, name)
         .def(py::init<>())
@@ -40,7 +41,9 @@ py::class_<Quat> bind_quaternion(py::module &m, py::module &s, const char *name)
             a[m] = b;
         })
         .def_static("identity", [](size_t size) { return identity<Quat>(size); }, "size"_a = 1)
-        .def_static("zero", [](size_t size) { return zero<Quat>(size); }, "size"_a = 1);
+        .def_static("zero", [](size_t size) { return zero<Quat>(size); }, "size"_a = 1)
+        .def_static("full", [](Scalar value, size_t size) { return full<Quat>(value, size); },
+                    "value"_a, "size"_a = 1);
 
     m.def("real", [](const Quat &a) { return real(a); });
     m.def("imag", [](const Quat &a) { return imag(a); });

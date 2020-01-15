@@ -36,7 +36,9 @@ py::class_<Complex> bind_complex(py::module &m, py::module &s, const char *name)
             a.coeff(index) = value;
         })
         .def_static("identity", [](size_t size) { return identity<Complex>(size); }, "size"_a = 1)
-        .def_static("zero", [](size_t size) { return zero<Complex>(size); }, "size"_a = 1);
+        .def_static("zero", [](size_t size) { return zero<Complex>(size); }, "size"_a = 1)
+        .def_static("full", [](Scalar value, size_t size) { return full<Complex>(value, size); },
+                    "value"_a, "size"_a = 1);
 
     m.def("real", [](const Complex &z) { return real(z); });
     m.def("imag", [](const Complex &z) { return imag(z); });
@@ -88,8 +90,8 @@ py::class_<Complex> bind_complex(py::module &m, py::module &s, const char *name)
         });
     }
 
-    py::implicitly_convertible<Value, Complex>();
-    py::implicitly_convertible<Scalar, Complex>();
+    implicitly_convertible<Value, Complex>();
+    implicitly_convertible<Scalar, Complex>();
 
     return cls;
 }

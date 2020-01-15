@@ -64,6 +64,10 @@ struct Quaternion : StaticArrayImpl<Value_, 4, false, Quaternion<Value_>> {
               array_depth_v<T2> == array_depth_v<T> && array_size_v<T2> == 2> = 0>
     Quaternion(const T1 &a1, const T2 &a2)
         : Base(a1, a2) { }
+
+    template <typename T> ENOKI_INLINE static Quaternion full_(const T &value, size_t size) {
+        return Array<Value, 4>::full_(value, size);
+    }
 };
 
 template <typename T, enable_if_quaternion_t<T> = 0>

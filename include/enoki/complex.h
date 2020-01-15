@@ -51,6 +51,9 @@ struct Complex : StaticArrayImpl<Value_, 2, false, Complex<Value_>> {
 
     ENOKI_INLINE Complex(const Value_ &v1, const Value_ &v2) : Base(v1, v2) { }
 
+    template <typename T> ENOKI_INLINE static Complex full_(const T &value, size_t size) {
+        return Array<Value, 2>::full_(value, size);
+    }
 };
 
 template <typename T, enable_if_complex_t<T> = 0>
@@ -86,14 +89,17 @@ template <typename T0, typename T1,
           typename Value = expr_t<T0, T1>, typename Result = Complex<Value>>
 ENOKI_INLINE Result operator*(const Complex<T0> &z0, const Complex<T1> &z1) {
     using Base   = Array<Value, 2>;
-    Base z1_perm = shuffle<1, 0>(z1);
-    Base z0_im   = shuffle<1, 1>(z0);
-    Base z0_re   = shuffle<0, 0>(z0);
+
+    Base z1_perm = shuffle<1, 0>(z1),
+         z0_im   = shuffle<1, 1>(z0),
+         z0_re   = shuffle<0, 0>(z0);
+
     return fmaddsub(z0_re, z1, z0_im * z1_perm);
 }
 
 template <typename T0, typename T1,
-          typename Value = expr_t<T0, T1>, typename Result = Complex<Value>>
+          typename Value = expr_t<T0, T1>,
+          typename Result = Complex<Value>>
 ENOKI_INLINE Result operator*(const Complex<T0> &z0, const T1 &v1) {
     return Array<expr_t<T0>, 2>(z0) * v1;
 }
@@ -101,7 +107,7 @@ ENOKI_INLINE Result operator*(const Complex<T0> &z0, const T1 &v1) {
 template <typename T0, typename T1,
           typename Value = expr_t<T0, T1>, typename Result = Complex<Value>>
 ENOKI_INLINE Result operator*(const T0 &v0, const Complex<T1> &z1) {
-    return v0 * Array<expr_t<T0>, 2>(z1);
+    return v0 * Array<expr_t<T1>, 2>(z1);
 }
 
 template <typename T0, typename T1,
