@@ -1093,7 +1093,9 @@ public:
     template <typename T> static Derived full_(const T &value, size_t size) {
         ENOKI_MARK_USED(size);
 
-        if constexpr (array_depth_v<T> >= array_depth_v<Value>) {
+        if constexpr (array_depth_v<T> > array_depth_v<Value> ||
+                      (array_depth_v<T> == array_depth_v<Value> &&
+                       (is_dynamic_array_v<Value> || is_scalar_v<Value>))) {
             return Derived(value);
         } else {
             Derived result;
