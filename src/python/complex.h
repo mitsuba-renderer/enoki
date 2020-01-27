@@ -9,8 +9,10 @@ py::class_<Complex> bind_complex(py::module &m, py::module &s, const char *name)
 
     auto cls = py::class_<Complex>(s, name)
         .def(py::init<>())
-        .def(py::init<const Value &>())
-        .def(py::init<const Value &, const Value &>(), "real"_a, "imag"_a)
+        .def(py::init<const Scalar &>());
+        if constexpr (!std::is_same_v<Value, Scalar>)
+            cls.def(py::init<const Value &>());
+        cls.def(py::init<const Value &, const Value &>(), "real"_a, "imag"_a)
         .def(py::self == py::self)
         .def(py::self != py::self)
         .def(py::self - py::self)
@@ -91,7 +93,8 @@ py::class_<Complex> bind_complex(py::module &m, py::module &s, const char *name)
     }
 
     implicitly_convertible<Value, Complex>();
-    implicitly_convertible<Scalar, Complex>();
+    if constexpr (!std::is_same_v<Scalar, Value>)
+        implicitly_convertible<Scalar, Complex>();
 
     return cls;
 }

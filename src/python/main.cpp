@@ -40,7 +40,8 @@ bool allclose_py(const py::object &a, const py::object &b,
                    all_nested = ek.attr("all_nested");
 
         py::object lhs = abs(a - b),
-                   rhs = full(b.get_type(), atol) + abs(b) * rtol;
+                   rhs = (num_b ? atol + abs(b) * rtol
+                                : full(b.get_type(), atol) + abs(b) * rtol);
 
         py::object cond =
             py::reinterpret_steal<py::object>(PyObject_RichCompare(lhs.ptr(), rhs.ptr(), Py_LE));
@@ -68,8 +69,8 @@ bool allclose_py(const py::object &a, const py::object &b,
 }
 
 bool is_enoki_type(py::handle h) {
-    return PyType_CheckExact(h.ptr()) &&
-           strncmp(h.ptr()->ob_type->tp_name, "enoki.", 6) == 0;
+    return PyType_Check(h.ptr()) &&
+           strncmp(((PyTypeObject *) h.ptr())->tp_name, "enoki.", 6) == 0;
 }
 
 PYBIND11_MODULE(core, m_) {
