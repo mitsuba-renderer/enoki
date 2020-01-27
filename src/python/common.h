@@ -686,6 +686,10 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
     if constexpr (IsDynamic)
         cl.def("resize", [](Array &a, size_t size) { a.resize(size); });
 
+    cl.def("__getitem__", [](Array &a, const Mask &mask) {
+        return select(mask, a, Value(0.f));
+    }, "mask"_a);
+
     cl.def("__setitem__", [](Array &a, const Mask &mask, const Array &value) {
         a[mask] = value;
     }, "mask"_a, "value"_a);
