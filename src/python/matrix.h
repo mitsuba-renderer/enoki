@@ -284,6 +284,11 @@ py::class_<Mask> bind_matrix_mask(py::module &m, py::module &s, const char *name
         .def(py::init<>())
         .def(py::self == py::self)
         .def(py::self != py::self)
+        .def(py::self | py::self)
+        .def(py::self & py::self)
+        .def(py::self ^ py::self)
+        .def(!py::self)
+        .def(~py::self)
         .def("__repr__", [](const Mask &a) -> std::string {
             if (*implicit_conversion)
                 return "";

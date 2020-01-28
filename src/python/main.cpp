@@ -19,13 +19,13 @@ bool allclose_py(const py::object &a, const py::object &b,
          ndarray_a = strcmp(tp_name_a, "numpy.ndarray") == 0,
          ndarray_b = strcmp(tp_name_b, "numpy.ndarray") == 0;
 
+    if (la == -1 || lb == -1)
+        PyErr_Clear();
+
     if (enoki_a && (ndarray_b || num_b))
         return allclose_py(a, a.get_type()(b), rtol, atol, equal_nan);
     else if (enoki_b && (ndarray_a || num_a))
         return allclose_py(b.get_type()(a), b, rtol, atol, equal_nan);
-
-    if (la == -1 || lb == -1)
-        PyErr_Clear();
 
     if (la != lb && !((num_a && lb > 0) || (num_b && la > 0)))
         throw std::runtime_error("enoki.allclose(): length mismatch!");
@@ -36,6 +36,7 @@ bool allclose_py(const py::object &a, const py::object &b,
         py::object abs        = ek.attr("abs"),
                    eq         = ek.attr("eq"),
                    isnan      = ek.attr("isnan"),
+                   isinf      = ek.attr("isinf"),
                    full       = ek.attr("full"),
                    all_nested = ek.attr("all_nested");
 
@@ -48,6 +49,8 @@ bool allclose_py(const py::object &a, const py::object &b,
 
         if (!cond)
             throw py::error_already_set();
+
+        cond = cond | (isinf(a) & isinf(b));
 
         if (equal_nan)
             cond = cond | (isnan(a) & isnan(b));

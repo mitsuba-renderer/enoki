@@ -6,6 +6,7 @@ template <typename Quat>
 py::class_<Quat> bind_quaternion(py::module &m, py::module &s, const char *name) {
     using Value  = value_t<Quat>;
     using Scalar = scalar_t<Quat>;
+    using Mask   = mask_t<Quat>;
 
     auto cls = py::class_<Quat>(s, name)
         .def(py::init<>())
@@ -67,6 +68,10 @@ py::class_<Quat> bind_quaternion(py::module &m, py::module &s, const char *name)
                           [](Quat &a, const Value &v) { a.y() = v; });
     cls.def_property("w", [](const Quat &a) { return a.w(); },
                           [](Quat &a, const Value &v) { a.w() = v; });
+
+    m.def("isfinite", [](const Quat &a) -> Mask { return enoki::isfinite(a); });
+    m.def("isnan",    [](const Quat &a) -> Mask { return enoki::isnan(a); });
+    m.def("isinf",    [](const Quat &a) -> Mask { return enoki::isinf(a); });
 
     using Vector3f = Array<Value, 3>;
     using Matrix4f = Matrix<Value, 4>;

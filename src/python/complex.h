@@ -4,8 +4,9 @@
 
 template <typename Complex>
 py::class_<Complex> bind_complex(py::module &m, py::module &s, const char *name) {
-    using Value = value_t<Complex>;
+    using Value  = value_t<Complex>;
     using Scalar = scalar_t<Value>;
+    using Mask   = mask_t<Complex>;
 
     auto cls = py::class_<Complex>(s, name)
         .def(py::init<>())
@@ -67,6 +68,10 @@ py::class_<Complex> bind_complex(py::module &m, py::module &s, const char *name)
     m.def("asinh", [](const Complex &z) { return asinh(z); });
     m.def("acosh", [](const Complex &z) { return acosh(z); });
     m.def("atanh", [](const Complex &z) { return atanh(z); });
+
+    m.def("isfinite", [](const Complex &z) -> Mask { return enoki::isfinite(z); });
+    m.def("isnan",    [](const Complex &z) -> Mask { return enoki::isnan(z); });
+    m.def("isinf",    [](const Complex &z) -> Mask { return enoki::isinf(z); });
 
     if constexpr (is_diff_array_v<Complex>) {
         using Detached = expr_t<decltype(detach(std::declval<Complex&>()))>;
