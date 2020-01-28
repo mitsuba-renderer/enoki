@@ -212,7 +212,7 @@ template <bool IsCUDA> struct Buffer {
                     throw std::runtime_error("Buffer: allocation failure!");
             #else
                 #if defined(_MSC_VER)
-                    ptr = _aligned_malloc(64, size);
+                    ptr = _aligned_malloc(size, 64);
                 #else
                     ptr = std::aligned_alloc(64, size);
                 #endif
@@ -226,7 +226,11 @@ template <bool IsCUDA> struct Buffer {
                 cuda_free(ptr);
             #endif
         } else {
-            std::free(ptr);
+            #if defined(_MSC_VER)
+                _aligned_free(ptr);
+            #else
+                std::free(ptr);
+            #endif
         }
     }
 
