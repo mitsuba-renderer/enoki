@@ -34,7 +34,7 @@ struct DynamicArrayReference : ArrayBase<value_t<Packet_>, DynamicArrayReference
     static constexpr size_t       PacketSize  = Packet::Size;
     static constexpr bool         IsMask      = Packet::IsMask;
 
-    DynamicArrayReference(Packet *packets) : m_packets(packets) { }
+    DynamicArrayReference(Packet *packets = nullptr) : m_packets(packets) { }
 
     ENOKI_INLINE Packet &packet(size_t i) {
         return ((Packet *) ENOKI_ASSUME_ALIGNED(m_packets, alignof(Packet)))[i];
