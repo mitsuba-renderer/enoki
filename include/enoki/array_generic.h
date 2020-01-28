@@ -445,15 +445,15 @@ private:
 
         if constexpr (detail::broadcast<T, Derived>) {
             auto s = static_cast<cast_t<T>>(value);
-            bool unused[] = { (coeff(Is) = s, false)... };
+            bool unused[] = { (coeff(Is) = s, false)..., false };
             (void) unused;
         } else {
             if constexpr (Move) {
-                bool unused[] = { (coeff(Is) = std::move(value.derived().coeff(Is)), false)... };
+                bool unused[] = { (coeff(Is) = std::move(value.derived().coeff(Is)), false)..., false };
                 (void) unused;
             } else {
                 using Src = decltype(value.derived().coeff(0));
-                bool unused[] = { (coeff(Is) = cast_t<Src>(value.derived().coeff(Is)), false)... };
+                bool unused[] = { (coeff(Is) = cast_t<Src>(value.derived().coeff(Is)), false)..., false };
                 (void) unused;
             }
         }
@@ -500,10 +500,10 @@ private:
         }
 
         if constexpr(detail::broadcast<T, Derived>) {
-            bool unused[] = { (coeff(Is) = reinterpret_array<Value>(value), false)... };
+            bool unused[] = { (coeff(Is) = reinterpret_array<Value>(value), false)..., false };
             (void) unused;
         } else {
-            bool unused[] = { (coeff(Is) = reinterpret_array<Value>(value.coeff(Is)), false)... };
+            bool unused[] = { (coeff(Is) = reinterpret_array<Value>(value.coeff(Is)), false)..., false };
             (void) unused;
         }
     }

@@ -156,7 +156,7 @@ template <typename... Args> struct struct_support<std::tuple<Args...>> {
 private:
     template <size_t... Index>
     static ENOKI_INLINE void set_slices(Value &value, size_t i, std::index_sequence<Index...>) {
-        bool unused[] = { (enoki::set_slices(std::get<Index>(value), i), false)... };
+        bool unused[] = { (enoki::set_slices(std::get<Index>(value), i), false)..., false };
         (void) unused;
     }
 
@@ -193,7 +193,7 @@ private:
     template <typename T2, typename Index, typename Mask, size_t... Is>
     static ENOKI_INLINE void scatter(T2 &dst, const Value &value, const Index &index, const Mask &mask, std::index_sequence<Is...>) {
         bool unused[] = { (enoki::scatter(std::get<Is>(dst),
-                                          std::get<Is>(value), index, mask), false)... };
+                                          std::get<Is>(value), index, mask), false)..., false };
         ENOKI_MARK_USED(unused);
     }
 
@@ -308,7 +308,7 @@ private:
 
     template <typename T2, typename Index, typename Mask, size_t... Is>
     static ENOKI_INLINE void scatter(T2 &dst, const Value &value, const Index &index, const Mask &mask, std::index_sequence<Is...>) {
-        bool unused[] = { (enoki::scatter(dst[Is], value[Is], index, mask), false)... };
+        bool unused[] = { (enoki::scatter(dst[Is], value[Is], index, mask), false)..., false };
         ENOKI_MARK_USED(unused);
     }
 

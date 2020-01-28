@@ -416,14 +416,14 @@ private:
     template <typename Dst, typename Index, typename Mask, size_t... Is>
     static ENOKI_INLINE void scatter(Dst &src, const T &value, const Index &index,
                                      const Mask &mask, std::index_sequence<Is...>) {
-        bool unused[] = { (enoki::scatter(src.coeff(Is), value.coeff(Is), index, mask), false) ... };
+        bool unused[] = { (enoki::scatter(src.coeff(Is), value.coeff(Is), index, mask), false) ... , false };
         ENOKI_MARK_USED(unused);
     }
 
     template <typename Dst, typename Index, typename Mask, size_t... Is>
     static ENOKI_INLINE void scatter_add(Dst &src, const T &value, const Index &index,
                                      const Mask &mask, std::index_sequence<Is...>) {
-        bool unused[] = { (enoki::scatter_add(src.coeff(Is), value.coeff(Is), index, mask), false) ... };
+        bool unused[] = { (enoki::scatter_add(src.coeff(Is), value.coeff(Is), index, mask), false) ... , false };
         ENOKI_MARK_USED(unused);
     }
 };

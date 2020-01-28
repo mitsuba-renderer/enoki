@@ -1,7 +1,12 @@
 #pragma once
+
+#if defined(ENOKI_CUDA)
 #include <enoki/cuda.h>
-#include <enoki/dynamic.h>
+#endif
+#if defined(ENOKI_AUTODIFF)
 #include <enoki/autodiff.h>
+#endif
+#include <enoki/dynamic.h>
 #include <enoki/transform.h>
 #include <enoki/special.h>
 #include <pybind11/pybind11.h>
@@ -21,178 +26,159 @@ using UInt32  = uint32_t;
 using Int64   = int64_t;
 using UInt64  = uint64_t;
 
-using Float32X  = DynamicArray<Packet<Float32>>;
-using Float64X  = DynamicArray<Packet<Float64>>;
-using Int32X    = DynamicArray<Packet<Int32>>;
-using Int64X    = DynamicArray<Packet<Int64>>;
-using UInt32X   = DynamicArray<Packet<UInt32>>;
-using UInt64X   = DynamicArray<Packet<UInt64>>;
-using MaskX     = mask_t<Float32X>;
-using Mask64X   = mask_t<Float64X>;
-
-using Float32C  = CUDAArray<Float32>;
-using Float64C  = CUDAArray<Float64>;
-using Int32C    = CUDAArray<Int32>;
-using Int64C    = CUDAArray<Int64>;
-using UInt32C   = CUDAArray<UInt32>;
-using UInt64C   = CUDAArray<UInt64>;
-using MaskC     = mask_t<Float32C>;
-
-using Float32D  = DiffArray<Float32C>;
-using Float64D  = DiffArray<Float64C>;
-using Int32D    = DiffArray<Int32C>;
-using Int64D    = DiffArray<Int64C>;
-using UInt32D   = DiffArray<UInt32C>;
-using UInt64D   = DiffArray<UInt64C>;
-using MaskD     = mask_t<Float32D>;
-
 using Vector0f  = Array<Float32 , 0>;
-using Vector0fX = Array<Float32X, 0>;
-using Vector0fC = Array<Float32C, 0>;
-using Vector0fD = Array<Float32D, 0>;
-
 using Vector0d  = Array<Float64 , 0>;
-using Vector0dX = Array<Float64X, 0>;
-using Vector0dC = Array<Float64C, 0>;
-using Vector0dD = Array<Float64D, 0>;
-
 using Vector0i  = Array<Int32 , 0>;
-using Vector0iX = Array<Int32X, 0>;
-using Vector0iC = Array<Int32C, 0>;
-using Vector0iD = Array<Int32D, 0>;
-
 using Vector0u  = Array<UInt32 , 0>;
-using Vector0uX = Array<UInt32X, 0>;
-using Vector0uC = Array<UInt32C, 0>;
-using Vector0uD = Array<UInt32D, 0>;
-
 using Vector0m  = mask_t<Vector0f >;
-using Vector0mX = mask_t<Vector0fX>;
-using Vector0mC = mask_t<Vector0fC>;
-using Vector0mD = mask_t<Vector0fD>;
-
 using Vector1f  = Array<Float32 , 1>;
-using Vector1fX = Array<Float32X, 1>;
-using Vector1fC = Array<Float32C, 1>;
-using Vector1fD = Array<Float32D, 1>;
-
 using Vector1d  = Array<Float64 , 1>;
-using Vector1dX = Array<Float64X, 1>;
-using Vector1dC = Array<Float64C, 1>;
-using Vector1dD = Array<Float64D, 1>;
-
 using Vector1i  = Array<Int32 , 1>;
-using Vector1iX = Array<Int32X, 1>;
-using Vector1iC = Array<Int32C, 1>;
-using Vector1iD = Array<Int32D, 1>;
-
 using Vector1u  = Array<UInt32 , 1>;
-using Vector1uX = Array<UInt32X, 1>;
-using Vector1uC = Array<UInt32C, 1>;
-using Vector1uD = Array<UInt32D, 1>;
-
 using Vector1m  = mask_t<Vector1f >;
-using Vector1mX = mask_t<Vector1fX>;
-using Vector1mC = mask_t<Vector1fC>;
-using Vector1mD = mask_t<Vector1fD>;
-
 using Vector2f  = Array<Float32 , 2>;
-using Vector2fX = Array<Float32X, 2>;
-using Vector2fC = Array<Float32C, 2>;
-using Vector2fD = Array<Float32D, 2>;
-
 using Vector2d  = Array<Float64 , 2>;
-using Vector2dX = Array<Float64X, 2>;
-using Vector2dC = Array<Float64C, 2>;
-using Vector2dD = Array<Float64D, 2>;
-
 using Vector2i  = Array<Int32 , 2>;
-using Vector2iX = Array<Int32X, 2>;
-using Vector2iC = Array<Int32C, 2>;
-using Vector2iD = Array<Int32D, 2>;
-
 using Vector2u  = Array<UInt32 , 2>;
-using Vector2uX = Array<UInt32X, 2>;
-using Vector2uC = Array<UInt32C, 2>;
-using Vector2uD = Array<UInt32D, 2>;
-
 using Vector2m  = mask_t<Vector2f >;
-using Vector2mX = mask_t<Vector2fX>;
-using Vector2mC = mask_t<Vector2fC>;
-using Vector2mD = mask_t<Vector2fD>;
-
 using Vector3f  = Array<Float32 , 3>;
-using Vector3fX = Array<Float32X, 3>;
-using Vector3fC = Array<Float32C, 3>;
-using Vector3fD = Array<Float32D, 3>;
-
 using Vector3d  = Array<Float64 , 3>;
-using Vector3dX = Array<Float64X, 3>;
-using Vector3dC = Array<Float64C, 3>;
-using Vector3dD = Array<Float64D, 3>;
-
 using Vector3i  = Array<Int32 , 3>;
-using Vector3iX = Array<Int32X, 3>;
-using Vector3iC = Array<Int32C, 3>;
-using Vector3iD = Array<Int32D, 3>;
-
 using Vector3u  = Array<UInt32 , 3>;
-using Vector3uX = Array<UInt32X, 3>;
-using Vector3uC = Array<UInt32C, 3>;
-using Vector3uD = Array<UInt32D, 3>;
-
 using Vector3m  = mask_t<Vector3f >;
-using Vector3mX = mask_t<Vector3fX>;
-using Vector3mC = mask_t<Vector3fC>;
-using Vector3mD = mask_t<Vector3fD>;
-
 using Vector4f  = Array<Float32 , 4>;
-using Vector4fX = Array<Float32X, 4>;
-using Vector4fC = Array<Float32C, 4>;
-using Vector4fD = Array<Float32D, 4>;
-
 using Vector4d  = Array<Float64 , 4>;
-using Vector4dX = Array<Float64X, 4>;
-using Vector4dC = Array<Float64C, 4>;
-using Vector4dD = Array<Float64D, 4>;
-
 using Vector4i  = Array<Int32 , 4>;
-using Vector4iX = Array<Int32X, 4>;
-using Vector4iC = Array<Int32C, 4>;
-using Vector4iD = Array<Int32D, 4>;
-
 using Vector4u  = Array<UInt32 , 4>;
-using Vector4uX = Array<UInt32X, 4>;
-using Vector4uC = Array<UInt32C, 4>;
-using Vector4uD = Array<UInt32D, 4>;
-
 using Vector4m  = mask_t<Vector4f >;
-using Vector4mX = mask_t<Vector4fX>;
-using Vector4mC = mask_t<Vector4fC>;
-using Vector4mD = mask_t<Vector4fD>;
-
-using Complex2f  = Complex<Float32 >;
-using Complex2fX = Complex<Float32X>;
-using Complex2fC = Complex<Float32C>;
-using Complex2fD = Complex<Float32D>;
-
-using Complex2d  = Complex<Float64 >;
-using Complex2dX = Complex<Float64X>;
-using Complex2dC = Complex<Float64C>;
-using Complex2dD = Complex<Float64D>;
-
+using Complex2f   = Complex<Float32 >;
+using Complex2d   = Complex<Float64 >;
 using Complex24f  = Complex<Vector4f >;
-using Complex24fX = Complex<Vector4fX>;
-using Complex24fC = Complex<Vector4fC>;
-using Complex24fD = Complex<Vector4fD>;
-
 using Complex24d  = Complex<Vector4d >;
-using Complex24dX = Complex<Vector4dX>;
-using Complex24dC = Complex<Vector4dC>;
-using Complex24dD = Complex<Vector4dD>;
-
 using Quaternion4f = Quaternion<float>;
 using Quaternion4d = Quaternion<double>;
+
+using Float32X = DynamicArray<Packet<Float32>>;
+using Float64X = DynamicArray<Packet<Float64>>;
+using Int32X   = DynamicArray<Packet<Int32>>;
+using Int64X   = DynamicArray<Packet<Int64>>;
+using UInt32X  = DynamicArray<Packet<UInt32>>;
+using UInt64X  = DynamicArray<Packet<UInt64>>;
+using MaskX    = mask_t<Float32X>;
+using Mask64X  = mask_t<Float64X>;
+
+using Vector0fX = Array<Float32X, 0>;
+using Vector0dX = Array<Float64X, 0>;
+using Vector0iX = Array<Int32X, 0>;
+using Vector0uX = Array<UInt32X, 0>;
+using Vector0mX = mask_t<Vector0fX>;
+using Vector1fX = Array<Float32X, 1>;
+using Vector1dX = Array<Float64X, 1>;
+using Vector1iX = Array<Int32X, 1>;
+using Vector1uX = Array<UInt32X, 1>;
+using Vector1mX = mask_t<Vector1fX>;
+using Vector2fX = Array<Float32X, 2>;
+using Vector2dX = Array<Float64X, 2>;
+using Vector2iX = Array<Int32X, 2>;
+using Vector2uX = Array<UInt32X, 2>;
+using Vector2mX = mask_t<Vector2fX>;
+using Vector3fX = Array<Float32X, 3>;
+using Vector3dX = Array<Float64X, 3>;
+using Vector3iX = Array<Int32X, 3>;
+using Vector3uX = Array<UInt32X, 3>;
+using Vector3mX = mask_t<Vector3fX>;
+using Vector4fX = Array<Float32X, 4>;
+using Vector4dX = Array<Float64X, 4>;
+using Vector4iX = Array<Int32X, 4>;
+using Vector4uX = Array<UInt32X, 4>;
+using Vector4mX = mask_t<Vector4fX>;
+
+using Complex2fX  = Complex<Float32X>;
+using Complex2dX  = Complex<Float64X>;
+using Complex24fX = Complex<Vector4fX>;
+using Complex24dX = Complex<Vector4dX>;
+
+#if defined(ENOKI_CUDA)
+using Float32C = CUDAArray<Float32>;
+using Float64C = CUDAArray<Float64>;
+using Int32C   = CUDAArray<Int32>;
+using Int64C   = CUDAArray<Int64>;
+using UInt32C  = CUDAArray<UInt32>;
+using UInt64C  = CUDAArray<UInt64>;
+using MaskC    = mask_t<Float32C>;
+
+using Vector0fC = Array<Float32C, 0>;
+using Vector0dC = Array<Float64C, 0>;
+using Vector0iC = Array<Int32C, 0>;
+using Vector0uC = Array<UInt32C, 0>;
+using Vector0mC = mask_t<Vector0fC>;
+using Vector1fC = Array<Float32C, 1>;
+using Vector1dC = Array<Float64C, 1>;
+using Vector1iC = Array<Int32C, 1>;
+using Vector1uC = Array<UInt32C, 1>;
+using Vector1mC = mask_t<Vector1fC>;
+using Vector2fC = Array<Float32C, 2>;
+using Vector2dC = Array<Float64C, 2>;
+using Vector2iC = Array<Int32C, 2>;
+using Vector2uC = Array<UInt32C, 2>;
+using Vector2mC = mask_t<Vector2fC>;
+using Vector3fC = Array<Float32C, 3>;
+using Vector3dC = Array<Float64C, 3>;
+using Vector3iC = Array<Int32C, 3>;
+using Vector3uC = Array<UInt32C, 3>;
+using Vector3mC = mask_t<Vector3fC>;
+using Vector4fC = Array<Float32C, 4>;
+using Vector4dC = Array<Float64C, 4>;
+using Vector4iC = Array<Int32C, 4>;
+using Vector4uC = Array<UInt32C, 4>;
+using Vector4mC = mask_t<Vector4fC>;
+
+using Complex2fC  = Complex<Float32C>;
+using Complex2dC  = Complex<Float64C>;
+using Complex24fC = Complex<Vector4fC>;
+using Complex24dC = Complex<Vector4dC>;
+#endif
+
+#if defined(ENOKI_AUTODIFF)
+using Float32D = DiffArray<Float32C>;
+using Float64D = DiffArray<Float64C>;
+using Int32D   = DiffArray<Int32C>;
+using Int64D   = DiffArray<Int64C>;
+using UInt32D  = DiffArray<UInt32C>;
+using UInt64D  = DiffArray<UInt64C>;
+using MaskD    = mask_t<Float32D>;
+
+using Vector0fD = Array<Float32D, 0>;
+using Vector0dD = Array<Float64D, 0>;
+using Vector0iD = Array<Int32D, 0>;
+using Vector0uD = Array<UInt32D, 0>;
+using Vector0mD = mask_t<Vector0fD>;
+using Vector1fD = Array<Float32D, 1>;
+using Vector1dD = Array<Float64D, 1>;
+using Vector1iD = Array<Int32D, 1>;
+using Vector1uD = Array<UInt32D, 1>;
+using Vector1mD = mask_t<Vector1fD>;
+using Vector2fD = Array<Float32D, 2>;
+using Vector2dD = Array<Float64D, 2>;
+using Vector2iD = Array<Int32D, 2>;
+using Vector2uD = Array<UInt32D, 2>;
+using Vector2mD = mask_t<Vector2fD>;
+using Vector3fD = Array<Float32D, 3>;
+using Vector3dD = Array<Float64D, 3>;
+using Vector3iD = Array<Int32D, 3>;
+using Vector3uD = Array<UInt32D, 3>;
+using Vector3mD = mask_t<Vector3fD>;
+using Vector4fD = Array<Float32D, 4>;
+using Vector4dD = Array<Float64D, 4>;
+using Vector4iD = Array<Int32D, 4>;
+using Vector4uD = Array<UInt32D, 4>;
+using Vector4mD = mask_t<Vector4fD>;
+
+using Complex2fD  = Complex<Float32D>;
+using Complex2dD  = Complex<Float64D>;
+using Complex24fD = Complex<Vector4fD>;
+using Complex24dD = Complex<Vector4dD>;
+#endif
 
 namespace pybind11 {
     inline bool NDArray_Check(PyObject *obj) {
@@ -225,7 +211,11 @@ template <bool IsCUDA> struct Buffer {
                 if (posix_memalign(&ptr, 64, size))
                     throw std::runtime_error("Buffer: allocation failure!");
             #else
-                ptr = std::aligned_alloc(64, size);
+                #if defined(_MSC_VER)
+                    ptr = _aligned_malloc(64, size);
+                #else
+                    ptr = std::aligned_alloc(64, size);
+                #endif
             #endif
         }
     }
@@ -1092,9 +1082,11 @@ ENOKI_NOINLINE py::object enoki_to_torch(const Array &src, bool eval) {
         copy_array</* Scatter = */ true, 0>(0, shape, strides, src, target);
 
 #if defined(ENOKI_CUDA)
-        if (is_cuda_array_v<Array> && eval) {
-            cuda_eval();
-            cuda_sync();
+        if constexpr (is_cuda_array_v<Array>) {
+            if (eval) {
+                cuda_eval();
+                cuda_sync();
+            }
         }
 #endif
     }
@@ -1186,9 +1178,11 @@ ENOKI_NOINLINE py::object enoki_to_numpy(const Array &src, bool eval) {
         copy_array</* Scatter = */ true, 0>(0, shape, strides, src, target);
 
 #if defined(ENOKI_CUDA)
-        if (is_cuda_array_v<Array> && eval) {
-            cuda_eval();
-            cuda_sync();
+        if constexpr (is_cuda_array_v<Array>) {
+            if (eval) {
+                cuda_eval();
+                cuda_sync();
+            }
         }
 #endif
     }
