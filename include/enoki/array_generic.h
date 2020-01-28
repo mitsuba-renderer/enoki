@@ -446,7 +446,7 @@ private:
         if constexpr (detail::broadcast<T, Derived>) {
             auto s = static_cast<cast_t<T>>(value);
             bool unused[] = { (coeff(Is) = s, false)..., false };
-            (void) unused;
+            (void) unused; (void) s;
         } else {
             if constexpr (Move) {
                 bool unused[] = { (coeff(Is) = std::move(value.derived().coeff(Is)), false)..., false };
