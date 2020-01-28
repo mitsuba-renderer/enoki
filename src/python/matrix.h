@@ -3,49 +3,48 @@
 #include <enoki/matrix.h>
 
 using Matrix2f  = Matrix<Float32 , 2>;
-using Matrix2fX = Matrix<Float32X, 2>;
-using Matrix2fC = Matrix<Float32C, 2>;
-using Matrix2fD = Matrix<Float32D, 2>;
-
 using Matrix2d  = Matrix<Float64 , 2>;
-using Matrix2dX = Matrix<Float64X, 2>;
-using Matrix2dC = Matrix<Float64C, 2>;
-using Matrix2dD = Matrix<Float64D, 2>;
-
 using Matrix3f  = Matrix<Float32 , 3>;
-using Matrix3fX = Matrix<Float32X, 3>;
-using Matrix3fC = Matrix<Float32C, 3>;
-using Matrix3fD = Matrix<Float32D, 3>;
-
 using Matrix3d  = Matrix<Float64 , 3>;
-using Matrix3dX = Matrix<Float64X, 3>;
-using Matrix3dC = Matrix<Float64C, 3>;
-using Matrix3dD = Matrix<Float64D, 3>;
-
 using Matrix4f  = Matrix<Float32 , 4>;
-using Matrix4fX = Matrix<Float32X, 4>;
-using Matrix4fC = Matrix<Float32C, 4>;
-using Matrix4fD = Matrix<Float32D, 4>;
-
 using Matrix4d  = Matrix<Float64 , 4>;
-using Matrix4dX = Matrix<Float64X, 4>;
-using Matrix4dC = Matrix<Float64C, 4>;
-using Matrix4dD = Matrix<Float64D, 4>;
-
 using Matrix2m  = mask_t<Matrix2f>;
-using Matrix2mX = mask_t<Matrix2fX>;
-using Matrix2mC = mask_t<Matrix2fC>;
-using Matrix2mD = mask_t<Matrix2fD>;
-
 using Matrix3m  = mask_t<Matrix3f>;
-using Matrix3mX = mask_t<Matrix3fX>;
-using Matrix3mC = mask_t<Matrix3fC>;
-using Matrix3mD = mask_t<Matrix3fD>;
-
 using Matrix4m  = mask_t<Matrix4f>;
+
+using Matrix2fX = Matrix<Float32X, 2>;
+using Matrix2dX = Matrix<Float64X, 2>;
+using Matrix3fX = Matrix<Float32X, 3>;
+using Matrix3dX = Matrix<Float64X, 3>;
+using Matrix4fX = Matrix<Float32X, 4>;
+using Matrix4dX = Matrix<Float64X, 4>;
+using Matrix2mX = mask_t<Matrix2fX>;
+using Matrix3mX = mask_t<Matrix3fX>;
 using Matrix4mX = mask_t<Matrix4fX>;
+
+#if defined(ENOKI_CUDA)
+using Matrix2fC = Matrix<Float32C, 2>;
+using Matrix2dC = Matrix<Float64C, 2>;
+using Matrix3fC = Matrix<Float32C, 3>;
+using Matrix3dC = Matrix<Float64C, 3>;
+using Matrix4fC = Matrix<Float32C, 4>;
+using Matrix4dC = Matrix<Float64C, 4>;
+using Matrix2mC = mask_t<Matrix2fC>;
+using Matrix3mC = mask_t<Matrix3fC>;
 using Matrix4mC = mask_t<Matrix4fC>;
+#endif
+
+#if defined(ENOKI_AUTODIFF)
+using Matrix2fD = Matrix<Float32D, 2>;
+using Matrix2dD = Matrix<Float64D, 2>;
+using Matrix3fD = Matrix<Float32D, 3>;
+using Matrix3dD = Matrix<Float64D, 3>;
+using Matrix4fD = Matrix<Float32D, 4>;
+using Matrix4dD = Matrix<Float64D, 4>;
+using Matrix2mD = mask_t<Matrix2fD>;
+using Matrix3mD = mask_t<Matrix3fD>;
 using Matrix4mD = mask_t<Matrix4fD>;
+#endif
 
 template <typename Matrix>
 py::class_<Matrix> bind_matrix(py::module &m, py::module &s, const char *name) {
