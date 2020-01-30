@@ -28,7 +28,7 @@
 #include "common.cuh"
 
 /// Should the implementation use streams to schedule kernels in parallel if possible?
-#define ENOKI_CUDA_USE_STREAMS 1
+#define ENOKI_CUDA_USE_STREAMS 0
 
 /// Synchronize with the device after each kernel launch (useful for debugging)
 #define ENOKI_CUDA_LAUNCH_BLOCKING 0
