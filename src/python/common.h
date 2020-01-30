@@ -478,8 +478,6 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
           .def(Value() + py::self)
           .def(py::self - py::self)
           .def(Value() - py::self)
-          .def(py::self / py::self)
-          .def(Value() / py::self)
           .def(py::self * py::self)
           .def(Value() * py::self)
           .def("__lt__",
@@ -517,13 +515,25 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
           .def(-py::self);
 
         if constexpr (std::is_integral_v<Scalar>) {
-            cl.def(py::self % py::self)
-            .def("__truediv__", [](const Array &a1, Scalar a2) {
-                return (a2 == 1) ? a1 : (a1 / a2);
-            })
-            .def("__mod__", [](const Array &a1, Scalar a2) {
-                return (a2 == 1) ? 1 : (a1 % a2);
-            });
+            cl.def("__floordiv__", [](const Array &a1, Scalar a2) {
+                  return (a2 == 1) ? a1 : (a1 / a2);
+              })
+              .def("__floordiv__", [](const Array &a1, const Array &a2) {
+                  return a1 / a2;
+              })
+              .def("__mod__", [](const Array &a1, Scalar a2) {
+                  return (a2 == 1) ? 1 : (a1 % a2);
+              })
+              .def("__mod__", [](const Array &a1, const Array &a2) {
+                  return a1 % a2;
+              });
+        } else {
+            cl.def("__truediv__", [](const Array &a1, Scalar a2) {
+                  return a1 / a2;
+               })
+              .def("__truediv__", [](const Array &a1, const Array &a2) {
+                  return a1 / a2;
+               });
         }
     }
 
