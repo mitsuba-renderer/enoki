@@ -13,7 +13,8 @@ ENOKI_INLINE Array gather(const Source &source, const Index &index,
                           const identity_t<Mask> &mask = true) {
     if constexpr (array_depth_v<Source> == 1) {
 
-        if constexpr (is_dynamic_v<Array> && is_dynamic_v<Source>) {
+        if constexpr (is_dynamic_v<Array> && is_dynamic_v<Source> &&
+                      array_depth_v<Source> >= array_depth_v<Mask>) {
             if (source.size() <= 1)
                 return source & mask;
         }
