@@ -15,4 +15,7 @@ void bind_scalar_matrix(py::module& m, py::module& s) {
     bind_matrix<Matrix3d>(m, s, "Matrix3d");
     bind_matrix<Matrix4d>(m, s, "Matrix4d");
     bind_matrix<Matrix44d>(m, s, "Matrix44d");
+
+    bind_matrix_mask<Matrix41m>(m, s, "Matrix41m");
+    bind_matrix<Matrix41f>(m, s, "Matrix41f");
 }
