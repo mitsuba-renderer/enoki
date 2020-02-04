@@ -30,6 +30,7 @@ struct Complex : StaticArrayImpl<Value_, 2, false, Complex<Value_>> {
     using Base::operator=;
 
     static constexpr bool IsComplex = true;
+    static constexpr bool IsVector = false;
 
     using ArrayType = Complex;
     using MaskType = Mask<Value_, 2>;

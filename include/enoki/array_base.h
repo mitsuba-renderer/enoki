@@ -71,6 +71,9 @@ template <typename Value_, typename Derived_> struct ArrayBase {
     /// Always prefer broadcasting to the outer dimensions of a N-D array
     static constexpr bool BroadcastPreferOuter = true;
 
+    /// Does this array represent a fixed size vector?
+    static constexpr bool IsVector = false;
+
     /// Does this array represent a complex number?
     static constexpr bool IsComplex = false;
 

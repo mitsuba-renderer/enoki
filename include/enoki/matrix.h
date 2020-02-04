@@ -42,6 +42,7 @@ struct Matrix : StaticArrayImpl<Array<Value_, Size_>, Size_, false, Matrix<Value
     using Base::operator=;
 
     static constexpr bool IsMatrix = true;
+    static constexpr bool IsVector = false;
 
     using ArrayType = Matrix;
     using MaskType = Mask<mask_t<Column>, Size_>;
@@ -167,7 +168,7 @@ ENOKI_INLINE Result operator*(const Matrix<T0, Size> &m0,
 
 template <typename T0, typename T1, size_t Size, enable_if_t<!T1::IsMatrix> = 0>
 ENOKI_INLINE auto operator*(const Matrix<T0, Size> &m, const T1 &s) {
-    if constexpr (array_size_v<T1> == Size) {
+    if constexpr (array_size_v<T1> == Size && T1::IsVector) {
         using EValue  = expr_t<T0, value_t<T1>>;
         using EVector = Array<EValue, Size>;
         EVector sum = m.coeff(0) * EVector::full_(s.coeff(0), 1);

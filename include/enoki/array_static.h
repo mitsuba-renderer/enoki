@@ -48,6 +48,9 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
     /// Is this a mask type?
     static constexpr bool IsMask = Base::IsMask || IsMask_;
 
+    /// Does this array represent a fixed size vector?
+    static constexpr bool IsVector = true;
+
     /// Type of the low array part returned by low()
     using Array1 = std::conditional_t<!IsMask_, Array<Value_, Size1>,
                                                 Mask <Value_, Size1>>;

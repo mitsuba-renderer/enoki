@@ -31,6 +31,7 @@ struct Quaternion : StaticArrayImpl<Value_, 4, false, Quaternion<Value_>> {
     using Base::operator=;
 
     static constexpr bool IsQuaternion = true;
+    static constexpr bool IsVector = false;
 
     using ArrayType = Quaternion;
     using MaskType = Mask<Value_, 4>;
