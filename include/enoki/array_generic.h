@@ -14,6 +14,10 @@
 #include <enoki/array_static.h>
 #include <functional>
 
+NAMESPACE_BEGIN(nanogui)
+template <typename Value, size_t Size> struct Array;
+NAMESPACE_END(nanogui)
+
 NAMESPACE_BEGIN(enoki)
 
 namespace detail {
@@ -443,7 +447,10 @@ private:
                                std::is_same_v<value_t<T>, value_t<Derived>>;
         ENOKI_MARK_USED(Move);
 
-        if constexpr (detail::broadcast<T, Derived>) {
+        if constexpr (std::is_same_v<std::decay_t<T>, nanogui::Array<Value, Size>>) {
+            for (size_t i = 0; i < Size; ++i)
+                coeff(i) = value[i];
+        } else if constexpr (detail::broadcast<T, Derived>) {
             auto s = static_cast<cast_t<T>>(value);
             bool unused[] = { (coeff(Is) = s, false)..., false };
             (void) unused; (void) s;
