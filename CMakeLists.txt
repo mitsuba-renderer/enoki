@@ -50,7 +50,7 @@ else()
   set(ENOKI_ARCH_FLAGS_FILE archflags_unix.cpp)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
   if (ENOKI_CUDA AND CMAKE_BUILD_TYPE MATCHES "Release")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 -DNDEBUG")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DNDEBUG")
   endif()
 endif()
 
