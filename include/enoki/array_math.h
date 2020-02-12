@@ -972,7 +972,8 @@ ENOKI_INLINE E pow(const T &x_, const int &y) {
     return (y >= 0) ? result : rcp(result);
 }
 
-template <typename T, typename E = expr_t<T, float>>
+template <typename T, typename E = expr_t<T, float>,
+          enable_if_t<is_array_v<T>> = 0>
 ENOKI_INLINE E pow(const T &x, const float &y) {
     if (enoki::round(y) == y)
         return enoki::pow(E(x), (int) y);
@@ -980,7 +981,8 @@ ENOKI_INLINE E pow(const T &x, const float &y) {
         return enoki::pow(E(x), E(y));
 }
 
-template <typename T, typename E = expr_t<T, double>>
+template <typename T, typename E = expr_t<T, double>,
+          enable_if_t<is_array_v<T>> = 0>
 ENOKI_INLINE E pow(const T &x, const double &y) {
     if (enoki::round(y) == y)
         return enoki::pow(E(x), (int) y);
