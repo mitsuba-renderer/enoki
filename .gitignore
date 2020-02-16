@@ -15,7 +15,7 @@ Makefile
 *.ninja
 
 # Miscellaneous;
-/build
+/build*
 /Testing
 /tests/Testing
 *.dir
