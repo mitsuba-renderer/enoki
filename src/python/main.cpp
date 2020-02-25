@@ -27,7 +27,7 @@ bool allclose_py(const py::object &a, const py::object &b,
     else if (enoki_b && (ndarray_a || num_a))
         return allclose_py(b.get_type()(a), b, rtol, atol, equal_nan);
 
-    if (la != lb && !((num_a && lb > 0) || (num_b && la > 0)))
+    if (la != lb && !(((num_a || la == 1) && lb > 0) || ((num_b || lb == 1) && la > 0)))
         throw std::runtime_error("enoki.allclose(): length mismatch!");
 
     if ((enoki_a && enoki_b) || (num_a && num_b)) {
