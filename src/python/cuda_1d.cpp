@@ -100,4 +100,8 @@ void bind_cuda_1d(py::module& m, py::module& s) {
         auto result = meshgrid(x, y);
         return std::make_pair(std::move(result.x()), std::move(result.y()));
     });
+
+    m.def("partition", [](const UInt64C &x) {
+        return partition(x);
+    });
 }

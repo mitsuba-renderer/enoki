@@ -799,7 +799,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         return *this;
     }
 
-    template <typename T = Value, enable_if_t<std::is_pointer_v<T>> = 0>
+    template <typename T = Value, enable_if_t<std::is_pointer_v<T> || std::is_same_v<T, uintptr_t>> = 0>
     std::vector<std::pair<Value, CUDAArray<uint32_t>>> partition_() const {
         if (!m_cached_partition) {
             eval();
