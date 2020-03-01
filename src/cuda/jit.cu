@@ -28,7 +28,7 @@
 #include "common.cuh"
 
 /// Should the implementation use streams to schedule kernels in parallel if possible?
-#define ENOKI_CUDA_USE_STREAMS 0
+#define ENOKI_CUDA_USE_STREAMS 1
 
 /// Synchronize with the device after each kernel launch (useful for debugging)
 #define ENOKI_CUDA_LAUNCH_BLOCKING 0
@@ -693,10 +693,8 @@ ENOKI_EXPORT void cuda_var_mark_dirty(uint32_t index) {
 static void strip_ftz(Variable &v) {
     if (v.type != EnokiType::Float32) {
         size_t offset = v.cmd.find(".ftz");
-        if (ENOKI_UNLIKELY(offset != std::string::npos)) {
-            size_t offset = v.cmd.find(".ftz");
+        if (offset != std::string::npos)
             v.cmd.replace(offset, 4, "");
-        }
     }
 }
 

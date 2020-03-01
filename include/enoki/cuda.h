@@ -801,30 +801,32 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
     template <typename T = Value, enable_if_t<std::is_pointer_v<T>> = 0>
     std::vector<std::pair<Value, CUDAArray<uint32_t>>> partition_() const {
-        eval();
+        if (!m_cached_partition) {
+            eval();
 
-        void **unique = nullptr;
-        uint32_t *counts = nullptr;
-        uint32_t **perm = nullptr;
+            void **unique = nullptr;
+            uint32_t *counts = nullptr;
+            uint32_t **perm = nullptr;
 
-        size_t num_unique = cuda_partition(size(), (const void **) data(),
-                                           &unique, &counts, &perm);
+            size_t num_unique = cuda_partition(size(), (const void **) data(),
+                                               &unique, &counts, &perm);
 
-        std::vector<std::pair<Value, CUDAArray<uint32_t>>> result;
-        result.reserve(num_unique);
+            m_cached_partition = new std::vector<std::pair<Value, CUDAArray<uint32_t>>>();
+            m_cached_partition->reserve(num_unique);
 
-        for (size_t i = 0; i < num_unique; ++i) {
-            result.emplace_back(
-                (Value) unique[i],
-                CUDAArray<uint32_t>::from_index_(cuda_var_register(
-                    EnokiType::UInt32, counts[i], perm[i], true)));
+            for (size_t i = 0; i < num_unique; ++i) {
+                m_cached_partition->emplace_back(
+                    (Value) unique[i],
+                    CUDAArray<uint32_t>::from_index_(cuda_var_register(
+                        EnokiType::UInt32, counts[i], perm[i], true)));
+            }
+
+            free(unique);
+            free(counts);
+            free(perm);
         }
 
-        free(unique);
-        free(counts);
-        free(perm);
-
-        return result;
+        return *m_cached_partition;
     }
 
     template <size_t Stride, typename Index, typename Mask>
@@ -935,6 +937,7 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
 protected:
     Index m_index = 0;
+    mutable std::vector<std::pair<Value, CUDAArray<uint32_t>>> *m_cached_partition = nullptr;
 };
 
 template <typename T, enable_if_t<!is_diff_array_v<T> && is_cuda_array_v<T>> = 0>

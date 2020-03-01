@@ -145,7 +145,7 @@ template <typename Storage_> struct call_support_base {
                     masked(result, active) = func(value, active, std::get<Indices>(tuple)...);
                 }
             } else {
-                auto partitioned = partition(self & mask);
+                auto partitioned = partition(self);
 
                 if (partitioned.size() == 1 && partitioned[0].first != nullptr) {
                     result = func(partitioned[0].first, true,
@@ -155,8 +155,9 @@ template <typename Storage_> struct call_support_base {
                         if (value == nullptr)
                             continue;
 
-                        Result temp = func(value, true, gather_helper(
-                             std::get<Indices>(tuple), permutation)...);
+                        Result temp = func(value, gather_helper(mask, permutation),
+                                           gather_helper(std::get<Indices>(tuple),
+                                                         permutation)...);
 
                         scatter<0, true, true>(result, temp, permutation);
                     }
@@ -173,7 +174,7 @@ template <typename Storage_> struct call_support_base {
                     func(value, active, std::get<Indices>(tuple)...);
                 }
             } else {
-                auto partitioned = partition(self & mask);
+                auto partitioned = partition(self);
 
                 if (partitioned.size() == 1 && partitioned[0].first != nullptr) {
                     func(partitioned[0].first, true, std::get<Indices>(tuple)...);
@@ -182,8 +183,9 @@ template <typename Storage_> struct call_support_base {
                         if (value == nullptr)
                             continue;
 
-                        func(value, true, gather_helper(
-                             std::get<Indices>(tuple), permutation)...);
+                        func(value, gather_helper(mask, permutation),
+                             gather_helper(std::get<Indices>(tuple),
+                                           permutation)...);
                     }
                 }
             }
