@@ -217,6 +217,8 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
     ~CUDAArray() {
         cuda_dec_ref_ext(m_index);
+        if constexpr (std::is_pointer_v<Value> || std::is_same_v<Value, uintptr_t>)
+            delete m_cached_partition;
     }
 
     CUDAArray(const CUDAArray &a) : m_index(a.m_index) {
@@ -225,6 +227,10 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
 
     CUDAArray(CUDAArray &&a) : m_index(a.m_index) {
         a.m_index = 0;
+        if constexpr (std::is_pointer_v<Value> || std::is_same_v<Value, uintptr_t>) {
+            m_cached_partition = a.m_cached_partition;
+            a.m_cached_partition = nullptr;
+        }
     }
 
     template <typename T> CUDAArray(const CUDAArray<T> &v) {
@@ -320,11 +326,15 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
         cuda_inc_ref_ext(a.m_index);
         cuda_dec_ref_ext(m_index);
         m_index = a.m_index;
+        if constexpr (std::is_pointer_v<Value> || std::is_same_v<Value, uintptr_t>)
+            m_cached_partition = nullptr;
         return *this;
     }
 
     CUDAArray &operator=(CUDAArray &&a) {
         std::swap(m_index, a.m_index);
+        if constexpr (std::is_pointer_v<Value> || std::is_same_v<Value, uintptr_t>)
+            std::swap(m_cached_partition, a.m_cached_partition);
         return *this;
     }
 
