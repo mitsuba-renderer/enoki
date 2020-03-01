@@ -298,6 +298,7 @@ struct StaticArrayImpl<
 // Don't be so noisy about sign conversion in constructor
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wsign-conversion"
+#  pragma GCC diagnostic ignored "-Wdouble-promotion"
 #  pragma GCC diagnostic ignored "-Wunused-value"
 #endif
 
