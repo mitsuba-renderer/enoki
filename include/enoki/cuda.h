@@ -117,10 +117,10 @@ extern ENOKI_IMPORT bool cuda_all(size_t, const bool *);
 extern ENOKI_IMPORT bool cuda_any(size_t, const bool *);
 
 /// Sort 'ptrs' and return unique instances and their count, as well as a permutation
-extern ENOKI_IMPORT size_t cuda_partition(size_t size, const void **ptrs,
-                                          void ***unique_out,
-                                          uint32_t **counts_out,
-                                          uint32_t ***perm_out);
+extern ENOKI_IMPORT void cuda_partition(size_t size, const void **ptrs,
+                                        void ***unique_out,
+                                        uint32_t **counts_out,
+                                        uint32_t ***perm_out);
 
 /// Copy some host memory region to the device and wrap it in a variable
 extern ENOKI_IMPORT uint32_t cuda_var_copy_to_device(EnokiType type,
@@ -808,21 +808,22 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
             uint32_t *counts = nullptr;
             uint32_t **perm = nullptr;
 
-            size_t num_unique = cuda_partition(size(), (const void **) data(),
-                                               &unique, &counts, &perm);
+            cuda_partition(size(), (const void **) data(),
+                           &unique, &counts, &perm);
+            uint32_t num_unique = counts[0];
 
-            m_cached_partition = new std::vector<std::pair<Value, CUDAArray<uint32_t>>>();
+            m_cached_partition = new std::vector<std::pair<Value, CUDAArray<uint32_t>>>(num_unique);
             m_cached_partition->reserve(num_unique);
 
-            for (size_t i = 0; i < num_unique; ++i) {
+            for (uint32_t i = 0; i < num_unique; ++i) {
                 m_cached_partition->emplace_back(
                     (Value) unique[i],
                     CUDAArray<uint32_t>::from_index_(cuda_var_register(
-                        EnokiType::UInt32, counts[i], perm[i], true)));
+                        EnokiType::UInt32, counts[i + 1], perm[i], true)));
             }
 
-            free(unique);
-            free(counts);
+            cuda_host_free(unique);
+            cuda_host_free(counts);
             free(perm);
         }
 

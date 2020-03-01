@@ -32,8 +32,8 @@ __global__ void arange(uint32_t n, uint32_t *out) {
 
 
 ENOKI_EXPORT
-size_t cuda_partition(size_t size, const void **ptrs_, void ***ptrs_unique_out,
-                      uint32_t **counts_out, uint32_t ***perm_out) {
+void cuda_partition(size_t size, const void **ptrs_, void ***ptrs_unique_out,
+                    uint32_t **counts_out, uint32_t ***perm_out) {
 #if !defined(NDEBUG)
     if (cuda_log_level() >= 4)
         std::cerr << "cuda_partition(size=" << size << ")" << std::endl;
@@ -62,48 +62,62 @@ size_t cuda_partition(size_t size, const void **ptrs_, void ***ptrs_unique_out,
     cuda_free(perm);
     temp_size = 0; temp = nullptr;
 
+    uint32_t *counts = (uint32_t *) cuda_malloc((size + 1) * sizeof(uint32_t));
     uintptr_t *ptrs_unique = (uintptr_t *) cuda_malloc(size * sizeof(uintptr_t));
-    uint32_t *counts = (uint32_t *) cuda_malloc(size * sizeof(uint32_t));
-    size_t *num_runs = (size_t *) cuda_malloc(sizeof(size_t));
 
     // RLE-encode the sorted pointer list
     cuda_check(cub::DeviceRunLengthEncode::Encode(
-        temp, temp_size, ptrs_sorted, ptrs_unique, counts, num_runs, size));
+        temp, temp_size, ptrs_sorted, ptrs_unique, counts + 1, counts, size));
     temp = cuda_malloc(temp_size);
 
     cuda_check_maybe_redo(cub::DeviceRunLengthEncode::Encode(
-        temp, temp_size, ptrs_sorted, ptrs_unique, counts, num_runs, size));
+        temp, temp_size, ptrs_sorted, ptrs_unique, counts + 1, counts, size));
 
     // Release memory that is no longer needed
     cuda_free(temp);
     cuda_free(ptrs_sorted);
 
-    size_t num_runs_out = 0;
-    cuda_check(cudaMemcpy(&num_runs_out, num_runs, sizeof(size_t), cudaMemcpyDeviceToHost));
+    size_t clamped_size = std::min(size, (size_t) 511);
 
-    *ptrs_unique_out = (void **) malloc(sizeof(void *) * num_runs_out);
-    *counts_out = (uint32_t *) malloc(sizeof(uint32_t) * num_runs_out);
-    *perm_out = (uint32_t **) malloc(sizeof(uint32_t *) * num_runs_out);
+    uint32_t *counts_h = (uint32_t *) cuda_host_malloc(sizeof(uint32_t) * (clamped_size + 1));
+    void **ptrs_unique_h = (void **) cuda_host_malloc(sizeof(void *) * clamped_size);
 
-    cuda_check(cudaMemcpy(*ptrs_unique_out, ptrs_unique, num_runs_out * sizeof(void *), cudaMemcpyDeviceToHost));
-    cuda_check(cudaMemcpy(*counts_out, counts, num_runs_out * sizeof(uint32_t), cudaMemcpyDeviceToHost));
+    cuda_check(cudaMemcpyAsync(counts_h,      counts,      (clamped_size + 1) * sizeof(uint32_t), cudaMemcpyDeviceToHost));
+    cuda_check(cudaMemcpyAsync(ptrs_unique_h, ptrs_unique, clamped_size * sizeof(void *),         cudaMemcpyDeviceToHost));
+    cuda_check(cudaDeviceSynchronize());
 
-    uint32_t *ptr = perm_sorted;
-    for (size_t i = 0; i < num_runs_out; ++i) {
-        size_t size = (*counts_out)[i];
-        (*perm_out)[i] = (uint32_t *) cuda_malloc(size * sizeof(uint32_t));
-        cuda_check(cudaMemcpyAsync((*perm_out)[i], ptr,
-                                   size * sizeof(uint32_t),
-                                   cudaMemcpyDeviceToDevice));
-        ptr += size;
+    size_t num_runs_h = (size_t) counts_h[0];
+
+    if (num_runs_h > clamped_size) {
+        cuda_host_free(counts_h);
+        cuda_host_free(ptrs_unique_h);
+
+        counts_h = (uint32_t *) cuda_host_malloc(sizeof(uint32_t) * (num_runs_h + 1));
+        ptrs_unique_h = (void **) cuda_host_malloc(sizeof(void *) * num_runs_h);
+
+        cuda_check(cudaMemcpyAsync(counts_h,      counts,      num_runs_h * sizeof(uint32_t), cudaMemcpyDeviceToHost));
+        cuda_check(cudaMemcpyAsync(ptrs_unique_h, ptrs_unique, num_runs_h * sizeof(void *),   cudaMemcpyDeviceToHost));
+        cuda_check(cudaDeviceSynchronize());
     }
 
-    cuda_free(num_runs);
+    uint32_t *ptr = perm_sorted;
+    uint32_t** perm_h = (uint32_t **) malloc(sizeof(uint32_t *) * num_runs_h);
+    for (size_t i = 0; i < num_runs_h; ++i) {
+        size_t size = counts_h[i + 1];
+        uint32_t *tmp = (uint32_t *) cuda_malloc(size * sizeof(uint32_t));
+        cuda_check(cudaMemcpyAsync(tmp, ptr, size * sizeof(uint32_t),
+                                   cudaMemcpyDeviceToDevice));
+        ptr += size;
+        perm_h[i] = tmp;
+    }
+
     cuda_free(ptrs_unique);
     cuda_free(perm_sorted);
     cuda_free(counts);
 
-    return num_runs_out;
+    *perm_out = perm_h;
+    *counts_out = counts_h;
+    *ptrs_unique_out = ptrs_unique_h;
 }
 
 template <typename T, std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
