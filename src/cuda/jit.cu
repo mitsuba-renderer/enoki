@@ -985,7 +985,8 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
     Context &ctx = context();
     std::ostringstream oss;
     std::vector<void *> ptrs;
-    size_t n_in = 0, n_out = 0, n_arith = 0;
+    size_t n_in = 0, n_out = 0, n_arith = 0,
+           n_total = 0;
 
     oss << ".version 6.3" << std::endl
         << ".target sm_" << ENOKI_CUDA_COMPUTE_CAPABILITY << std::endl
@@ -1000,9 +1001,9 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
     uint32_t n_vars = ENOKI_CUDA_REG_RESERVED;
     std::unordered_map<uint32_t, uint32_t> reg_map;
     for (uint32_t index : sweep) {
+        const Variable &v = ctx[index];
 #if !defined(NDEBUG)
         if (ctx.log_level >= 4) {
-            const Variable &v = ctx[index];
             std::cerr << "    " << cuda_register_name(v.type) << n_vars << " -> " << index;
             const std::string &label = v.label;
             if (!label.empty())
@@ -1019,8 +1020,18 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
         }
 #endif
         reg_map[index] = n_vars++;
+
+        if (v.data || v.direct_pointer) {
+            n_total++;
+        } else {
+            if (!v.side_effect &&
+                 v.ref_count_ext > 0 &&
+                 v.size == size)
+            n_total++;
+        }
     }
     reg_map[2] = 2;
+
 
     /**
      * rd0: ptr
@@ -1042,9 +1053,28 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
             << std::endl;
     }
 
-    oss << ".visible .entry enoki_@@@@@@@@(.param .u64 ptr," << std::endl
-        << "                               .param .u32 size) {" << std::endl
-        << "    .reg.b8 %b<" << n_vars << ">;" << std::endl
+    bool parameter_direct = n_total < 128;
+
+    auto param_ref = [parameter_direct](int idx) -> std::string {
+        if (parameter_direct)
+            return "[arg" + std::to_string(idx) + "]";
+        else
+            return "[%rd0 + " + std::to_string(idx * 8) + "]";
+    };
+
+    if (parameter_direct) {
+        oss << ".visible .entry enoki_@@@@@@@@(.param .u32 size," << std::endl;
+        for (int i = 0; i < n_total; ++i) {
+            oss << "                               .param .u64 arg" << i
+                << ((i + 1 < n_total) ? "," : ") {") << std::endl;
+        }
+    } else {
+        oss << ".visible .entry enoki_@@@@@@@@(.param .u32 size," << std::endl
+            << "                               .param .u64 ptr) {" << std::endl;
+    }
+
+
+    oss << "    .reg.b8 %b<" << n_vars << ">;" << std::endl
         << "    .reg.b16 %w<" << n_vars << ">;" << std::endl
         << "    .reg.b32 %r<" << n_vars << ">;" << std::endl
         << "    .reg.b64 %rd<" << n_vars << ">;" << std::endl
@@ -1052,9 +1082,12 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
         << "    .reg.f64 %d<" << n_vars << ">;" << std::endl
         << "    .reg.pred %p<" << n_vars << ">;" << std::endl << std::endl
         << std::endl
-        << "    // Grid-stride loop setup" << std::endl
-        << "    ld.param.u64 %rd0, [ptr];" << std::endl
-        << "    ld.param.u32 %r1, [size];" << std::endl
+        << "    // Grid-stride loop setup" << std::endl;
+
+    if (!parameter_direct)
+        oss << "    ld.param.u64 %rd0, [ptr];" << std::endl;
+
+    oss << "    ld.param.u32 %r1, [size];" << std::endl
         << "    mov.u32 %r4, %tid.x;" << std::endl
         << "    mov.u32 %r5, %ctaid.x;" << std::endl
         << "    mov.u32 %r6, %ntid.x;" << std::endl
@@ -1092,7 +1125,9 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
             oss << std::endl;
 
             if (!var.direct_pointer) {
-                oss << "    ldu.global.u64 %rd8, [%rd0 + " << idx * 8 << "];" << std::endl;
+                oss << "    " << (parameter_direct ? "ld.param.u64 %rd8, " : "ld.global.u64 %rd8, ")
+                    << param_ref(idx) << ";" << std::endl;
+
                 const char *load_instr = "ldu";
                 if (var.size != 1) {
                     oss << "    mul.wide.u32 %rd9, %r2, " << cuda_register_size(var.type) << ";" << std::endl
@@ -1108,10 +1143,11 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
                         << "    setp.ne.u16 " << cuda_register_name(var.type) << reg_map[index] << ", %w1, 0;";
                 }
             } else {
-                oss << "    ldu.global.u64 " << cuda_register_name(var.type)
-                    << reg_map[index] << ", [%rd0 + " << idx * 8 << "];"
-                    << std::endl;
+                oss << "    " << (parameter_direct ? "ld.param.u64 " : "ldu.global.u64 ")
+                    << cuda_register_name(var.type)
+                    << reg_map[index] << ", " << param_ref(idx) << ";";
             }
+
             n_in++;
         } else {
             if (!var.label.empty())
@@ -1152,7 +1188,8 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
             if (!var.label.empty())
                 oss << ": " << var.label;
             oss << std::endl
-                << "    ldu.global.u64 %rd8, [%rd0 + " << idx * 8 << "];" << std::endl;
+                << "    " << (parameter_direct ? "ld.param.u64 %rd8, " : "ld.global.u64 %rd8, ")
+                << param_ref(idx) << ";" << std::endl;
             if (var.size != 1) {
                 oss << "    mul.wide.u32 %rd9, %r2, " << cuda_register_size(var.type) << ";" << std::endl
                     << "    add.u64 %rd8, %rd8, %rd9;" << std::endl;
@@ -1183,6 +1220,8 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
         std::cerr << "cuda_eval(): launching kernel (n=" << size << ", in="
                   << n_in << ", out=" << n_out << ", ops=" << n_arith
                   << ")" << std::endl;
+
+    assert(ptrs.size() == n_total);
 
     return { oss.str(), ptrs };
 }
@@ -1296,15 +1335,33 @@ ENOKI_EXPORT void cuda_jit_run(Context &ctx,
         cuda_stream = ctx.streams[stream_idx].stream;
     #endif
 
-    size_t total_size = ptrs.size() * sizeof(void*);
+    bool parameter_direct = ptrs.size() < 128;
+    uint8_t arg_buffer[4096];
+    size_t arg_buffer_size = parameter_direct ? (sizeof(uint64_t) * (ptrs.size() + 1)) :
+                                                (sizeof(uint64_t) * 2);
 
-    void *host_args   = cuda_host_malloc(total_size),
-         *device_args = cuda_malloc(total_size);
+    void *config[] = {
+        CU_LAUNCH_PARAM_BUFFER_POINTER, arg_buffer,
+        CU_LAUNCH_PARAM_BUFFER_SIZE,    &arg_buffer_size,
+        CU_LAUNCH_PARAM_END
+    };
 
-    memcpy(host_args, ptrs.data(), total_size);
+    memcpy(arg_buffer, &size, sizeof(uint32_t));
 
-    cuda_check(cudaMemcpyAsync(device_args, host_args, total_size,
-                               cudaMemcpyHostToDevice, cuda_stream));
+    void *host_args = nullptr, *device_args = nullptr;
+    if (parameter_direct) {
+        memcpy(arg_buffer + sizeof(uint64_t), ptrs.data(), sizeof(uint64_t) * ptrs.size());
+    } else {
+        size_t total_size = ptrs.size() * sizeof(void*);
+
+        host_args   = cuda_host_malloc(total_size);
+        device_args = cuda_malloc(total_size);
+        memcpy(host_args, ptrs.data(), total_size);
+        cuda_check(cudaMemcpyAsync(device_args, host_args, total_size,
+                                   cudaMemcpyHostToDevice, cuda_stream));
+
+        memcpy(arg_buffer + sizeof(uint64_t), &device_args, sizeof(uint64_t));
+    }
 
     uint32_t thread_count = ctx.thread_count,
              block_count = ctx.block_count;
@@ -1312,12 +1369,13 @@ ENOKI_EXPORT void cuda_jit_run(Context &ctx,
     if (size == 1)
         thread_count = block_count = 1;
 
-    void *args[2] = { &device_args, &size };
     cuda_check(cuLaunchKernel(kernel, block_count, 1, 1, thread_count,
-                              1, 1, 0, cuda_stream, args, nullptr));
+                              1, 1, 0, cuda_stream, nullptr, config));
 
-    cuda_host_free(host_args, cuda_stream);
-    cuda_free(device_args, cuda_stream);
+    if (!parameter_direct) {
+        cuda_host_free(host_args, cuda_stream);
+        cuda_free(device_args, cuda_stream);
+    }
 
     #if ENOKI_CUDA_LAUNCH_BLOCKING == 1
         cuda_check(cudaStreamSynchronize(cuda_stream));
