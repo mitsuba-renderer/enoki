@@ -874,7 +874,7 @@ ENOKI_EXPORT void cuda_trace_printf(const char *fmt, uint32_t narg, uint32_t* ar
     oss << "};" << std::endl
         << "        .local .align 8 .b8 buf[" << 8*narg << "];" << std::endl
         << "        .reg.b64 %fmt_r, %buf_r;" << std::endl;
-    for (int i = 0; i < narg; ++i) {
+    for (uint32_t i = 0; i < narg; ++i) {
         switch (ctx[arg[i]].type) {
             case EnokiType::Float32:
                 oss << "        cvt.f64.f32 %d0, $r" << i + 2 << ";" << std::endl
@@ -1055,7 +1055,7 @@ cuda_jit_assemble(size_t size, const std::vector<uint32_t> &sweep, bool include_
 
     bool parameter_direct = n_total < 128;
 
-    auto param_ref = [parameter_direct](int idx) -> std::string {
+    auto param_ref = [parameter_direct](size_t idx) -> std::string {
         if (parameter_direct)
             return "[arg" + std::to_string(idx) + "]";
         else
@@ -1466,7 +1466,8 @@ ENOKI_EXPORT void cuda_eval(bool log_assembly) {
         cuda_jit_run(ctx,
                      std::move(std::get<0>(result)),
                      std::get<1>(result),
-                     size, stream_idx, start, mid);
+                     (uint32_t) size, (uint32_t) stream_idx,
+                     start, mid);
 
         #if ENOKI_CUDA_USE_STREAMS == 1
             cuda_check(cudaEventRecord(stream.event, stream.stream));

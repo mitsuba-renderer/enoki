@@ -1328,45 +1328,57 @@ bool allclose(const T1 &a, const T2 &b, float rtol = 1e-5f, float atol = 1e-8f,
 // -----------------------------------------------------------------------
 
 template <bool Default, typename T> auto any_or(const T &value) {
-    if constexpr (is_cuda_array_v<T>)
+    if constexpr (is_cuda_array_v<T>) {
+        ENOKI_MARK_USED(value);
         return Default;
-    else
+    } else {
         return any(value);
+    }
 }
 
 template <bool Default, typename T> auto any_nested_or(const T &value) {
-    if constexpr (is_cuda_array_v<T>)
+    if constexpr (is_cuda_array_v<T>) {
+        ENOKI_MARK_USED(value);
         return Default;
-    else
+    } else {
         return any_nested(value);
+    }
 }
 
 template <bool Default, typename T> auto none_or(const T &value) {
-    if constexpr (is_cuda_array_v<T>)
+    if constexpr (is_cuda_array_v<T>) {
+        ENOKI_MARK_USED(value);
         return Default;
-    else
+    } else {
         return none(value);
+    }
 }
 
 template <bool Default, typename T> auto none_nested_or(const T &value) {
-    if constexpr (is_cuda_array_v<T>)
+    if constexpr (is_cuda_array_v<T>) {
+        ENOKI_MARK_USED(value);
         return Default;
-    else
+    } else {
         return none_nested(value);
+    }
 }
 
 template <bool Default, typename T> auto all_or(const T &value) {
-    if constexpr (is_cuda_array_v<T>)
+    if constexpr (is_cuda_array_v<T>) {
+        ENOKI_MARK_USED(value);
         return Default;
-    else
+    } else {
         return all(value);
+    }
 }
 
 template <bool Default, typename T> auto all_nested_or(const T &value) {
-    if constexpr (is_cuda_array_v<T>)
+    if constexpr (is_cuda_array_v<T>) {
+        ENOKI_MARK_USED(value);
         return Default;
-    else
+    } else {
         return all_nested(value);
+    }
 }
 
 //! @}

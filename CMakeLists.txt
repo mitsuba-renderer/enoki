@@ -202,6 +202,9 @@ macro(enoki_set_compile_flags)
     # Honor __forceinline statements even in debug mode, needed to avoid internal compiler errors on MSVC
     string(REPLACE "/Ob0" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
     add_compile_options("$<$<CONFIG:Debug>:/Ob1>")
+
+    # Don't complain about class/struct X needs to have dll-interface to be used by clients of class/struct Y
+    add_compile_options("/wd4251")
   endif()
 endmacro()
 
