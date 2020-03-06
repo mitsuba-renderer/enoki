@@ -666,7 +666,8 @@ template <typename T> ENOKI_INLINE auto normalize(const T &v) {
     return v * rsqrt(squared_norm(v));
 }
 
-template <typename T> ENOKI_INLINE auto partition(const T &v) {
+template <typename T, enable_if_t<is_dynamic_array_v<T>> = 0>
+ENOKI_INLINE auto partition(const T &v) {
     return v.partition_();
 }
 
