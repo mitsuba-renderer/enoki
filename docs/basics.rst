@@ -76,7 +76,7 @@ as follows:
     :width: 500px
     :align: center
 
-Altogether, Enoki currently currently supports the ARM NEON, SSE4.2, AVX, AVX2,
+Altogether, Enoki currently supports the ARM NEON, SSE4.2, AVX, AVX2,
 and AVX512 instruction sets and vectorizes arithmetic involving single and
 double precision floating point values as well as signed and unsigned 32-bit
 and 64-bit integers.
