@@ -345,7 +345,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
         Derived result;
         for (size_t i = 0; i < Derived::Size; ++i)
             (Value &) result.coeff(i) =
-                abs((const Value &) derived().coeff(i));
+                enoki::abs((const Value &) derived().coeff(i));
         return result;
     }
 
@@ -355,7 +355,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
         Derived result;
         for (size_t i = 0; i < Derived::Size; ++i)
             (Value &) result.coeff(i) =
-                sqrt((const Value &) derived().coeff(i));
+                enoki::sqrt((const Value &) derived().coeff(i));
         return result;
     }
 
@@ -375,7 +375,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
         Derived result;
         for (size_t i = 0; i < Derived::Size; ++i)
             (Value &) result.coeff(i) =
-                ceil((const Value &) derived().coeff(i));
+                enoki::ceil((const Value &) derived().coeff(i));
         return result;
     }
 
@@ -385,7 +385,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
         Derived result;
         for (size_t i = 0; i < Derived::Size; ++i)
             (Value &) result.coeff(i) =
-                floor((const Value &) derived().coeff(i));
+                enoki::floor((const Value &) derived().coeff(i));
         return result;
     }
 
@@ -395,7 +395,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
         Derived result;
         for (size_t i = 0; i < Derived::Size; ++i)
             (Value &) result.coeff(i) =
-                round((const Value &) derived().coeff(i));
+                enoki::round((const Value &) derived().coeff(i));
         return result;
     }
 
@@ -405,7 +405,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
         Derived result;
         for (size_t i = 0; i < Derived::Size; ++i)
             (Value &) result.coeff(i) =
-                trunc((const Value &) derived().coeff(i));
+                enoki::trunc((const Value &) derived().coeff(i));
         return result;
     }
 
@@ -414,8 +414,8 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
         ENOKI_CHKSCALAR("max");
         Derived result;
         for (size_t i = 0; i < Derived::Size; ++i)
-            (Value &) result.coeff(i) = max((const Value &) derived().coeff(i),
-                                            (const Value &) d.coeff(i));
+            (Value &) result.coeff(i) = enoki::max((const Value &) derived().coeff(i),
+                                                   (const Value &) d.coeff(i));
         return result;
     }
 
@@ -424,8 +424,8 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
         ENOKI_CHKSCALAR("min");
         Derived result;
         for (size_t i = 0; i < Derived::Size; ++i)
-            (Value &) result.coeff(i) = min((const Value &) derived().coeff(i),
-                                            (const Value &) d.coeff(i));
+            (Value &) result.coeff(i) = enoki::min((const Value &) derived().coeff(i),
+                                                   (const Value &) d.coeff(i));
         return result;
     }
 
@@ -626,7 +626,7 @@ struct StaticArrayBase : ArrayBase<Value_, Derived_> {
                     ceil2int<value_t<T>>((const Value &) derived().coeff(i));
             return result;
         } else {
-            return T(ceil(derived()));
+            return T(enoki::ceil(derived()));
         }
     }
 
