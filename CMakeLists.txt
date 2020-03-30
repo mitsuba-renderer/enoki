@@ -12,7 +12,7 @@ option(ENOKI_AUTODIFF "Build Enoki automatic differentation library?" OFF)
 option(ENOKI_PYTHON   "Build pybind11 interface to CUDA & automatic differentiation libraries?" OFF)
 
 if (ENOKI_CUDA)
-  set(ENOKI_CUDA_COMPUTE_CAPABILITY "61" CACHE STRING "Compute capability as specified by https://developer.nvidia.com/cuda-gpus")
+  set(ENOKI_CUDA_COMPUTE_CAPABILITY "50" CACHE STRING "Compute capability as specified by https://developer.nvidia.com/cuda-gpus")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ENOKI_CUDA_COMPUTE_CAPABILITY},code=compute_${ENOKI_CUDA_COMPUTE_CAPABILITY} -cudart shared")
   if (NOT WIN32)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -fvisibility=hidden")
