@@ -308,7 +308,7 @@ given below:
 .. code-block:: python
 
    from enoki import *
-   from enoki.cuda_autodiff import Float32 as FloatDm Vector3f as Vector3fD
+   from enoki.cuda_autodiff import Float32 as FloatD, Vector3f as Vector3fD
 
    cuda_set_log_level(2)
 
