@@ -64,13 +64,13 @@ discussion.
     The first time that Enoki is imported on a new machine, it will trigger a
     kernel pre-compilation step that takes a few seconds.
 
-The Enoki python bindings expose a number of types with the suffix ``C`` (as in
-"CUDA") that correspond to GPU-resident arrays. The following example
-initializes such an array with a constant followed by a simple addition
-operation.
+The Enoki python bindings expose a number of types in the `enoki.cuda` submodule that
+correspond to GPU-resident arrays. The following example initializes such an array with a
+constant followed by a simple addition operation.
 
 .. code-block:: python
 
+   >>> from enoki.cuda import Float32 as FloatC
    >>> a = FloatC(1)
    cuda_trace_append(10): mov.$t1 $r1, 0f3f800000
 
@@ -289,6 +289,7 @@ generator RNG that will generate 1 million samples:
 
 .. code-block:: python
 
+    >>> from enoki.cuda import PCG32 as PCG32C, UInt64 as UInt64C
     >>> rng = PCG32C(UInt64C.arange(1000000))
 
 Here, *PCG32* refers to a linear congruential generator from the section on
@@ -298,6 +299,7 @@ number vectors from the RNG and create a dynamic array of 3D vectors
 
 .. code-block:: python
 
+    >>> from enoki.cuda import Vector3f as Vector3fC
     >>> v = Vector3fC([rng.next_float32() * 2 - 1 for _ in range(3)])
 
 Finally, we compute a mask that determines which of the uniformly distributed
@@ -405,6 +407,7 @@ explicitly invoking the :cpp:func:`cuda_eval` function periodically. An example:
 
 .. code-block:: python
 
+    >>> from enoki.cuda import UInt32 as UInt32C
     >>> a = UInt32C.arange(1234)
 
     >>> cuda_eval()

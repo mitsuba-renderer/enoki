@@ -38,10 +38,10 @@ Due to the need to maintain a computation graph for the reverse-mode traversal,
 AD tends to involve massive amounts of memory traffic, making it an ideal fit
 for GPU-resident arrays that provide a higher amount of memory bandwidth. For
 this reason, combinations such as ``DiffArray<CUDAArray<float>>`` should be
-considered the default choice. Enoki's Python bindings expose this type as
-``FloatD``. As in the previous section, we will stick to the interactive Python
-interface and postpone a discussion of the C++ side until the end of this
-section.
+considered the default choice. Enoki's Python bindings expose this type in the
+`enoki.cuda_autodiff` submodule. ``FloatD``. As in the previous section, we will stick
+to the interactive Python interface and postpone a discussion of the C++ side until
+the end of this section.
 
 A ``FloatD`` instance consists of two parts: a floating point array that is
 used during the original computation (of type ``FloatC``), and an index that
@@ -57,6 +57,7 @@ is used to mark a variable as being part of a differentiable computation.
 .. code-block:: python
 
     >>> from enoki import *
+    >>> from enoki.cuda_autodiff import Float32 as FloatD
 
     >>> # Create a single differentiable variable
     >>> a = FloatD(2.0)
@@ -81,6 +82,7 @@ traversal is shown next:
 .. code-block:: python
 
     >>> from enoki import *
+    >>> from enoki.cuda_autodiff import Float32 as FloatD
 
     >>> # Create multiple differentiable input variables
     >>> a, b = FloatD(2.0), FloatD(3.0)
@@ -306,6 +308,8 @@ given below:
 .. code-block:: python
 
    from enoki import *
+   from enoki.cuda_autodiff import Float32 as FloatD, Vector3f as Vector3fD
+
    cuda_set_log_level(2)
 
    # Initialize two 3D vectors. We want to rotate 'a' onto 'b'
@@ -447,8 +451,8 @@ used in the example.
             @staticmethod
             def forward(ctx, arg1, arg2):
                 # Convert input parameters to Enoki arrays
-                ctx.in1 = enoki.FloatD(arg1)
-                ctx.in2 = enoki.FloatD(arg2)
+                ctx.in1 = enoki.cuda_autodiff.FloatD(arg1)
+                ctx.in2 = enoki.cuda_autodiff.FloatD(arg2)
 
                 # Inform Enoki if PyTorch wants gradients for one/both of them
                 enoki.set_requires_gradient(ctx.in1, arg1.requires_grad)
@@ -474,7 +478,7 @@ used in the example.
                 # Perform a reverse-mode traversal. Note that the static
                 # version of the backward() function is being used, see
                 # the following subsection for details on this
-                enoki.FloatD.backward()
+                enoki.cuda_autodiff.FloatD.backward()
 
                 # Fetch gradients from the input variables and pass them on
                 result = (enoki.gradient(ctx.in1).torch()
