@@ -434,7 +434,13 @@ py::class_<Array> bind(py::module &m, py::module &s, const char *name) {
     cl.def(py::init([](const py::list &list) -> Array {
         size_t size = list.size();
 
-        if constexpr (IsDynamic && array_depth_v<Array> == 1) {
+        if constexpr (IsDynamic && IsKMask && array_depth_v<Array> == 1) {
+            using IntArray = replace_scalar_t<typename Array::ArrayType, int>;
+            std::unique_ptr<int[]> result(new int[size]);
+            for (size_t i = 0; i < size; ++i)
+                result[i] = py::cast<int>(list[i]);
+            return eq(IntArray::copy(result.get(), size), 1);
+        } else if constexpr (IsDynamic && array_depth_v<Array> == 1) {
             std::unique_ptr<Value[]> result(new Value[size]);
             for (size_t i = 0; i < size; ++i)
                 result[i] = py::cast<Value>(list[i]);
