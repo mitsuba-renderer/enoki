@@ -13,7 +13,15 @@ option(ENOKI_PYTHON   "Build pybind11 interface to CUDA & automatic differentiat
 
 if (ENOKI_CUDA)
   set(ENOKI_CUDA_COMPUTE_CAPABILITY "50" CACHE STRING "Compute capability as specified by https://developer.nvidia.com/cuda-gpus")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ENOKI_CUDA_COMPUTE_CAPABILITY},code=compute_${ENOKI_CUDA_COMPUTE_CAPABILITY} -cudart shared")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ENOKI_CUDA_COMPUTE_CAPABILITY},code=compute_${ENOKI_CUDA_COMPUTE_CAPABILITY}")
+
+  if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.17.0")
+    # CMake 3.17.0 introduces CMAKE_CUDA_RUNTIME which must be used instead of explicit -cudart shared flag
+    set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
+  else()
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -cudart shared")
+  endif()
+
   if (NOT WIN32)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -fvisibility=hidden")
   endif()
