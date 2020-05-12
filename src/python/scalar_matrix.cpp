@@ -1,4 +1,5 @@
 #include "matrix.h"
+#include <enoki/transform.h>
 
 void bind_scalar_matrix(py::module& m, py::module& s) {
     bind_matrix_mask<Matrix2m>(m, s, "Matrix2m");
@@ -18,4 +19,9 @@ void bind_scalar_matrix(py::module& m, py::module& s) {
 
     bind_matrix_mask<Matrix41m>(m, s, "Matrix41m");
     bind_matrix<Matrix41f>(m, s, "Matrix41f");
+
+    m.def("transform_decompose", [](const Matrix4f &m) { return transform_decompose(m); });
+    m.def("transform_compose",
+          [](const Matrix3f &m, const Quaternion<Float32> &q,
+             const Array<Float32, 3> &v) { return transform_compose(m, q, v); });
 }
