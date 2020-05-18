@@ -33,6 +33,7 @@ Enter the following CMake command to compile all of them:
 
    cd <path-to-enoki>
    mkdir build
+   cd build
    cmake -DENOKI_CUDA=ON -DENOKI_AUTODIFF=ON -DENOKI_PYTHON=ON ..
    make
 
