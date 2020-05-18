@@ -592,7 +592,7 @@ C++ interface
 -------------
 
 Everything demonstrated in the above sections can be directly applied to
-C++ programs as well. To use the associated type :cpp:class:`CUDAArray`,
+C++ programs as well. To use the associated (dynamic array) type :cpp:class:`CUDAArray`,
 include the header
 
 .. code-block:: cpp
