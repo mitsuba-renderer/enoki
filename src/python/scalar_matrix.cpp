@@ -19,6 +19,7 @@ void bind_scalar_matrix(py::module& m, py::module& s) {
 
     bind_matrix_mask<Matrix41m>(m, s, "Matrix41m");
     bind_matrix<Matrix41f>(m, s, "Matrix41f");
+    bind_matrix<Matrix41d>(m, s, "Matrix41d");
 
     m.def("transform_decompose", [](const Matrix4f &m) { return transform_decompose(m); });
     m.def("transform_compose",

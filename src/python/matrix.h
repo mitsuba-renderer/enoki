@@ -11,6 +11,7 @@ using Matrix4d  = Matrix<Float64 , 4>;
 using Matrix44f = Matrix<Vector4f, 4>;
 using Matrix41f = Matrix<Vector1f, 4>;
 using Matrix44d = Matrix<Vector4d, 4>;
+using Matrix41d = Matrix<Vector1d, 4>;
 using Matrix2m  = mask_t<Matrix2f>;
 using Matrix3m  = mask_t<Matrix3f>;
 using Matrix4m  = mask_t<Matrix4f>;
