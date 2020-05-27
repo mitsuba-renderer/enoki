@@ -193,6 +193,34 @@ Quaternion<expr_t<T>> sqrt(const Quaternion<T> &q) {
     return { imag(q) * (rcp(ri) * imag(cs)), real(cs) };
 }
 
+template <typename Vector, typename T, typename Expr = expr_t<T>>
+ENOKI_INLINE Vector quat_to_euler(const Quaternion<T> &q) {
+
+    // https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_Angles_Conversion
+    // roll (x-axis rotation)
+
+    Expr q_y_2 = sqr(q.y());
+
+    Expr sinr_cosp = 2 * fmadd(q.w(), q.x(), q.y() * q.z());
+    Expr cosr_cosp = fnmadd(2, fmadd(q.x(), q.x(), q_y_2), 1);
+    Expr roll = atan2(sinr_cosp, cosr_cosp);
+
+    // pitch (y-axis rotation)
+    Expr sinp = 2 * fmsub(q.w(), q.y(), q.z() * q.x());
+    Expr pitch;
+    if (abs(sinp) >= 1)
+        pitch = copysign(Expr(M_PI / 2), sinp); // use 90 degrees if out of range
+    else
+        pitch = asin(sinp);
+
+    // yaw (z-axis rotation)
+    Expr siny_cosp = 2 * fmadd(q.w(), q.z(), q.x() * q.y());
+    Expr cosy_cosp = fnmadd(2, fmadd(q.z(), q.z(), q_y_2), 1);
+    Expr yaw = atan2(siny_cosp, cosy_cosp);
+
+    return Vector(roll, pitch, yaw);
+}
+
 template <typename Matrix, typename T, typename Expr = expr_t<T>,
           enable_if_t<Matrix::Size == 4> = 0>
 ENOKI_INLINE Matrix quat_to_matrix(const Quaternion<T> &q_) {
