@@ -1253,11 +1253,6 @@ ENOKI_NOINLINE Array numpy_to_enoki(py::array src) {
         const T source = T::copy(src.data(), size);
 
         copy_array</* Scatter = */ false, 0>(0, shape, strides, source, result);
-
-        if constexpr (!enoki::is_cuda_array_v<Array>) {
-            if (enoki::slices(result) == 1)
-                enoki::packet(result, 0) = enoki::slice(result, 0);
-        }
     }
 
     return result;
