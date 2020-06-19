@@ -154,9 +154,9 @@ template <typename T,
           typename Matrix3 = Matrix<E, 3>,
           typename Vector3 = Array<E, 3>,
           typename Quat    = Quaternion<E>>
-std::tuple<Matrix3, Quat, Vector3> transform_decompose(const Matrix<T, 4> &A) {
+std::tuple<Matrix3, Quat, Vector3> transform_decompose(const Matrix<T, 4> &A, size_t it = 10) {
     Matrix3 A_sub(A), Q, P;
-    std::tie(Q, P) = polar_decomp(A_sub);
+    std::tie(Q, P) = polar_decomp(A_sub, it);
 
     if (ENOKI_UNLIKELY(any(enoki::isnan(Q(0, 0)))))
         Q = identity<Matrix3>();
