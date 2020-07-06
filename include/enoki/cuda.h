@@ -506,12 +506,14 @@ struct CUDAArray : ArrayBase<value_t<Value>, CUDAArray<Value>> {
     }
 
     CUDAArray sr_(const CUDAArray &v) const {
+        const char *op = std::is_signed_v<Value> ? "shr.$t1 $r1, $r2, $r3"
+                                                 : "shr.$b1 $r1, $r2, $r3";
         if constexpr (sizeof(Value) == 4)
             return CUDAArray::from_index_(cuda_trace_append(Type,
-                "shr.$b1 $r1, $r2, $r3", index_(), v.index_()));
+                op, index_(), v.index_()));
         else
             return CUDAArray::from_index_(cuda_trace_append(Type,
-                "shr.$b1 $r1, $r2, $r3", index_(), CUDAArray<int32_t>(v).index_()));
+                op, index_(), CUDAArray<int32_t>(v).index_()));
     }
 
     CUDAArray sl_(size_t value) const { return sl_(CUDAArray((Value) value)); }
