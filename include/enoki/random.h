@@ -95,6 +95,24 @@ template <typename T, size_t Size = array_size_v<T>> struct PCG32 {
         return UInt64(next_uint32(mask)) | sl<32>(UInt64(next_uint32(mask)));
     }
 
+    /// Forward \ref next_uint call to the correct method based given type size
+    template <typename Value, enable_if_std_int_v<scalar_t<Value>> = 0>
+    ENOKI_INLINE Value next_uint() {
+        if constexpr (is_int64_v<scalar_t<Value>>)
+            return next_uint64();
+        else
+            return next_uint32();
+    }
+
+    /// Forward \ref next_uint call to the correct method based given type size (masked version)
+    template <typename Value, enable_if_std_int_v<scalar_t<Value>> = 0>
+    ENOKI_INLINE Value next_uint(const mask_t<Value> &mask) {
+        if constexpr (is_int64_v<scalar_t<Value>>)
+            return next_uint64(mask);
+        else
+            return next_uint32(mask);
+    }
+
     /// Generate a single precision floating point value on the interval [0, 1)
     ENOKI_INLINE Float32 next_float32() {
         return reinterpret_array<Float32>(sr<9>(next_uint32()) | 0x3f800000u) - 1.f;
@@ -123,6 +141,24 @@ template <typename T, size_t Size = array_size_v<T>> struct PCG32 {
     ENOKI_INLINE Float64 next_float64(const UInt64Mask &mask) {
         return reinterpret_array<Float64>(sl<20>(UInt64(next_uint32(mask))) |
                                           0x3ff0000000000000ull) - 1.0;
+    }
+
+    /// Forward \ref next_float call to the correct method based given type size
+    template <typename Value, enable_if_std_float_v<scalar_t<Value>> = 0>
+    ENOKI_INLINE Value next_float() {
+        if constexpr (is_double_v<scalar_t<Value>>)
+            return next_float64();
+        else
+            return next_float32();
+    }
+
+    /// Forward \ref next_float call to the correct method based given type size (masked version)
+    template <typename Value, enable_if_std_float_v<scalar_t<Value>> = 0>
+    ENOKI_INLINE Value next_float(const mask_t<Value> &mask) {
+        if constexpr (is_double_v<scalar_t<Value>>)
+            return next_float64(mask);
+        else
+            return next_float32(mask);
     }
 
     /// Generate a uniformly distributed integer r, where 0 <= r < bound
@@ -207,6 +243,16 @@ template <typename T, size_t Size = array_size_v<T>> struct PCG32 {
 
             return result % div;
         }
+    }
+
+    /// Forward \ref next_uint_bounded call to the correct method based given type size
+    template <typename Value, enable_if_std_int_v<scalar_t<Value>> = 0>
+    ENOKI_INLINE Value next_uint_bounded(scalar_t<Value> bound,
+                                         const mask_t<Value> &mask = true) {
+        if constexpr (is_int64_v<scalar_t<Value>>)
+            return next_uint64_bounded(bound, mask);
+        else
+            return next_uint32_bounded(bound, mask);
     }
 
     /**
