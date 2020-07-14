@@ -21,6 +21,7 @@
 #include <set>
 #include <sstream>
 #include <iomanip>
+#include <algorithm>
 
 #if defined(NDEBUG)
 #  define ENOKI_AUTODIFF_DEFAULT_LOG_LEVEL 0
