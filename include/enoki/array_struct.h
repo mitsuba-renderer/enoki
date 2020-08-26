@@ -483,24 +483,21 @@ namespace detail {
     template <typename T>
     bool is_ragged_recursive(const T &a, const size_t *shape) {
         ENOKI_MARK_USED(shape);
-        if constexpr(is_array_v<T>) {
+        if constexpr (is_array_v<T>) {
             size_t size = a.derived().size();
             if (*shape != size)
-                return false;
+                return true;
 
             bool match = true;
             using Value = value_t<T>;
-            if (is_dynamic_v<Value>) {
+            if constexpr (is_static_array_v<T> && is_dynamic_v<Value>) {
                 for (size_t i = 0; i < size; ++i)
-                    match &= is_ragged_recursive(a.derived().coeff(i), shape + 1);
-            } else if (size > 0) {
-                // This is not really needed!
-                // match &= is_ragged_recursive(a.derived().coeff(0), shape + 1);
+                    match &= !is_ragged_recursive(a.derived().coeff(i), shape + 1);
             }
 
-            return match;
+            return !match;
         } else {
-            return true;
+            return false;
         }
     }
 
@@ -538,7 +535,7 @@ void set_shape(T &a, const std::array<size_t, array_depth_v<T>> &value) {
 }
 
 template <typename T> bool ragged(const T &a) {
-    return !detail::is_ragged_recursive(a, shape(a).data());
+    return detail::is_ragged_recursive(a, shape(a).data());
 }
 
 //! @}
