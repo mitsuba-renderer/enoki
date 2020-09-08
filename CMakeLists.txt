@@ -298,7 +298,9 @@ endif()
 add_definitions(-DENOKI_BUILD=1)
 
 if (ENOKI_CUDA)
-  include_directories(ext/cub)
+  if (CMAKE_CUDA_COMPILER_VERSION VERSION_LESS 11)
+    include_directories(ext/cub)
+  endif()
   set(CMAKE_SHARED_LINKER_FLAGS_BACKUP "${CMAKE_SHARED_LINKER_FLAGS}")
   string(REPLACE "-stdlib=libc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
   add_library(enoki-cuda SHARED
