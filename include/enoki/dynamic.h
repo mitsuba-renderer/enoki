@@ -1131,11 +1131,11 @@ auto vectorize_wrapper(Return (Class::*f)(Arg...) const) {
 }
 
 #if defined(ENOKI_AUTODIFF_H) && !defined(ENOKI_BUILD)
-    extern ENOKI_IMPORT template struct Tape<DynamicArray<Packet<float>>>;
-    extern ENOKI_IMPORT template struct DiffArray<DynamicArray<Packet<float>>>;
+    ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT Tape<DynamicArray<Packet<float>>>;
+    ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT DiffArray<DynamicArray<Packet<float>>>;
 
-    extern ENOKI_IMPORT template struct Tape<DynamicArray<Packet<double>>>;
-    extern ENOKI_IMPORT template struct DiffArray<DynamicArray<Packet<double>>>;
+    ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT Tape<DynamicArray<Packet<double>>>;
+    ENOKI_AUTODIFF_EXTERN template struct ENOKI_AUTODIFF_EXPORT DiffArray<DynamicArray<Packet<double>>>;
 #endif
 
 NAMESPACE_END(enoki)
