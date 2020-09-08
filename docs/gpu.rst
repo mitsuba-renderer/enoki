@@ -33,6 +33,7 @@ Enter the following CMake command to compile all of them:
 
    cd <path-to-enoki>
    mkdir build
+   cd build
    cmake -DENOKI_CUDA=ON -DENOKI_AUTODIFF=ON -DENOKI_PYTHON=ON ..
    make
 
@@ -591,7 +592,7 @@ C++ interface
 -------------
 
 Everything demonstrated in the above sections can be directly applied to
-C++ programs as well. To use the associated type :cpp:class:`CUDAArray`,
+C++ programs as well. To use the associated (dynamic array) type :cpp:class:`CUDAArray`,
 include the header
 
 .. code-block:: cpp
