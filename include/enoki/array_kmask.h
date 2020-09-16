@@ -71,12 +71,12 @@ struct KMaskBase : StaticArrayBase<Value_, Size_, true, Derived_> {
         else
             static_assert(detail::false_v<Value2>, "Unsupported number of elements");
 
-        #if defined(ENOKI_X86_AVX512VL) && defined(ENOKI_X86_AVX512BW)
-            k = (Register) _mm_test_epi8_mask(value, _mm_set1_epi8((char) 0xFF));
-        #else
-            k = (Register) _mm512_test_epi32_mask(_mm512_cvtepi8_epi32(value),
-                                                  _mm512_set1_epi8((char) 0xFF));
-        #endif
+#if defined(ENOKI_X86_AVX512VL) && defined(ENOKI_X86_AVX512BW)
+        k = (Register) _mm_test_epi8_mask(value, _mm_set1_epi8((char) 0xFF));
+#else
+        k = (Register) _mm512_test_epi32_mask(_mm512_cvtepi8_epi32(value),
+                                              _mm512_set1_epi8((char) 0xFF));
+#endif
     }
 
 #if !defined(ENOKI_X86_AVX512VL)
