@@ -802,7 +802,7 @@ Elementary Arithmetic Functions
 
 .. cpp:function:: template <typename Array> Array sign(Array x)
 
-    Computes the signum function :math:`\begin{cases}1,&\mathrm{if}\ x\ge 0\\0,&\mathrm{otherwise}\end{cases}`
+    Computes the signum function :math:`\begin{cases}1,&\mathrm{if}\ x\ge 0\\-1,&\mathrm{otherwise}\end{cases}`
 
     Analogous to ``std::copysign(1.f, x)``.
 
