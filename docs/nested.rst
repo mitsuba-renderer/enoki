@@ -342,7 +342,7 @@ of type ``Vector4f`` and ``Vector4fP``, defined below, in the same expression.
     using Vector4f  = Array<float, 4>;
     using Vector4fP = Array<FloatP, 4>;
 
-    Vector4   data1 = ..;
+    Vector4f  data1 = ..;
     Vector4fP data2 = ..;
 
     /* This is legal -- 'result' is of type Vector4fP */
