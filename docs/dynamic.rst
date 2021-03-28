@@ -452,11 +452,12 @@ entries.
        :linenos:
 
         /* Compilation flags:
-           $ clang++ benchmark.cpp -o benchmark -std=c++14 -I include -O3
-                     -march=native -fomit-frame-pointer -fno-stack-protector -DNDEBUG
+           $ clang++ benchmark.cpp -o benchmark -std=c++17 -I include -O3 -march=native
+                     -fomit-frame-pointer -fno-stack-protector -DNDEBUG -DSIMD_WIDTH=16
          */
 
         #include <enoki/array.h>
+        #include <enoki/dynamic.h>
         #include <enoki/random.h>
         #include <chrono>
 
@@ -531,12 +532,12 @@ entries.
                 for (size_t j = 0; j < packets(coord1); ++j) {
                     packet(coord1, j) = GPSCoord2fP {
                         0,
-                        { rng.next_float32() * 180.f - 90, rng.next_float32() * 360.f - 180.f},
+                        GPSCoord2fP::Vector2{ rng.next_float32() * 180.f - 90.f, rng.next_float32() * 360.f - 180.f},
                         true
                     };
                     packet(coord2, j) = GPSCoord2fP {
                         0,
-                        { rng.next_float32() * 180.f - 90, rng.next_float32() * 360.f - 180.f},
+                        GPSCoord2fP::Vector2{ rng.next_float32() * 180.f - 90.f, rng.next_float32() * 360.f - 180.f},
                         true
                     };
                 }
