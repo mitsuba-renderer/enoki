@@ -26,6 +26,7 @@ Extension module
 .. code-block:: cpp
 
     #include <enoki/python.h>
+    #include <enoki/dynamic.h>
 
     /* Import pybind11 and Enoki namespaces */
     namespace py = pybind11;
@@ -198,13 +199,13 @@ various platforms.
         "MinSizeRel" "RelWithDebInfo")
     endif()
 
-    # Enable C++14 support
+    # Enable C++17 support
     if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|Intel")
-      CHECK_CXX_COMPILER_FLAG("-std=c++14" HAS_CPP14_FLAG)
-      if (HAS_CPP14_FLAG)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+      CHECK_CXX_COMPILER_FLAG("-std=c++17" HAS_CPP17_FLAG)
+      if (HAS_CPP17_FLAG)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
       else()
-        message(FATAL_ERROR "Unsupported compiler -- C++14 support is needed!")
+        message(FATAL_ERROR "Unsupported compiler -- C++17 support is needed!")
       endif()
     endif()
 
@@ -228,8 +229,8 @@ Reference
 
 Please refer to pybind11's extensive `documentation
 <http://pybind11.readthedocs.io/en/master/?badge=master>`_. for details on
-using it in general. The :file:`enoki/python.h` API only provides one public
-function:
+using it in general. The import of :file:`enoki/dynamic.h` is needed for
+the automatic dynamic array compatibility:
 
 .. cpp:function:: template <typename Func> auto vectorize_wrapper(Func func)
 
