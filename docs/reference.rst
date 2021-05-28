@@ -201,7 +201,7 @@ Global variable definitions
 Static arrays
 -------------
 
-.. cpp:class:: template <typename Value, size_t Size = array_default_size>
+.. cpp:class:: template <typename Value, size_t Size = array_default_size> \
                Array : StaticArrayImpl<Value, Size, Array<Value, Size>>
 
     The default Enoki array class -- a generic container that stores a
@@ -221,7 +221,7 @@ Static arrays
     Pattern (CRTP). The latter provides the actual machinery that is needed to
     evaluate array expressions. See :ref:`custom-arrays` for details.
 
-.. cpp:class:: template <typename Value, size_t Size = array_default_size>
+.. cpp:class:: template <typename Value, size_t Size = array_default_size> \
                Packet : StaticArrayImpl<Value, Size, Array<Value, Size>>
 
     The ``Packet`` type is identical to :cpp:class:`enoki::Array` except for
