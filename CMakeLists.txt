@@ -309,6 +309,7 @@ if (ENOKI_CUDA)
       src/cuda/horiz.cu
       src/cuda/jit.cu
   )
+  set_property(TARGET enoki-cuda PROPERTY CXX_STANDARD 17)
   target_compile_definitions(enoki-cuda PRIVATE -DENOKI_CUDA_COMPUTE_CAPABILITY=${ENOKI_CUDA_COMPUTE_CAPABILITY} -DTHRUST_IGNORE_CUB_VERSION_CHECK)
   target_link_libraries(enoki-cuda PRIVATE cuda)
   message(STATUS "Enoki: building the CUDA backend.")
