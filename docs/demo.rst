@@ -28,7 +28,7 @@ of this function might look as follows:
       if (x <= 0.0031308f)
          return x * 12.92f;
       else
-         return std::pow(x * 1.055f, 1.f / 2.4f) - 0.055f;
+         return 1.055f * std::pow(x, 1.f / 2.4f) - 0.055f;
    }
 
 A Enoki implementation of the same computation first replaces ``float`` by a
@@ -41,7 +41,7 @@ replaced by generalized expressions involving masks.
       return enoki::select(
          x <= 0.0031308f,
          x * 12.92f,
-         enoki::pow(x * 1.055f, 1.f / 2.4f) - 0.055f
+         1.055f * enoki::pow(x, 1.f / 2.4f) - 0.055f
       );
    }
 
