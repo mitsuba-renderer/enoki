@@ -14,6 +14,11 @@
 [5]: https://ci.appveyor.com/api/projects/status/68db7e5es7el1btd/branch/master?svg=true
 [6]: https://ci.appveyor.com/project/wjakob/enoki/branch/master
 
+# Archived project
+
+Please be advised that Enoki is no longer being maintained. It is superseded by
+[Dr.Jit](https://github.com/mitsuba-renderer/drjit).
+
 ## Introduction
 
 **Enoki** is a C++ template library that enables automatic transformations of
