@@ -30,7 +30,8 @@
 #define ENOKI_MAP_NEXT(test, next) ENOKI_MAP_NEXT_1(ENOKI_MAP_GET_END test, next)
 #define ENOKI_EXTRACT_0(next, ...) next
 
-#if defined(_MSC_VER) // MSVC is not as eager to expand macros, hence this workaround
+// Traditional MSVC preprocessor is not as eager to expand macros, hence this workaround
+#if defined(_MSC_VER) && (!defined(_MSVC_TRADITIONAL) || _MSVC_TRADITIONAL)
 #define ENOKI_MAP_EXPR_NEXT_1(test, next) \
     ENOKI_EVAL_0(ENOKI_MAP_NEXT_0(test, ENOKI_MAP_COMMA next, 0))
 #define ENOKI_MAP_STMT_NEXT_1(test, next) \
